@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Productos · Maquetas Nexoia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+</head>
+<body class="mq">
+  <header class="mq-top">
+    <a class="mq-brand" href="index.html">Maquetas Nexoia</a>
+    <nav class="mq-links">
+      <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
+      <a href="../assets/modulos/productos/simple.png" target="_blank" rel="noopener">Ver PNG</a>
+    </nav>
+  </header>
+
+  <section class="mq-block" id="simple">
+    <div class="mq-caption"><span>Simple</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container">
+        <h2 class="nx-display">Objetos para disfrutar cada día</h2>
+        <div class="row g-4 mt-2">
+          <div class="col-md-4"><article class="prod-card">
+            <div class="nx-frame ratio-1"><img src="img/prod-taza.jpg" alt="Taza de cerámica clara"></div>
+            <div class="pad"><p class="meta">Cerámica artesanal</p><h3>Taza Serena</h3><p class="prod-price">$18.000</p><a href="#simple">Ver producto <i class="bi bi-arrow-right"></i></a></div>
+          </article></div>
+          <div class="col-md-4"><article class="prod-card">
+            <div class="nx-frame ratio-1"><img src="img/prod-florero.jpg" alt="Florero de cerámica"></div>
+            <div class="pad"><p class="meta">Cerámica artesanal</p><h3>Florero Aura</h3><p class="prod-price">$24.000</p><a href="#simple">Ver producto <i class="bi bi-arrow-right"></i></a></div>
+          </article></div>
+          <div class="col-md-4"><article class="prod-card">
+            <div class="nx-frame ratio-1"><img src="img/prod-cuenco.jpg" alt="Cuenco de cerámica"></div>
+            <div class="pad"><p class="meta">Cerámica artesanal</p><h3>Cuenco Tierra</h3><p class="prod-price">$16.500</p><a href="#simple">Ver producto <i class="bi bi-arrow-right"></i></a></div>
+          </article></div>
+        </div>
+        <p class="nx-note">Productos y precios ilustrativos.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="media">
+    <div class="mq-caption"><span>Media</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container" data-filter-group>
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+          <h2 class="nx-display mb-0">Encontrá tu próximo favorito</h2>
+          <a class="btn-nx-outline btn-sm" href="#media">Ver todos <i class="bi bi-arrow-right"></i></a>
+        </div>
+        <div class="nx-tabs" role="tablist">
+          <button class="is-on" data-filter="todos" type="button">Todos</button>
+          <button data-filter="vajilla" type="button">Vajilla</button>
+          <button data-filter="decoracion" type="button">Decoración</button>
+          <button data-filter="accesorios" type="button">Accesorios</button>
+        </div>
+        <div class="row g-4">
+          <div class="col-md-4" data-item data-tags="vajilla">
+            <article class="prod-card"><div class="nx-frame ratio-1">
+              <span class="badge-new">Nuevo</span>
+              <button class="nx-heart" type="button" data-heart aria-pressed="false" aria-label="Guardar Taza Serena"><i class="bi bi-heart"></i></button>
+              <img src="img/prod-taza-m.jpg" alt="Taza de dos tonos">
+            </div><div class="pad"><h3>Taza Serena</h3><div class="swatches" data-swatches><button class="swatch c-sage is-on" type="button" aria-label="Verde"></button><button class="swatch c-cream" type="button" aria-label="Crema"></button><button class="swatch c-sand" type="button" aria-label="Arena"></button></div><a class="btn-nx-outline btn-sm" href="#media">Ver opciones</a></div></article>
+          </div>
+          <div class="col-md-4" data-item data-tags="decoracion">
+            <article class="prod-card"><div class="nx-frame ratio-1">
+              <button class="nx-heart" type="button" data-heart aria-pressed="false" aria-label="Guardar Florero Aura"><i class="bi bi-heart"></i></button>
+              <img src="img/prod-florero-m.jpg" alt="Florero de dos tonos">
+            </div><div class="pad"><h3>Florero Aura</h3><div class="swatches" data-swatches><button class="swatch c-sage" type="button" aria-label="Verde"></button><button class="swatch c-cream is-on" type="button" aria-label="Crema"></button><button class="swatch c-sand" type="button" aria-label="Arena"></button></div><a class="btn-nx-outline btn-sm" href="#media">Ver opciones</a></div></article>
+          </div>
+          <div class="col-md-4" data-item data-tags="vajilla">
+            <article class="prod-card"><div class="nx-frame ratio-1">
+              <button class="nx-heart" type="button" data-heart aria-pressed="false" aria-label="Guardar Cuenco Tierra"><i class="bi bi-heart"></i></button>
+              <img src="img/prod-cuenco-m.jpg" alt="Cuenco de dos tonos">
+            </div><div class="pad"><h3>Cuenco Tierra</h3><div class="swatches" data-swatches><button class="swatch c-sage" type="button" aria-label="Verde"></button><button class="swatch c-sand is-on" type="button" aria-label="Arena"></button><button class="swatch c-cream" type="button" aria-label="Crema"></button></div><a class="btn-nx-outline btn-sm" href="#media">Ver opciones</a></div></article>
+          </div>
+        </div>
+        <p class="empty-filter" data-empty>Todavía no hay accesorios en esta selección ilustrativa.</p>
+        <p class="nx-note">Hechos con dedicación, elegidos para durar.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="compleja">
+    <div class="mq-caption"><span>Compleja</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container" data-filter-group data-pager>
+        <h2 class="nx-display mb-2">Diseño que encuentra su lugar</h2>
+        <p class="nx-lead mb-4">Explorá nuestra colección y elegí tus piezas favoritas.</p>
+        <div class="nx-tabs">
+          <button class="is-on" data-filter="todos" type="button">Todos</button>
+          <button data-filter="vajilla" type="button">Vajilla</button>
+          <button data-filter="decoracion" type="button">Decoración</button>
+          <button data-filter="sets" type="button">Sets</button>
+        </div>
+        <div data-page>
+          <div class="row g-4">
+            <div class="col-lg-6" data-item data-tags="sets decoracion vajilla">
+              <article class="prod-feature">
+                <img src="img/prod-feature.jpg" alt="Taza, cuenco y florero de la colección sobre una bandeja de piedra">
+                <div class="prod-feature-copy">
+                  <div>
+                    <p class="nx-kicker">Colección destacada</p>
+                    <h3 class="nx-display">Rituales <br>cotidianos</h3>
+                  </div>
+                  <a class="btn-nx-outline btn-sm" href="#compleja">Explorar colección <i class="bi bi-arrow-right"></i></a>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-lg-3" data-item data-tags="decoracion">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Florero Aura"><i class="bi bi-heart"></i></button><img src="img/prod-florero-xl.jpg" alt="Florero Aura"></div><div class="pad"><h3>Florero Aura</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$24.000</p><div class="swatches" data-swatches><button class="swatch c-sage is-on" type="button" aria-label="Verde"></button><button class="swatch c-cream" type="button" aria-label="Crema"></button><button class="swatch c-sand" type="button" aria-label="Arena"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+            <div class="col-6 col-lg-3" data-item data-tags="vajilla">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Taza Serena"><i class="bi bi-heart"></i></button><img src="img/prod-taza-xl.jpg" alt="Taza Serena"></div><div class="pad"><h3>Taza Serena</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$18.000</p><div class="swatches" data-swatches><button class="swatch c-cream is-on" type="button" aria-label="Crema"></button><button class="swatch c-sage" type="button" aria-label="Verde"></button><button class="swatch c-sand" type="button" aria-label="Arena"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+          </div>
+        </div>
+        <div data-page>
+          <div class="row g-4">
+            <div class="col-6 col-lg-3" data-item data-tags="vajilla">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Cuenco Tierra"><i class="bi bi-heart"></i></button><img src="img/prod-cuenco.jpg" alt="Cuenco Tierra"></div><div class="pad"><h3>Cuenco Tierra</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$16.500</p><div class="swatches" data-swatches><button class="swatch c-sand is-on" type="button" aria-label="Arena"></button><button class="swatch c-cream" type="button" aria-label="Crema"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+            <div class="col-6 col-lg-3" data-item data-tags="vajilla">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Taza Serena"><i class="bi bi-heart"></i></button><img src="img/prod-taza.jpg" alt="Taza Serena"></div><div class="pad"><h3>Taza Serena</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$18.000</p><div class="swatches" data-swatches><button class="swatch c-cream is-on" type="button" aria-label="Crema"></button><button class="swatch c-ink" type="button" aria-label="Verde oscuro"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+            <div class="col-6 col-lg-3" data-item data-tags="decoracion">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Florero Aura"><i class="bi bi-heart"></i></button><img src="img/prod-florero.jpg" alt="Florero Aura"></div><div class="pad"><h3>Florero Aura</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$24.000</p><div class="swatches" data-swatches><button class="swatch c-sage is-on" type="button" aria-label="Verde"></button><button class="swatch c-sand" type="button" aria-label="Arena"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+            <div class="col-6 col-lg-3" data-item data-tags="sets">
+              <article class="prod-card prod-card-xl"><div class="nx-frame ratio-3x4"><button class="nx-heart" data-heart type="button" aria-pressed="false" aria-label="Guardar Set Ritual"><i class="bi bi-heart"></i></button><img src="img/prod-set.jpg" alt="Set Ritual"></div><div class="pad"><h3>Set Ritual</h3><p class="meta">Cerámica artesanal</p><p class="prod-price">$52.000</p><div class="swatches" data-swatches><button class="swatch c-cream is-on" type="button" aria-label="Crema"></button><button class="swatch c-sage" type="button" aria-label="Verde"></button></div><a class="prod-more" href="#compleja">Ver opciones <i class="bi bi-arrow-right"></i></a></div></article>
+            </div>
+          </div>
+        </div>
+        <div class="pager justify-content-end">
+          <button class="nx-round-nav" type="button" data-dir="prev" aria-label="Anterior"><i class="bi bi-arrow-left"></i></button>
+          <span class="pager-count" data-count>01 / 02</span>
+          <button class="nx-round-nav" type="button" data-dir="next" aria-label="Siguiente"><i class="bi bi-arrow-right"></i></button>
+        </div>
+        <div class="prod-benefits">
+          <div><i class="bi bi-truck"></i><div><h3>Envíos a todo el país</h3><p>Recibí tus piezas en la puerta de tu casa, donde estés.</p></div></div>
+          <div><i class="bi bi-hand-index-thumb"></i><div><h3>Producción artesanal</h3><p>Cada pieza es única, hecha a mano por artesanos locales.</p></div></div>
+          <div><i class="bi bi-chat-dots"></i><div><h3>Te ayudamos a elegir</h3><p>Escribinos y te asesoramos para encontrar lo ideal.</p></div></div>
+        </div>
+        <p class="nx-note">Productos y precios ilustrativos.</p>
+      </div>
+    </div></div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/nexoia.js"></script>
+</body>
+</html>

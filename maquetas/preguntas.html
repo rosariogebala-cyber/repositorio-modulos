@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preguntas frecuentes · Maquetas Nexoia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+</head>
+<body class="mq">
+  <header class="mq-top">
+    <a class="mq-brand" href="index.html">Maquetas Nexoia</a>
+    <nav class="mq-links">
+      <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
+      <a href="../assets/modulos/preguntas-frecuentes/simple.png" target="_blank" rel="noopener">Ver PNG</a>
+    </nav>
+  </header>
+
+  <section class="mq-block" id="simple">
+    <div class="mq-caption"><span>Simple</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container">
+        <h2 class="nx-display mb-4">Preguntas que nos hacen seguido</h2>
+        <div class="row g-4">
+          <div class="col-md-6"><h3 class="h5">¿Cómo empezamos?</h3><p class="text-secondary">Con una charla corta. Contanos qué hacés y te proponemos un alcance concreto.</p></div>
+          <div class="col-md-6"><h3 class="h5">¿La web se adapta al celular?</h3><p class="text-secondary">Sí. Se diseña para verse bien en el teléfono y en el escritorio.</p></div>
+          <div class="col-md-6"><h3 class="h5">¿Puedo actualizar el contenido?</h3><p class="text-secondary">Podés pedirnos los cambios o dejar textos e imágenes listos para editar.</p></div>
+          <div class="col-md-6"><h3 class="h5">¿Hay acompañamiento después?</h3><p class="text-secondary">Sí. El soporte cubre revisiones, ajustes y dudas una vez publicada.</p></div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="media">
+    <div class="mq-caption"><span>Media</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container col-lg-8">
+        <h2 class="nx-display mb-4">Todo un poco más claro</h2>
+        <div class="accordion acc-soft" id="faqMedia">
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#fm1" aria-expanded="true">¿Cómo empezamos un proyecto?</button></h3>
+            <div id="fm1" class="accordion-collapse collapse show" data-bs-parent="#faqMedia"><div class="accordion-body">Coordinamos una primera conversación, definimos alcance y recién ahí pasamos a la propuesta.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fm2">¿Necesito tener todos los textos?</button></h3>
+            <div id="fm2" class="accordion-collapse collapse" data-bs-parent="#faqMedia"><div class="accordion-body">No. Alcanza con lo que ya contás. Nosotros ordenamos y te devolvemos una versión para revisar.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fm3">¿Puedo usar mis propias imágenes?</button></h3>
+            <div id="fm3" class="accordion-collapse collapse" data-bs-parent="#faqMedia"><div class="accordion-body">Sí, y conviene. Si todavía no las tenés, te indicamos qué fotos hacen falta.</div></div>
+          </div>
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fm4">¿Qué pasa después de publicar?</button></h3>
+            <div id="fm4" class="accordion-collapse collapse" data-bs-parent="#faqMedia"><div class="accordion-body">Quedamos para ajustes y para acompañar los cambios de contenido que vayan apareciendo.</div></div>
+          </div>
+        </div>
+        <p class="mt-4 mb-0"><a href="mailto:hola@example.com">¿Tu consulta no está acá? Escribinos <i class="bi bi-arrow-right"></i></a></p>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="compleja">
+    <div class="mq-caption"><span>Compleja</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container" data-faq>
+        <h2 class="nx-display mb-4">Tus preguntas, nuestras respuestas</h2>
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <p class="fw-semibold">Elegí un tema</p>
+            <button class="topic is-on" type="button" data-topic="primeros">Primeros pasos</button>
+            <button class="topic" type="button" data-topic="diseno">Diseño y contenido</button>
+            <button class="topic" type="button" data-topic="soporte">Cambios y soporte</button>
+            <div class="faq-help">
+              <h3 class="h5">Estamos para ayudarte</h3>
+              <p class="text-secondary">Si no está en la lista, escribinos y lo vemos.</p>
+              <a class="btn-nx btn-sm" href="mailto:hola@example.com">Hacer una consulta <i class="bi bi-arrow-right"></i></a>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            <label class="nx-searchbar"><i class="bi bi-search"></i><input type="search" data-faq-search placeholder="Buscar una pregunta" aria-label="Buscar una pregunta"></label>
+            <div class="accordion acc-plain" id="faqFull">
+              <div class="accordion-item" data-faq-item="primeros">
+                <h3 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#fc1">¿Cómo empezamos?</button></h3>
+                <div id="fc1" class="accordion-collapse collapse show" data-bs-parent="#faqFull"><div class="accordion-body">Con una charla. Ahí definimos si hace falta una web, una tienda o soporte sobre algo que ya existe.</div></div>
+              </div>
+              <div class="accordion-item" data-faq-item="primeros">
+                <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fc2">¿Necesito tener todos los textos?</button></h3>
+                <div id="fc2" class="accordion-collapse collapse" data-bs-parent="#faqFull"><div class="accordion-body">No hace falta llegar con todo escrito. Ordenamos lo que ya contás y lo revisamos juntos.</div></div>
+              </div>
+              <div class="accordion-item" data-faq-item="diseno">
+                <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fc3">¿Puedo usar mis propias imágenes?</button></h3>
+                <div id="fc3" class="accordion-collapse collapse" data-bs-parent="#faqFull"><div class="accordion-body">Sí. Tus fotos le dan verdad al sitio. Si faltan, te decimos cuáles priorizar.</div></div>
+              </div>
+              <div class="accordion-item" data-faq-item="diseno">
+                <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fc4">¿Cómo se revisa la propuesta?</button></h3>
+                <div id="fc4" class="accordion-collapse collapse" data-bs-parent="#faqFull"><div class="accordion-body">Te compartimos una instancia concreta para devolver comentarios antes de publicar.</div></div>
+              </div>
+              <div class="accordion-item" data-faq-item="soporte">
+                <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fc5">¿Puedo actualizar textos después?</button></h3>
+                <div id="fc5" class="accordion-collapse collapse" data-bs-parent="#faqFull"><div class="accordion-body">Sí. Podés pedir los cambios o dejar el contenido preparado para editarlo.</div></div>
+              </div>
+              <div class="accordion-item" data-faq-item="soporte">
+                <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fc6">¿Qué incluye el acompañamiento?</button></h3>
+                <div id="fc6" class="accordion-collapse collapse" data-bs-parent="#faqFull"><div class="accordion-body">Revisión del sitio, actualización de contenido y una persona a quien escribir.</div></div>
+              </div>
+            </div>
+            <p data-faq-empty hidden>No hay preguntas con esa búsqueda.</p>
+          </div>
+        </div>
+        <div class="nx-banner mt-4">
+          <h3>Cada proyecto empieza con una buena charla</h3>
+          <a class="btn-nx" href="mailto:hola@example.com">Conversemos <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+    </div></div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/nexoia.js"></script>
+</body>
+</html>

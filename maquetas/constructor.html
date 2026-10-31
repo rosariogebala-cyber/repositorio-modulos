@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crear landing · Nexoia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Inter:wght@300;400;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+</head>
+<body class="lib-page builder-page">
+  <header class="lib-header">
+    <a class="lib-brand" href="../index.html">Nexoia</a>
+    <nav aria-label="Navegación principal">
+      <a href="../index.html">Biblioteca de módulos</a>
+      <a href="index.html">Maquetas</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="landings.html">Landings</a>
+      <a class="is-current" href="constructor.html">Crear landing</a>
+    </nav>
+  </header>
+
+  <main class="lb-main">
+    <aside class="lb-side" aria-label="Configuración de la landing">
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <label class="lb-label" for="lbClient">Cliente</label>
+          <button class="lb-link" type="button" data-lb-new-client><i class="bi bi-plus-lg"></i> Nuevo cliente</button>
+        </div>
+        <select class="lb-input" id="lbClient" data-lb-client>
+          <option value="">Cargando clientes…</option>
+        </select>
+        <label class="lb-label lb-label-gap" for="lbName">Nombre de la landing</label>
+        <input class="lb-input" id="lbName" type="text" placeholder="Ej: Promo primavera" autocomplete="off">
+        <p class="lb-hint lb-mode" data-lb-mode></p>
+      </section>
+
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <h2>Tu landing</h2>
+          <span class="lb-badge" data-lb-count>0 módulos</span>
+        </div>
+        <div class="lb-settings" data-lb-settings hidden>
+          <div class="lb-setting">
+            <span>Ancho de todos</span>
+            <div class="lb-seg" role="group" aria-label="Ancho de todos los módulos" data-lb-all>
+              <button type="button" data-value="contained" aria-pressed="false"><i class="bi bi-layout-three-columns"></i> Márgenes</button>
+              <button type="button" data-value="full" aria-pressed="false"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>
+            </div>
+          </div>
+        </div>
+        <ol class="lb-order" data-lb-order></ol>
+        <p class="lb-empty" data-lb-order-empty>Tildá módulos de la lista para sumarlos. Después podés ordenarlos y elegir su ancho.</p>
+      </section>
+
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <h2>Módulos</h2>
+          <button class="lb-link" type="button" data-lb-clear>Quitar todos</button>
+        </div>
+        <div class="lb-search">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input type="search" placeholder="Buscar módulo" aria-label="Buscar módulo" data-lb-search>
+        </div>
+        <div class="lb-picker" data-lb-picker>
+          <p class="lb-empty">Cargando módulos…</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="lb-stage" aria-label="Vista previa">
+      <div class="lb-toolbar">
+        <div>
+          <p class="lb-kicker" data-lb-kicker>Vista previa</p>
+          <h1 class="lb-title" data-lb-title>Landing sin nombre</h1>
+        </div>
+        <div class="lb-actions">
+          <div class="split-toggle" role="group" aria-label="Dispositivo">
+            <button type="button" data-lb-device="1280" aria-pressed="true"><i class="bi bi-display"></i> Escritorio</button>
+            <button type="button" data-lb-device="820" aria-pressed="false"><i class="bi bi-tablet"></i> Tablet</button>
+            <button type="button" data-lb-device="390" aria-pressed="false"><i class="bi bi-phone"></i> Celular</button>
+          </div>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-library-open><i class="bi bi-collection"></i> Mis landings <span class="lb-badge" data-lb-saved-count>0</span></button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-open><i class="bi bi-box-arrow-up-right"></i> Abrir en pestaña</button>
+          <button class="btn-nx btn-sm" type="button" data-lb-create><i class="bi bi-check2-circle"></i> <span data-lb-create-label>Crear landing</span></button>
+        </div>
+      </div>
+      <p class="lb-msg" data-lb-msg role="status" aria-live="polite"></p>
+      <div class="lb-viewport" data-lb-viewport>
+        <div class="lb-device" data-lb-device-frame>
+          <iframe title="Vista previa de la landing" data-lb-frame></iframe>
+        </div>
+        <div class="lb-placeholder" data-lb-placeholder>
+          <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+          <p>Elegí módulos a la izquierda y la vista previa aparece acá.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="lb-dialog" data-lb-library aria-labelledby="lbLibraryTitle">
+    <div class="lb-dialog-head">
+      <div>
+        <h2 id="lbLibraryTitle">Mis landings</h2>
+        <p>Se guardan en Templates/&lt;cliente&gt;/&lt;landing&gt;/.</p>
+      </div>
+      <button class="lb-dialog-close" type="button" data-lb-library-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <p class="lb-msg" data-lb-library-msg role="status" aria-live="polite"></p>
+    <ul class="lb-saved" data-lb-saved></ul>
+    <p class="lb-empty" data-lb-saved-empty>Todavía no creaste ninguna landing.</p>
+    <p class="lb-dialog-foot"><a href="landings.html">Ver todas en Landings <i class="bi bi-arrow-right"></i></a></p>
+  </dialog>
+
+  <script src="js/plataforma.js"></script>
+  <script src="js/constructor.js"></script>
+</body>
+</html>

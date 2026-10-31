@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reserva tu turno · Maquetas Nexoia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+</head>
+<body class="mq">
+  <header class="mq-top">
+    <a class="mq-brand" href="index.html">Maquetas Nexoia</a>
+    <nav class="mq-links">
+      <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
+      <a href="../assets/modulos/reserva-turno/simple.png" target="_blank" rel="noopener">Ver PNG</a>
+    </nav>
+  </header>
+
+  <section class="mq-block" id="simple">
+    <div class="mq-caption"><span>Simple</span><span>Formulario rápido</span></div>
+    <div class="mq-frame"><div class="nx nx-pad nx-sage">
+      <div class="container">
+        <div class="bk-quick" data-booking>
+          <div class="bk-quick-copy">
+            <p class="nx-kicker">Turnos online</p>
+            <h2 class="nx-display">Reservá tu turno</h2>
+            <p class="nx-lead">Elegí el servicio, el día y el horario. Te confirmamos por email al instante.</p>
+          </div>
+          <form class="bk-quick-form" data-book-form>
+            <div class="row g-3 align-items-end" data-book-hide-on-done>
+              <label class="bk-field col-md-6 col-xl-3"><span>Servicio</span>
+                <select class="bk-input" name="servicio" required data-book-field="servicio">
+                  <option value="">Elegí uno</option>
+                  <option>Consulta inicial</option>
+                  <option>Seguimiento</option>
+                  <option>Sesión completa</option>
+                </select>
+              </label>
+              <label class="bk-field col-md-6 col-xl-3"><span>Día</span>
+                <input class="bk-input" type="date" name="dia" required data-book-date data-book-field="dia">
+              </label>
+              <label class="bk-field col-md-6 col-xl-2"><span>Horario</span>
+                <select class="bk-input" name="horario" required data-book-field="horario">
+                  <option value="">Elegí</option>
+                  <option>09:00</option><option>10:30</option><option>12:00</option><option>15:00</option><option>16:30</option><option>18:00</option>
+                </select>
+              </label>
+              <label class="bk-field col-md-6 col-xl-2"><span>Email</span>
+                <input class="bk-input" type="email" name="email" required placeholder="tu@email.com" autocomplete="email" data-book-field="email">
+              </label>
+              <div class="col-xl-2"><button class="btn-nx w-100" type="submit">Reservar <i class="bi bi-arrow-right"></i></button></div>
+            </div>
+            <div class="bk-done-inline" data-book-done hidden role="status">
+              <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+              <p>Listo: tu turno de <b data-book-out="servicio"></b> quedó para el <b data-book-out="dia"></b> a las <b data-book-out="horario"></b>. Te escribimos a <b data-book-out="email"></b>.</p>
+              <button class="btn-nx-outline btn-sm" type="button" data-book-reset>Reservar otro</button>
+            </div>
+          </form>
+        </div>
+        <p class="nx-note">Reserva de ejemplo: los datos no se envían.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="media">
+    <div class="mq-caption"><span>Media</span><span>Día, horario y datos</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container">
+        <div class="row g-4 g-lg-5 align-items-start" data-booking>
+          <div class="col-lg-5">
+            <p class="nx-kicker">Agenda abierta</p>
+            <h2 class="nx-display">Reservá tu turno <span class="em">en un minuto</span></h2>
+            <p class="nx-lead">Mirá los horarios libres de la semana y elegí el que mejor te queda.</p>
+            <ul class="bk-perks">
+              <li><span class="nx-ico"><i class="bi bi-calendar-check"></i></span><div><strong>Confirmación al instante</strong><p>Te llega un email con todos los datos.</p></div></li>
+              <li><span class="nx-ico"><i class="bi bi-bell"></i></span><div><strong>Recordatorio un día antes</strong><p>Para que no se te pase.</p></div></li>
+              <li><span class="nx-ico"><i class="bi bi-arrow-repeat"></i></span><div><strong>Reprogramás sin costo</strong><p>Hasta 24 h antes del turno.</p></div></li>
+            </ul>
+            <p class="bk-alt">¿Preferís coordinar por mensaje? <a href="mailto:hola@example.com">Escribinos</a></p>
+          </div>
+          <div class="col-lg-7">
+            <form class="bk-card" data-book-form data-book-requires="dia,horario">
+              <div data-book-hide-on-done>
+                <p class="bk-label"><span>1</span> Elegí el día</p>
+                <div class="bk-days" data-book-days data-count="6"></div>
+                <p class="bk-label"><span>2</span> Elegí el horario</p>
+                <div class="bk-slots" data-book-slots><button class="bk-slot" type="button" data-book-pick="horario">09:00</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>09:30</button><button class="bk-slot" type="button" data-book-pick="horario">10:00</button><button class="bk-slot" type="button" data-book-pick="horario">10:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>11:30</button><button class="bk-slot" type="button" data-book-pick="horario">12:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>16:30</button><button class="bk-slot" type="button" data-book-pick="horario">17:00</button><button class="bk-slot" type="button" data-book-pick="horario">17:30</button><button class="bk-slot" type="button" data-book-pick="horario">18:00</button></div>
+                <p class="bk-label"><span>3</span> Tus datos</p>
+                <div class="row g-2">
+                  <label class="bk-field col-sm-6"><span class="visually-hidden">Nombre y apellido</span><input class="bk-input" name="nombre" required placeholder="Nombre y apellido" autocomplete="name" data-book-field="nombre"></label>
+                  <label class="bk-field col-sm-6"><span class="visually-hidden">Email</span><input class="bk-input" type="email" name="email" required placeholder="tu@email.com" autocomplete="email" data-book-field="email"></label>
+                </div>
+                <div class="bk-foot">
+                  <p class="bk-pick"><i class="bi bi-calendar-event"></i> <span data-book-out="dia" data-empty="Elegí un día"></span> · <span data-book-out="horario" data-empty="sin horario"></span></p>
+                  <button class="btn-nx" type="submit">Confirmar turno <i class="bi bi-arrow-right"></i></button>
+                </div>
+                <p class="bk-msg" data-book-msg role="status"></p>
+              </div>
+              <div class="bk-done" data-book-done hidden role="status">
+                <span class="bk-done-ico"><i class="bi bi-check-lg"></i></span>
+                <h3>¡Turno reservado!</h3>
+                <p>Te esperamos el <b data-book-out="dia"></b> a las <b data-book-out="horario"></b>. Te mandamos la confirmación a <b data-book-out="email"></b>.</p>
+                <button class="btn-nx-outline btn-sm" type="button" data-book-reset>Reservar otro turno</button>
+              </div>
+            </form>
+            <p class="nx-note">Horarios y reserva de ejemplo.</p>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="compleja">
+    <div class="mq-caption"><span>Compleja</span><span>Reserva en cuatro pasos</span></div>
+    <div class="mq-frame"><div class="nx nx-pad nx-paper">
+      <div class="container">
+        <div class="text-center mb-4 mb-lg-5">
+          <p class="nx-kicker">Reservas online</p>
+          <h2 class="nx-display">Reservá tu turno</h2>
+          <p class="nx-lead mx-auto">Cuatro pasos y listo. Ves el resumen y el precio antes de confirmar.</p>
+        </div>
+        <form class="bk-wizard" data-booking data-book-form data-book-requires="servicio,profesional,dia,horario">
+          <ol class="bk-steps" data-book-steps>
+            <li><button type="button" data-book-goto="1"><span>1</span> Servicio</button></li>
+            <li><button type="button" data-book-goto="2"><span>2</span> Profesional</button></li>
+            <li><button type="button" data-book-goto="3"><span>3</span> Día y horario</button></li>
+            <li><button type="button" data-book-goto="4"><span>4</span> Tus datos</button></li>
+          </ol>
+          <div class="bk-wizard-grid">
+            <div class="bk-stage">
+              <div data-book-hide-on-done>
+                <section class="bk-step" data-book-step="1" data-book-requires="servicio">
+                  <h3 class="bk-step-title">¿Qué servicio necesitás?</h3>
+                  <div class="bk-services"><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:45 min|precio:$ 18.000"><span class="nx-ico"><i class="bi bi-chat-heart"></i></span><strong>Consulta inicial</strong><small><i class="bi bi-clock"></i> 45 min</small><span class="bk-price">$ 18.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:30 min|precio:$ 12.000"><span class="nx-ico"><i class="bi bi-arrow-repeat"></i></span><strong>Sesión de seguimiento</strong><small><i class="bi bi-clock"></i> 30 min</small><span class="bk-price">$ 12.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:90 min|precio:$ 32.000"><span class="nx-ico"><i class="bi bi-stars"></i></span><strong>Tratamiento completo</strong><small><i class="bi bi-clock"></i> 90 min</small><span class="bk-price">$ 32.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:30 min|precio:$ 10.000"><span class="nx-ico"><i class="bi bi-laptop"></i></span><strong>Consulta online</strong><small><i class="bi bi-clock"></i> 30 min</small><span class="bk-price">$ 10.000</span></button></div>
+                </section>
+                <section class="bk-step" data-book-step="2" data-book-requires="profesional" hidden>
+                  <h3 class="bk-step-title">¿Con quién querés atenderte?</h3>
+                  <div class="bk-pros"><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Lucía Fernández"><img src="img/lucia.jpg" alt=""><strong>Lucía Fernández</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Martín López"><img src="img/martin.jpg" alt=""><strong>Martín López</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sofía Díaz"><img src="img/sofia.jpg" alt=""><strong>Sofía Díaz</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sin preferencia"><span class="bk-pro-any"><i class="bi bi-shuffle"></i></span><strong>Sin preferencia</strong><small>Primer turno libre</small></button></div>
+                </section>
+                <section class="bk-step" data-book-step="3" data-book-requires="dia,horario" hidden>
+                  <h3 class="bk-step-title">Elegí día y horario</h3>
+                  <div class="row g-4">
+                    <div class="col-md-7"><div class="bk-cal" data-book-cal></div></div>
+                    <div class="col-md-5" data-book-slots>
+                      <p class="bk-slot-title">Mañana</p><div class="bk-slots"><button class="bk-slot" type="button" data-book-pick="horario">09:00</button><button class="bk-slot" type="button" data-book-pick="horario">09:45</button><button class="bk-slot" type="button" data-book-pick="horario">10:30</button><button class="bk-slot" type="button" data-book-pick="horario">11:15</button></div><p class="bk-slot-title">Tarde</p><div class="bk-slots"><button class="bk-slot" type="button" data-book-pick="horario">14:00</button><button class="bk-slot" type="button" data-book-pick="horario">14:45</button><button class="bk-slot" type="button" data-book-pick="horario">15:30</button><button class="bk-slot" type="button" data-book-pick="horario">16:15</button><button class="bk-slot" type="button" data-book-pick="horario">17:00</button><button class="bk-slot" type="button" data-book-pick="horario">17:45</button></div>
+                    </div>
+                  </div>
+                </section>
+                <section class="bk-step" data-book-step="4" hidden>
+                  <h3 class="bk-step-title">Completá tus datos</h3>
+                  <div class="row g-3">
+                    <label class="bk-field col-md-6"><span>Nombre y apellido</span><input class="bk-input" name="nombre" required autocomplete="name" placeholder="Ej: Ana Pérez" data-book-field="nombre"></label>
+                    <label class="bk-field col-md-6"><span>Teléfono</span><input class="bk-input" type="tel" name="telefono" required autocomplete="tel" placeholder="+54 11 5555-0000" data-book-field="telefono"></label>
+                    <label class="bk-field col-12"><span>Email</span><input class="bk-input" type="email" name="email" required autocomplete="email" placeholder="tu@email.com" data-book-field="email"></label>
+                    <label class="bk-field col-12"><span>¿Algo que debamos saber? <em>(opcional)</em></span><textarea class="bk-input" name="notas" rows="2" placeholder="Contanos brevemente el motivo de la consulta"></textarea></label>
+                    <label class="bk-check col-12"><input type="checkbox" name="recordatorio" checked> Quiero un recordatorio por WhatsApp el día anterior</label>
+                  </div>
+                </section>
+                <p class="bk-msg" data-book-msg role="status"></p>
+                <div class="bk-nav">
+                  <button class="btn-nx-outline" type="button" data-book-prev><i class="bi bi-arrow-left"></i> Atrás</button>
+                  <button class="btn-nx" type="button" data-book-next>Continuar <i class="bi bi-arrow-right"></i></button>
+                </div>
+              </div>
+              <div class="bk-done" data-book-done hidden role="status">
+                <span class="bk-done-ico"><i class="bi bi-check-lg"></i></span>
+                <h3>¡Listo, <span data-book-out="nombre"></span>!</h3>
+                <p>Tu turno de <b data-book-out="servicio"></b> con <b data-book-out="profesional"></b> quedó confirmado para el <b data-book-out="dia"></b> a las <b data-book-out="horario"></b>. Te mandamos los detalles a <b data-book-out="email"></b>.</p>
+                <div class="bk-done-actions">
+                  <button class="btn-nx" type="button" data-book-ics><i class="bi bi-calendar-plus"></i> Agregar al calendario</button>
+                  <button class="btn-nx-outline" type="button" data-book-reset>Reservar otro turno</button>
+                </div>
+              </div>
+            </div>
+            <aside class="bk-summary" aria-label="Resumen de la reserva">
+              <h3>Tu reserva</h3>
+              <dl>
+                <div><dt><i class="bi bi-bag-heart"></i> Servicio</dt><dd data-book-out="servicio" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-person"></i> Profesional</dt><dd data-book-out="profesional" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-calendar3"></i> Día</dt><dd data-book-out="dia" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-clock"></i> Horario</dt><dd data-book-out="horario" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-hourglass-split"></i> Duración</dt><dd data-book-out="duracion" data-empty="—"></dd></div>
+              </dl>
+              <p class="bk-total"><span>Total</span><strong data-book-out="precio" data-empty="$ 0"></strong></p>
+              <p class="bk-policy"><i class="bi bi-shield-check"></i> Pagás en el lugar. Cancelás sin costo hasta 24 h antes.</p>
+            </aside>
+          </div>
+        </form>
+        <p class="nx-note text-center">Servicios, precios y profesionales de ejemplo.</p>
+      </div>
+    </div></div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/nexoia.js"></script>
+</body>
+</html>

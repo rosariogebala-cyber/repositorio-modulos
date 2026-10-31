@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Datos locales de la plataforma
+data/nexoia.db
+data/nexoia.db-*
+data/logos/
+Templates/
