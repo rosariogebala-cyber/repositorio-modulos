@@ -26,6 +26,13 @@
   var REPO_API = "/repos/" + repo.owner + "/" + repo.repo;
   var siteRoot = location.pathname.replace(/\/maquetas\/[^/]*$/, "/");
 
+  /* Link de edición: la clave viaja en el hash (no llega al servidor) y se guarda en este navegador */
+  var hashClave = /[#&]clave=([^&]+)/.exec(location.hash);
+  if (hashClave) {
+    try { localStorage.setItem("nexoia-clave", decodeURIComponent(hashClave[1])); } catch (e) { /* sin almacenamiento */ }
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
   var CLIENT_COLS = ["id", "slug", "nombre", "contacto", "email", "telefono", "rubro", "sitio", "logo",
     "color_primario", "color_secundario", "notas", "estado", "creado", "actualizado"];
   var CLIENT_FIELDS = ["nombre", "contacto", "email", "telefono", "rubro", "sitio", "color_primario", "color_secundario", "notas", "estado"];
@@ -104,7 +111,11 @@
 
   function ghMessage(status, data, auth) {
     var text = (data && data.message) || "";
-    if (auth.clave && status === 401) return text === "Clave incorrecta" ? "La clave no es correcta." : "El token del intermediario venció: hay que renovarlo en Cloudflare.";
+    if (auth.clave && status === 401 && text === "Clave incorrecta") {
+      writeKey(CLAVE_KEY, "");
+      return "La clave no es correcta o cambió. Pedí el link de edición actualizado.";
+    }
+    if (auth.clave && status === 401) return "El token del intermediario venció: hay que renovarlo en Cloudflare.";
     if (status === 401) return "El token de GitHub no es válido o venció. Volvé a conectarlo.";
     if (status === 403 && /rate limit/i.test(text)) return "GitHub limitó las consultas por un rato. Probá en unos minutos.";
     if (status === 403) return "No hay permiso para escribir en el repo (hace falta «Contents: Read and write»).";
@@ -902,6 +913,7 @@
       bar.innerHTML = '<i class="bi bi-cloud-check" aria-hidden="true"></i>' +
         "<span>Publicación activada: cada cambio se ve en el link en 1 o 2 minutos." + pendingText + "</span>" +
         (pending ? '<button class="btn-nx btn-sm" type="button" data-gh-publish-all><i class="bi bi-cloud-upload"></i> Publicar pendientes</button>' : "") +
+        (clave() ? '<button class="btn-nx-outline btn-sm" type="button" data-gh-share><i class="bi bi-link-45deg"></i> Copiar link de edición</button>' : "") +
         '<button class="lb-link" type="button" data-gh-lock>Bloquear</button>';
     } else {
       bar.className = "gh-bar";
@@ -1002,6 +1014,13 @@
         writeKey(USER_KEY, "");
         writeKey(CLAVE_KEY, "");
         location.reload();
+      }
+      var share = e.target.closest("[data-gh-share]");
+      if (share) {
+        var link = location.origin + siteRoot + "maquetas/constructor.html#clave=" + encodeURIComponent(clave());
+        var done = function () { share.innerHTML = '<i class="bi bi-check2"></i> Link copiado'; };
+        if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, function () { prompt("Copiá el link de edición:", link); });
+        else prompt("Copiá el link de edición:", link);
       }
       var all = e.target.closest("[data-gh-publish-all]");
       if (all) {
