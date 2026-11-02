@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Landing · Nexoia</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.5 system-ui, sans-serif; color: #34485f; background: #f4f8fb; }
+    p { max-width: 460px; padding: 24px; text-align: center; }
+    a { color: #1b5e42; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <p id="nxMsg">Abriendo la landing…</p>
+  <script>
+    window.addEventListener("load", function () {
+      var id = new URLSearchParams(location.search).get("landing");
+      var store = {};
+      try { store = JSON.parse(localStorage.getItem("nexoia-local") || "{}"); } catch (e) { store = {}; }
+      var landing = store.landings && store.landings[id];
+      if (!landing) {
+        document.getElementById("nxMsg").innerHTML = 'Esta landing está guardada en otro navegador o ya se publicó. <a href="landings.html">Ver landings</a>';
+        return;
+      }
+      var html = landing.html;
+      if (landing.base) html = html.replace(/<head([^>]*)>/i, '<head$1><base href="' + landing.base + '">');
+      document.open();
+      document.write(html);
+      document.close();
+    });
+  </script>
+</body>
+</html>

@@ -2886,3 +2886,16 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .gh-dialog { max-width: 560px; }
 .gh-steps { margin: 0 0 16px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; color: #34485f; }
 .gh-steps a { color: var(--green); font-weight: 600; }
+.gh-bar .btn-nx { flex: none; }
+.gh-alt { margin: 14px 0 6px; }
+.gh-alt summary { cursor: pointer; font-weight: 600; color: var(--green); font-size: 14px; margin-bottom: 10px; }
+.pf-local {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fdf1e3;
+  color: #8a4f12;
+  font-size: 12px;
+  font-weight: 600;
+}
+.lb-act.is-publish { color: var(--green); }

@@ -231,8 +231,10 @@
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
       (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +
       "<small>" + meta.join(" · ") + "</small>" +
-      (lp.disponible ? "" : '<small><b class="pf-missing">Falta la carpeta</b></small>') + "</span>" +
+      (lp.disponible ? "" : '<small><b class="pf-missing">Falta la carpeta</b></small>') +
+      (lp.local ? '<small><b class="pf-local">' + (lp.publicada ? "Cambios sin publicar" : "Solo en este navegador") + "</b></small>" : "") + "</span>" +
       '<span class="lb-saved-actions">' +
+      (lp.local ? icon("button", 'type="button" data-act="publish"', "bi-cloud-upload", "Publicar", " is-publish") : "") +
       icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
@@ -253,13 +255,26 @@
       var act = btn.getAttribute("data-act");
       var report = opts.onMessage || function () {};
       if (act === "edit") opts.onEdit(lp);
+      if (act === "publish") {
+        btn.disabled = true;
+        report("Publicando «" + lp.nombre + "»…");
+        api("POST", "/api/landings/" + lp.id + "/publish")
+          .then(function () { report("Se publicó «" + lp.nombre + "». Queda online en 1 o 2 minutos.", "ok"); if (opts.onChange) opts.onChange(); })
+          .catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
+      }
       if (act === "duplicate") {
         btn.disabled = true;
         api("POST", "/api/landings/" + lp.id + "/duplicate")
-          .then(function (copy) { report("Se creó «" + copy.nombre + "» en " + copy.path + ".", "ok"); if (opts.onChange) opts.onChange(); })
+          .then(function (copy) {
+            report("Se creó «" + copy.nombre + "»" + (copy.local ? ", guardada en este navegador." : " en " + copy.path + "."), "ok");
+            if (opts.onChange) opts.onChange();
+          })
           .catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
       }
-      if (act === "delete" && confirm("¿Eliminar «" + lp.nombre + "»? Se borra la carpeta " + lp.path.replace("index.html", "") + ".")) {
+      var question = lp.local && !lp.publicada
+        ? "¿Eliminar «" + lp.nombre + "» de este navegador?"
+        : "¿Eliminar «" + lp.nombre + "»? Se borra la carpeta " + lp.path.replace("index.html", "") + ".";
+      if (act === "delete" && confirm(question)) {
         btn.disabled = true;
         api("DELETE", "/api/landings/" + lp.id)
           .then(function () { report("Se eliminó «" + lp.nombre + "».", "ok"); if (opts.onChange) opts.onChange(); })
@@ -297,7 +312,9 @@
         art.innerHTML =
           '<div class="pf-client-top">' + avatar(c) +
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
-          "<p>" + esc(c.rubro || "Sin rubro") + "</p></div>" + status(c) + "</div>" +
+          "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
+          (c.local ? '<b class="pf-local">' + (c.publicado ? "Cambios sin publicar" : "Solo en este navegador") + "</b>" : "") +
+          "</div>" + status(c) + "</div>" +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
           (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +

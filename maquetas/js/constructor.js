@@ -401,7 +401,10 @@
     }
 
     modeHint.className = "lb-hint lb-mode";
-    modeHint.textContent = client
+    var browserOnly = window.NexoiaGitHub && !window.NexoiaGitHub.connected();
+    modeHint.textContent = browserOnly
+      ? "Se guarda en este navegador. Después la podés publicar en el link."
+      : client
       ? "Se guarda en Templates/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "")
       : "Cada landing se guarda en la carpeta de su cliente.";
   }
@@ -520,11 +523,25 @@
     (editing ? api("PUT", "/api/landings/" + state.landingId, body) : api("POST", "/api/landings", body))
       .then(function (data) {
         state.landingId = data.id;
+        if (data.cliente_id && data.cliente_id !== state.clienteId) {
+          state.clienteId = data.cliente_id;
+          loadClients().then(function () {
+            clientSelect.value = String(state.clienteId);
+            savedSnapshot = snapshot();
+            saveDraft();
+            renderMode();
+          });
+        }
         savedSnapshot = snapshot();
         saveDraft();
         renderSaved();
         var later = data.publicando ? " Queda online en 1 o 2 minutos." : "";
-        if (editing) {
+        if (data.local) {
+          say((editing ? "Cambios guardados en este navegador." : "¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ". Quedó guardada en este navegador."), "ok", [
+            { href: data.url, text: "Abrir landing", blank: true },
+            { act: "publish", text: "Publicar en el link" }
+          ].concat(editing ? [] : [{ act: "new", text: "Crear otra" }]));
+        } else if (editing) {
           say("Cambios guardados en " + data.path + "." + later, "ok", { href: data.url, text: "Abrir landing", blank: true });
         } else {
           say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + "." + later, "ok", [
@@ -540,6 +557,25 @@
         say("No se pudo guardar: iniciá el servidor con «python3 server.py» y volvé a intentarlo. Mientras tanto se descargó el HTML.", "warn");
       })
       .then(function () { busy = false; renderMode(); });
+  }
+
+  function publishLanding(btn) {
+    if (!state.landingId) return;
+    btn.disabled = true;
+    api("POST", "/api/landings/" + state.landingId + "/publish")
+      .then(function (data) {
+        state.landingId = data.id;
+        state.clienteId = data.cliente_id;
+        loadClients().then(function () {
+          clientSelect.value = String(state.clienteId);
+          savedSnapshot = snapshot();
+          saveDraft();
+          renderMode();
+        });
+        renderSaved();
+        say("Se publicó «" + data.nombre + "». Queda online en 1 o 2 minutos.", "ok", { href: data.url, text: "Abrir landing", blank: true });
+      })
+      .catch(function (err) { btn.disabled = false; say(err.message, "warn"); });
   }
 
   function startNew(clienteId) {
@@ -573,6 +609,7 @@
   msg.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-msg-act]");
     if (btn && btn.getAttribute("data-msg-act") === "new") newLanding();
+    if (btn && btn.getAttribute("data-msg-act") === "publish") publishLanding(btn);
   });
 
   newBtn.addEventListener("click", newLanding);
