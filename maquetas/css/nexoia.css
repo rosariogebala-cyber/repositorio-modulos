@@ -2867,3 +2867,22 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lib-page .nx-wa { position: absolute; right: 28px; bottom: 28px; }
 .has-tools > section[data-module^="whatsapp"] .lp-tools { display: none; }
 .lb-thumb img[src*="/whatsapp/"] { object-position: right center; }
+
+/* Conexión con GitHub (versión publicada) */
+.gh-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px max(2.4vw, 16px);
+  background: #fdf6ef;
+  border-bottom: 1px solid #f0dcc6;
+  color: #6b4318;
+  font-size: 14px;
+}
+.gh-bar > i { font-size: 18px; }
+.gh-bar span { flex: 1 1 260px; }
+.gh-bar.is-on { background: #eef7f2; border-color: #d3e9dd; color: #1f4d39; }
+.gh-dialog { max-width: 560px; }
+.gh-steps { margin: 0 0 16px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; color: #34485f; }
+.gh-steps a { color: var(--green); font-weight: 600; }

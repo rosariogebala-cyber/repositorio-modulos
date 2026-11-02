@@ -10,6 +10,7 @@
   }
 
   function api(method, url, body) {
+    if (window.NexoiaGitHub) return window.NexoiaGitHub.request(method, url, body);
     var opts = { method: method, cache: "no-store" };
     if (body !== undefined) {
       opts.headers = { "Content-Type": "application/json" };
@@ -239,6 +240,13 @@
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
+    var thumb = li.querySelector(".lb-saved-thumb img");
+    if (thumb) {
+      thumb.addEventListener("error", function () {
+        if (lp.portada && thumb.getAttribute("src") !== lp.portada) thumb.src = lp.portada;
+        else thumb.remove();
+      });
+    }
     li.addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-act]");
       if (!btn) return;

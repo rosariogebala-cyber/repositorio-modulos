@@ -35,6 +35,7 @@ ASSETS = os.path.join(ROOT, "assets")
 TEMPLATES = os.path.join(ROOT, "Templates")
 DATA = os.path.join(ROOT, "data")
 DB_PATH = os.path.join(DATA, "nexoia.db")
+DB_JSON = os.path.join(DATA, "db.json")
 LOGOS = os.path.join(DATA, "logos")
 PREVIEWS = os.path.join(DATA, "previews")
 CHROME_PATHS = (
@@ -154,6 +155,79 @@ def init_db():
         cols = [r["name"] for r in con.execute("PRAGMA table_info(landings)")]
         if "estilo" not in cols:
             con.execute("ALTER TABLE landings ADD COLUMN estilo TEXT NOT NULL DEFAULT ''")
+
+
+# --- data/db.json: copia versionada que también usa la versión de GitHub Pages ---
+
+CLIENT_COLS = ("id", "slug", "nombre", "contacto", "email", "telefono", "rubro", "sitio", "logo",
+               "color_primario", "color_secundario", "notas", "estado", "creado", "actualizado")
+LANDING_COLS = ("id", "cliente_id", "nombre", "slug", "items", "estilo", "creado", "actualizado")
+COVER_RE = re.compile(r"""(?:src="|url\(\s*['"]?)((?:img|assets)/(?!modulos/)[^"')]+\.(?:jpe?g|png|webp))""", re.I)
+
+
+def landing_cover(cliente_slug, slug):
+    try:
+        with open(os.path.join(landing_folder(cliente_slug, slug), "index.html"), encoding="utf-8") as fh:
+            m = COVER_RE.search(fh.read())
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
+def export_db():
+    portadas = {}
+    try:
+        with open(DB_JSON, encoding="utf-8") as fh:
+            portadas = {l["id"]: l.get("portada", "") for l in json.load(fh).get("landings", [])}
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    with tx() as con:
+        clientes = [{k: r[k] for k in CLIENT_COLS} for r in con.execute("SELECT * FROM clientes ORDER BY id")]
+        slugs = {c["id"]: c["slug"] for c in clientes}
+        landings = []
+        for r in con.execute("SELECT * FROM landings ORDER BY id"):
+            row = {k: r[k] for k in LANDING_COLS}
+            row["items"] = json.loads(row["items"] or "[]")
+            row["portada"] = landing_cover(slugs.get(row["cliente_id"], ""), row["slug"]) or portadas.get(row["id"], "")
+            landings.append(row)
+        seq = {r["name"]: r["seq"] for r in con.execute("SELECT name, seq FROM sqlite_sequence")}
+    data = {
+        "version": 1,
+        "next_id": {
+            "clientes": max([seq.get("clientes", 0)] + [c["id"] for c in clientes]) + 1,
+            "landings": max([seq.get("landings", 0)] + [l["id"] for l in landings]) + 1,
+        },
+        "clientes": clientes,
+        "landings": landings,
+    }
+    tmp = DB_JSON + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    os.replace(tmp, DB_JSON)
+
+
+def import_db():
+    with open(DB_JSON, encoding="utf-8") as fh:
+        data = json.load(fh)
+    with tx() as con:
+        con.execute("DELETE FROM landings")
+        con.execute("DELETE FROM clientes")
+        for c in data.get("clientes", []):
+            cols = [k for k in CLIENT_COLS if k in c]
+            con.execute("INSERT INTO clientes (%s) VALUES (%s)" % (", ".join(cols), ", ".join("?" * len(cols))),
+                        [c[k] for k in cols])
+        for l in data.get("landings", []):
+            con.execute(
+                "INSERT INTO landings (id, cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (l["id"], l["cliente_id"], l["nombre"], l["slug"], json.dumps(l.get("items") or [], ensure_ascii=False),
+                 l.get("estilo") or "", l["creado"], l["actualizado"]),
+            )
+        nxt = data.get("next_id") or {}
+        con.execute("DELETE FROM sqlite_sequence WHERE name IN ('clientes', 'landings')")
+        for name in ("clientes", "landings"):
+            top = con.execute("SELECT COALESCE(MAX(id), 0) FROM %s" % name).fetchone()[0]
+            con.execute("INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)", (name, max(top, int(nxt.get(name, 1)) - 1)))
 
 
 # --- Clientes ----------------------------------------------------------------
@@ -710,6 +784,8 @@ class Handler(SimpleHTTPRequestHandler):
         ident = int(match.group(1)) if match.groups() else None
         try:
             result = self.dispatch(method, name, ident, parse_qs(url.query))
+            if method != "GET":
+                export_db()
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
         except (OSError, sqlite3.Error) as err:
@@ -788,7 +864,10 @@ def main():
     port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
     host = os.environ.get("HOST") or ("0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
     init_db()
+    if os.path.isfile(DB_JSON):
+        import_db()
     migrate_legacy()
+    export_db()
     threading.Thread(target=capture_missing_previews, daemon=True).start()
     handler = partial(Handler, directory=ROOT)
     server = ThreadingHTTPServer((host, port), handler)

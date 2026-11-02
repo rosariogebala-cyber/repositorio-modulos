@@ -523,10 +523,11 @@
         savedSnapshot = snapshot();
         saveDraft();
         renderSaved();
+        var later = data.publicando ? " Queda online en 1 o 2 minutos." : "";
         if (editing) {
-          say("Cambios guardados en " + data.path + ".", "ok", { href: data.url, text: "Abrir landing", blank: true });
+          say("Cambios guardados en " + data.path + "." + later, "ok", { href: data.url, text: "Abrir landing", blank: true });
         } else {
-          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
+          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + "." + later, "ok", [
             { href: data.url, text: "Abrir landing", blank: true },
             { href: "landings.html", text: "Ver en Landings" },
             { act: "new", text: "Crear otra" }

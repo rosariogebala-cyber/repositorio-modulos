@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 
-# Base local de trabajo (la copia pública va versionada como nexoia.db)
+# Base local de trabajo: la copia versionada es data/db.json
+data/nexoia.db
 data/nexoia.db-*
-data/logos/
+data/db.json.tmp
