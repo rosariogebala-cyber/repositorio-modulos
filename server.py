@@ -16,6 +16,7 @@ import posixpath
 import re
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import threading
@@ -24,6 +25,7 @@ import unicodedata
 from contextlib import contextmanager
 from functools import partial
 from html import escape
+from pathlib import Path
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -34,6 +36,12 @@ TEMPLATES = os.path.join(ROOT, "Templates")
 DATA = os.path.join(ROOT, "data")
 DB_PATH = os.path.join(DATA, "nexoia.db")
 LOGOS = os.path.join(DATA, "logos")
+PREVIEWS = os.path.join(DATA, "previews")
+CHROME_PATHS = (
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+)
 MAX_BODY = 8 * 1024 * 1024
 MAX_LOGO = 2 * 1024 * 1024
 
@@ -136,12 +144,16 @@ def init_db():
               nombre TEXT NOT NULL,
               slug TEXT NOT NULL,
               items TEXT NOT NULL DEFAULT '[]',
+              estilo TEXT NOT NULL DEFAULT '',
               creado INTEGER NOT NULL,
               actualizado INTEGER NOT NULL,
               UNIQUE (cliente_id, slug)
             );
             """
         )
+        cols = [r["name"] for r in con.execute("PRAGMA table_info(landings)")]
+        if "estilo" not in cols:
+            con.execute("ALTER TABLE landings ADD COLUMN estilo TEXT NOT NULL DEFAULT ''")
 
 
 # --- Clientes ----------------------------------------------------------------
@@ -309,7 +321,9 @@ def landing_folder(cliente_slug, slug):
 
 def landing_dict(row):
     rel = "Templates/%s/%s/" % (row["cliente_slug"], row["slug"])
+    shot = preview_path(row["id"])
     return {
+        "preview": "/data/previews/%d.jpg?v=%d" % (row["id"], os.path.getmtime(shot)) if os.path.isfile(shot) else "",
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": row["cliente"],
@@ -317,12 +331,82 @@ def landing_dict(row):
         "nombre": row["nombre"],
         "slug": row["slug"],
         "items": json.loads(row["items"] or "[]"),
+        "estilo": row["estilo"],
         "creado": row["creado"],
         "actualizado": row["actualizado"],
         "url": "/" + rel,
         "path": rel + "index.html",
         "disponible": os.path.isfile(os.path.join(ROOT, rel, "index.html")),
     }
+
+
+def preview_path(landing_id):
+    return os.path.join(PREVIEWS, "%d.jpg" % landing_id)
+
+
+def find_chrome():
+    for path in CHROME_PATHS + tuple(filter(None, (shutil.which(n) for n in ("google-chrome", "chromium", "chromium-browser")))):
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+_preview_lock = threading.Lock()
+
+
+def capture_preview(landing_id, folder):
+    """Saca una captura del primer pantallazo de la landing con Chrome headless."""
+    chrome = find_chrome()
+    index = os.path.join(folder, "index.html")
+    if not chrome or not os.path.isfile(index):
+        return False
+    with _preview_lock:
+        os.makedirs(PREVIEWS, exist_ok=True)
+        profile = tempfile.mkdtemp(prefix=".chrome-", dir=PREVIEWS)
+        png = os.path.join(profile, "shot.png")
+        out = preview_path(landing_id)
+        proc = None
+        try:
+            # Chrome escribe la captura pero su actualizador puede dejar el proceso vivo:
+            # se espera el archivo y se cierra el proceso.
+            proc = subprocess.Popen(
+                [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                 "--no-default-browser-check", "--user-data-dir=" + profile, "--window-size=1280,800",
+                 "--screenshot=" + png, Path(index).as_uri()],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+            )
+            size, deadline = -1, time.time() + 45
+            while time.time() < deadline:
+                time.sleep(0.5)
+                current = os.path.getsize(png) if os.path.isfile(png) else 0
+                if current and current == size:
+                    break
+                size = current
+                if proc.poll() is not None and not current:
+                    return False
+            else:
+                return False
+            jpg = os.path.join(profile, "shot.jpg")
+            if shutil.which("sips"):
+                subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "75",
+                                "--resampleWidth", "800", png, "--out", jpg], capture_output=True, timeout=30)
+            os.replace(jpg if os.path.isfile(jpg) else png, out)
+            return True
+        except (OSError, subprocess.SubprocessError):
+            return False
+        finally:
+            if proc:
+                try:
+                    os.killpg(proc.pid, 9)
+                except OSError:
+                    pass
+                proc.wait()
+            shutil.rmtree(profile, ignore_errors=True)
+
+
+def schedule_preview(landing):
+    folder = os.path.join(ROOT, landing["path"].rsplit("/", 1)[0])
+    threading.Thread(target=capture_preview, args=(landing["id"], folder), daemon=True).start()
 
 
 def get_landing_row(con, landing_id):
@@ -427,15 +511,19 @@ def build_site(dest, html):
         fh.write(html)
 
 
-def write_landing_json(folder, nombre, slug, cliente, items):
+def write_landing_json(folder, nombre, slug, cliente, items, estilo=""):
+    meta = {"nombre": nombre, "slug": slug, "cliente": cliente, "items": items}
+    if estilo:
+        meta["estilo"] = estilo
     with open(os.path.join(folder, "landing.json"), "w", encoding="utf-8") as fh:
-        json.dump({"nombre": nombre, "slug": slug, "cliente": cliente, "items": items}, fh, ensure_ascii=False, indent=2)
+        json.dump(meta, fh, ensure_ascii=False, indent=2)
 
 
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
     items = data.get("items") or []
+    estilo = str(data.get("estilo") or "")
     try:
         client_id = int(data.get("cliente_id") or 0)
     except (TypeError, ValueError):
@@ -461,7 +549,7 @@ def save_landing(data, landing_id=None):
         tmp = tempfile.mkdtemp(prefix=".tmp-", dir=parent)
         try:
             build_site(tmp, html)
-            write_landing_json(tmp, nombre, slug, client["slug"], items)
+            write_landing_json(tmp, nombre, slug, client["slug"], items, estilo)
         except Exception:
             shutil.rmtree(tmp, ignore_errors=True)
             raise
@@ -479,13 +567,13 @@ def save_landing(data, landing_id=None):
         payload = json.dumps(items, ensure_ascii=False)
         if old:
             con.execute(
-                "UPDATE landings SET cliente_id = ?, nombre = ?, slug = ?, items = ?, actualizado = ? WHERE id = ?",
-                (client_id, nombre, slug, payload, stamp, landing_id),
+                "UPDATE landings SET cliente_id = ?, nombre = ?, slug = ?, items = ?, estilo = ?, actualizado = ? WHERE id = ?",
+                (client_id, nombre, slug, payload, estilo, stamp, landing_id),
             )
         else:
             landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?)",
-                (client_id, nombre, slug, payload, stamp, stamp),
+                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (client_id, nombre, slug, payload, estilo, stamp, stamp),
             ).lastrowid
         write_client_json(client)
         return landing_dict(get_landing_row(con, landing_id))
@@ -508,7 +596,7 @@ def duplicate_landing(landing_id):
         dest = landing_folder(row["cliente_slug"], slug)
         shutil.copytree(src, dest)
         items = json.loads(row["items"] or "[]")
-        write_landing_json(dest, nombre, slug, row["cliente_slug"], items)
+        write_landing_json(dest, nombre, slug, row["cliente_slug"], items, row["estilo"])
         index = os.path.join(dest, "index.html")
         with open(index, encoding="utf-8") as fh:
             html = fh.read()
@@ -517,9 +605,11 @@ def duplicate_landing(landing_id):
             fh.write(html)
         stamp = now_ms()
         new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?)",
-            (row["cliente_id"], nombre, slug, row["items"], stamp, stamp),
+            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (row["cliente_id"], nombre, slug, row["items"], row["estilo"], stamp, stamp),
         ).lastrowid
+        if os.path.isfile(preview_path(landing_id)):
+            shutil.copy2(preview_path(landing_id), preview_path(new_id))
         return landing_dict(get_landing_row(con, new_id))
 
 
@@ -530,6 +620,8 @@ def delete_landing(landing_id):
         if os.path.isdir(folder):
             shutil.rmtree(folder)
         con.execute("DELETE FROM landings WHERE id = ?", (landing_id,))
+        if os.path.isfile(preview_path(landing_id)):
+            os.remove(preview_path(landing_id))
         return row["nombre"]
 
 
@@ -648,6 +740,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return list_landings(int(client) if client.isdigit() else None)
             if method == "POST":
                 landing = save_landing(self.read_json())
+                schedule_preview(landing)
                 print("Landing guardada en " + landing["path"])
                 return landing
         if name == "landing":
@@ -655,6 +748,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return get_landing(ident)
             if method == "PUT":
                 landing = save_landing(self.read_json(), ident)
+                schedule_preview(landing)
                 print("Landing actualizada en " + landing["path"])
                 return landing
             if method == "DELETE":
@@ -683,13 +777,25 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(404, {"error": "Ruta inexistente"})
 
 
+def capture_missing_previews():
+    for landing in list_landings():
+        if not landing["preview"] and landing["disponible"]:
+            capture_preview(landing["id"], os.path.join(ROOT, landing["path"].rsplit("/", 1)[0]))
+
+
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8877
+    # En local: 127.0.0.1:8877. En la nube (Render u otro): HOST=0.0.0.0 y PORT del entorno.
+    port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
+    host = os.environ.get("HOST") or ("0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
     init_db()
     migrate_legacy()
+    threading.Thread(target=capture_missing_previews, daemon=True).start()
     handler = partial(Handler, directory=ROOT)
-    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
-    print("Nexoia en http://127.0.0.1:%d/maquetas/clientes.html" % port)
+    server = ThreadingHTTPServer((host, port), handler)
+    print("Nexoia en http://%s:%d/" % (host if host != "0.0.0.0" else "127.0.0.1", port))
+    print("  Biblioteca  → /index.html")
+    print("  Constructor → /maquetas/constructor.html")
+    print("  Landings    → /maquetas/landings.html")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Template escuela de idiomas · Babel Idiomas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+  <style>
+:root {
+  --ink: #221d3f; --green: #5b4bc4; --green-deep: #4536a0; --muted: #625d7d;
+  --line: #e2dff3; --sage: #f4f2fd; --sage-2: #ebe8fb; --paper: #f8f7fd;
+  --cream: #f1effb; --dark: #2b2357; --darker: #1a1538;
+  --shadow: 0 14px 40px rgba(34, 29, 63, 0.08);
+}
+.btn-nx-outline { border-color: #bdb4ec; }
+.btn-nx:hover { box-shadow: 0 10px 22px rgba(91, 75, 196, 0.22); }
+.plan-card .plan-badge { box-shadow: 0 6px 14px rgba(91, 75, 196, 0.25); }
+.plan-card.is-featured { box-shadow: 0 0 0 1.5px var(--green), 0 22px 44px rgba(34, 29, 63, 0.14); }
+.nx-stars { color: #b3a9e6; }
+.nav-dark-wrap { background: var(--darker); }
+.nav-dark-wrap::after { background: rgba(26, 21, 56, 0.74); }
+.nx-nav-dark { background: rgba(26, 21, 56, 0.72); }
+.nx-hero-slide { background-color: var(--paper); }
+.nx-hero .nx-hero-slide::before {
+  background: linear-gradient(90deg, rgba(248, 247, 253, 0.9) 0%, rgba(248, 247, 253, 0.66) 32%, rgba(248, 247, 253, 0.14) 56%, rgba(248, 247, 253, 0) 70%);
+}
+.nx-footer-dark, .nx-footer-dark a { color: #f1effb; }
+.nx-footer-dark .muted { color: #bcb6dc; }
+.foot-cta {
+  background:
+    radial-gradient(60% 120% at 88% 0%, rgba(91, 75, 196, 0.5) 0%, transparent 60%),
+    radial-gradient(50% 110% at 6% 100%, rgba(255, 210, 94, 0.3) 0%, transparent 60%),
+    linear-gradient(115deg, var(--darker) 0%, var(--dark) 55%, var(--green-deep) 100%);
+}
+.foot-cta h2 .em { color: #ffd25e; }
+.foot-cta p, .foot-form input::placeholder, .foot-form-note { color: #bcb6dc; }
+.bk-steps .is-done button, .bk-pro:hover { border-color: #bdb4ec; }
+.bk-steps .is-done span { background: #e0dbf8; }
+.bk-pro[aria-pressed="true"] { background: var(--sage); }
+@media (max-width: 767.98px) {
+  .nx-hero .nx-hero-slide::before {
+    background: linear-gradient(180deg, rgba(248, 247, 253, 0.95) 0%, rgba(248, 247, 253, 0.84) 36%, rgba(248, 247, 253, 0.32) 60%, rgba(248, 247, 253, 0) 80%);
+  }
+}
+.nav-dark-wrap::before { background-image: url("img/rubros/idiomas/hero.jpg"); }
+  </style>
+</head>
+<body class="landing-page">
+  <section class="mq-block" data-module="navegacion-compleja" data-width="full">
+    <div class="mq-frame">
+      <div class="nav-dark-wrap">
+        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full">
+          <div class="container">
+            <a class="nx-brand" href="#navegacion-compleja">Babel</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navDark" aria-controls="navDark" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
+            <div class="collapse navbar-collapse" id="navDark">
+              <ul class="navbar-nav mx-auto align-items-lg-center">
+                <li class="nav-item"><a class="nav-link is-active" href="#navegacion-compleja">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Cursos</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Profesores</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Test de nivel</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Empresas</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Contacto</a></li>
+              </ul>
+              <div class="nx-nav-tools py-3 py-lg-0">
+                <div class="nx-socials">
+                  <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                  <a href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                  <a href="https://youtube.com" target="_blank" rel="noopener" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+                </div>
+                <div class="nx-phone">
+                  <strong>+54 11 2345 6789</strong>
+                  <span>Lun a Vie 8 a 21 h</span>
+                </div>
+                <a class="btn-nx btn-sm" href="mailto:hola@example.com">Inscribite <i class="bi bi-arrow-right"></i></a>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" data-module="hero-full-imagen-compleja" data-width="full">
+    <div class="mq-frame">
+      <div class="nx nx-hero hero-with-cards" data-width="full">
+        <div class="nx-hero-slide" style="background-image:url('img/rubros/idiomas/hero.jpg')">
+          <div class="container position-relative">
+            <div class="col-lg-6 py-5">
+              <h2 class="nx-display">Hablá otro idioma <span class="em">con confianza.</span></h2>
+              <p class="nx-lead">Inglés, portugués e italiano para adultos y empresas. Presencial y online.</p>
+              <a class="btn-nx mt-4" href="mailto:hola@example.com">Hacé el test de nivel <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="nx-hero-cards">
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-people"></i></span>
+                <div><h3>Grupos reducidos</h3><p>Hasta 8 alumnos para que hables en cada clase.</p></div>
+              </article>
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-globe2"></i></span>
+                <div><h3>Profes nativos</h3><p>Acento real y cultura en cada encuentro.</p></div>
+              </article>
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-patch-check"></i></span>
+                <div><h3>Certificación internacional</h3><p>Te preparamos para Cambridge, CELPE-Bras y CILS.</p></div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" data-module="planes-compleja" data-width="full">
+    <div class="mq-frame"><div class="nx nx-pad" data-width="full">
+          <div class="container">
+            <div class="text-center mx-auto mb-4" style="max-width:640px">
+              <p class="nx-kicker">Cursos</p>
+              <h2 class="nx-display">Elegí cómo querés aprender</h2>
+              <p class="nx-lead mx-auto">Todos los cursos incluyen nivelación sin cargo y certificado.</p>
+            </div>
+            <div class="cmp" data-cmp data-show="tienda">
+              <div class="cmp-pick" role="group" aria-label="Elegí qué curso ver">
+                <button type="button" data-pick="presencia" aria-pressed="false">Regular</button>
+                <button type="button" data-pick="tienda" aria-pressed="true">Intensivo</button>
+                <button type="button" data-pick="crecer" aria-pressed="false">Particular</button>
+              </div>
+              <div class="cmp-wrap">
+                <table class="cmp-table">
+                  <caption class="visually-hidden">Comparación de cursos</caption>
+                  <thead>
+                      <tr>
+                        <th scope="col" class="cmp-feat">Qué incluye</th>
+                        <th scope="col" data-col="presencia">
+                          <span class="plan-kicker">Cursada regular</span>
+                          <span class="cmp-name">Regular</span>
+                          <span class="plan-price">$38.000 <small>/ mes</small></span>
+                          <span class="cmp-sub">2 clases por semana</span>
+                          <a class="btn-nx-outline btn-sm" href="mailto:hola@example.com">Elegir<span class="visually-hidden"> Regular</span></a>
+                        </th>
+                        <th scope="col" data-col="tienda" class="is-hl">
+                          <span class="plan-badge">Recomendado</span>
+                          <span class="plan-kicker">Avanzá el doble</span>
+                          <span class="cmp-name">Intensivo</span>
+                          <span class="plan-price">$58.000 <small>/ mes</small></span>
+                          <span class="cmp-sub">4 clases por semana</span>
+                          <a class="btn-nx btn-sm" href="mailto:hola@example.com">Elegir<span class="visually-hidden"> Intensivo</span></a>
+                        </th>
+                        <th scope="col" data-col="crecer">
+                          <span class="plan-kicker">Clases 1 a 1</span>
+                          <span class="cmp-name">Particular</span>
+                          <span class="plan-price">$14.000 <small>/ clase</small></span>
+                          <span class="cmp-sub">Horarios a elección</span>
+                          <a class="btn-nx-outline btn-sm" href="mailto:hola@example.com">Elegir<span class="visually-hidden"> Particular</span></a>
+                        </th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr class="cmp-group"><th scope="rowgroup">Cursada</th><td data-col="presencia"></td><td data-col="tienda" class="is-hl"></td><td data-col="crecer"></td></tr>
+                      <tr><th scope="row">Grupos de hasta 8 personas</th><td data-col="presencia"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="tienda" class="is-hl"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr><th scope="row">Clases grupales por semana</th><td data-col="presencia">2 de 90 min</td><td data-col="tienda" class="is-hl">4 de 90 min</td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr><th scope="row">Conversación con profes nativos</th><td data-col="presencia"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="tienda" class="is-hl"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr class="cmp-group"><th scope="rowgroup">Extras</th><td data-col="presencia"></td><td data-col="tienda" class="is-hl"></td><td data-col="crecer"></td></tr>
+                      <tr><th scope="row">Preparación de exámenes internacionales</th><td data-col="presencia"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="tienda" class="is-hl"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr><th scope="row">Club de conversación semanal</th><td data-col="presencia"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="tienda" class="is-hl"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr><th scope="row">Simulacro de examen</th><td data-col="presencia"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="tienda" class="is-hl"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td><td data-col="crecer"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td></tr>
+                      <tr class="cmp-group"><th scope="rowgroup">A medida</th><td data-col="presencia"></td><td data-col="tienda" class="is-hl"></td><td data-col="crecer"></td></tr>
+                      <tr><th scope="row">Programa personalizado</th><td data-col="presencia"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="tienda" class="is-hl"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="crecer"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td></tr>
+                      <tr><th scope="row">Inglés o portugués para tu trabajo</th><td data-col="presencia"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="tienda" class="is-hl"><span class="cmp-no" aria-hidden="true">—</span><span class="visually-hidden">No incluido</span></td><td data-col="crecer"><i class="bi bi-check-lg cmp-yes" aria-hidden="true"></i><span class="visually-hidden">Incluido</span></td></tr>
+                      <tr><th scope="row">Tutorías</th><td data-col="presencia">1 por mes</td><td data-col="tienda" class="is-hl">2 por mes</td><td data-col="crecer">En cada clase</td></tr>
+                      <tr><th scope="row">Inicio</th><td data-col="presencia">Marzo y agosto</td><td data-col="tienda" class="is-hl">Todos los meses</td><td data-col="crecer">Cuando quieras</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="nx-banner mt-4">
+              <h3>¿No sabés tu nivel? Hacé el test gratis.</h3>
+              <a class="btn-nx" href="mailto:hola@example.com">Hacer el test <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <p class="nx-note">Cursos y precios ilustrativos.</p>
+          </div>
+        </div></div>
+  </section>
+  <section class="mq-block" data-module="equipo-media" data-width="full">
+    <div class="mq-frame"><div class="nx nx-pad" data-width="full">
+      <div class="container">
+        <h2 class="nx-display mb-4">Profes que te hacen hablar desde la primera clase</h2>
+        <div class="row g-4">
+          <div class="col-md-4"><article class="person-card text-start"><div class="nx-frame ratio-3x4"><img src="img/rubros/idiomas/prof-1.jpg" alt="Emily Carter"></div><p class="role mt-3">Inglés</p><h3>Emily Carter</h3><p>Nativa de Londres. Prepara exámenes Cambridge hace más de 10 años.</p><div class="d-flex gap-2"><a href="https://linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn de Emily"><i class="bi bi-linkedin"></i></a><a href="mailto:hola@example.com" aria-label="Escribir a Emily"><i class="bi bi-envelope"></i></a></div></article></div>
+          <div class="col-md-4"><article class="person-card text-start"><div class="nx-frame ratio-3x4"><img src="img/rubros/idiomas/prof-2.jpg" alt="Rafael Souza"></div><p class="role mt-3">Portugués</p><h3>Rafael Souza</h3><p>Carioca, especialista en portugués para negocios y viajes.</p><div class="d-flex gap-2"><a href="https://linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn de Rafael"><i class="bi bi-linkedin"></i></a><a href="mailto:hola@example.com" aria-label="Escribir a Rafael"><i class="bi bi-envelope"></i></a></div></article></div>
+          <div class="col-md-4"><article class="person-card text-start"><div class="nx-frame ratio-3x4"><img src="img/rubros/idiomas/prof-3.jpg" alt="Giulia Romano"></div><p class="role mt-3">Italiano</p><h3>Giulia Romano</h3><p>Nacida en Bologna. Clases con cultura, cine y cocina italiana.</p><div class="d-flex gap-2"><a href="https://linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn de Giulia"><i class="bi bi-linkedin"></i></a><a href="mailto:hola@example.com" aria-label="Escribir a Giulia"><i class="bi bi-envelope"></i></a></div></article></div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+  <section class="mq-block" data-module="footer-media" data-width="full">
+    <div class="mq-frame">
+      <footer class="nx nx-footer nx-sage" data-width="full">
+        <div class="container py-5">
+          <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+              <a class="nx-brand" href="#footer-media">Babel</a>
+              <p class="muted">Escuela de idiomas en Almagro. Inglés, portugués e italiano para adultos y empresas.</p>
+            </div>
+            <div class="col-6 col-lg-3">
+              <h2 class="h6">Explorá</h2>
+              <ul class="foot-links">
+                <li><a href="#footer-media">Inicio</a></li>
+                <li><a href="#footer-media">Cursos</a></li>
+                <li><a href="#footer-media">Profesores</a></li>
+                <li><a href="#footer-media">Contacto</a></li>
+              </ul>
+            </div>
+            <div class="col-6 col-lg-3">
+              <h2 class="h6">Inscripciones</h2>
+              <p class="mb-2"><a href="mailto:hola@example.com">hola@example.com</a></p>
+              <a class="btn-nx btn-sm" href="mailto:hola@example.com">Inscribite <i class="bi bi-arrow-right"></i></a>
+              <p class="nx-note">Datos de ejemplo.</p>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <h2 class="h6">Seguinos</h2>
+              <div class="nx-socials mb-2">
+                <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                <a href="https://youtube.com" target="_blank" rel="noopener" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+              </div>
+              <p class="muted mb-0">Frases útiles, tips y fechas de inicio.</p>
+            </div>
+          </div>
+          <hr class="nx-rule">
+          <div class="d-flex flex-wrap justify-content-between gap-2 small">
+            <span>© 2026 Babel Idiomas</span>
+            <span><a href="#footer-media">Privacidad</a> · <a href="#footer-media">Términos</a></span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/nexoia.js"></script>
+</body>
+</html>

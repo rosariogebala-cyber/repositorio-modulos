@@ -17,3 +17,4 @@
 .category{text-decoration:none;font-size:12px;padding:10px 14px;min-height:40px;white-space:nowrap}
 .module-section,.how-it-works{scroll-margin-top:var(--section-offset,190px)}
 @media(max-width:800px){.category-bar{position:sticky}.category-inner{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.category{flex-shrink:0}}
+.brand{font-size:36px;letter-spacing:-1.5px}.topnav a.active{padding:9px 0}@media(max-width:800px){.topnav{gap:18px;scrollbar-width:none}.topnav::-webkit-scrollbar{display:none}}

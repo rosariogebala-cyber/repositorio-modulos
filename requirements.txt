@@ -1,0 +1,2 @@
+# Nexoia usa solo la librería estándar de Python 3.
+# Este archivo existe para que servicios como Render detecten el runtime.

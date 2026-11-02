@@ -1,0 +1,15 @@
+{
+  "id": 1,
+  "slug": "cliente-de-ejemplo",
+  "nombre": "Cliente de ejemplo",
+  "contacto": "Ana Pérez",
+  "email": "hola@example.com",
+  "telefono": "+54 11 5555-0000",
+  "rubro": "Ejemplo",
+  "sitio": "",
+  "logo": "",
+  "color_primario": "#1b5e42",
+  "color_secundario": "#e7f3ee",
+  "notas": "Agrupa las landings creadas antes de la plataforma. Podés pasarlas a otro cliente desde el constructor.",
+  "estado": "activo"
+}

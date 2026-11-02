@@ -1,0 +1,15 @@
+{
+  "id": 5,
+  "slug": "alma-estetica",
+  "nombre": "Alma Estética",
+  "contacto": "Valeria Ríos",
+  "email": "hola@example.com",
+  "telefono": "+54 11 4567 8910",
+  "rubro": "Centro de estética",
+  "sitio": "",
+  "logo": "",
+  "color_primario": "#b4627a",
+  "color_secundario": "#fbf2f4",
+  "notas": "Cliente de ejemplo para el template de estética.",
+  "estado": "activo"
+}

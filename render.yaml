@@ -1,0 +1,16 @@
+# Deploy en Render: https://render.com
+# 1. Conectá este repo
+# 2. New → Blueprint → elegí este archivo
+# 3. La URL pública queda tipo https://nexoia.onrender.com
+
+services:
+  - type: web
+    name: nexoia
+    runtime: python
+    plan: free
+    buildCommand: "true"
+    startCommand: python3 server.py
+    healthCheckPath: /index.html
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"

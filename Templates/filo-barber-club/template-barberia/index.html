@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Template barbería</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+  <style>
+:root {
+  --ink: #1d1a17; --green: #b0703a; --green-deep: #8a5527; --muted: #6d655c;
+  --line: #e4dcd1; --sage: #f4efe8; --sage-2: #ede5da; --paper: #f7f3ed;
+  --cream: #efe7db; --dark: #1e1a16; --darker: #12100e;
+  --shadow: 0 14px 40px rgba(29, 26, 23, 0.08);
+}
+.btn-nx-outline { border-color: #d8b896; }
+.btn-nx:hover { box-shadow: 0 10px 22px rgba(176, 112, 58, 0.22); }
+.plan-card .plan-badge { box-shadow: 0 6px 14px rgba(176, 112, 58, 0.25); }
+.plan-card.is-featured { box-shadow: 0 0 0 1.5px var(--green), 0 22px 44px rgba(29, 26, 23, 0.14); }
+.nx-stars { color: #c9a27a; }
+.nav-dark-wrap { background: var(--darker); }
+.nav-dark-wrap::after { background: rgba(18, 16, 14, 0.74); }
+.nx-nav-dark { background: rgba(18, 16, 14, 0.72); }
+.nx-hero-slide { background-color: var(--paper); }
+.nx-hero .nx-hero-slide::before {
+  background: linear-gradient(90deg, rgba(247, 243, 237, 0.9) 0%, rgba(247, 243, 237, 0.66) 32%, rgba(247, 243, 237, 0.14) 56%, rgba(247, 243, 237, 0) 70%);
+}
+.nx-footer-dark, .nx-footer-dark a { color: #efe7db; }
+.nx-footer-dark .muted { color: #b8ab9c; }
+.foot-cta {
+  background:
+    radial-gradient(60% 120% at 88% 0%, rgba(176, 112, 58, 0.5) 0%, transparent 60%),
+    radial-gradient(50% 110% at 6% 100%, rgba(226, 173, 120, 0.3) 0%, transparent 60%),
+    linear-gradient(115deg, var(--darker) 0%, var(--dark) 55%, var(--green-deep) 100%);
+}
+.foot-cta h2 .em { color: #e2ad78; }
+.foot-cta p, .foot-form input::placeholder, .foot-form-note { color: #b8ab9c; }
+.bk-steps .is-done button, .bk-pro:hover { border-color: #d8b896; }
+.bk-steps .is-done span { background: #f0e2d1; }
+.bk-pro[aria-pressed="true"] { background: var(--sage); }
+@media (max-width: 767.98px) {
+  .nx-hero .nx-hero-slide::before {
+    background: linear-gradient(180deg, rgba(247, 243, 237, 0.95) 0%, rgba(247, 243, 237, 0.84) 36%, rgba(247, 243, 237, 0.32) 60%, rgba(247, 243, 237, 0) 80%);
+  }
+}
+.nav-dark-wrap::before { background-image: url("img/rubros/barberia/hero-2.jpg"); }
+.nx-hero { background: var(--darker); }
+.nx-hero-slide { background-color: var(--darker); }
+.nx-hero .nx-hero-slide::before {
+  background: linear-gradient(90deg, rgba(18, 16, 14, 0.94) 0%, rgba(18, 16, 14, 0.74) 34%, rgba(18, 16, 14, 0.2) 60%, rgba(18, 16, 14, 0) 74%);
+}
+.nx-hero .nx-display { color: #fff; }
+.nx-hero .nx-display .em { color: #e2ad78; }
+.nx-hero .nx-lead { color: rgba(255, 255, 255, 0.78); }
+@media (max-width: 767.98px) {
+  .nx-hero .nx-hero-slide::before {
+    background: linear-gradient(180deg, rgba(18, 16, 14, 0.95) 0%, rgba(18, 16, 14, 0.82) 38%, rgba(18, 16, 14, 0.35) 62%, rgba(18, 16, 14, 0.1) 82%);
+  }
+}
+  </style>
+</head>
+<body class="landing-page">
+  <section class="mq-block" data-module="navegacion-compleja" data-width="full">
+    <div class="mq-frame">
+      <div class="nav-dark-wrap">
+        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full">
+          <div class="container">
+            <a class="nx-brand" href="#navegacion-compleja">Filo</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navDark" aria-controls="navDark" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
+            <div class="collapse navbar-collapse" id="navDark">
+              <ul class="navbar-nav mx-auto align-items-lg-center">
+                <li class="nav-item"><a class="nav-link is-active" href="#navegacion-compleja">Inicio</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Servicios</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Barberos</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Precios</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Turnos</a></li>
+                <li class="nav-item"><a class="nav-link" href="#navegacion-compleja">Contacto</a></li>
+              </ul>
+              <div class="nx-nav-tools py-3 py-lg-0">
+                <div class="nx-socials">
+                  <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                  <a href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                  <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok"><i class="bi bi-tiktok"></i></a>
+                </div>
+                <div class="nx-phone">
+                  <strong>+54 11 2345 6789</strong>
+                  <span>Lun a Sáb 9 a 20 h</span>
+                </div>
+                <a class="btn-nx btn-sm" href="mailto:hola@example.com">Reservar turno <i class="bi bi-arrow-right"></i></a>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" data-module="hero-full-imagen-media" data-width="full">
+    <div class="mq-frame">
+      <div id="heroMedia" class="carousel slide nx nx-hero" data-bs-ride="false" data-width="full">
+        <div class="carousel-indicators">
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Diapositiva 1"></button>
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="1" aria-label="Diapositiva 2"></button>
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="2" aria-label="Diapositiva 3"></button>
+        </div>
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <div class="nx-hero-slide" style="background-image:url('img/rubros/barberia/hero-1.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Cortes con <span class="em">oficio y estilo.</span></h2>
+                <p class="nx-lead">Barbería clásica con mirada actual, en el corazón de Palermo.</p>
+                <div class="nx-pills">
+                  <span class="nx-pill"><i class="bi bi-clock"></i> Turnos sin espera</span>
+                  <span class="nx-pill"><i class="bi bi-scissors"></i> Barberos con oficio</span>
+                  <span class="nx-pill"><i class="bi bi-cup-hot"></i> Café de cortesía</span>
+                </div>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Reservá tu turno <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="nx-hero-slide" style="background-image:url('img/rubros/barberia/hero-2.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Un lugar para <span class="em">tomarte tu tiempo.</span></h2>
+                <p class="nx-lead">Sillones clásicos, buena música y la charla de siempre.</p>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Reservá tu turno <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="nx-hero-slide" style="background-image:url('img/rubros/barberia/hero-3.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Barba perfilada <span class="em">a navaja.</span></h2>
+                <p class="nx-lead">Toalla caliente, aceites y un acabado prolijo.</p>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Reservá tu turno <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroMedia" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Anterior</span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroMedia" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Siguiente</span></button>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" data-module="planes-media" data-width="full">
+    <div class="mq-frame"><div class="nx nx-sage nx-pad svc-media" data-width="full">
+          <div class="container">
+            <h2 class="nx-display text-center">Precios claros, sin sorpresas</h2>
+            <div class="row g-3">
+              <div class="col-md-4"><article class="svc-card plan-card">
+                <h3>Corte</h3>
+                <p class="plan-kicker">Clásico o fade</p>
+                <p class="plan-price">$12.000</p>
+                <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Lavado incluido</li><li><i class="bi bi-check-circle-fill"></i> Asesoramiento de estilo</li><li><i class="bi bi-check-circle-fill"></i> Peinado con producto</li></ul>
+                <p>Unos 40 minutos en el sillón.</p>
+                <a class="btn-nx-outline btn-sm mt-3" href="mailto:hola@example.com">Reservar</a>
+              </article></div>
+              <div class="col-md-4"><article class="svc-card plan-card is-featured">
+                <span class="plan-badge">Recomendado</span>
+                <h3>Corte + barba</h3>
+                <p class="plan-kicker">El combo de la casa</p>
+                <p class="plan-price">$18.000</p>
+                <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Corte a elección</li><li><i class="bi bi-check-circle-fill"></i> Perfilado a navaja</li><li><i class="bi bi-check-circle-fill"></i> Toalla caliente</li></ul>
+                <p>El favorito de los clientes.</p>
+                <a class="btn-nx btn-sm mt-3" href="mailto:hola@example.com">Reservar este</a>
+              </article></div>
+              <div class="col-md-4"><article class="svc-card plan-card">
+                <h3>Club Filo</h3>
+                <p class="plan-kicker">Membresía mensual</p>
+                <p class="plan-price">$30.000 <small>/ mes</small></p>
+                <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Dos cortes al mes</li><li><i class="bi bi-check-circle-fill"></i> Barba sin límite</li><li><i class="bi bi-check-circle-fill"></i> 10% en productos</li></ul>
+                <p>Para estar siempre impecable.</p>
+                <a class="btn-nx-outline btn-sm mt-3" href="mailto:hola@example.com">Reservar</a>
+              </article></div>
+            </div>
+            <p class="text-center mt-4 mb-0">¿Primera vez? Te recomendamos el corte que mejor te queda.</p>
+            <p class="nx-note text-center">Precios ilustrativos. Datos de ejemplo.</p>
+          </div>
+        </div></div>
+  </section>
+  <section class="mq-block" data-module="reserva-turno-media" data-width="full">
+    <div class="mq-frame"><div class="nx nx-pad" data-width="full">
+      <div class="container">
+        <div class="row g-4 g-lg-5 align-items-start" data-booking="">
+          <div class="col-lg-5">
+            <p class="nx-kicker">Turnos online</p>
+            <h2 class="nx-display">Elegí tu horario <span class="em">y vení directo</span></h2>
+            <p class="nx-lead">Mirá los turnos libres de la semana y reservá tu lugar en el sillón.</p>
+            <ul class="bk-perks">
+              <li><span class="nx-ico"><i class="bi bi-calendar-check"></i></span><div><strong>Confirmación al instante</strong><p>Te llega un email con todos los datos.</p></div></li>
+              <li><span class="nx-ico"><i class="bi bi-bell"></i></span><div><strong>Recordatorio un día antes</strong><p>Te avisamos por WhatsApp.</p></div></li>
+              <li><span class="nx-ico"><i class="bi bi-arrow-repeat"></i></span><div><strong>Reprogramás sin costo</strong><p>Hasta 24 h antes del turno.</p></div></li>
+            </ul>
+            <p class="bk-alt">¿Preferís coordinar por mensaje? <a href="mailto:hola@example.com">Escribinos</a></p>
+          </div>
+          <div class="col-lg-7">
+            <form class="bk-card" data-book-form="" data-book-requires="dia,horario">
+              <div data-book-hide-on-done="">
+                <p class="bk-label"><span>1</span> Elegí el día</p>
+                <div class="bk-days" data-book-days="" data-count="6"></div>
+                <p class="bk-label"><span>2</span> Elegí el horario</p>
+                <div class="bk-slots" data-book-slots=""><button class="bk-slot" type="button" data-book-pick="horario">09:00</button><button class="bk-slot" type="button" data-book-pick="horario" disabled="">09:30</button><button class="bk-slot" type="button" data-book-pick="horario">10:00</button><button class="bk-slot" type="button" data-book-pick="horario">10:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled="">11:30</button><button class="bk-slot" type="button" data-book-pick="horario">12:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled="">16:30</button><button class="bk-slot" type="button" data-book-pick="horario">17:00</button><button class="bk-slot" type="button" data-book-pick="horario">17:30</button><button class="bk-slot" type="button" data-book-pick="horario">18:00</button></div>
+                <p class="bk-label"><span>3</span> Tus datos</p>
+                <div class="row g-2">
+                  <label class="bk-field col-sm-6"><span class="visually-hidden">Nombre y apellido</span><input class="bk-input" name="nombre" required="" placeholder="Nombre y apellido" autocomplete="name" data-book-field="nombre"></label>
+                  <label class="bk-field col-sm-6"><span class="visually-hidden">Email</span><input class="bk-input" type="email" name="email" required="" placeholder="tu@email.com" autocomplete="email" data-book-field="email"></label>
+                </div>
+                <div class="bk-foot">
+                  <p class="bk-pick"><i class="bi bi-calendar-event"></i> <span data-book-out="dia" data-empty="Elegí un día"></span> · <span data-book-out="horario" data-empty="sin horario"></span></p>
+                  <button class="btn-nx" type="submit">Confirmar turno <i class="bi bi-arrow-right"></i></button>
+                </div>
+                <p class="bk-msg" data-book-msg="" role="status"></p>
+              </div>
+              <div class="bk-done" data-book-done="" hidden="" role="status">
+                <span class="bk-done-ico"><i class="bi bi-check-lg"></i></span>
+                <h3>¡Nos vemos en el sillón!</h3>
+                <p>Te esperamos el <b data-book-out="dia"></b> a las <b data-book-out="horario"></b>. Te mandamos la confirmación a <b data-book-out="email"></b>.</p>
+                <button class="btn-nx-outline btn-sm" type="button" data-book-reset="">Reservar otro turno</button>
+              </div>
+            </form>
+            <p class="nx-note">Horarios y reserva de ejemplo.</p>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+  <section class="mq-block" data-module="footer-compleja" data-width="full">
+    <div class="mq-frame">
+      <footer class="nx nx-footer" data-width="full">
+        <div class="nx-sage">
+          <div class="container py-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <h2 class="nx-display mb-0" style="font-size:clamp(1.6rem,3vw,2.2rem)">Tu próximo corte empieza acá</h2>
+            <a class="btn-nx" href="mailto:hola@example.com">Reservar turno <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="nx-footer-dark">
+          <div class="container py-5">
+            <div class="row g-4">
+              <div class="col-lg-4">
+                <a class="nx-brand" href="#footer-compleja" style="color:#fff">Filo</a>
+                <p class="muted">Barbería clásica en Palermo desde 2014.</p>
+              </div>
+              <div class="col-6 col-lg-4">
+                <h2 class="h6">Explorá</h2>
+                <ul class="foot-links">
+                  <li><a href="#footer-compleja">Precios</a></li>
+                  <li><a href="#footer-compleja">Barberos</a></li>
+                  <li><a href="#footer-compleja">Club Filo</a></li>
+                  <li><a href="#footer-compleja">Turnos</a></li>
+                </ul>
+              </div>
+              <div class="col-6 col-lg-4">
+                <h2 class="h6">Estamos cerca</h2>
+                <p class="mb-1"><a href="mailto:hola@example.com">hola@example.com</a></p>
+                <p class="mb-2"><i class="bi bi-geo-alt"></i> Palermo, Buenos Aires</p>
+                <div class="nx-socials">
+                  <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                  <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok"><i class="bi bi-tiktok"></i></a>
+                </div>
+                <p class="nx-note" style="color:#b8ab9c">Datos de contacto ilustrativos.</p>
+              </div>
+            </div>
+            <hr style="border-color:rgba(255,255,255,.15)">
+            <div class="d-flex flex-wrap justify-content-between gap-2 small">
+              <span>© 2026 Filo Barber Club</span>
+              <span><a href="#footer-compleja">Privacidad</a> · <a href="#footer-compleja">Términos</a> · <a href="#footer-compleja">Volver arriba</a></span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </section>
+  <section class="mq-block" data-module="whatsapp-simple" data-width="full">
+    <div class="mq-frame">
+      <div class="nx nx-wa-wrap" data-width="full">
+        <a class="nx-wa" href="https://wa.me/5491123456789?text=Hola%2C%20quiero%20hacer%20una%20consulta" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp" title="Escribinos por WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a>
+      </div>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/nexoia.js"></script>
+</body>
+</html>

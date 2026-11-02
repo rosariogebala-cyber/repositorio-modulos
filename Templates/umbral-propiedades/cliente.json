@@ -1,0 +1,15 @@
+{
+  "id": 7,
+  "slug": "umbral-propiedades",
+  "nombre": "Umbral Propiedades",
+  "contacto": "Marcela Ibáñez",
+  "email": "hola@example.com",
+  "telefono": "+54 11 4789 1200",
+  "rubro": "Inmobiliaria",
+  "sitio": "",
+  "logo": "",
+  "color_primario": "#1d5c63",
+  "color_secundario": "#f0f5f5",
+  "notas": "Cliente de ejemplo para el template de inmobiliaria.",
+  "estado": "activo"
+}

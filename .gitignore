@@ -2,8 +2,6 @@
 __pycache__/
 *.pyc
 
-# Datos locales de la plataforma
-data/nexoia.db
+# Base local de trabajo (la copia pública va versionada como nexoia.db)
 data/nexoia.db-*
 data/logos/
-Templates/

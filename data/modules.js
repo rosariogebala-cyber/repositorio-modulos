@@ -1,5 +1,20 @@
 window.NEXOIA_MODULES = [
   {
+    "id": "whatsapp",
+    "nombre": "WhatsApp",
+    "categoria": "negocio",
+    "descripcion": "Botón flotante que queda fijo abajo a la derecha mientras se hace scroll.",
+    "numero": "WA",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/whatsapp/simple.png",
+        "ancho": 800,
+        "alto": 200
+      }
+    ]
+  },
+  {
     "id": "navegacion",
     "nombre": "Navegación",
     "categoria": "estructura",

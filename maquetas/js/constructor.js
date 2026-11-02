@@ -31,12 +31,21 @@
   var modeHint = $("[data-lb-mode]");
   var kicker = $("[data-lb-kicker]");
   var createLabel = $("[data-lb-create-label]");
+  var createIcon = $("[data-lb-create-icon]");
+  var createBtn = $("[data-lb-create]");
+  var newBtn = $("[data-lb-new]");
+  var chip = $("[data-lb-chip]");
+  var statusEl = $("[data-lb-status]");
+  var tabCount = $("[data-lb-tab-count]");
+  var orderFoot = $("[data-lb-order-foot]");
   var api = window.Nexoia.api;
 
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [] };
+  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "" };
+  var savedSnapshot = null;
+  var busy = false;
   var device = 1280;
   var renderTimer = null;
 
@@ -47,18 +56,34 @@
   function escapeHtml(text) {
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
-  function saveDraft() { localStorage.setItem(DRAFT, JSON.stringify(state)); }
-  function say(text, tone, link) {
+  function snapshot() {
+    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo]);
+  }
+  function isDirty() {
+    return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
+  }
+  function saveDraft() {
+    var draft = Object.assign({}, state, { saved: savedSnapshot });
+    try { localStorage.setItem(DRAFT, JSON.stringify(draft)); } catch (e) { /* cuota llena: el borrador queda en memoria */ }
+  }
+  function say(text, tone, links) {
     msg.textContent = text;
     msg.className = "lb-msg" + (tone ? " is-" + tone : "");
-    if (link) {
-      var a = document.createElement("a");
-      a.href = link.href;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = link.text;
-      msg.append(" ", a);
-    }
+    [].concat(links || []).forEach(function (link) {
+      var el;
+      if (link.act) {
+        el = document.createElement("button");
+        el.type = "button";
+        el.className = "lb-msg-btn";
+        el.setAttribute("data-msg-act", link.act);
+      } else {
+        el = document.createElement("a");
+        el.href = link.href;
+        if (link.blank) { el.target = "_blank"; el.rel = "noopener"; }
+      }
+      el.textContent = link.text;
+      msg.append(" ", el);
+    });
   }
 
   function loadLibrary() {
@@ -131,7 +156,7 @@
 
   function toggle(id, on) {
     var idx = state.items.findIndex(function (it) { return it.id === id; });
-    if (on && idx === -1) state.items.push({ id: id, width: byId[id].width });
+    if (on && idx === -1) state.items.push({ id: id, width: "full" });
     if (!on && idx !== -1) state.items.splice(idx, 1);
     update();
   }
@@ -144,7 +169,7 @@
       li.className = "lb-item";
       li.innerHTML =
         '<span class="lb-item-num">' + String(i + 1).padStart(2, "0") + "</span>" +
-        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + "</small></span>" +
+        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + "</small></span>" +
         '<span class="lb-seg lb-item-seg" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
         '<button type="button" data-act="width" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
         '<button type="button" data-act="width" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
@@ -168,7 +193,9 @@
     });
     var n = state.items.length;
     countBadge.textContent = n + (n === 1 ? " módulo" : " módulos");
+    tabCount.textContent = n;
     orderEmpty.hidden = n > 0;
+    orderFoot.hidden = n === 0;
     settings.hidden = n === 0;
     renderSettings();
   }
@@ -206,6 +233,7 @@
   }
 
   function refreshLight() {
+    renderMode();
     renderOrder();
     patchFrame();
     saveDraft();
@@ -228,7 +256,7 @@
 
   function moduleMarkup(it, prefix, i, preview) {
     var tpl = document.createElement("template");
-    tpl.innerHTML = byId[it.id].html;
+    tpl.innerHTML = it.html || byId[it.id].html;
     tpl.content.querySelectorAll(".nx").forEach(function (el) {
       if (!el.parentElement || !el.parentElement.closest(".nx")) el.setAttribute("data-width", it.width);
     });
@@ -239,7 +267,7 @@
         .replace(/(src|href)="\.\.\/assets\//g, '$1="' + prefix + "../assets/")
         .replace(/url\((['"]?)(img\/|\.\.\/assets\/)/g, "url($1" + prefix + "$2");
     }
-    return '  <section class="mq-block" data-width="' + it.width + '">\n    <div class="mq-frame">' + html + "</div>" +
+    return '  <section class="mq-block" data-module="' + it.id + '" data-width="' + it.width + '">\n    <div class="mq-frame">' + html + "</div>" +
       (preview ? previewTools(it, i) : "") + "\n  </section>";
   }
 
@@ -259,6 +287,7 @@
       '  <link href="' + BOOTSTRAP_CSS + '" rel="stylesheet">',
       '  <link href="' + ICONS_CSS + '" rel="stylesheet">',
       '  <link href="' + prefix + 'css/nexoia.css" rel="stylesheet">',
+      state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
       "</head>",
       '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '">'
     ].filter(Boolean);
@@ -326,21 +355,64 @@
     return clients.find(function (c) { return c.id === state.clienteId; }) || null;
   }
 
+  function missing() {
+    var out = [];
+    if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
+    if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
+    if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
+    return out;
+  }
+
+  function stepDone(n, done) {
+    var step = document.querySelector('[data-lb-step="' + n + '"]');
+    if (step) step.classList.toggle("is-done", done);
+  }
+
   function renderMode() {
     var client = currentClient();
-    title.textContent = state.name || "Landing sin nombre";
-    kicker.textContent = client ? "Vista previa · " + client.nombre : "Vista previa";
-    createLabel.textContent = state.landingId ? "Guardar cambios" : "Crear landing";
-    if (state.landingId) {
-      modeHint.className = "lb-hint lb-mode is-editing";
-      modeHint.innerHTML = '<span><i class="bi bi-pencil-square"></i> Editando una landing guardada: al guardar se actualiza su carpeta.</span>' +
-        '<button class="lb-link" type="button" data-lb-new-landing>Empezar una nueva</button>';
+    var editing = !!state.landingId;
+    var dirty = isDirty();
+    var todo = missing();
+    title.textContent = state.name.trim() || "Landing sin nombre";
+    chip.innerHTML = editing ? '<i class="bi bi-pencil-square"></i> Editando' : '<i class="bi bi-stars"></i> Nueva landing';
+    chip.classList.toggle("is-editing", editing);
+    kicker.textContent = client ? client.nombre : "";
+    createLabel.textContent = editing ? (dirty ? "Guardar cambios" : "Guardada") : "Crear landing";
+    createIcon.className = "bi " + (editing ? (dirty ? "bi-floppy" : "bi-check2") : "bi-plus-circle");
+    createBtn.disabled = busy || (editing && !dirty && !todo.length);
+    createBtn.classList.toggle("is-pending", todo.length > 0);
+    createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
+    newBtn.hidden = !editing;
+    stepDone(1, !!state.clienteId && !!state.name.trim());
+    stepDone(2, state.items.length > 0);
+
+    if (todo.length) {
+      statusEl.className = "lb-status";
+      statusEl.innerHTML = '<span class="lb-status-lead">Para ' + (editing ? "guardar" : "crear la landing") + " falta:</span>" +
+        todo.map(function (t) { return '<button type="button" class="lb-todo" data-todo="' + t.key + '"><i class="bi bi-arrow-right-short"></i>' + t.text + "</button>"; }).join("");
+    } else if (editing) {
+      statusEl.className = "lb-status" + (dirty ? " is-dirty" : " is-ok");
+      statusEl.innerHTML = dirty
+        ? '<span class="lb-dot" aria-hidden="true"></span> Tenés cambios sin guardar.'
+        : '<i class="bi bi-check-circle-fill"></i> Todos los cambios están guardados.';
     } else {
-      modeHint.className = "lb-hint lb-mode";
-      modeHint.textContent = client
-        ? "Se guarda en Templates/" + client.slug + "/" + slugify(state.name) + "/"
-        : "Elegí el cliente: cada landing queda guardada en su carpeta.";
+      statusEl.className = "lb-status is-ok";
+      statusEl.innerHTML = '<i class="bi bi-check-circle-fill"></i> Todo listo: tocá «Crear landing».';
     }
+
+    modeHint.className = "lb-hint lb-mode";
+    modeHint.textContent = client
+      ? "Se guarda en Templates/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "")
+      : "Cada landing se guarda en la carpeta de su cliente.";
+  }
+
+  function showTab(name) {
+    document.querySelectorAll("[data-lb-tab]").forEach(function (tab) {
+      tab.setAttribute("aria-selected", String(tab.getAttribute("data-lb-tab") === name));
+    });
+    document.querySelectorAll("[data-lb-panel]").forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-lb-panel") !== name;
+    });
   }
 
   function renderClients() {
@@ -371,14 +443,26 @@
       name: lp.nombre,
       clienteId: lp.cliente_id,
       landingId: lp.id,
-      items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) { return { id: it.id, width: it.width }; })
+      items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) {
+        var item = { id: it.id, width: it.width };
+        if (it.html) item.html = it.html;
+        return item;
+      }),
+      estilo: lp.estilo || ""
     };
+    savedSnapshot = snapshot();
     nameInput.value = state.name;
     clientSelect.value = String(state.clienteId);
     update();
   }
 
+  function confirmDiscard() {
+    return !state.landingId || !isDirty() ||
+      window.confirm("Tenés cambios sin guardar en «" + (state.name.trim() || "esta landing") + "». ¿Querés descartarlos?");
+  }
+
   function editLanding(lp) {
+    if (lp.id !== state.landingId && !confirmDiscard()) return;
     loadLanding(lp);
     libraryDialog.close();
     say("Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");
@@ -394,6 +478,7 @@
       savedEmpty.hidden = list.length > 0;
       if (state.landingId && !list.some(function (lp) { return lp.id === state.landingId; })) {
         state.landingId = null;
+        savedSnapshot = null;
         renderMode();
         saveDraft();
       }
@@ -415,43 +500,84 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
+  function goTo(key) {
+    if (key === "client") { clientSelect.focus(); return; }
+    if (key === "name") { nameInput.focus(); return; }
+    showTab("add");
+    search.scrollIntoView({ behavior: "smooth", block: "center" });
+    search.focus({ preventScroll: true });
+  }
+
   function createLanding() {
-    if (!state.clienteId) { say("Elegí el cliente de la landing.", "warn"); clientSelect.focus(); return; }
-    if (!state.name.trim()) { say("Ponele un nombre a la landing.", "warn"); nameInput.focus(); return; }
-    if (!state.items.length) { say("Tildá al menos un módulo.", "warn"); return; }
+    var todo = missing();
+    if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
-    var createBtn = $("[data-lb-create]");
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: html, items: state.items };
-    createBtn.disabled = true;
-    say("Guardando «" + body.nombre + "»…");
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: html, items: state.items, estilo: state.estilo };
+    busy = true;
+    renderMode();
+    say((editing ? "Guardando «" : "Creando «") + body.nombre + "»…");
     (editing ? api("PUT", "/api/landings/" + state.landingId, body) : api("POST", "/api/landings", body))
       .then(function (data) {
         state.landingId = data.id;
-        renderMode();
+        savedSnapshot = snapshot();
         saveDraft();
         renderSaved();
-        say((editing ? "Cambios guardados en " : "Landing creada para " + data.cliente + " en ") + data.path + ".", "ok", { href: data.url, text: "Abrir landing" });
+        if (editing) {
+          say("Cambios guardados en " + data.path + ".", "ok", { href: data.url, text: "Abrir landing", blank: true });
+        } else {
+          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
+            { href: data.url, text: "Abrir landing", blank: true },
+            { href: "landings.html", text: "Ver en Landings" },
+            { act: "new", text: "Crear otra" }
+          ]);
+        }
       })
       .catch(function (err) {
         if (!err.offline) { say(err.message, "warn"); return; }
         download(html, slugify(state.name) + ".html");
         say("No se pudo guardar: iniciá el servidor con «python3 server.py» y volvé a intentarlo. Mientras tanto se descargó el HTML.", "warn");
       })
-      .then(function () { createBtn.disabled = false; });
+      .then(function () { busy = false; renderMode(); });
   }
 
   function startNew(clienteId) {
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [] };
+    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "" };
+    savedSnapshot = null;
     nameInput.value = "";
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
+    search.value = "";
+    showTab("add");
     update();
+  }
+
+  function newLanding() {
+    if (!confirmDiscard()) return;
+    startNew(state.clienteId);
+    say("Landing nueva: completá los datos y elegí los módulos.", "ok");
+    nameInput.focus();
   }
 
   clientSelect.addEventListener("change", function () {
     state.clienteId = clientSelect.value ? Number(clientSelect.value) : null;
     renderMode();
     saveDraft();
+  });
+
+  statusEl.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-todo]");
+    if (btn) goTo(btn.getAttribute("data-todo"));
+  });
+
+  msg.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-msg-act]");
+    if (btn && btn.getAttribute("data-msg-act") === "new") newLanding();
+  });
+
+  newBtn.addEventListener("click", newLanding);
+
+  document.querySelectorAll("[data-lb-tab]").forEach(function (tab) {
+    tab.addEventListener("click", function () { showTab(tab.getAttribute("data-lb-tab")); });
   });
 
   $("[data-lb-new-client]").addEventListener("click", function () {
@@ -464,12 +590,6 @@
         say("Se dio de alta «" + client.nombre + "» y quedó elegido para esta landing.", "ok");
       });
     });
-  });
-
-  modeHint.addEventListener("click", function (e) {
-    if (!e.target.closest("[data-lb-new-landing]")) return;
-    startNew(state.clienteId);
-    say("Landing nueva: elegí los módulos y ponele un nombre.", "ok");
   });
 
   $("[data-lb-create]").addEventListener("click", function () {
@@ -526,18 +646,25 @@
   search.addEventListener("input", renderPicker);
   window.addEventListener("resize", fitPreview);
 
+  // Al entrar sin parámetros se arranca una landing nueva; una guardada solo se retoma si quedaron cambios sin guardar.
   function restoreDraft() {
-    try {
-      var draft = JSON.parse(localStorage.getItem(DRAFT));
-      if (draft && Array.isArray(draft.items)) {
-        state = {
-          name: draft.name || "",
-          clienteId: draft.clienteId || null,
-          landingId: draft.landingId || null,
-          items: draft.items.filter(function (it) { return byId[it.id]; })
-        };
-      }
-    } catch (e) { /* noop */ }
+    var draft = null;
+    try { draft = JSON.parse(localStorage.getItem(DRAFT)); } catch (e) { /* noop */ }
+    if (!draft || !Array.isArray(draft.items)) return null;
+    state = {
+      name: draft.name || "",
+      clienteId: draft.clienteId || null,
+      landingId: draft.landingId || null,
+      items: draft.items.filter(function (it) { return byId[it.id]; }),
+      estilo: draft.estilo || ""
+    };
+    savedSnapshot = draft.saved || null;
+    if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
+    if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
+    var last = { kind: "last", id: state.landingId, name: state.name };
+    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "" };
+    savedSnapshot = null;
+    return last;
   }
 
   function start() {
@@ -562,10 +689,18 @@
       if (client) say("Landing nueva para " + client.nombre + ".", "ok");
       return;
     }
-    restoreDraft();
+    var restored = restoreDraft();
     nameInput.value = state.name;
     renderClients();
     update();
+    if (!restored) return;
+    if (restored.kind === "draft") {
+      say("Recuperamos la landing que estabas armando.", "", { act: "new", text: "Empezar de cero" });
+    } else if (restored.kind === "unsaved") {
+      say("Recuperamos los cambios sin guardar de «" + restored.name + "».", "", { act: "new", text: "Crear una nueva" });
+    } else {
+      say("La última vez trabajaste en «" + restored.name + "».", "", { href: "constructor.html?landing=" + restored.id, text: "Seguir editándola" });
+    }
   }
 
   Promise.all([loadLibrary(), loadClients()]).then(function () {

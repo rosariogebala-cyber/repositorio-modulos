@@ -216,20 +216,28 @@
     var li = document.createElement("li");
     li.className = "lb-saved-item";
     var count = (lp.items || []).length;
-    var meta = [];
-    if (opts.showClient) meta.push('<a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a>");
-    meta.push(plural(count, "módulo", "módulos"), esc(formatDate(lp.actualizado)));
+    var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
+    var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
+    var icon = function (tag, attrs, ico, label, extra) {
+      return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
+        '<i class="bi ' + ico + '" aria-hidden="true"></i></' + tag + ">";
+    };
+    li.title = lp.path;
     li.innerHTML =
+      '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' +
+      (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="" loading="lazy">' : "") +
+      '<i class="bi bi-window" aria-hidden="true"></i></a>' +
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
+      (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +
       "<small>" + meta.join(" · ") + "</small>" +
-      "<small>" + esc(lp.path) + (lp.disponible ? "" : ' · <b class="pf-missing">Falta la carpeta</b>') + "</small></span>" +
+      (lp.disponible ? "" : '<small><b class="pf-missing">Falta la carpeta</b></small>') + "</span>" +
       '<span class="lb-saved-actions">' +
-      '<a class="lb-act" href="' + esc(lp.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Abrir</a>' +
+      icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
-        ? '<button class="lb-act" type="button" data-act="edit"><i class="bi bi-pencil"></i> Editar</button>'
-        : '<a class="lb-act" href="constructor.html?landing=' + lp.id + '"><i class="bi bi-pencil"></i> Editar</a>') +
-      '<button class="lb-act" type="button" data-act="duplicate"><i class="bi bi-copy"></i> Duplicar</button>' +
-      '<button class="lb-act is-danger" type="button" data-act="delete"><i class="bi bi-trash3"></i> Eliminar</button>' +
+        ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
+        : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
+      icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
+      icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
     li.addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-act]");
