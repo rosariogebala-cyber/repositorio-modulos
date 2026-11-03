@@ -973,6 +973,13 @@
       say(tokenValue ? "Verificando el token…" : "Verificando la clave…");
       gh("GET", REPO_API, undefined, auth).then(function (info) {
         if (!info.permissions || !info.permissions.push) throw apiError(403, "Hay acceso de lectura pero no de escritura. Activá «Contents: Read and write».");
+        return gh("POST", REPO_API + "/git/blobs", { content: "", encoding: "utf-8" }, auth).catch(function (err) {
+          if (err.status === 403 || err.status === 404) {
+            throw apiError(403, "El token puede leer el repo pero no escribir. En GitHub, editá el token: en «Repository access» elegí «" + repo.repo + "» y en «Permissions → Contents» poné «Read and write».");
+          }
+          throw err;
+        });
+      }).then(function () {
         if (!tokenValue) return "";
         return gh("GET", "/user", undefined, auth).then(function (u) { return u.login; }, function () { return ""; });
       }).then(function (user) {
