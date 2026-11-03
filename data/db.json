@@ -2,7 +2,7 @@
   "version": 1,
   "next_id": {
     "clientes": 9,
-    "landings": 11
+    "landings": 12
   },
   "clientes": [
     {
@@ -452,6 +452,30 @@
       "creado": 1793620366984,
       "actualizado": 1793621107190,
       "portada": "img/hero-media-full.jpg"
+    },
+    {
+      "id": 11,
+      "cliente_id": 4,
+      "nombre": "d",
+      "slug": "d",
+      "items": [
+        {
+          "id": "whatsapp-simple",
+          "width": "full"
+        },
+        {
+          "id": "navegacion-media",
+          "width": "full"
+        },
+        {
+          "id": "quienes-somos-media",
+          "width": "full"
+        }
+      ],
+      "estilo": "",
+      "creado": 1793709483881,
+      "actualizado": 1793709483881,
+      "portada": "img/quienes-media.jpg"
     }
   ]
 }

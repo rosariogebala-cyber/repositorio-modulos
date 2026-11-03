@@ -1,0 +1,19 @@
+{
+  "nombre": "d",
+  "slug": "d",
+  "cliente": "filo-barber-club",
+  "items": [
+    {
+      "id": "whatsapp-simple",
+      "width": "full"
+    },
+    {
+      "id": "navegacion-media",
+      "width": "full"
+    },
+    {
+      "id": "quienes-somos-media",
+      "width": "full"
+    }
+  ]
+}
