@@ -1,0 +1,31 @@
+{
+  "nombre": "ss",
+  "slug": "ss",
+  "cliente": "babel-idiomas",
+  "items": [
+    {
+      "id": "whatsapp-simple",
+      "width": "full"
+    },
+    {
+      "id": "navegacion-simple",
+      "width": "full"
+    },
+    {
+      "id": "servicios-productos-media",
+      "width": "full"
+    },
+    {
+      "id": "video-destacado-simple",
+      "width": "full"
+    },
+    {
+      "id": "preguntas-frecuentes-media",
+      "width": "full"
+    },
+    {
+      "id": "footer-compleja",
+      "width": "full"
+    }
+  ]
+}

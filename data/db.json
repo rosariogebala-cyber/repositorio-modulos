@@ -2,7 +2,7 @@
   "version": 1,
   "next_id": {
     "clientes": 9,
-    "landings": 12
+    "landings": 13
   },
   "clientes": [
     {
@@ -476,6 +476,42 @@
       "creado": 1793709483881,
       "actualizado": 1793709483881,
       "portada": "img/quienes-media.jpg"
+    },
+    {
+      "id": 12,
+      "cliente_id": 8,
+      "nombre": "ss",
+      "slug": "ss",
+      "items": [
+        {
+          "id": "whatsapp-simple",
+          "width": "full"
+        },
+        {
+          "id": "navegacion-simple",
+          "width": "full"
+        },
+        {
+          "id": "servicios-productos-media",
+          "width": "full"
+        },
+        {
+          "id": "video-destacado-simple",
+          "width": "full"
+        },
+        {
+          "id": "preguntas-frecuentes-media",
+          "width": "full"
+        },
+        {
+          "id": "footer-compleja",
+          "width": "full"
+        }
+      ],
+      "estilo": "",
+      "creado": 1793889806291,
+      "actualizado": 1793889806291,
+      "portada": "img/vid-esencia.jpg"
     }
   ]
 }
