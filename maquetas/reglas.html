@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reglas · Nexoia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/nexoia.css" rel="stylesheet">
+</head>
+<body class="lib-page pf-page" data-page="reglas">
+  <header class="lib-header">
+    <a class="lib-brand" href="../index.html">Nexoia</a>
+    <nav aria-label="Navegación principal">
+      <a href="../index.html">Biblioteca de módulos</a>
+      <a href="index.html">Maquetas</a>
+      <a href="constructor.html">Crear landing</a>
+      <a href="landings.html">Landings</a>
+      <a href="clientes.html">Clientes</a>
+      <a class="is-current" href="reglas.html">Reglas</a>
+    </nav>
+  </header>
+
+  <main class="pf-main rg-main">
+    <div class="pf-head">
+      <div>
+        <p class="lb-kicker">Plataforma · Control de calidad</p>
+        <h1 class="pf-title">Reglas</h1>
+        <p class="pf-sub">Definí cómo tiene que ser cada landing: largo de los textos, tamaño y peso de las imágenes y orden de las secciones. El constructor las revisa en vivo mientras&nbsp;armás.</p>
+      </div>
+      <div class="rg-head-actions">
+        <button class="btn-nx-outline" type="button" data-rg-reset><i class="bi bi-arrow-counterclockwise"></i> Valores recomendados</button>
+        <button class="btn-nx" type="button" data-rg-save disabled><i class="bi bi-floppy"></i> <span data-rg-save-label>Guardado</span></button>
+      </div>
+    </div>
+
+    <p class="lb-msg" data-rg-msg role="status" aria-live="polite"></p>
+
+    <div class="lb-tabs rg-tabs" role="tablist" aria-label="Tipos de reglas">
+      <button type="button" role="tab" aria-selected="true" data-rg-tab="estructura"><i class="bi bi-diagram-3"></i> Estructura</button>
+      <button type="button" role="tab" aria-selected="false" data-rg-tab="textos"><i class="bi bi-fonts"></i> Textos</button>
+      <button type="button" role="tab" aria-selected="false" data-rg-tab="imagenes"><i class="bi bi-image"></i> Imágenes</button>
+      <button type="button" role="tab" aria-selected="false" data-rg-tab="resumen"><i class="bi bi-card-text"></i> Resumen</button>
+    </div>
+
+    <div data-rg-panel="estructura">
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-ui-checks-grid"></i> Secciones obligatorias</h2>
+            <p class="rg-note">Toda landing tiene que incluirlas.</p>
+          </div>
+          <label class="rg-level">Si falta alguna <select class="lb-input" data-rg-oblig-level></select></label>
+        </div>
+        <div class="rg-chips" data-rg-oblig><p class="lb-empty">Cargando secciones…</p></div>
+      </section>
+
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-list-ol"></i> Orden y cantidad</h2>
+            <p class="rg-note">El botón de WhatsApp flota sobre la página, así que no cuenta para el orden.</p>
+          </div>
+        </div>
+        <ul class="rg-list" data-rg-structure></ul>
+      </section>
+
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-shield-check"></i> Al guardar una landing</h2>
+            <p class="rg-note">Los <b class="rg-tag is-error">errores</b> rompen la calidad; los <b class="rg-tag is-aviso">avisos</b> son recomendaciones.</p>
+          </div>
+        </div>
+        <div class="rg-options" role="radiogroup" aria-label="Al guardar una landing">
+          <label class="rg-option"><input type="radio" name="rgBlock" value="avisar" data-rg-block> <span><b>Avisar y dejar guardar</b><small>El constructor muestra lo que falta corregir, y la landing se guarda igual.</small></span></label>
+          <label class="rg-option"><input type="radio" name="rgBlock" value="bloquear" data-rg-block> <span><b>Guardar solo sin errores</b><small>La landing se guarda cuando ya no quedan errores; los avisos no frenan.</small></span></label>
+        </div>
+      </section>
+    </div>
+
+    <div data-rg-panel="textos" hidden>
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-type"></i> Largo de los textos</h2>
+            <p class="rg-note">En caracteres, contando espacios. Cada texto toma la primera regla que coincide, de arriba hacia abajo. Pasarse del máximo es error; quedarse corto, aviso. Con 0 queda sin&nbsp;límite.</p>
+          </div>
+          <button class="btn-nx-outline btn-sm" type="button" data-rg-add="textos"><i class="bi bi-plus-lg"></i> Sumar regla</button>
+        </div>
+        <ul class="rg-list rg-roles" data-rg-roles="textos"></ul>
+      </section>
+
+      <section class="pf-panel">
+        <div class="pf-panel-head"><h2><i class="bi bi-magic"></i> Prolijidad</h2></div>
+        <ul class="rg-list">
+          <li class="rg-row">
+            <label class="rg-switch"><input type="checkbox" data-rg-flag="textos.viudas" aria-label="Sin palabras solas en la última línea"><span aria-hidden="true"></span></label>
+            <div class="rg-row-text"><b>Sin palabras solas en la última línea</b><small>Se revisa en el ancho de la vista previa: escritorio, tablet o celular.</small></div>
+            <span class="rg-tag is-aviso">Aviso</span>
+          </li>
+          <li class="rg-row rg-row-wrap">
+            <label class="rg-switch"><input type="checkbox" data-rg-flag="textos.ejemplos" aria-label="Sin datos de ejemplo"><span aria-hidden="true"></span></label>
+            <div class="rg-row-text"><b>Sin datos de ejemplo</b><small>Textos de las maquetas que tienen que cambiarse por los del cliente. Uno por línea.</small></div>
+            <span class="rg-tag is-error">Error</span>
+            <textarea class="lb-input rg-textarea" rows="4" spellcheck="false" aria-label="Datos de ejemplo, uno por línea" data-rg-examples></textarea>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <div data-rg-panel="imagenes" hidden>
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-aspect-ratio"></i> Tamaño, proporción y peso</h2>
+            <p class="rg-note">Cada imagen toma la primera regla que coincide. Medir menos que el mínimo es error; pasarse de peso o de proporción, aviso. Con 0 queda sin límite; los SVG no tienen tamaño&nbsp;mínimo.</p>
+          </div>
+          <button class="btn-nx-outline btn-sm" type="button" data-rg-add="imagenes"><i class="bi bi-plus-lg"></i> Sumar regla</button>
+        </div>
+        <ul class="rg-list rg-roles" data-rg-roles="imagenes"></ul>
+      </section>
+
+      <section class="pf-panel">
+        <div class="pf-panel-head"><h2><i class="bi bi-sliders"></i> Para todas las imágenes</h2></div>
+        <ul class="rg-list">
+          <li class="rg-row rg-row-wrap">
+            <span class="rg-switch-gap" aria-hidden="true"></span>
+            <div class="rg-row-text"><b>Formatos permitidos</b><small>WEBP y AVIF pesan menos con la misma calidad.</small></div>
+            <span class="rg-tag is-aviso">Aviso</span>
+            <div class="rg-chips rg-chips-tight" data-rg-formats></div>
+          </li>
+          <li class="rg-row">
+            <label class="rg-switch"><input type="checkbox" data-rg-flag="imagenes.altObligatorio" aria-label="Texto alternativo obligatorio"><span aria-hidden="true"></span></label>
+            <div class="rg-row-text"><b>Texto alternativo obligatorio</b><small>Describe la foto para Google y para quien usa lector de pantalla.</small></div>
+            <label class="rg-num"><span>Máx.</span><input class="lb-input" type="number" min="20" max="300" step="5" data-rg-num="imagenes.altMax" aria-label="Máximo de caracteres del texto alternativo"><span>caract.</span></label>
+          </li>
+          <li class="rg-row">
+            <span class="rg-switch-gap" aria-hidden="true"></span>
+            <div class="rg-row-text"><b>Nitidez</b><small>La imagen tiene que medir más que el espacio donde se muestra, así se ve bien en pantallas retina.</small></div>
+            <label class="rg-num"><select class="lb-input" data-rg-sharp aria-label="Nitidez">
+              <option value="0">Sin revisar</option>
+              <option value="1">1× el ancho en pantalla</option>
+              <option value="1.5">1,5× el ancho en pantalla</option>
+              <option value="2">2× el ancho en pantalla</option>
+            </select></label>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <div data-rg-panel="resumen" hidden>
+      <section class="pf-panel">
+        <div class="pf-panel-head">
+          <div>
+            <h2><i class="bi bi-card-text"></i> Las reglas en una hoja</h2>
+            <p class="rg-note">Pasáselas a quien escribe los textos, a quien produce las fotos o a una IA que arme la landing.</p>
+          </div>
+          <div class="rg-head-actions">
+            <button class="btn-nx-outline btn-sm" type="button" data-rg-download><i class="bi bi-download"></i> Descargar reglas.json</button>
+            <button class="btn-nx btn-sm" type="button" data-rg-copy><i class="bi bi-clipboard"></i> Copiar</button>
+          </div>
+        </div>
+        <pre class="rg-summary" data-rg-summary></pre>
+      </section>
+    </div>
+  </main>
+
+  <div class="rg-savebar" data-rg-savebar hidden>
+    <span><span class="lb-dot" aria-hidden="true"></span> Tenés cambios sin guardar.</span>
+    <button class="btn-nx btn-sm" type="button" data-rg-save-bar><i class="bi bi-floppy"></i> Guardar reglas</button>
+  </div>
+
+  <script src="js/github-store.js"></script>
+  <script src="js/plataforma.js"></script>
+  <script src="js/reglas.js"></script>
+  <script src="js/reglas-editor.js"></script>
+</body>
+</html>

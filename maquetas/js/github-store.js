@@ -13,6 +13,7 @@
   var USER_KEY = "nexoia-github-user";
   var CLAVE_KEY = "nexoia-clave";
   var LOCAL_KEY = "nexoia-local";
+  var RULES_KEY = "nexoia-reglas-local";
   var LOCAL_BASE = 900000;
   var onPages = /\.github\.io$/i.test(location.hostname);
   if (!onPages && !/[?&]github=1/.test(location.search)) return;
@@ -216,7 +217,48 @@
   }
   function pendingCount() {
     var s = localData();
-    return Object.keys(s.landings).length + Object.keys(s.clientes).length;
+    return Object.keys(s.landings).length + Object.keys(s.clientes).length + (readKey(RULES_KEY) ? 1 : 0);
+  }
+
+  /* Reglas de calidad: data/reglas.json */
+  function getRules() {
+    var local = null;
+    try { local = JSON.parse(readKey(RULES_KEY) || "null"); } catch (e) { local = null; }
+    if (local) { local.local = true; return Promise.resolve(local); }
+    var published = canPublish()
+      ? snapshot().then(function (snap) { return snap.files["data/reglas.json"] ? blobText(snap.files["data/reglas.json"]).then(JSON.parse) : {}; })
+      : fetch(siteRoot + "data/reglas.json?t=" + now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : {}; });
+    return published.catch(function () { return {}; });
+  }
+
+  function cleanRules(body) {
+    if (!body || typeof body.textos !== "object" || typeof body.imagenes !== "object") {
+      throw apiError(400, "Las reglas no tienen el formato esperado");
+    }
+    var data = JSON.parse(JSON.stringify(body));
+    delete data.local;
+    data.actualizado = now();
+    return data;
+  }
+
+  function saveRules(body) {
+    var data;
+    try { data = cleanRules(body); } catch (err) { return Promise.reject(err); }
+    if (!canPublish()) {
+      writeKey(RULES_KEY, JSON.stringify(data));
+      data.local = true;
+      return Promise.resolve(data);
+    }
+    return commit("Nexoia: actualizar reglas de calidad", function (ctx) {
+      ctx.put("data/reglas.json", json(data));
+      return data;
+    }).then(function (saved) { writeKey(RULES_KEY, ""); return saved; });
+  }
+
+  function publishRules() {
+    var local = readKey(RULES_KEY);
+    if (!local) return Promise.resolve();
+    return saveRules(JSON.parse(local));
   }
 
   function overlay(db) {
@@ -792,6 +834,7 @@
     Object.keys(store.clientes).forEach(function (k) {
       chain = chain.then(function () { return publishClient(Number(k)); });
     });
+    chain = chain.then(publishRules);
     return chain.then(function () { return { ok: true, landings: done }; });
   }
 
@@ -864,6 +907,10 @@
             return saveLanding(data, 0);
           });
         }
+      }
+      if (path === "/api/reglas") {
+        if (method === "GET") return getRules();
+        if (method === "PUT") return saveRules(body);
       }
       if (path === "/api/publicar" && method === "POST") return publishAll();
       if ((m = /^\/api\/landings\/(\d+)\/publish$/.exec(path)) && method === "POST") return publishLanding(Number(m[1]));
@@ -1040,7 +1087,7 @@
         });
       }
     });
-    window.addEventListener("storage", function (e) { if (e.key === LOCAL_KEY) renderBar(); });
+    window.addEventListener("storage", function (e) { if (e.key === LOCAL_KEY || e.key === RULES_KEY) renderBar(); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountBar);

@@ -36,6 +36,7 @@ TEMPLATES = os.path.join(ROOT, "Templates")
 DATA = os.path.join(ROOT, "data")
 DB_PATH = os.path.join(DATA, "nexoia.db")
 DB_JSON = os.path.join(DATA, "db.json")
+REGLAS_JSON = os.path.join(DATA, "reglas.json")
 LOGOS = os.path.join(DATA, "logos")
 PREVIEWS = os.path.join(DATA, "previews")
 CHROME_PATHS = (
@@ -74,6 +75,7 @@ ROUTES = [
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
+    (re.compile(r"^/api/reglas$"), "reglas"),
 ]
 
 LOCK = threading.RLock()
@@ -205,6 +207,28 @@ def export_db():
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
     os.replace(tmp, DB_JSON)
+
+
+def read_rules():
+    try:
+        with open(REGLAS_JSON, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_rules(data):
+    if not isinstance(data.get("textos"), dict) or not isinstance(data.get("imagenes"), dict):
+        raise ApiError(400, "Las reglas no tienen el formato esperado")
+    data["actualizado"] = now_ms()
+    tmp = REGLAS_JSON + ".tmp"
+    with LOCK:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+        os.replace(tmp, REGLAS_JSON)
+    return data
 
 
 def import_db():
@@ -784,7 +808,7 @@ class Handler(SimpleHTTPRequestHandler):
         ident = int(match.group(1)) if match.groups() else None
         try:
             result = self.dispatch(method, name, ident, parse_qs(url.query))
-            if method != "GET":
+            if method != "GET" and name != "reglas":
                 export_db()
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
@@ -834,6 +858,12 @@ class Handler(SimpleHTTPRequestHandler):
             landing = duplicate_landing(ident)
             print("Landing duplicada en " + landing["path"])
             return landing
+        if name == "reglas":
+            if method == "GET":
+                return read_rules()
+            if method == "PUT":
+                print("Reglas actualizadas en data/reglas.json")
+                return save_rules(self.read_json())
         raise ApiError(405, "Método no permitido")
 
     def do_GET(self):

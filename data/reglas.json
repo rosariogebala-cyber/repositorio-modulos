@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "general": {
+    "bloquear": false
+  },
+  "estructura": {
+    "obligatorios": [
+      "navegacion",
+      "hero-full-imagen",
+      "footer"
+    ],
+    "nivelObligatorios": "error",
+    "reglas": [
+      {
+        "id": "inicio-navegacion",
+        "label": "Empieza con la Navegación",
+        "activo": true,
+        "nivel": "error"
+      },
+      {
+        "id": "hero-segundo",
+        "label": "La portada va justo después de la Navegación",
+        "activo": true,
+        "nivel": "error"
+      },
+      {
+        "id": "fin-footer",
+        "label": "Termina con el Footer",
+        "activo": true,
+        "nivel": "error"
+      },
+      {
+        "id": "whatsapp",
+        "label": "Incluye el botón de WhatsApp",
+        "activo": true,
+        "nivel": "aviso"
+      },
+      {
+        "id": "sin-repetidos",
+        "label": "No repite el mismo tipo de sección",
+        "activo": true,
+        "nivel": "aviso"
+      },
+      {
+        "id": "min-modulos",
+        "label": "Cantidad mínima de secciones",
+        "activo": true,
+        "nivel": "aviso",
+        "valor": 5,
+        "unidad": "secciones"
+      },
+      {
+        "id": "max-modulos",
+        "label": "Cantidad máxima de secciones",
+        "activo": true,
+        "nivel": "aviso",
+        "valor": 12,
+        "unidad": "secciones"
+      },
+      {
+        "id": "max-menu",
+        "label": "Ítems máximos en el menú",
+        "activo": true,
+        "nivel": "error",
+        "valor": 6,
+        "unidad": "ítems"
+      },
+      {
+        "id": "nombre-max",
+        "label": "Largo máximo del nombre de la landing",
+        "activo": true,
+        "nivel": "aviso",
+        "valor": 60,
+        "unidad": "caracteres"
+      }
+    ]
+  },
+  "textos": {
+    "viudas": true,
+    "ejemplos": true,
+    "listaEjemplos": [
+      "example.com",
+      "5491123456789",
+      "lorem ipsum",
+      "Nexoia",
+      "Tu marca",
+      "Nombre Apellido"
+    ],
+    "roles": [
+      {
+        "id": "kicker",
+        "label": "Antetítulo",
+        "selector": ".nx-kicker, .plan-kicker",
+        "min": 0,
+        "max": 32,
+        "activo": true
+      },
+      {
+        "id": "faq",
+        "label": "Pregunta frecuente",
+        "selector": ".accordion-button",
+        "min": 10,
+        "max": 90,
+        "activo": true
+      },
+      {
+        "id": "hero-titulo",
+        "label": "Título de portada",
+        "selector": ".nx-hero h1, .nx-hero h2, .nx-hero .nx-display",
+        "min": 10,
+        "max": 60,
+        "activo": true
+      },
+      {
+        "id": "hero-bajada",
+        "label": "Bajada de portada",
+        "selector": ".nx-hero p",
+        "min": 0,
+        "max": 150,
+        "activo": true
+      },
+      {
+        "id": "titulo-seccion",
+        "label": "Título de sección",
+        "selector": "h1, h2",
+        "min": 4,
+        "max": 70,
+        "activo": true
+      },
+      {
+        "id": "bajada",
+        "label": "Bajada de sección",
+        "selector": ".nx-lead",
+        "min": 0,
+        "max": 180,
+        "activo": true
+      },
+      {
+        "id": "boton",
+        "label": "Botón",
+        "selector": ".btn-nx, .btn-nx-outline, .btn",
+        "min": 2,
+        "max": 24,
+        "activo": true
+      },
+      {
+        "id": "menu",
+        "label": "Ítem de menú",
+        "selector": ".nav-link",
+        "min": 2,
+        "max": 18,
+        "activo": true
+      },
+      {
+        "id": "titulo-tarjeta",
+        "label": "Título de tarjeta",
+        "selector": "h3, h4, h5, h6, .h4, .h5, .h6",
+        "min": 3,
+        "max": 48,
+        "activo": true
+      },
+      {
+        "id": "testimonio",
+        "label": "Testimonio",
+        "selector": ".quote-card p, blockquote",
+        "min": 0,
+        "max": 260,
+        "activo": true
+      },
+      {
+        "id": "parrafo",
+        "label": "Párrafo",
+        "selector": "p",
+        "min": 0,
+        "max": 320,
+        "activo": true
+      }
+    ]
+  },
+  "imagenes": {
+    "formatos": [
+      "webp",
+      "avif",
+      "jpg",
+      "jpeg",
+      "png",
+      "svg"
+    ],
+    "altObligatorio": true,
+    "altMax": 125,
+    "nitidez": 1.5,
+    "roles": [
+      {
+        "id": "logo",
+        "label": "Logo",
+        "selector": ".nx-brand img, img[alt*='logo' i], img[src*='logo' i]",
+        "minAncho": 0,
+        "minAlto": 80,
+        "proporcion": "",
+        "maxKB": 60,
+        "activo": true
+      },
+      {
+        "id": "avatar",
+        "label": "Foto de persona (avatar)",
+        "selector": ".nx-avatar",
+        "minAncho": 400,
+        "minAlto": 400,
+        "proporcion": "1:1",
+        "maxKB": 80,
+        "activo": true
+      },
+      {
+        "id": "equipo",
+        "label": "Foto de equipo",
+        "selector": ".person-card img",
+        "minAncho": 800,
+        "minAlto": 800,
+        "proporcion": "",
+        "maxKB": 200,
+        "activo": true
+      },
+      {
+        "id": "producto",
+        "label": "Foto de producto",
+        "selector": ".prod-card img, .prod-feature img",
+        "minAncho": 1000,
+        "minAlto": 1000,
+        "proporcion": "",
+        "maxKB": 250,
+        "activo": true
+      },
+      {
+        "id": "galeria",
+        "label": "Galería",
+        "selector": ".gal-card img, .bento-tile img, .fw-bleed img",
+        "minAncho": 1600,
+        "minAlto": 0,
+        "proporcion": "",
+        "maxKB": 350,
+        "activo": true
+      },
+      {
+        "id": "portada",
+        "label": "Portada y carrusel",
+        "selector": ".nx-hero",
+        "minAncho": 1920,
+        "minAlto": 1080,
+        "proporcion": "",
+        "maxKB": 450,
+        "activo": true
+      },
+      {
+        "id": "general",
+        "label": "Imagen general",
+        "selector": "img, [style*='background-image']",
+        "minAncho": 1200,
+        "minAlto": 0,
+        "proporcion": "",
+        "maxKB": 300,
+        "activo": true
+      }
+    ]
+  }
+}
