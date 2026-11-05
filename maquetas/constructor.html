@@ -96,7 +96,6 @@
       <div class="lb-statusbar">
         <p class="lb-status" data-lb-status role="status" aria-live="polite"></p>
         <div class="lb-preview-tools">
-          <button class="lb-qa" type="button" data-lb-qa hidden><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Calidad</span></button>
           <div class="split-toggle" role="group" aria-label="Dispositivo">
             <button type="button" data-lb-device="1280" aria-pressed="true" title="Escritorio"><i class="bi bi-display"></i><span> Escritorio</span></button>
             <button type="button" data-lb-device="820" aria-pressed="false" title="Tablet"><i class="bi bi-tablet"></i><span> Tablet</span></button>
@@ -106,6 +105,13 @@
         </div>
       </div>
       <p class="lb-msg" data-lb-msg role="status" aria-live="polite"></p>
+      <section class="lb-qa" data-lb-qa aria-label="Control de calidad" hidden>
+        <div class="lb-qa-head">
+          <p class="lb-qa-sum"><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Revisando calidad…</span></p>
+          <a class="lb-link" href="reglas.html">Editar reglas</a>
+        </div>
+        <ul class="lb-qa-list" data-lb-qa-list></ul>
+      </section>
       <div class="lb-viewport" data-lb-viewport>
         <div class="lb-device" data-lb-device-frame>
           <iframe title="Vista previa de la landing" data-lb-frame></iframe>
@@ -130,23 +136,6 @@
     <ul class="lb-saved" data-lb-saved></ul>
     <p class="lb-empty" data-lb-saved-empty>Todavía no creaste ninguna landing.</p>
     <p class="lb-dialog-foot"><a href="landings.html">Ver todas en Landings <i class="bi bi-arrow-right"></i></a></p>
-  </dialog>
-
-  <dialog class="lb-dialog lb-qa-dialog" data-lb-qa-dialog aria-labelledby="lbQaTitle">
-    <div class="lb-dialog-head">
-      <div>
-        <h2 id="lbQaTitle">Control de calidad</h2>
-        <p data-lb-qa-sub></p>
-      </div>
-      <button class="lb-dialog-close" type="button" data-lb-qa-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
-    </div>
-    <div class="lb-seg lb-qa-filter" role="group" aria-label="Filtrar" data-lb-qa-filter>
-      <button type="button" data-value="" aria-pressed="true">Todo</button>
-      <button type="button" data-value="error" aria-pressed="false">Errores</button>
-      <button type="button" data-value="aviso" aria-pressed="false">Avisos</button>
-    </div>
-    <div class="lb-qa-list" data-lb-qa-list></div>
-    <p class="lb-dialog-foot"><a href="reglas.html">Editar las reglas <i class="bi bi-arrow-right"></i></a></p>
   </dialog>
 
   <script src="js/github-store.js"></script>

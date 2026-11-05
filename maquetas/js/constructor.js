@@ -38,12 +38,9 @@
   var statusEl = $("[data-lb-status]");
   var tabCount = $("[data-lb-tab-count]");
   var orderFoot = $("[data-lb-order-foot]");
-  var qaBtn = $("[data-lb-qa]");
+  var qaBox = $("[data-lb-qa]");
   var qaLabel = $("[data-lb-qa-label]");
-  var qaDialog = $("[data-lb-qa-dialog]");
   var qaList = $("[data-lb-qa-list]");
-  var qaSub = $("[data-lb-qa-sub]");
-  var qaFilterSeg = $("[data-lb-qa-filter]");
   var api = window.Nexoia.api;
   var DEVICE_NAMES = { 1280: "Escritorio", 820: "Tablet", 390: "Celular" };
   var rules = null;
@@ -51,7 +48,6 @@
   var qaRun = 0;
   var qaBusy = false;
   var qaTimer = null;
-  var qaFilter = "";
 
   var library = [];
   var byId = {};
@@ -382,51 +378,29 @@
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 
   function renderQa() {
-    qaBtn.hidden = !rules || !state.items.length;
-    if (qaBtn.hidden) return;
+    qaBox.hidden = !rules || !state.items.length;
+    if (qaBox.hidden) return;
     var r = qaReport;
-    var tone = qaBusy && !r ? "is-busy" : !r ? "" : r.errors ? "is-error" : r.warnings ? "is-aviso" : "is-ok";
-    qaBtn.className = "lb-qa " + tone + (qaBusy ? " is-running" : "");
-    qaBtn.querySelector("i").className = "bi " + (tone === "is-ok" ? "bi-patch-check-fill" : tone === "is-error" ? "bi-exclamation-octagon-fill" : tone === "is-aviso" ? "bi-exclamation-triangle-fill" : "bi-shield-check");
+    var tone = !r ? "" : r.errors ? "is-error" : r.warnings ? "is-aviso" : "is-ok";
+    qaBox.className = "lb-qa " + tone + (qaBusy ? " is-running" : "");
+    qaBox.querySelector(".lb-qa-sum i").className = "bi " + (tone === "is-ok" ? "bi-patch-check-fill" : tone === "is-error" ? "bi-exclamation-octagon-fill" : tone === "is-aviso" ? "bi-exclamation-triangle-fill" : "bi-shield-check");
     if (!r) qaLabel.textContent = "Revisando calidad…";
-    else if (!r.issues.length) qaLabel.textContent = "Cumple las reglas";
-    else qaLabel.textContent = [r.errors ? plural(r.errors, "error", "errores") : "", r.warnings ? plural(r.warnings, "aviso", "avisos") : ""].filter(Boolean).join(" · ");
-    qaBtn.title = "Control de calidad · revisado en " + (DEVICE_NAMES[device] || "la vista previa");
-    if (qaDialog.open) renderQaList();
-  }
-
-  function renderQaList() {
-    var r = qaReport;
-    if (!r) { qaSub.textContent = "Revisando…"; qaList.innerHTML = ""; return; }
-    qaSub.textContent = "Puntaje " + r.score + "/100 · revisado en " + (DEVICE_NAMES[device] || "la vista previa") +
-      (rules.general.bloquear ? " · se guarda cuando no quedan errores." : ".");
-    var list = r.issues.filter(function (i) { return !qaFilter || i.level === qaFilter; });
-    if (!r.issues.length) {
-      qaList.innerHTML = '<p class="lb-qa-empty"><i class="bi bi-patch-check-fill"></i> La landing cumple todas las reglas.</p>';
-      return;
-    }
-    if (!list.length) { qaList.innerHTML = '<p class="lb-empty">No hay ' + (qaFilter === "error" ? "errores" : "avisos") + ".</p>"; return; }
-    var groups = [];
-    var byKey = {};
-    list.forEach(function (issue) {
-      var key = issue.module == null ? "general" : String(issue.module);
-      if (!byKey[key]) {
-        var it = issue.module == null ? null : state.items[issue.module];
-        byKey[key] = { title: it ? String(issue.module + 1).padStart(2, "0") + " · " + byId[it.id].group : "Toda la landing", sort: issue.module == null ? -1 : issue.module, issues: [] };
-        groups.push(byKey[key]);
-      }
-      byKey[key].issues.push(issue);
+    else if (!r.issues.length) qaLabel.textContent = "La landing cumple todas las reglas";
+    else qaLabel.textContent = [r.errors ? plural(r.errors, "error", "errores") : "", r.warnings ? plural(r.warnings, "aviso", "avisos") : ""].filter(Boolean).join(" · ") +
+      " en " + (DEVICE_NAMES[device] || "la vista previa").toLowerCase() + (rules.general.bloquear && r.errors ? ". Se guarda cuando no quedan errores." : "");
+    if (!r) return;
+    var list = r.issues.slice().sort(function (x, y) {
+      return (x.level === y.level ? 0 : x.level === "error" ? -1 : 1) || ((x.module == null ? -1 : x.module) - (y.module == null ? -1 : y.module));
     });
-    groups.sort(function (a, b) { return a.sort - b.sort; });
-    qaList.innerHTML = groups.map(function (g) {
-      return '<section class="lb-qa-group"><h3>' + escapeHtml(g.title) + "</h3><ul>" + g.issues.map(function (issue) {
-        var idx = r.issues.indexOf(issue);
-        return '<li class="lb-qa-item is-' + issue.level + '">' +
-          '<span class="rg-tag is-' + issue.level + '">' + (issue.level === "error" ? "Error" : "Aviso") + "</span>" +
-          '<span class="lb-qa-text"><b>' + escapeHtml(issue.text) + "</b>" + (issue.detail ? "<small>" + escapeHtml(issue.detail) + "</small>" : "") + "</span>" +
-          (issue.el || issue.module != null ? '<button type="button" class="lb-link" data-qa-show="' + idx + '">Ver</button>' : "") +
-          "</li>";
-      }).join("") + "</ul></section>";
+    qaList.hidden = !list.length;
+    qaList.innerHTML = list.map(function (issue) {
+      var it = issue.module == null ? null : state.items[issue.module];
+      var where = it ? String(issue.module + 1).padStart(2, "0") + " · " + byId[it.id].group : "Toda la landing";
+      return '<li class="lb-qa-item is-' + issue.level + '">' +
+        '<span class="rg-tag is-' + issue.level + '">' + (issue.level === "error" ? "Error" : "Aviso") + "</span>" +
+        '<span class="lb-qa-text"><b>' + escapeHtml(issue.text) + "</b><small>" + escapeHtml(where) + (issue.detail ? " · " + escapeHtml(issue.detail) : "") + "</small></span>" +
+        (issue.el || issue.module != null ? '<button type="button" class="lb-link" data-qa-show="' + r.issues.indexOf(issue) + '">Ver</button>' : "") +
+        "</li>";
     }).join("");
   }
 
@@ -436,7 +410,6 @@
     var el = issue.el && issue.el.isConnected ? issue.el : doc.querySelectorAll("body > section.mq-block")[issue.module];
     while (el && el.parentElement && !(el.getClientRects().length && el.getBoundingClientRect().height > 0)) el = el.parentElement;
     if (!el) return;
-    qaDialog.close();
     if (!doc.getElementById("lbQaStyle")) {
       var style = doc.createElement("style");
       style.id = "lbQaStyle";
@@ -451,22 +424,9 @@
     setTimeout(function () { el.classList.remove("lb-qa-flag"); }, 3200);
   }
 
-  qaBtn.addEventListener("click", function () {
-    renderQaList();
-    qaDialog.showModal();
-  });
-  $("[data-lb-qa-close]").addEventListener("click", function () { qaDialog.close(); });
-  qaDialog.addEventListener("click", function (e) {
-    if (e.target === qaDialog) { qaDialog.close(); return; }
+  qaList.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-qa-show]");
     if (btn && qaReport) showIssue(qaReport.issues[Number(btn.getAttribute("data-qa-show"))]);
-  });
-  qaFilterSeg.addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-value]");
-    if (!btn) return;
-    qaFilter = btn.getAttribute("data-value");
-    pressSeg(qaFilterSeg, qaFilter);
-    renderQaList();
   });
 
   function renderPreview() {
@@ -647,7 +607,7 @@
   function goTo(key) {
     if (key === "client") { clientSelect.focus(); return; }
     if (key === "name") { nameInput.focus(); return; }
-    if (key === "qa") { qaFilter = "error"; pressSeg(qaFilterSeg, qaFilter); renderQaList(); qaDialog.showModal(); return; }
+    if (key === "qa") { qaBox.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     showTab("add");
     search.scrollIntoView({ behavior: "smooth", block: "center" });
     search.focus({ preventScroll: true });
