@@ -27,7 +27,9 @@ from functools import partial
 from html import escape
 from pathlib import Path
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
+from urllib.request import Request, urlopen
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MAQUETAS = os.path.join(ROOT, "maquetas")
@@ -76,6 +78,7 @@ ROUTES = [
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
     (re.compile(r"^/api/reglas$"), "reglas"),
+    (re.compile(r"^/api/ia$"), "ia"),
 ]
 
 LOCK = threading.RLock()
@@ -770,6 +773,167 @@ def migrate_legacy():
         write_client_json(row)
 
 
+# --- IA (textos y módulos sugeridos) ------------------------------------------
+# La clave vive fuera del repositorio (el servidor publica toda la carpeta).
+
+IA_CONFIG = os.path.join(os.path.expanduser("~"), ".nexoia", "ia.json")
+IA_PROVIDERS = {
+    "anthropic": {"nombre": "Claude (Anthropic)", "modelo": "claude-haiku-5-5", "env": "ANTHROPIC_API_KEY"},
+    "openai": {"nombre": "ChatGPT (OpenAI)", "modelo": "gpt-6-luna", "env": "OPENAI_API_KEY"},
+}
+
+
+def ia_settings():
+    data = {}
+    if os.path.isfile(IA_CONFIG):
+        try:
+            with open(IA_CONFIG, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            data = {}
+    provider = data.get("proveedor") if data.get("proveedor") in IA_PROVIDERS else ""
+    key = data.get("clave") or ""
+    if not key:
+        for pid, info in IA_PROVIDERS.items():
+            if os.environ.get(info["env"]):
+                provider, key = pid, os.environ[info["env"]]
+                break
+    provider = provider or "anthropic"
+    model = data.get("modelo") or IA_PROVIDERS[provider]["modelo"]
+    return {"proveedor": provider, "clave": key, "modelo": model}
+
+
+def ia_status():
+    cfg = ia_settings()
+    return {"configurada": bool(cfg["clave"]), "proveedor": cfg["proveedor"], "modelo": cfg["modelo"],
+            "nombre": IA_PROVIDERS[cfg["proveedor"]]["nombre"]}
+
+
+def save_ia_settings(data):
+    provider = data.get("proveedor")
+    if provider not in IA_PROVIDERS:
+        raise ApiError(400, "Elegí Claude u OpenAI")
+    current = ia_settings()
+    key = str(data.get("clave") or "").strip() or (current["clave"] if current["proveedor"] == provider else "")
+    if not key:
+        raise ApiError(400, "Pegá la clave de la API")
+    model = str(data.get("modelo") or "").strip() or IA_PROVIDERS[provider]["modelo"]
+    os.makedirs(os.path.dirname(IA_CONFIG), exist_ok=True)
+    with open(IA_CONFIG, "w", encoding="utf-8") as fh:
+        json.dump({"proveedor": provider, "clave": key, "modelo": model}, fh)
+    os.chmod(IA_CONFIG, 0o600)
+    return ia_status()
+
+
+def ia_call(system, prompt):
+    cfg = ia_settings()
+    if not cfg["clave"]:
+        raise ApiError(400, "Configurá la IA: tocá «Configurar IA» y pegá la clave")
+    if cfg["proveedor"] == "openai":
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": "Bearer " + cfg["clave"], "Content-Type": "application/json"}
+        body = {"model": cfg["modelo"], "response_format": {"type": "json_object"},
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+    else:
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {"x-api-key": cfg["clave"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+        body = {"model": cfg["modelo"], "max_tokens": 16000, "system": system,
+                "messages": [{"role": "user", "content": prompt}]}
+    req = Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    try:
+        with urlopen(req, timeout=180) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except HTTPError as err:
+        try:
+            detail = json.loads(err.read().decode("utf-8")).get("error", {})
+            detail = detail.get("message") if isinstance(detail, dict) else str(detail)
+        except ValueError:
+            detail = ""
+        if err.code in (401, 403):
+            raise ApiError(400, "La clave de la IA no es válida. Revisala en «Configurar IA».")
+        raise ApiError(502, "La IA respondió con un error (%d). %s" % (err.code, detail or ""))
+    except (URLError, TimeoutError) as err:
+        raise ApiError(502, "No se pudo conectar con la IA: %s" % err)
+    if cfg["proveedor"] == "openai":
+        text = data["choices"][0]["message"]["content"] or ""
+    else:
+        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+    start, end = text.find("{"), text.rfind("}")
+    try:
+        return json.loads(text[start:end + 1])
+    except ValueError:
+        raise ApiError(502, "La IA no devolvió una respuesta válida. Probá de nuevo.")
+
+
+IA_SYSTEM = (
+    "Sos redactor y estratega de landing pages para pymes de Argentina. Escribís en español rioplatense, "
+    "con voseo, tono cercano y profesional, frases afirmativas y concretas. Nunca inventás datos de contacto, "
+    "precios, cifras, premios ni testimonios con nombres reales. Respondés solo con JSON válido, sin texto extra."
+)
+
+
+def ia_client_text(c):
+    c = c or {}
+    parts = ["Negocio: " + (c.get("nombre") or "sin nombre")]
+    for key, label in (("rubro", "Rubro"), ("notas", "Notas del cliente"), ("sitio", "Sitio actual")):
+        if c.get(key):
+            parts.append("%s: %s" % (label, c[key]))
+    return "\n".join(parts)
+
+
+def ia_suggest_modules(data):
+    catalog = data.get("catalogo") or []
+    if not catalog:
+        raise ApiError(400, "No llegó la lista de módulos")
+    prompt = (
+        ia_client_text(data.get("cliente")) + "\n"
+        + ("Objetivo de la landing: " + data["objetivo"] + "\n" if data.get("objetivo") else "")
+        + "\nReglas de estructura:\n" + str(data.get("reglas") or "") + "\n\n"
+        + "Módulos disponibles (id · sección · variante · descripción):\n"
+        + "\n".join("%s · %s · %s · %s" % (m.get("id"), m.get("grupo"), m.get("variante"), m.get("nota", "")) for m in catalog)
+        + "\n\nElegí los módulos para la landing de este negocio, en orden, cumpliendo las reglas de estructura "
+        + "(una sola variante por sección). Respondé con este JSON: "
+        + '{"modulos": ["id", ...], "motivo": "una o dos frases que expliquen la elección"}'
+    )
+    out = ia_call(IA_SYSTEM, prompt)
+    valid = {m.get("id") for m in catalog}
+    ids = [i for i in out.get("modulos") or [] if i in valid]
+    if not ids:
+        raise ApiError(502, "La IA no sugirió módulos válidos. Probá de nuevo.")
+    return {"modulos": ids, "motivo": str(out.get("motivo") or "")}
+
+
+def ia_write_texts(data):
+    textos = data.get("textos") or []
+    if not textos:
+        raise ApiError(400, "No hay textos para escribir")
+    lines = []
+    for t in textos:
+        limit = ""
+        if t.get("max"):
+            limit = " (entre %d y %d caracteres)" % (t.get("min") or 0, t["max"])
+        lines.append('[%s] %s · %s%s: "%s"' % (t.get("id"), t.get("seccion", ""), t.get("tipo", "texto"), limit, t.get("actual", "")))
+    prompt = (
+        ia_client_text(data.get("cliente")) + "\n"
+        + ("Objetivo de la landing: " + data["objetivo"] + "\n" if data.get("objetivo") else "")
+        + "\nEstos son los textos de ejemplo de la landing. Reescribí cada uno para este negocio, "
+        + "respetando el tipo de texto y SIEMPRE dentro del límite de caracteres indicado (contando espacios).\n"
+        + "- Mantené igual los datos de contacto, el nombre del negocio, los ítems del menú que solo navegan y los textos legales.\n"
+        + "- Si un texto no aplica al rubro, adaptalo a algo equivalente y verosímil.\n"
+        + "- En títulos podés destacar de 1 a 3 palabras entre *asteriscos*.\n"
+        + "- Sin comillas alrededor del texto.\n\n"
+        + "\n".join(lines)
+        + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
+    )
+    out = ia_call(IA_SYSTEM, prompt)
+    valid = {str(t.get("id")) for t in textos}
+    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
+              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
+    if not result:
+        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
+    return {"textos": result}
+
+
 # --- HTTP ----------------------------------------------------------------------
 
 class Handler(SimpleHTTPRequestHandler):
@@ -808,7 +972,7 @@ class Handler(SimpleHTTPRequestHandler):
         ident = int(match.group(1)) if match.groups() else None
         try:
             result = self.dispatch(method, name, ident, parse_qs(url.query))
-            if method != "GET" and name != "reglas":
+            if method != "GET" and name not in ("reglas", "ia"):
                 export_db()
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
@@ -864,6 +1028,20 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "PUT":
                 print("Reglas actualizadas en data/reglas.json")
                 return save_rules(self.read_json())
+        if name == "ia":
+            if method == "GET":
+                return ia_status()
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                raise ApiError(403, "La IA solo se usa desde la versión local")
+            if method == "PUT":
+                return save_ia_settings(self.read_json())
+            if method == "POST":
+                data = self.read_json()
+                if data.get("tarea") == "modulos":
+                    return ia_suggest_modules(data)
+                if data.get("tarea") == "textos":
+                    return ia_write_texts(data)
+                raise ApiError(400, "Tarea de IA desconocida")
         raise ApiError(405, "Método no permitido")
 
     def do_GET(self):

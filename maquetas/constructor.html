@@ -55,6 +55,10 @@
         </div>
 
         <div id="lbPanelAdd" role="tabpanel" aria-labelledby="lbTabAdd" data-lb-panel="add">
+          <div class="lb-ai" data-lb-ai hidden>
+            <button class="lb-ai-btn" type="button" data-lb-ai-modules><i class="bi bi-stars" aria-hidden="true"></i> Sugerir módulos con IA</button>
+            <button class="lb-link" type="button" data-lb-ai-config><i class="bi bi-gear" aria-hidden="true"></i> Configurar IA</button>
+          </div>
           <div class="lb-search">
             <i class="bi bi-search" aria-hidden="true"></i>
             <input type="search" placeholder="Buscar módulo" aria-label="Buscar módulo" data-lb-search>
@@ -97,6 +101,7 @@
         <p class="lb-status" data-lb-status role="status" aria-live="polite"></p>
         <div class="lb-preview-tools">
           <button class="lb-edit-btn" type="button" data-lb-edit aria-pressed="false" hidden><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar textos</button>
+          <button class="lb-edit-btn lb-ai-texts" type="button" data-lb-ai-texts hidden><i class="bi bi-stars" aria-hidden="true"></i> Escribir con IA</button>
           <div class="split-toggle" role="group" aria-label="Dispositivo">
             <button type="button" data-lb-device="1280" aria-pressed="true" title="Escritorio"><i class="bi bi-display"></i><span> Escritorio</span></button>
             <button type="button" data-lb-device="820" aria-pressed="false" title="Tablet"><i class="bi bi-tablet"></i><span> Tablet</span></button>
@@ -137,6 +142,32 @@
     <ul class="lb-saved" data-lb-saved></ul>
     <p class="lb-empty" data-lb-saved-empty>Todavía no creaste ninguna landing.</p>
     <p class="lb-dialog-foot"><a href="landings.html">Ver todas en Landings <i class="bi bi-arrow-right"></i></a></p>
+  </dialog>
+
+  <dialog class="lb-dialog lb-ia-dialog" data-lb-ia-dialog aria-labelledby="lbIaTitle">
+    <form method="dialog" data-lb-ia-form>
+      <div class="lb-dialog-head">
+        <div>
+          <h2 id="lbIaTitle">Configurar IA</h2>
+          <p>La clave queda guardada solo en esta computadora, fuera del&nbsp;proyecto.</p>
+        </div>
+        <button class="lb-dialog-close" type="button" data-lb-ia-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <label class="lb-label" for="lbIaProvider">Proveedor</label>
+      <select class="lb-input" id="lbIaProvider" data-lb-ia-provider>
+        <option value="anthropic">Claude (Anthropic), recomendado</option>
+        <option value="openai">ChatGPT (OpenAI)</option>
+      </select>
+      <label class="lb-label lb-label-gap" for="lbIaKey">Clave de la API</label>
+      <input class="lb-input" id="lbIaKey" type="password" autocomplete="off" spellcheck="false" data-lb-ia-key>
+      <p class="lb-hint" data-lb-ia-hint></p>
+      <label class="lb-label lb-label-gap" for="lbIaModel">Modelo <span class="lb-optional">(opcional)</span></label>
+      <input class="lb-input" id="lbIaModel" type="text" autocomplete="off" spellcheck="false" data-lb-ia-model>
+      <p class="lb-msg" data-lb-ia-msg role="status" aria-live="polite"></p>
+      <div class="lb-ia-foot">
+        <button class="btn-nx btn-sm" type="submit" data-lb-ia-save><i class="bi bi-check2"></i> Guardar</button>
+      </div>
+    </form>
   </dialog>
 
   <script src="js/github-store.js"></script>

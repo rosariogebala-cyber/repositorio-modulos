@@ -3114,6 +3114,33 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-edit-btn[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
 .lb-edit-btn[hidden] { display: none; }
 .lb-preview-tools { flex-wrap: wrap; justify-content: flex-end; }
+
+/* IA en el constructor */
+.lb-ai { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+.lb-ai[hidden], .lb-ai-texts[hidden] { display: none; }
+.lb-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid #b9d9ca;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eef8f3, #e3f1ff);
+  color: var(--green-deep, #12432f);
+  font-size: 14px;
+  font-weight: 700;
+}
+.lb-ai-btn:hover { border-color: var(--green); }
+.lb-ai-btn:disabled, .lb-ai-texts:disabled { opacity: 0.6; cursor: progress; }
+.lb-ai-texts { border-color: #b9d9ca; background: linear-gradient(135deg, #eef8f3, #e3f1ff); color: var(--green-deep, #12432f); }
+.lb-ai-btn.is-busy i, .lb-ai-texts.is-busy i { animation: lb-ai-pulse 1s ease-in-out infinite alternate; }
+@keyframes lb-ai-pulse { from { opacity: 1; } to { opacity: 0.25; } }
+.lb-ia-dialog { width: min(480px, calc(100vw - 32px)); }
+.lb-ia-dialog .lb-msg { margin-top: 12px; }
+.lb-ia-dialog .lb-hint a { color: var(--green); font-weight: 600; }
+.lb-optional { font-weight: 400; color: #5b6f86; }
+.lb-ia-foot { display: flex; justify-content: flex-end; margin-top: 18px; }
 .rg-savebar {
   position: fixed;
   left: 50%;

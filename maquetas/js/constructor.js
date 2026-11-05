@@ -620,6 +620,220 @@
     beginEdit(el, true);
   }
 
+  /* IA: sugerir módulos y escribir textos. Solo con el servidor local: la clave nunca llega al navegador. */
+  var aiBar = $("[data-lb-ai]");
+  var aiModulesBtn = $("[data-lb-ai-modules]");
+  var aiTextsBtn = $("[data-lb-ai-texts]");
+  var aiDialog = $("[data-lb-ia-dialog]");
+  var aiProvider = $("[data-lb-ia-provider]");
+  var aiKey = $("[data-lb-ia-key]");
+  var aiModel = $("[data-lb-ia-model]");
+  var aiHint = $("[data-lb-ia-hint]");
+  var aiMsg = $("[data-lb-ia-msg]");
+  var AI_MODELS = { anthropic: "claude-haiku-5-5", openai: "gpt-6-luna" };
+  var AI_KEYS = { anthropic: "https://console.anthropic.com/settings/keys", openai: "https://platform.openai.com/api-keys" };
+  var ai = null;
+  var aiBusy = false;
+  var aiAfter = null;
+  var aiUndo = null;
+
+  function loadAi() {
+    if (window.NexoiaGitHub) return;
+    api("GET", "/api/ia").then(function (data) { ai = data; renderAi(); }, function () { ai = null; renderAi(); });
+  }
+
+  function renderAi() {
+    aiBar.hidden = !ai;
+    aiTextsBtn.hidden = !ai || !state.items.length;
+  }
+
+  function aiSay(text, tone) {
+    aiMsg.textContent = text || "";
+    aiMsg.className = "lb-msg" + (tone ? " is-" + tone : "");
+  }
+
+  function renderAiHint() {
+    var p = aiProvider.value;
+    aiModel.placeholder = AI_MODELS[p];
+    aiKey.placeholder = p === "openai" ? "sk-…" : "sk-ant-…";
+    var saved = ai && ai.configurada && ai.proveedor === p;
+    aiHint.innerHTML = (saved ? "Ya hay una clave guardada: dejá el campo vacío para mantenerla. " : "") +
+      '<a href="' + AI_KEYS[p] + '" target="_blank" rel="noopener">Conseguí tu clave&nbsp;acá</a>.';
+  }
+
+  function openAiConfig(then) {
+    aiProvider.value = ai.proveedor;
+    aiKey.value = "";
+    aiModel.value = ai.modelo !== AI_MODELS[ai.proveedor] ? ai.modelo : "";
+    aiAfter = then || null;
+    renderAiHint();
+    aiSay("");
+    aiDialog.showModal();
+    aiKey.focus();
+  }
+
+  function withAi(fn) {
+    if (!ai || aiBusy) return;
+    if (ai.configurada) fn();
+    else openAiConfig(fn);
+  }
+
+  function aiRequest(btn, body, waitText) {
+    aiBusy = true;
+    aiModulesBtn.disabled = aiTextsBtn.disabled = true;
+    btn.classList.add("is-busy");
+    say(waitText);
+    return api("POST", "/api/ia", body).catch(function (err) {
+      var config = /clave|Configurá/i.test(err.message);
+      say(err.message, "warn", config ? { act: "ia-config", text: "Configurar IA" } : []);
+      throw err;
+    }).finally(function () {
+      aiBusy = false;
+      aiModulesBtn.disabled = aiTextsBtn.disabled = false;
+      btn.classList.remove("is-busy");
+    });
+  }
+
+  function aiClient() {
+    var c = currentClient() || {};
+    return { nombre: c.nombre || "", rubro: c.rubro || "", notas: c.notas || "", sitio: c.sitio || "" };
+  }
+
+  function suggestModules() {
+    if (!currentClient()) {
+      say("Elegí el cliente primero: la IA arma la propuesta según su rubro.", "warn");
+      clientSelect.focus();
+      return;
+    }
+    if (state.items.length && !window.confirm("La sugerencia reemplaza los " + state.items.length + " módulos que elegiste. ¿Seguimos?")) return;
+    var names = {};
+    library.forEach(function (g) { names[g.id] = g.name; });
+    var catalogo = [];
+    library.forEach(function (g) {
+      g.modules.forEach(function (m) { catalogo.push({ id: m.id, grupo: g.name, variante: m.variant, nota: m.note }); });
+    });
+    var reglas = rules && window.NexoiaReglas ? window.NexoiaReglas.toPrompt(rules, names).split("\nTEXTOS")[0] : "";
+    aiRequest(aiModulesBtn, { tarea: "modulos", cliente: aiClient(), objetivo: state.name.trim(), catalogo: catalogo, reglas: reglas },
+      "La IA está eligiendo los módulos para " + currentClient().nombre + "…").then(function (data) {
+      aiUndo = JSON.stringify(state.items);
+      state.items = data.modulos.map(function (id) { return { id: id, width: "full" }; });
+      update();
+      showTab("order");
+      say("La IA sugirió " + data.modulos.length + " módulos. " + data.motivo, "ok", { act: "ia-undo", text: "Deshacer" });
+    }, function () { /* el error ya se mostró */ });
+  }
+
+  function aiTextList() {
+    var doc = frameDoc();
+    var out = [];
+    if (!doc) return out;
+    doc.querySelectorAll("body > section.mq-block").forEach(function (section, m) {
+      var it = state.items[m];
+      if (!it) return;
+      var seen = {};
+      section.querySelectorAll("[data-lb-t]").forEach(function (el) {
+        var k = el.getAttribute("data-lb-t");
+        if (seen[k] || el.closest(".lp-tools, .nav-link, a[href^='mailto:'], a[href^='tel:'], a[href*='wa.me']")) return;
+        seen[k] = true;
+        var text = window.NexoiaReglas.norm(el.textContent);
+        if (text.length < 2 || /@|^\+?[\d\s().-]{6,}$/.test(text)) return;
+        var role = rules ? window.NexoiaReglas.textRole(el, rules) : null;
+        out.push({
+          id: m + "." + k,
+          seccion: byId[it.id].group,
+          tipo: role ? role.label : "Texto",
+          min: role && role.min || 0,
+          max: role && role.max || 0,
+          actual: text
+        });
+      });
+    });
+    return out;
+  }
+
+  function aiHtml(el, text) {
+    var nodes = Array.prototype.slice.call(el.childNodes);
+    var keep = function (n) { return n && (n.nodeType === 1 ? n.matches("i, svg, img, .bi") : !/\S/.test(n.nodeValue)); };
+    var piece = function (n) { return n.nodeType === 1 ? n.outerHTML : n.nodeValue; };
+    var lead = "";
+    var trail = "";
+    while (keep(nodes[0])) lead += piece(nodes.shift());
+    while (keep(nodes[nodes.length - 1])) trail = piece(nodes.pop()) + trail;
+    if (lead && !/\s$/.test(lead) && nodes[0] && /^\s/.test(nodes[0].textContent)) lead += " ";
+    if (trail && !/^\s/.test(trail) && nodes.length && /\s$/.test(nodes[nodes.length - 1].textContent)) trail = " " + trail;
+    var body = escapeHtml(text.replace(/^["«“]+|["»”]+$/g, ""));
+    body = el.querySelector("em") ? body.replace(/\*([^*]+)\*/g, "<em>$1</em>") : body.replace(/\*/g, "");
+    return lead + body + trail;
+  }
+
+  function writeTexts() {
+    var textos = aiTextList();
+    if (!textos.length) { say("Todavía no hay textos en la vista previa. Sumá módulos y esperá a que cargue.", "warn"); return; }
+    if (!currentClient()) {
+      say("Elegí el cliente primero: la IA escribe los textos para su negocio.", "warn");
+      clientSelect.focus();
+      return;
+    }
+    setEditMode(false);
+    aiRequest(aiTextsBtn, { tarea: "textos", cliente: aiClient(), objetivo: state.name.trim(), textos: textos },
+      "La IA está escribiendo " + textos.length + " textos para " + currentClient().nombre + ". Puede tardar un minuto…").then(function (data) {
+      var doc = frameDoc();
+      var sections = doc ? doc.querySelectorAll("body > section.mq-block") : [];
+      var prev = JSON.stringify(state.items);
+      var count = 0;
+      data.textos.forEach(function (t) {
+        var parts = t.id.split(".");
+        var it = state.items[Number(parts[0])];
+        var el = sections[Number(parts[0])] && sections[Number(parts[0])].querySelector('[data-lb-t="' + parts[1] + '"]');
+        if (!it || !el) return;
+        var html = aiHtml(el, t.texto);
+        it.textos = it.textos || {};
+        if (html === originalText(it, parts[1])) delete it.textos[parts[1]];
+        else it.textos[parts[1]] = html;
+        if (!Object.keys(it.textos).length) delete it.textos;
+        count++;
+      });
+      aiUndo = prev;
+      renderMode();
+      renderOrder();
+      renderPreview();
+      saveDraft();
+      say("La IA escribió " + count + " textos. Revisalos en la vista previa: con «Editar textos» podés ajustar cualquiera.", "ok", { act: "ia-undo", text: "Deshacer" });
+    }, function () { /* el error ya se mostró */ });
+  }
+
+  function undoAi() {
+    if (!aiUndo) return;
+    state.items = JSON.parse(aiUndo);
+    aiUndo = null;
+    update();
+    say("Listo, volvió todo a como estaba antes de la IA.", "ok");
+  }
+
+  aiModulesBtn.addEventListener("click", function () { withAi(suggestModules); });
+  aiTextsBtn.addEventListener("click", function () { withAi(writeTexts); });
+  $("[data-lb-ai-config]").addEventListener("click", function () { if (ai) openAiConfig(); });
+  $("[data-lb-ia-close]").addEventListener("click", function () { aiDialog.close(); });
+  aiDialog.addEventListener("click", function (e) { if (e.target === aiDialog) aiDialog.close(); });
+  aiProvider.addEventListener("change", renderAiHint);
+  $("[data-lb-ia-form]").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var saveBtn = $("[data-lb-ia-save]");
+    saveBtn.disabled = true;
+    aiSay("Guardando…");
+    api("PUT", "/api/ia", { proveedor: aiProvider.value, clave: aiKey.value.trim(), modelo: aiModel.value.trim() })
+      .then(function (data) {
+        ai = data;
+        aiKey.value = "";
+        aiDialog.close();
+        say("IA lista: " + data.nombre + " con el modelo " + data.modelo + ".", "ok");
+        var next = aiAfter;
+        aiAfter = null;
+        if (next) next();
+      }, function (err) { aiSay(err.message, "warn"); })
+      .then(function () { saveBtn.disabled = false; });
+  });
+
   /* Control de calidad: revisa la vista previa con las reglas de reglas.html */
   function qaItems() {
     return state.items.map(function (it) { return { groupId: byId[it.id].groupId, group: byId[it.id].group }; });
@@ -860,6 +1074,7 @@
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
     editBtn.hidden = !state.items.length;
+    renderAi();
     stepDone(1, !!state.clienteId && !!state.name.trim());
     stepDone(2, state.items.length > 0);
 
@@ -1090,6 +1305,8 @@
     var btn = e.target.closest("[data-msg-act]");
     if (btn && btn.getAttribute("data-msg-act") === "new") newLanding();
     if (btn && btn.getAttribute("data-msg-act") === "publish") publishLanding(btn);
+    if (btn && btn.getAttribute("data-msg-act") === "ia-undo") undoAi();
+    if (btn && btn.getAttribute("data-msg-act") === "ia-config" && ai) openAiConfig();
   });
 
   newBtn.addEventListener("click", newLanding);
@@ -1235,6 +1452,7 @@
     renderClients();
     start();
     renderSaved();
+    loadAi();
   }).catch(function () {
     picker.innerHTML = '<p class="lb-empty">No se pudieron cargar los módulos. Abrí esta página desde el servidor local (http://), no como archivo.</p>';
   });
