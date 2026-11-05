@@ -232,8 +232,8 @@
     var win = opts.win || (doc && doc.defaultView) || window;
     var items = opts.items || [];
     var issues = [];
-    function add(level, area, module, text, detail, el) {
-      issues.push({ level: level, area: area, module: module, text: text, detail: detail || "", el: el || null });
+    function add(level, area, module, text, detail, el, extra) {
+      issues.push(Object.assign({ level: level, area: area, module: module, text: text, detail: detail || "", el: el || null }, extra || {}));
     }
 
     /* Estructura */
@@ -249,37 +249,37 @@
     }
     if (items.length) {
       rules.estructura.obligatorios.forEach(function (id) {
-        if (!has[id]) add(rules.estructura.nivelObligatorios || "error", "estructura", null, "Falta la sección «" + groupName(id) + "».", "Es obligatoria en todas las landings.");
+        if (!has[id]) add(rules.estructura.nivelObligatorios || "error", "estructura", null, "Falta la sección «" + groupName(id) + "».", "Es obligatoria en todas las landings.", null, { regla: "obligatorio", grupo: id });
       });
       if (est["inicio-navegacion"] && has.navegacion && flow[0] && flow[0].groupId !== "navegacion") {
-        add(est["inicio-navegacion"].nivel, "estructura", flow[0].index, "La landing empieza con «" + flow[0].group + "».", "Subí la Navegación al primer lugar.");
+        add(est["inicio-navegacion"].nivel, "estructura", flow[0].index, "La landing empieza con «" + flow[0].group + "».", "Subí la Navegación al primer lugar.", null, { regla: "orden" });
       }
       if (est["hero-segundo"] && has[GRUPO_HERO] && flow.length > 1) {
         var navAt = flow.findIndex(function (x) { return x.groupId === "navegacion"; });
         var heroAt = flow.findIndex(function (x) { return x.groupId === GRUPO_HERO; });
         if (heroAt !== (navAt === -1 ? 0 : navAt + 1)) {
-          add(est["hero-segundo"].nivel, "estructura", flow[heroAt].index, "La portada está en el lugar " + (flow[heroAt].index + 1) + ".", "Ubicala justo después de la Navegación.");
+          add(est["hero-segundo"].nivel, "estructura", flow[heroAt].index, "La portada está en el lugar " + (flow[heroAt].index + 1) + ".", "Ubicala justo después de la Navegación.", null, { regla: "orden" });
         }
       }
       if (est["fin-footer"] && has.footer && flow.length && flow[flow.length - 1].groupId !== "footer") {
-        add(est["fin-footer"].nivel, "estructura", flow[flow.length - 1].index, "La landing termina con «" + flow[flow.length - 1].group + "».", "Bajá el Footer al último lugar.");
+        add(est["fin-footer"].nivel, "estructura", flow[flow.length - 1].index, "La landing termina con «" + flow[flow.length - 1].group + "».", "Bajá el Footer al último lugar.", null, { regla: "orden" });
       }
-      if (est.whatsapp && !has.whatsapp) add(est.whatsapp.nivel, "estructura", null, "Falta el botón de WhatsApp.", "Sumalo desde «WhatsApp» en la lista de módulos.");
+      if (est.whatsapp && !has.whatsapp) add(est.whatsapp.nivel, "estructura", null, "Falta el botón de WhatsApp.", "Sumalo desde «WhatsApp» en la lista de módulos.", null, { regla: "obligatorio", grupo: "whatsapp" });
       if (est["sin-repetidos"]) {
         Object.keys(has).forEach(function (id) {
-          if (has[id] > 1) add(est["sin-repetidos"].nivel, "estructura", null, "«" + groupName(id) + "» aparece " + has[id] + " veces.", "Dejá una sola sección de ese tipo.");
+          if (has[id] > 1) add(est["sin-repetidos"].nivel, "estructura", null, "«" + groupName(id) + "» aparece " + has[id] + " veces.", "Dejá una sola sección de ese tipo.", null, { regla: "orden" });
         });
       }
       if (est["min-modulos"] && flow.length < est["min-modulos"].valor) {
-        add(est["min-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el mínimo es " + est["min-modulos"].valor + ".", "Sumá secciones para contar la propuesta completa.");
+        add(est["min-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el mínimo es " + est["min-modulos"].valor + ".", "Sumá secciones para contar la propuesta completa.", null, { regla: "sumar" });
       }
       if (est["max-modulos"] && flow.length > est["max-modulos"].valor) {
-        add(est["max-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el máximo es " + est["max-modulos"].valor + ".", "Quitá las que repiten información.");
+        add(est["max-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el máximo es " + est["max-modulos"].valor + ".", "Quitá las que repiten información.", null, { regla: "orden" });
       }
     }
     var name = norm(opts.name);
     if (est["nombre-max"] && name.length > est["nombre-max"].valor) {
-      add(est["nombre-max"].nivel, "estructura", null, "El nombre tiene " + name.length + " caracteres y el máximo es " + est["nombre-max"].valor + ".", "Usá un nombre más corto.");
+      add(est["nombre-max"].nivel, "estructura", null, "El nombre tiene " + name.length + " caracteres y el máximo es " + est["nombre-max"].valor + ".", "Usá un nombre más corto.", null, { regla: "nombre" });
     }
     if (!doc || !doc.body) return Promise.resolve(report(issues));
 
@@ -295,7 +295,7 @@
         safeAll(root, ".nav-link").forEach(function (a) { var t = norm(a.textContent).toLowerCase(); if (t) seen[t] = true; });
         var count = Object.keys(seen).length;
         if (count > est["max-menu"].valor) {
-          add(est["max-menu"].nivel, "estructura", mi, "El menú tiene " + count + " ítems y el máximo es " + est["max-menu"].valor + ".", "Agrupá o quitá ítems del menú.");
+          add(est["max-menu"].nivel, "estructura", mi, "El menú tiene " + count + " ítems y el máximo es " + est["max-menu"].valor + ".", "Agrupá o quitá ítems del menú.", null, { regla: "menu" });
         }
       }
 
@@ -322,7 +322,7 @@
           add("aviso", "textos", mi, role.label + ": " + len + " caracteres, el mínimo es " + role.min + ".", "«" + cut(text) + "»", c.el);
         }
         if (rules.textos.viudas && role.id !== "boton" && role.id !== "menu" && isWidow(c.el)) {
-          add("aviso", "textos", mi, role.label + ": queda una palabra sola en la última línea.", "«" + cut(text) + "» · Uní las dos últimas palabras con un espacio duro (&nbsp;).", c.el);
+          add("aviso", "textos", mi, role.label + ": queda una palabra sola en la última línea.", "«" + cut(text) + "»", c.el, { viuda: true });
         }
       });
 
@@ -332,11 +332,14 @@
           if (ignored(el)) return;
           ["href", "src", "alt", "title", "placeholder"].forEach(function (a) { if (el.getAttribute(a)) haystack.push(el.getAttribute(a)); });
         });
-        var hay = haystack.join(" ").toLowerCase();
+        var hay = haystack.join(" ");
+        var hayLow = hay.toLowerCase();
         rules.textos.listaEjemplos.forEach(function (s) {
           s = norm(s);
-          if (s && hay.indexOf(s.toLowerCase()) !== -1) {
-            add("error", "textos", mi, "Dato de ejemplo «" + s + "».", "Reemplazalo por el dato real del cliente.");
+          var loose = s.indexOf(" ") === -1 || s === s.toLowerCase();
+          var found = s && (loose ? hayLow.indexOf(s.toLowerCase()) !== -1 : hay.indexOf(s) !== -1);
+          if (found) {
+            add("error", "textos", mi, "Dato de ejemplo «" + s + "».", "Reemplazalo por el dato real del cliente.", null, { ejemplo: s });
           }
         });
       }
@@ -455,12 +458,27 @@
     return L.join("\n");
   }
 
+  function textRole(el, rules) {
+    var root = el.closest(".mq-frame") || el.ownerDocument.body;
+    var roles = (rules || merge(null)).textos.roles;
+    for (var i = 0; i < roles.length; i++) {
+      var role = roles[i];
+      if (!role.activo || !role.selector) continue;
+      for (var p = el; p && p !== root; p = p.parentElement) {
+        try { if (p.matches(role.selector)) return role; } catch (e) { break; }
+      }
+    }
+    return null;
+  }
+
   window.NexoiaReglas = {
     defaults: function () { return clone(DEFAULTS); },
     merge: merge,
     load: load,
     save: save,
     check: check,
+    textRole: textRole,
+    norm: norm,
     toPrompt: toPrompt,
     proporciones: PROPORCIONES
   };
