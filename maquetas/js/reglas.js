@@ -10,9 +10,9 @@
       obligatorios: ["navegacion", "hero-full-imagen", "footer"],
       nivelObligatorios: "error",
       reglas: [
-        { id: "inicio-navegacion", label: "Empieza con la Navegación", activo: true, nivel: "error" },
+        { id: "inicio-navegacion", label: "Navegación siempre arriba de todo", activo: true, nivel: "error" },
         { id: "hero-segundo", label: "La portada va justo después de la Navegación", activo: true, nivel: "error" },
-        { id: "fin-footer", label: "Termina con el Footer", activo: true, nivel: "error" },
+        { id: "fin-footer", label: "Footer siempre al final", activo: true, nivel: "error" },
         { id: "whatsapp", label: "Incluye el botón de WhatsApp", activo: true, nivel: "aviso" },
         { id: "sin-repetidos", label: "No repite el mismo tipo de sección", activo: true, nivel: "aviso" },
         { id: "min-modulos", label: "Cantidad mínima de secciones", activo: true, nivel: "aviso", valor: 5, unidad: "secciones" },
@@ -221,6 +221,8 @@
     return m ? m[1].toLowerCase() : "";
   }
 
+  var CLIENT_FIELDS = { email: "El email", telefono: "El teléfono", nombre: "El nombre", direccion: "La dirección", sitio: "El sitio web" };
+
   function bgUrl(el) {
     var m = /url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(el.style.backgroundImage || "");
     return m ? m[1] : "";
@@ -234,6 +236,13 @@
     var issues = [];
     function add(level, area, module, text, detail, el, extra) {
       issues.push(Object.assign({ level: level, area: area, module: module, text: text, detail: detail || "", el: el || null }, extra || {}));
+    }
+    var clientReported = {};
+    function clientField(sample) {
+      var c = opts.cliente;
+      if (!c) return "";
+      var low = sample.toLowerCase();
+      return Object.keys(CLIENT_FIELDS).filter(function (k) { return c[k] && String(c[k]).toLowerCase().indexOf(low) !== -1; })[0] || "";
     }
 
     /* Estructura */
@@ -338,9 +347,16 @@
           s = norm(s);
           var loose = s.indexOf(" ") === -1 || s === s.toLowerCase();
           var found = s && (loose ? hayLow.indexOf(s.toLowerCase()) !== -1 : hay.indexOf(s) !== -1);
-          if (found) {
-            add("error", "textos", mi, "Dato de ejemplo «" + s + "».", "Reemplazalo por el dato real del cliente.", null, { ejemplo: s });
+          if (!found) return;
+          var field = clientField(s);
+          if (field) {
+            if (clientReported[field]) return;
+            clientReported[field] = true;
+            add("error", "textos", null, CLIENT_FIELDS[field] + " del cliente es de ejemplo: «" + norm(opts.cliente[field]) + "».",
+              "Cargá el dato real en los datos del cliente: se aplica a toda la landing.", null, { ejemplo: s, campo: field });
+            return;
           }
+          add("error", "textos", mi, "Dato de ejemplo «" + s + "».", "Reemplazalo por el dato real del cliente.", null, { ejemplo: s });
         });
       }
 

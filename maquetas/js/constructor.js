@@ -170,22 +170,42 @@
     update();
   }
 
+  function ruleOn(id) {
+    return !!(rules && rules.estructura.reglas.some(function (r) { return r.id === id && r.activo; }));
+  }
+
+  function pinOf(it) {
+    var group = it && byId[it.id] && byId[it.id].groupId;
+    if (group === "navegacion" && ruleOn("inicio-navegacion")) return -1;
+    if (group === "footer" && ruleOn("fin-footer")) return 1;
+    return 0;
+  }
+
+  function pinOrder() {
+    state.items = state.items.map(function (it, i) { return { it: it, i: i }; })
+      .sort(function (a, b) { return pinOf(a.it) - pinOf(b.it) || a.i - b.i; })
+      .map(function (x) { return x.it; });
+  }
+
   function renderOrder() {
     orderList.innerHTML = "";
     state.items.forEach(function (it, i) {
       var m = byId[it.id];
+      var pin = pinOf(it);
+      var noUp = i === 0 || pin !== 0 || pinOf(state.items[i - 1]) === -1;
+      var noDown = i === state.items.length - 1 || pin !== 0 || pinOf(state.items[i + 1]) === 1;
       var li = document.createElement("li");
       li.className = "lb-item";
       li.innerHTML =
         '<span class="lb-item-num">' + String(i + 1).padStart(2, "0") + "</span>" +
-        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + (it.links ? " · links cambiados" : "") + (it.ocultos ? " · ítems quitados" : "") + "</small></span>" +
+        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (pin === -1 ? " · fija arriba" : pin === 1 ? " · fijo al final" : "") + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + (it.links ? " · links cambiados" : "") + (it.ocultos ? " · ítems quitados" : "") + "</small></span>" +
         '<span class="lb-seg lb-item-seg" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
         '<button type="button" data-act="width" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
         '<button type="button" data-act="width" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
         "</span>" +
         '<span class="lb-item-tools">' +
-        '<button type="button" data-act="up" aria-label="Subir ' + escapeHtml(m.group) + '"' + (i === 0 ? " disabled" : "") + '><i class="bi bi-arrow-up"></i></button>' +
-        '<button type="button" data-act="down" aria-label="Bajar ' + escapeHtml(m.group) + '"' + (i === state.items.length - 1 ? " disabled" : "") + '><i class="bi bi-arrow-down"></i></button>' +
+        '<button type="button" data-act="up" aria-label="Subir ' + escapeHtml(m.group) + '"' + (noUp ? " disabled" : "") + '><i class="bi bi-arrow-up"></i></button>' +
+        '<button type="button" data-act="down" aria-label="Bajar ' + escapeHtml(m.group) + '"' + (noDown ? " disabled" : "") + '><i class="bi bi-arrow-down"></i></button>' +
         '<button type="button" data-act="remove" aria-label="Quitar ' + escapeHtml(m.group) + '"><i class="bi bi-x-lg"></i></button>' +
         "</span>";
       li.addEventListener("click", function (e) {
@@ -1448,7 +1468,7 @@
     renderQa();
     var fonts = doc && doc.fonts ? doc.fonts.ready.catch(function () {}) : Promise.resolve();
     fonts.then(function () {
-      return window.LanzateReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name,
+      return window.LanzateReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name, cliente: currentClient(),
         groupNames: library.reduce(function (acc, g) { acc[g.id] = g.name; return acc; }, {}) });
     }).then(function (report) {
       if (run !== qaRun) return;
@@ -1568,6 +1588,12 @@
   }
 
   function fixAction(issue) {
+    if (issue.campo) {
+      return function () {
+        openClientForm(issue.campo);
+        say("Cambiá " + (FIELD_NAMES[issue.campo] || "el dato") + " de ejemplo por el real: se aplica solo en toda la landing.", "ok");
+      };
+    }
     if (issue.ejemplo) {
       var field = EXAMPLE_FIELDS[issue.ejemplo];
       var client = currentClient();
@@ -1650,6 +1676,7 @@
   }
 
   function update() {
+    pinOrder();
     renderMode();
     renderOrder();
     renderPicker();
@@ -2132,6 +2159,12 @@
   if (window.LanzateReglas) {
     window.LanzateReglas.load().then(function (loaded) {
       rules = loaded;
+      if (library.length) {
+        var before = state.items.map(function (it) { return it.id; }).join();
+        pinOrder();
+        if (state.items.map(function (it) { return it.id; }).join() !== before) update();
+        else renderOrder();
+      }
       scheduleQa(0);
     });
   }
