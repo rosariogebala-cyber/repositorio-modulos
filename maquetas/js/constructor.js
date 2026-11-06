@@ -198,7 +198,8 @@
 
   function menuDefault(it) {
     var limit = menuLimit();
-    if (!limit || !byId[it.id] || byId[it.id].groupId !== "navegacion") return it;
+    if (!limit || !isMenu(it)) return it;
+    it.menuAjustado = true;
     var extra = menuEntries(it).entries.slice(limit);
     if (!extra.length) return it;
     it.ocultos = {};
@@ -206,9 +207,17 @@
     return it;
   }
 
+  function isMenu(it) { return !!(byId[it.id] && byId[it.id].groupId === "navegacion"); }
+
+  /* Menús guardados antes del límite: arrancan con los recomendados y el resto queda para sumar */
+  function menuDefaults(items) {
+    items.forEach(function (it) { if (isMenu(it) && !it.menuAjustado && !it.ocultos) menuDefault(it); });
+  }
+
   function showMenuItem(index) {
     var it = state.items[index];
     if (!it || !it.ocultos) return;
+    it.menuAjustado = true;
     var info = menuEntries(it);
     var hidden = menuHidden(it, info);
     var next = info.entries.find(function (e) { return hidden[e.text.toLowerCase()]; });
@@ -1730,6 +1739,7 @@
     endEdit();
     it.ocultos = it.ocultos || {};
     it.ocultos[el.getAttribute("data-lb-l")] = true;
+    it.menuAjustado = true;
     update();
     say("Quitaste «" + label + "» del menú. Para sumarlo de nuevo: «Ítem al menú» en la barra del módulo.", "ok");
   }
@@ -2396,12 +2406,14 @@
         if (it.imagenes) item.imagenes = it.imagenes;
         if (it.links) item.links = it.links;
         if (it.ocultos) item.ocultos = it.ocultos;
+        if (it.menuAjustado) item.menuAjustado = true;
         return item;
       }),
       estilo: lp.estilo || "",
       ignorados: lp.ignorados || []
     };
     savedSnapshot = snapshot();
+    menuDefaults(state.items);
     nameInput.value = state.name;
     clientSelect.value = String(state.clienteId);
     update();
@@ -2736,6 +2748,7 @@
       ignorados: draft.ignorados || []
     };
     savedSnapshot = draft.saved || null;
+    if (!state.landingId) menuDefaults(state.items);
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
