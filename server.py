@@ -60,7 +60,13 @@ SESSION_DAYS = 30
 COOKIE = "lz_sesion"
 
 CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "direccion", "horario",
-                 "instagram", "facebook", "linkedin", "logo_modo", "color_primario", "color_secundario", "notas", "estado")
+                 "instagram", "facebook", "linkedin", "logo_modo", "color_primario", "color_secundario", "notas", "estado",
+                 "ga4", "gtm", "meta_pixel")
+TRACKING = {
+    "ga4": (re.compile(r"^G-[A-Z0-9]{4,20}$"), "el código de Google Analytics empieza con G- (por ejemplo, G-AB12CD34EF)"),
+    "gtm": (re.compile(r"^GTM-[A-Z0-9]{4,12}$"), "el código de Tag Manager empieza con GTM- (por ejemplo, GTM-AB12CD3)"),
+    "meta_pixel": (re.compile(r"^\d{8,20}$"), "el píxel de Meta es un número de 15 o 16 dígitos"),
+}
 COLOR_DEFAULTS = {"color_primario": "#1b5e42", "color_secundario": "#e7f3ee"}
 ESTADOS = ("activo", "pausado")
 LOGO_MODOS = ("imagen", "imagen-texto", "texto")
@@ -152,6 +158,9 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT ''
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ga4 TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 CREATE TABLE IF NOT EXISTS consultas (
   id BIGSERIAL PRIMARY KEY,
@@ -278,6 +287,11 @@ def clean_client(data):
         values["logo_modo"] = ""
     if values["estado"] not in ESTADOS:
         values["estado"] = "activo"
+    for field, (pattern, hint) in TRACKING.items():
+        value = re.sub(r"\s+", "", values[field]).upper()
+        if value and not pattern.match(value):
+            raise ApiError(400, "Revisá la medición: " + hint)
+        values[field] = value
     return values
 
 
@@ -532,13 +546,39 @@ def landing_preview(landing_id):
 def landing_page(cliente_slug, slug):
     with tx() as con:
         row = con.execute(
-            "SELECT l.id, l.html FROM landings l JOIN clientes c ON c.id = l.cliente_id WHERE c.slug = %s AND l.slug = %s",
+            "SELECT l.id, l.html, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
     if not row or not row["html"]:
         return None
-    meta = '<meta name="lz-landing" content="%d">' % row["id"]
-    return row["html"].replace("</head>", meta + "</head>", 1)
+    head = '<meta name="lz-landing" content="%d">' % row["id"] + tracking_head(row)
+    html = row["html"].replace("</head>", head + "</head>", 1)
+    if row["gtm"]:
+        html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
+                      'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
+    return html
+
+
+def tracking_head(c):
+    """Códigos de medición del cliente; se validan al guardarlos (solo letras, números y guiones)."""
+    out = ""
+    if c["gtm"]:
+        out += ("<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});"
+                "var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;"
+                "j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})"
+                "(window,document,'script','dataLayer','%s');</script>" % c["gtm"])
+    if c["ga4"]:
+        out += ('<script async src="https://www.googletagmanager.com/gtag/js?id=%s"></script>'
+                "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}"
+                "gtag('js',new Date());gtag('config','%s');</script>" % (c["ga4"], c["ga4"]))
+    if c["meta_pixel"]:
+        out += ("<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?"
+                "n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;"
+                "n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];"
+                "s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');"
+                "fbq('init','%s');fbq('track','PageView');</script>" % c["meta_pixel"])
+    return out
 
 
 # --- Consultas que llegan desde los formularios de las landings publicadas -----

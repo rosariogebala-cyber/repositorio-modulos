@@ -3352,3 +3352,5 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .pf-lead { padding: 16px; }
   .pf-lead-head { flex-direction: column; gap: 4px; }
 }
+.pf-tracking { padding-top: 16px; border-top: 1px solid #ecebf3; }
+.pf-tracking .pf-help { display: block; margin-top: 2px; font-weight: 400; }

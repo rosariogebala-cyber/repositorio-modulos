@@ -79,7 +79,7 @@
 
   /* Formulario de cliente (alta y edición) */
   var form = null;
-  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "direccion", "horario", "instagram", "facebook", "linkedin", "notas"];
+  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "direccion", "horario", "instagram", "facebook", "linkedin", "notas", "ga4", "gtm", "meta_pixel"];
 
   function buildForm() {
     var dialog = document.createElement("dialog");
@@ -117,6 +117,11 @@
       '<div class="pf-field is-wide"><span>Estado</span><div class="lb-seg" role="group" aria-label="Estado del cliente" data-pf-estado>' +
       '<button type="button" data-value="activo" aria-pressed="true"><i class="bi bi-check-circle"></i> Activo</button>' +
       '<button type="button" data-value="pausado" aria-pressed="false"><i class="bi bi-pause-circle"></i> Pausado</button></div></div>' +
+      '<div class="pf-field is-wide pf-tracking"><span>Medición de campañas <em class="lb-optional">(opcional)</em></span>' +
+      '<small class="pf-help">Se cargan solos en todas las landings de este cliente, y miden cada consulta y cada clic en&nbsp;WhatsApp.</small></div>' +
+      '<label class="pf-field"><span>Google Analytics</span><input class="lb-input" name="ga4" placeholder="G-AB12CD34EF" autocomplete="off" spellcheck="false"></label>' +
+      '<label class="pf-field"><span>Google Tag Manager</span><input class="lb-input" name="gtm" placeholder="GTM-AB12CD3" autocomplete="off" spellcheck="false"></label>' +
+      '<label class="pf-field is-wide"><span>Píxel de Meta</span><input class="lb-input" name="meta_pixel" inputmode="numeric" placeholder="Número del píxel, ej: 123456789012345" autocomplete="off" spellcheck="false"></label>' +
       '<label class="pf-field is-wide"><span>Notas internas</span><textarea class="lb-input" name="notas" rows="3" placeholder="Acuerdos, fechas, preferencias…"></textarea></label>' +
       "</div>" +
       '<p class="lb-msg" data-pf-form-msg role="status" aria-live="polite"></p>' +
@@ -440,6 +445,7 @@
         }).join(" ")) +
         field("palette", "Colores", '<span class="pf-swatch" style="background:' + esc(c.color_primario) + '"></span><span class="pf-swatch" style="background:' + esc(c.color_secundario) + '"></span> ' + esc(c.color_primario) + " · " + esc(c.color_secundario)) +
         field("folder2", "Carpeta", esc(c.carpeta)) +
+        field("graph-up", "Medición", [c.ga4 ? "Analytics " + esc(c.ga4) : "", c.gtm ? "Tag Manager " + esc(c.gtm) : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean).join(" · ")) +
         "</dl>" +
         (c.notas ? '<div class="pf-notes"><strong>Notas internas</strong><p>' + esc(c.notas) + "</p></div>" : "");
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {

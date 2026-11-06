@@ -31,10 +31,26 @@
       web: trap ? trap.value : ""
     };
     return fetch("/api/consultas/nueva", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true })
-      .then(function (r) { return r.ok; }, function () { return false; });
+      .then(function (r) {
+        if (r.ok) track("consulta", tipo);
+        return r.ok;
+      }, function () { return false; });
+  }
+
+  /* Conversiones para Analytics, Tag Manager y Meta (si el cliente los cargó) */
+  function track(kind, detail) {
+    try {
+      if (window.dataLayer) window.dataLayer.push({ event: "lz_" + kind, lz_detalle: detail || "" });
+      if (window.gtag) window.gtag("event", kind === "consulta" ? "generate_lead" : "contact", { method: detail || kind });
+      if (window.fbq) window.fbq("track", kind === "consulta" ? "Lead" : "Contact");
+    } catch (e) { /* la medición nunca frena a la landing */ }
   }
 
   if (leadMeta) {
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest('a[href*="wa.me/"], a[href^="tel:"], a[href^="mailto:"]');
+      if (a) track("contacto", /wa\.me/.test(a.href) ? "whatsapp" : /^tel:/.test(a.href) ? "telefono" : "email");
+    }, true);
     document.querySelectorAll(".nx-note").forEach(function (el) { el.remove(); });
     document.querySelectorAll("[data-form-msg]").forEach(function (el) { el.textContent = ""; });
     document.querySelectorAll("[data-demo-form], [data-book-form]").forEach(function (form) {
