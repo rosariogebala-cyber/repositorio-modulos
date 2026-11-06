@@ -163,6 +163,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS animacion TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS consultas (
   id BIGSERIAL PRIMARY KEY,
   landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
@@ -380,7 +381,7 @@ def delete_client(client_id):
 # --- Landings ----------------------------------------------------------------
 
 LANDING_SELECT = (
-    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.portada, l.creado, l.actualizado, "
+    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.portada, l.creado, l.actualizado, "
     "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
     "c.nombre AS cliente, c.slug AS cliente_slug, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
@@ -396,6 +397,7 @@ def landing_dict(row):
         "preview": preview,
         "portada": row["portada"],
         "descripcion": row.get("descripcion") or "",
+        "animacion": row.get("animacion") or "",
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": row["cliente"],
@@ -478,6 +480,9 @@ def save_landing(data, landing_id=None):
     ignorados = data.get("ignorados") or []
     ignorados = [str(k)[:300] for k in ignorados][:200] if isinstance(ignorados, list) else []
     descripcion = " ".join(str(data.get("descripcion") or "").split())[:300]
+    animacion = str(data.get("animacion") or "")
+    if animacion not in ("", "suave", "marcada"):
+        animacion = ""
 
     with tx() as con:
         client = get_client_row(con, client_id)
@@ -492,17 +497,17 @@ def save_landing(data, landing_id=None):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, client["logo"])
         stamp = now_ms()
-        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, html, cover_of(html), stamp)
+        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
         if landing_id:
             con.execute(
-                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, html = %s, "
+                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, html = %s, "
                 "portada = %s, preview = '', actualizado = %s WHERE id = %s",
                 values + (landing_id,),
             )
         else:
             landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, html, portada, creado, actualizado) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, animacion, html, portada, creado, actualizado) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 values + (stamp,),
             ).fetchone()["id"]
         return landing_dict(get_landing_row(con, landing_id))
@@ -523,9 +528,9 @@ def duplicate_landing(landing_id):
         html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(nombre) + "</title>", row["html"], count=1, flags=re.S)
         stamp = now_ms()
         new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, html, portada, preview, creado, actualizado) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), row["descripcion"], html, row["portada"], row["preview"], stamp, stamp),
+            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, animacion, html, portada, preview, creado, actualizado) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), row["descripcion"], row["animacion"], html, row["portada"], row["preview"], stamp, stamp),
         ).fetchone()["id"]
         return landing_dict(get_landing_row(con, new_id))
 

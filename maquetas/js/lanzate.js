@@ -806,4 +806,27 @@
       }
     }
   }
+
+  var animMode = document.body.getAttribute("data-anim");
+  if (animMode && !document.body.classList.contains("has-tools") && "IntersectionObserver" in window &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    var animBlocks = [].slice.call(document.querySelectorAll(".mq-block")).filter(function (b) {
+      return !b.querySelector(".nx-nav, .nx-wa");
+    });
+    document.body.classList.add("lz-anim");
+    animBlocks.forEach(function (b) {
+      b.classList.add("lz-pre");
+      b.querySelectorAll(".row").forEach(function (row) {
+        [].forEach.call(row.children, function (c, i) { c.style.setProperty("--lz-i", Math.min(i, 8)); });
+      });
+    });
+    var animIo = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.remove("lz-pre");
+        animIo.unobserve(en.target);
+      });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    animBlocks.forEach(function (b) { animIo.observe(b); });
+  }
 })();

@@ -27,6 +27,7 @@
   var search = $("[data-lb-search]");
   var settings = $("[data-lb-settings]");
   var allSeg = $("[data-lb-all]");
+  var animSeg = $("[data-lb-anim]");
   var clientSelect = $("[data-lb-client]");
   var modeHint = $("[data-lb-mode]");
   var kicker = $("[data-lb-kicker]");
@@ -52,7 +53,7 @@
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
+  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
   var savedSnapshot = null;
   var busy = false;
   var device = 1280;
@@ -66,7 +67,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || [], (state.descripcion || "").trim()]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -389,6 +390,7 @@
     var widths = state.items.map(function (it) { return it.width; });
     var same = widths.length && widths.every(function (w) { return w === widths[0]; }) ? widths[0] : "";
     pressSeg(allSeg, same);
+    pressSeg(animSeg, state.animacion || "");
   }
 
   function frameDoc() {
@@ -681,7 +683,7 @@
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
       "</head>",
-      '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '">'
+      '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = [
@@ -2631,7 +2633,8 @@
       }),
       estilo: lp.estilo || "",
       ignorados: lp.ignorados || [],
-      descripcion: lp.descripcion || ""
+      descripcion: lp.descripcion || "",
+      animacion: lp.animacion || ""
     };
     savedSnapshot = snapshot();
     menuDefaults(state.items);
@@ -2771,7 +2774,7 @@
     if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim() };
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -2815,7 +2818,7 @@
   }
 
   function startNew(clienteId) {
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
+    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
     renderDesc(true);
@@ -2913,6 +2916,16 @@
     window.open(url, "_blank", "noopener");
   });
 
+  animSeg.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-value]");
+    if (!btn) return;
+    state.animacion = btn.getAttribute("data-value");
+    renderSettings();
+    renderMode();
+    saveDraft();
+  });
+  $("[data-lb-anim-see]").addEventListener("click", function () { $("[data-lb-open]").click(); });
+
   allSeg.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-value]");
     if (!btn) return;
@@ -2985,14 +2998,15 @@
       items: draft.items.filter(function (it) { return byId[it.id]; }),
       estilo: draft.estilo || "",
       ignorados: draft.ignorados || [],
-      descripcion: draft.descripcion || ""
+      descripcion: draft.descripcion || "",
+      animacion: draft.animacion == null ? "suave" : draft.animacion
     };
     savedSnapshot = draft.saved || null;
     if (!state.landingId) menuDefaults(state.items);
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
-    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
+    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     return last;
   }

@@ -3285,6 +3285,12 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-ia-dialog .lb-msg { margin-top: 12px; }
 .lb-ia-dialog .lb-hint a { color: var(--green); font-weight: 600; }
 .lb-optional { font-weight: 400; color: #5b6186; }
+.lz-anim .mq-block { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.lz-anim .mq-block.lz-pre { opacity: 0; transform: translateY(18px); }
+.lz-anim[data-anim="marcada"] .mq-block.lz-pre { transform: translateY(44px); }
+.lz-anim[data-anim="marcada"] .mq-block .row > * { transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: calc(var(--lz-i, 0) * 90ms + 150ms); }
+.lz-anim[data-anim="marcada"] .mq-block.lz-pre .row > * { opacity: 0; transform: translateY(28px); }
+.lb-setting-note { flex-basis: 100%; margin: 0; font-size: 12px; font-weight: 400; color: #5b6186; text-wrap: pretty; }
 .lb-desc { min-height: 5.5em; resize: vertical; field-sizing: content; line-height: 1.45; }
 .lb-hint.is-warn { color: #9a5b00; }
 .lb-ia-foot { display: flex; justify-content: flex-end; margin-top: 18px; }
