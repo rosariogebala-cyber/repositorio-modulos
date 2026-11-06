@@ -222,6 +222,7 @@
   }
 
   var CLIENT_FIELDS = { email: "El email", telefono: "El teléfono", nombre: "El nombre", direccion: "La dirección", sitio: "El sitio web" };
+  var SAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "2345 6789": "telefono", "Marca Ejemplo": "nombre", "Calle Ejemplo": "direccion" };
 
   function bgUrl(el) {
     var m = /url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(el.style.backgroundImage || "");
@@ -348,12 +349,13 @@
           var loose = s.indexOf(" ") === -1 || s === s.toLowerCase();
           var found = s && (loose ? hayLow.indexOf(s.toLowerCase()) !== -1 : hay.indexOf(s) !== -1);
           if (!found) return;
-          var field = clientField(s);
-          if (field) {
+          if (clientField(s)) return;
+          var field = SAMPLE_FIELDS[s];
+          if (field && opts.cliente && !String(opts.cliente[field] || "").trim()) {
             if (clientReported[field]) return;
             clientReported[field] = true;
-            add("error", "textos", null, CLIENT_FIELDS[field] + " del cliente es de ejemplo: «" + norm(opts.cliente[field]) + "».",
-              "Cargá el dato real en los datos del cliente: se aplica a toda la landing.", null, { ejemplo: s, campo: field });
+            add("error", "textos", null, "Falta cargar " + CLIENT_FIELDS[field].toLowerCase() + " del cliente.",
+              "Cargalo en los datos del cliente: se aplica en toda la landing.", null, { ejemplo: s, campo: field });
             return;
           }
           add("error", "textos", mi, "Dato de ejemplo «" + s + "».", "Reemplazalo por el dato real del cliente.", null, { ejemplo: s });

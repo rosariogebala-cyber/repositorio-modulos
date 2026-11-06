@@ -910,7 +910,7 @@
 
   function plainText(el) { return el.textContent.replace(/\s+/g, " ").trim(); }
 
-  /* Si el texto editado reemplaza un dato de ejemplo del cliente, el dato nuevo se guarda en el cliente */
+  /* Si el texto editado reemplaza un dato de ejemplo o que le falta al cliente, el dato nuevo se guarda en el cliente */
   var CLIENT_SYNC = ["telefono", "email", "direccion", "sitio"];
   var saveAfterQa = null;
 
@@ -928,6 +928,7 @@
     if (!client || !after || after === done.startText) return;
     CLIENT_SYNC.some(function (k) {
       var val = String(client[k] || "").replace(/\s+/g, " ").trim();
+      if (!val && SAMPLE[k]) val = SAMPLE[k];
       if (!val || !isSampleValue(val)) return false;
       var at = done.startText.indexOf(val);
       if (at === -1 || after.indexOf(val) !== -1) return false;
@@ -2197,7 +2198,7 @@
     if (issue.campo) {
       return function () {
         openClientForm(issue.campo);
-        say("Cambiá " + (FIELD_NAMES[issue.campo] || "el dato") + " de ejemplo por el real: se aplica solo en toda la landing.", "ok");
+        say("Completá " + (FIELD_NAMES[issue.campo] || "el dato") + " del cliente: se aplica solo en toda la landing.", "ok");
       };
     }
     if (issue.ejemplo) {
