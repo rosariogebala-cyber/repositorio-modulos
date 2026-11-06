@@ -819,11 +819,19 @@
       b.querySelectorAll(".row").forEach(function (row) {
         [].forEach.call(row.children, function (c, i) { c.style.setProperty("--lz-i", Math.min(i, 8)); });
       });
+      var texts = [].filter.call(b.querySelectorAll("h1, h2, .nx-display, .nx-kicker, .nx-lead"), function (el) {
+        return !el.closest(".accordion, .modal, .lz-txt");
+      });
+      texts.forEach(function (el, i) {
+        el.classList.add("lz-txt");
+        el.style.setProperty("--lz-t", Math.min(i, 5));
+      });
     });
     var animIo = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         if (!en.isIntersecting) return;
         en.target.classList.remove("lz-pre");
+        en.target.classList.add("lz-in");
         animIo.unobserve(en.target);
       });
     }, { rootMargin: "0px 0px -8% 0px" });
