@@ -759,7 +759,9 @@
     "#lbImgTip .lb-prod-cats{display:flex;flex-wrap:wrap;gap:.35em}" +
     "#lbImgTip .lb-prod-cats button{background:#1d2150;color:#c9cbe0;font-weight:600;padding:.45em .8em}" +
     "#lbImgTip .lb-prod-cats button[aria-pressed=true]{background:#fff;color:#0e1130}" +
-    "#lbImgTip .lb-prod-cats button[aria-pressed=true]::before{content:'✓ '}";
+    "#lbImgTip .lb-prod-cats button[aria-pressed=true]::before{content:'✓ '}" +
+    "#lbImgTip .lb-prod-cats .lb-prod-new{background:none;color:#d5f660;border:1px dashed #d5f660}" +
+    "#lbImgTip .lb-prod-newrow[hidden]{display:none}#lbImgTip .lb-prod-newrow{flex-wrap:nowrap}#lbImgTip .lb-prod-newrow input{flex:1;min-width:0}";
 
   function moduleIndex(el) {
     var doc = frameDoc();
@@ -793,6 +795,7 @@
         if (!editing) return;
         if (e.target.closest("[data-lb-link]")) { selectLink(editing.el.closest("a[data-lb-l]")); return; }
         if (e.target.closest("[data-lb-hide]")) { hideMenuItem(editing.el.closest(".nav-link[data-lb-l]")); return; }
+        if (e.target.closest("[data-lb-cat-remove]")) { removeCategory(editing.el.closest("[data-filter]")); return; }
         if (e.target.closest("[data-lb-prod]")) {
           var img = productOf(editing.el).querySelector("[data-lb-i]");
           endEdit();
@@ -823,6 +826,7 @@
       (editing.el.closest("a[data-lb-l]") ? '<button type="button" data-lb-link>Cambiar link</button>' : "") +
       (editing.el.closest(".nav-link[data-lb-l]") ? '<button type="button" data-lb-hide>Quitar del menú</button>' : "") +
       (productOf(editing.el) && productOf(editing.el).querySelector("[data-lb-i]") ? '<button type="button" data-lb-prod>Producto</button>' : "") +
+      (isCategoryTab(editing.el) ? '<button type="button" data-lb-cat-remove>Quitar categoría</button>' : "") +
       (changed ? '<button type="button" data-lb-revert>Volver al original</button>' : "");
     var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
     tip.style.fontSize = Math.round(13 / scale) + "px";
@@ -1109,6 +1113,20 @@
         if (!tags.length) return false;
         target.setAttribute("data-tags", tags.join(" "));
         target.setAttribute("data-lz-pick", "");
+      } else if (act === "newcat") {
+        var group = target.closest("[data-filter-group]");
+        var tabs = group && group.querySelectorAll("[data-filter]");
+        if (!tabs || !tabs.length) return false;
+        var base = slugify(value);
+        var id = base;
+        for (var k = 2; group.querySelector('[data-filter="' + id + '"]'); k++) id = base + "-" + k;
+        var tab = tabs[tabs.length - 1].cloneNode(false);
+        tab.classList.remove("is-on");
+        tab.setAttribute("data-filter", id);
+        tab.textContent = value;
+        tabs[tabs.length - 1].after(tab);
+        target.setAttribute("data-tags", ((target.getAttribute("data-tags") || "") + " " + id).trim());
+        target.setAttribute("data-lz-pick", "");
       }
     });
     if (!done) {
@@ -1120,6 +1138,35 @@
     update();
     if (act === "dup") say("Duplicaste «" + name.trim() + "». Cambiale la foto, el nombre y el precio a la copia.", "ok");
     if (act === "remove") say("Quitaste «" + name.trim() + "».", "ok");
+    if (act === "newcat") say("Creaste la categoría «" + value + "» y sumaste «" + name.trim() + "». Para sumar otros productos, tocá su foto y marcala.", "ok");
+  }
+
+  function isCategoryTab(el) {
+    var tab = el.closest("[data-filter]");
+    return !!tab && tab.getAttribute("data-filter") !== "todos" && !!tab.closest("[data-filter-group]");
+  }
+
+  function removeCategory(tabEl) {
+    var section = tabEl.closest("section.mq-block");
+    var id = tabEl.getAttribute("data-filter");
+    if (!section || !id || id === "todos") return;
+    var label = tabEl.textContent.replace(/\s+/g, " ").trim();
+    var groups = Array.prototype.slice.call(section.querySelectorAll("[data-filter-group]"));
+    var g = groups.indexOf(tabEl.closest("[data-filter-group]"));
+    endEdit();
+    var done = restructure(moduleIndex(tabEl), function (root) {
+      var group = root.querySelectorAll("[data-filter-group]")[g];
+      var tab = group && group.querySelector('[data-filter="' + id + '"]');
+      if (!tab) return false;
+      tab.remove();
+      group.querySelectorAll("[data-item]").forEach(function (item) {
+        var tags = (item.getAttribute("data-tags") || "").split(/\s+/).filter(function (t) { return t && t !== id; });
+        item.setAttribute("data-tags", tags.join(" "));
+      });
+    });
+    if (!done) return;
+    update();
+    say("Quitaste la categoría «" + label + "». Sus productos siguen en «Todos».", "ok");
   }
 
   function productTipHtml(el) {
@@ -1130,7 +1177,8 @@
     return '<div class="lb-prod"><b>Producto</b>' +
       (cats.length ? "<small>Aparece en estas categorías:</small><div class=\"lb-prod-cats\">" + cats.map(function (c) {
         return '<button type="button" data-prod-cat="' + escapeHtml(c.id) + '" aria-pressed="' + (tags.indexOf(c.id) !== -1) + '">' + escapeHtml(c.label) + "</button>";
-      }).join("") + "</div>" : "") +
+      }).join("") + '<button type="button" class="lb-prod-new" data-prod-newcat>+ Nueva</button></div>' +
+        '<div class="lb-img-row lb-prod-newrow" hidden><input type="text" data-prod-newcat-name maxlength="24" placeholder="Nombre de la categoría"><button type="button" data-prod-newcat-ok>Crear</button></div>' : "") +
       '<div class="lb-img-row"><button type="button" class="is-ghost" data-prod-dup>Duplicar producto</button><button type="button" class="is-ghost" data-prod-remove>Quitar producto</button></div></div>';
   }
 
@@ -1151,11 +1199,22 @@
         else if (e.target.closest("[data-prod-dup]")) productAction(imgSel.el, "dup");
         else if (e.target.closest("[data-prod-remove]")) productAction(imgSel.el, "remove");
         else if (e.target.closest("[data-prod-cat]")) productAction(imgSel.el, "cat", e.target.closest("[data-prod-cat]").getAttribute("data-prod-cat"));
+        else if (e.target.closest("[data-prod-newcat]")) {
+          tip.querySelector(".lb-prod-newrow").hidden = false;
+          tip.querySelector("[data-prod-newcat-name]").focus();
+        } else if (e.target.closest("[data-prod-newcat-ok]")) newCategory();
       });
+      var newCategory = function () {
+        var input = tip.querySelector("[data-prod-newcat-name]");
+        var value = input && input.value.replace(/\s+/g, " ").trim();
+        if (!value) { if (input) input.focus(); return; }
+        productAction(imgSel.el, "newcat", value);
+      };
       tip.addEventListener("input", function (e) {
         if (imgSel && e.target.matches("[data-img-alt]")) commitImage({ alt: e.target.value });
       });
       tip.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && e.target.matches("[data-prod-newcat-name]")) { e.preventDefault(); newCategory(); return; }
         if (e.key === "Escape" || (e.key === "Enter" && e.target.matches("[data-img-alt]"))) { e.preventDefault(); closeImage(); }
       });
       doc.body.appendChild(tip);
