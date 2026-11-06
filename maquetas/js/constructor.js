@@ -219,7 +219,7 @@
     var shown = info.entries.length - Object.keys(menuHidden(it, info)).length;
     var limit = menuLimit();
     if (limit && shown > limit) say("Sumaste «" + next.text + "». El menú tiene " + shown + " ítems y lo recomendado es " + limit + ".", "warn");
-    else say("Sumaste «" + next.text + "» al menú. Tocalo en «Editar» para cambiar el texto o el link.", "ok");
+    else say("Sumaste «" + next.text + "» al menú. Tocalo para cambiar el texto o el link.", "ok");
   }
 
   function ruleOn(id) {
@@ -239,36 +239,125 @@
       .map(function (x) { return x.it; });
   }
 
+  function canMove(i, dir) {
+    var it = state.items[i];
+    var other = state.items[i + dir];
+    return !!it && !!other && pinOf(it) === 0 && pinOf(other) === 0;
+  }
+
+  var focusModule = -1;
+  var lastRemoved = null;
+
+  function moduleAction(i, act) {
+    var it = state.items[i];
+    if (!it) return;
+    var name = byId[it.id].group;
+    if (act === "restore") { showMenuItem(i); return; }
+    if (act === "up" || act === "down") {
+      var dir = act === "up" ? -1 : 1;
+      if (!canMove(i, dir)) return;
+      state.items.splice(i + dir, 0, state.items.splice(i, 1)[0]);
+      focusModule = i + dir;
+    } else if (act === "dup") {
+      if (pinOf(it)) return;
+      state.items.splice(i + 1, 0, JSON.parse(JSON.stringify(it)));
+      focusModule = i + 1;
+      say("Duplicaste «" + name + "». La copia quedó justo debajo.", "ok");
+    } else if (act === "remove") {
+      lastRemoved = { item: it, index: i };
+      state.items.splice(i, 1);
+      say("Quitaste «" + name + "».", "ok", { act: "undo-remove", text: "Deshacer" });
+    } else return;
+    update();
+  }
+
+  function moveModule(from, to) {
+    if (from === to || !state.items[from] || pinOf(state.items[from])) return;
+    var it = state.items.splice(from, 1)[0];
+    var min = state.items.filter(function (x) { return pinOf(x) === -1; }).length;
+    var max = state.items.length - state.items.filter(function (x) { return pinOf(x) === 1; }).length;
+    to = Math.max(min, Math.min(max, to));
+    state.items.splice(to, 0, it);
+    focusModule = to;
+    update();
+  }
+
+  function undoRemove() {
+    if (!lastRemoved) return;
+    var at = Math.min(lastRemoved.index, state.items.length);
+    state.items.splice(at, 0, lastRemoved.item);
+    focusModule = at;
+    say("Volvió «" + byId[lastRemoved.item.id].group + "».", "ok");
+    lastRemoved = null;
+    update();
+  }
+
+  var dragFrom = -1;
+
+  function clearDrop() {
+    orderList.querySelectorAll(".is-drop-before, .is-drop-after").forEach(function (el) { el.classList.remove("is-drop-before", "is-drop-after"); });
+  }
+
+  orderList.addEventListener("dragover", function (e) {
+    if (dragFrom < 0) return;
+    var li = e.target.closest(".lb-item");
+    if (!li) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    var r = li.getBoundingClientRect();
+    clearDrop();
+    li.classList.add(e.clientY < r.top + r.height / 2 ? "is-drop-before" : "is-drop-after");
+  });
+  orderList.addEventListener("dragleave", function (e) { if (!orderList.contains(e.relatedTarget)) clearDrop(); });
+  orderList.addEventListener("drop", function (e) {
+    var li = e.target.closest(".lb-item");
+    if (dragFrom < 0 || !li) return;
+    e.preventDefault();
+    var to = Number(li.getAttribute("data-index")) + (li.classList.contains("is-drop-after") ? 1 : 0);
+    if (to > dragFrom) to--;
+    var from = dragFrom;
+    dragFrom = -1;
+    clearDrop();
+    moveModule(from, to);
+  });
+
   function renderOrder() {
     orderList.innerHTML = "";
     state.items.forEach(function (it, i) {
       var m = byId[it.id];
       var pin = pinOf(it);
-      var noUp = i === 0 || pin !== 0 || pinOf(state.items[i - 1]) === -1;
-      var noDown = i === state.items.length - 1 || pin !== 0 || pinOf(state.items[i + 1]) === 1;
+      var noUp = !canMove(i, -1);
+      var noDown = !canMove(i, 1);
       var li = document.createElement("li");
-      li.className = "lb-item";
+      li.className = "lb-item" + (pin ? " is-pinned" : "");
+      li.setAttribute("data-index", i);
+      if (!pin) {
+        li.draggable = true;
+        li.addEventListener("dragstart", function (e) {
+          if (e.target.closest("button")) { e.preventDefault(); return; }
+          dragFrom = i;
+          li.classList.add("is-dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", String(i));
+        });
+        li.addEventListener("dragend", function () { dragFrom = -1; li.classList.remove("is-dragging"); clearDrop(); });
+      }
       li.innerHTML =
-        '<span class="lb-item-num">' + String(i + 1).padStart(2, "0") + "</span>" +
-        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (pin === -1 ? " · fija arriba" : pin === 1 ? " · fijo al final" : "") + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + (it.links ? " · links cambiados" : "") + (it.ocultos ? " · ítems quitados" : "") + "</small></span>" +
-        '<span class="lb-seg lb-item-seg" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
-        '<button type="button" data-act="width" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
-        '<button type="button" data-act="width" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
-        "</span>" +
+        '<span class="lb-item-num">' + (pin ? '<i class="bi bi-pin-angle" title="' + (pin === -1 ? "Fija arriba" : "Fijo al final") + '"></i>' : '<i class="bi bi-grip-vertical lb-item-grip" title="Arrastrá para mover"></i>') + "<b>" + String(i + 1).padStart(2, "0") + "</b></span>" +
+        '<strong class="lb-item-text">' + escapeHtml(m.group) + "</strong>" +
+        '<small class="lb-item-meta">' + [escapeHtml(m.variant)].concat(pin === -1 ? ["fija"] : pin === 1 ? ["fijo"] : [], it.html || it.textos || it.imagenes || it.links || it.ocultos ? ["editado"] : []).join("&nbsp;· ") + "</small>" +
         '<span class="lb-item-tools">' +
         '<button type="button" data-act="up" aria-label="Subir ' + escapeHtml(m.group) + '"' + (noUp ? " disabled" : "") + '><i class="bi bi-arrow-up"></i></button>' +
         '<button type="button" data-act="down" aria-label="Bajar ' + escapeHtml(m.group) + '"' + (noDown ? " disabled" : "") + '><i class="bi bi-arrow-down"></i></button>' +
-        '<button type="button" data-act="remove" aria-label="Quitar ' + escapeHtml(m.group) + '"><i class="bi bi-x-lg"></i></button>' +
+        '<button type="button" data-act="dup" title="Duplicar" aria-label="Duplicar ' + escapeHtml(m.group) + '"' + (pin ? " disabled" : "") + '><i class="bi bi-copy"></i></button>' +
+        '<button type="button" data-act="remove" title="Quitar" aria-label="Quitar ' + escapeHtml(m.group) + '"><i class="bi bi-trash3"></i></button>' +
         "</span>";
       li.addEventListener("click", function (e) {
         var btn = e.target.closest("[data-act]");
         if (!btn) return;
         var act = btn.getAttribute("data-act");
         if (act === "width") { setWidth(i, btn.getAttribute("data-value")); return; }
-        if (act === "up" && i > 0) state.items.splice(i - 1, 0, state.items.splice(i, 1)[0]);
-        if (act === "down" && i < state.items.length - 1) state.items.splice(i + 1, 0, state.items.splice(i, 1)[0]);
-        if (act === "remove") state.items.splice(i, 1);
-        update();
+        moduleAction(i, act);
       });
       orderList.appendChild(li);
     });
@@ -329,11 +418,17 @@
 
   function previewTools(it, i) {
     var m = byId[it.id];
-    return '\n    <div class="lp-tools" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
-      "<span>" + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
-      '<button type="button" data-index="' + i + '" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
-      '<button type="button" data-index="' + i + '" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
-      (it.ocultos ? '<button type="button" data-index="' + i + '" data-restore><i class="bi bi-plus-lg"></i> Agregar ítem al menú</button>' : "") +
+    var pin = pinOf(it);
+    var btn = function (act, icon, label, off, text) {
+      return '<button type="button" data-index="' + i + '" data-act="' + act + '" title="' + label + '" aria-label="' + label + " " + escapeHtml(m.group) + '"' + (off ? " disabled" : "") + '><i class="bi ' + icon + '"></i>' + (text ? " " + text : "") + "</button>";
+    };
+    return '\n    <div class="lp-tools" role="group" aria-label="Módulo ' + escapeHtml(m.group) + '">' +
+      "<span>" + (pin ? '<i class="bi bi-pin-angle"></i> ' : "") + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
+      (it.ocultos ? btn("restore", "bi-plus-lg", "Agregar ítem al menú", false, "Ítem al menú") : "") +
+      btn("up", "bi-arrow-up", "Subir", !canMove(i, -1)) +
+      btn("down", "bi-arrow-down", "Bajar", !canMove(i, 1)) +
+      btn("dup", "bi-copy", "Duplicar", !!pin) +
+      btn("remove", "bi-trash3", "Quitar", false) +
       "</div>";
   }
 
@@ -579,7 +674,7 @@
       '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
-      tail.push("  <script>document.addEventListener('click',function(e){var r=e.target.closest('.lp-tools [data-restore]');if(r){parent.postMessage({lbRestore:{index:+r.getAttribute('data-index')}},'*');return;}var t=e.target.closest('.lp-tools [data-value]');if(t){parent.postMessage({lbWidth:{index:+t.getAttribute('data-index'),width:t.getAttribute('data-value')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
+      tail.push("  <script>document.addEventListener('click',function(e){var t=e.target.closest('.lp-tools [data-act]');if(t){parent.postMessage({lbAct:{index:+t.getAttribute('data-index'),act:t.getAttribute('data-act')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
     }
     return head.concat(body, tail, ["</body>", "</html>", ""]).join("\n");
   }
@@ -591,6 +686,8 @@
     var scale = Math.min(1, avail / device);
     deviceFrame.style.width = device + "px";
     deviceFrame.style.transform = "scale(" + scale + ")";
+    var doc = frameDoc();
+    if (doc) doc.documentElement.style.setProperty("--lb-ui-scale", (1 / scale).toFixed(3));
     deviceFrame.style.marginLeft = Math.max(0, (avail - device * scale) / 2) + "px";
     var h = frame.offsetHeight;
     viewport.style.height = state.items.length ? (h * scale + 32) + "px" : "";
@@ -613,6 +710,15 @@
     } catch (e) { /* noop */ }
     setupEditing();
     scheduleQa(300);
+    var section = focusModule >= 0 && frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[focusModule];
+    focusModule = -1;
+    if (section) {
+      setTimeout(function () {
+        scrollToEl(section);
+        section.classList.add("lp-flash");
+        setTimeout(function () { section.classList.remove("lp-flash"); }, 1400);
+      }, 150);
+    }
   });
 
   /* Edición de textos sobre la vista previa */
@@ -1359,7 +1465,7 @@
     it.ocultos = it.ocultos || {};
     it.ocultos[el.getAttribute("data-lb-l")] = true;
     update();
-    say("Quitaste «" + label + "» del menú. Para sumarlo de nuevo: «Agregar ítem al menú» en la barra del módulo.", "ok");
+    say("Quitaste «" + label + "» del menú. Para sumarlo de nuevo: «Ítem al menú» en la barra del módulo.", "ok");
   }
 
   function revertLink() {
@@ -2137,6 +2243,7 @@
     var btn = e.target.closest("[data-msg-act]");
     if (btn && btn.getAttribute("data-msg-act") === "new") newLanding();
     if (btn && btn.getAttribute("data-msg-act") === "ia-undo") undoAi();
+    if (btn && btn.getAttribute("data-msg-act") === "undo-remove") undoRemove();
     if (btn && btn.getAttribute("data-msg-act") === "ia-config" && ai) openAiConfig();
   });
 
@@ -2188,11 +2295,7 @@
 
   window.addEventListener("message", function (e) {
     if (e.source !== frame.contentWindow || !e.data) return;
-    if (e.data.lbRestore) {
-      showMenuItem(e.data.lbRestore.index);
-      return;
-    }
-    if (e.data.lbWidth) setWidth(e.data.lbWidth.index, e.data.lbWidth.width);
+    if (e.data.lbAct) moduleAction(e.data.lbAct.index, e.data.lbAct.act);
   });
 
   $("[data-lb-clear]").addEventListener("click", function () {
