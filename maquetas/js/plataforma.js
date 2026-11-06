@@ -2,6 +2,7 @@
   "use strict";
 
   var OFFLINE = "No hay conexión con el servidor. Revisá internet y probá de nuevo.";
+  var SHOW_LEADS = false;
 
   var currentNav = document.querySelector(".lib-header nav .is-current");
   if (currentNav && currentNav.parentElement.scrollWidth > currentNav.parentElement.clientWidth) {
@@ -270,7 +271,7 @@
     var count = (lp.items || []).length;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
-    if (lp.consultas) {
+    if (SHOW_LEADS && lp.consultas) {
       meta.push('<a class="pf-leads-link' + (lp.consultas_nuevas ? " is-new" : "") + '" href="consultas.html?landing=' + lp.id + '">' +
         plural(lp.consultas, "consulta", "consultas") + (lp.consultas_nuevas ? " (" + lp.consultas_nuevas + (lp.consultas_nuevas === 1 ? " nueva" : " nuevas") + ")" : "") + "</a>");
     }
