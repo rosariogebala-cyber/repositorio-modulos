@@ -52,7 +52,7 @@
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "" };
+  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [] };
   var savedSnapshot = null;
   var busy = false;
   var device = 1280;
@@ -66,7 +66,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || []]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -1700,7 +1700,7 @@
   function runQa() {
     if (!rules) return;
     var run = ++qaRun;
-    if (!state.items.length) { qaReport = null; qaBusy = false; renderQa(); renderMode(); return; }
+    if (!state.items.length) { qaReport = null; buildQaView(); qaBusy = false; renderQa(); renderMode(); return; }
     var doc = frameDoc();
     qaBusy = true;
     renderQa();
@@ -1711,6 +1711,7 @@
     }).then(function (report) {
       if (run !== qaRun) return;
       qaReport = report;
+      buildQaView();
       qaBusy = false;
       renderQa();
       renderMode();
@@ -1727,29 +1728,109 @@
     qaBox.hidden = !rules || !state.items.length;
     if (qaBox.hidden) return;
     var r = qaReport;
-    var tone = !r ? "" : r.errors ? "is-error" : r.warnings ? "is-aviso" : "is-ok";
+    var v = qaView;
+    var tone = !r ? "" : v.errors ? "is-error" : v.warnings ? "is-aviso" : "is-ok";
     qaBox.className = "lb-qa " + tone + (qaBusy ? " is-running" : "");
     qaBox.querySelector(".lb-qa-sum i").className = "bi " + (tone === "is-ok" ? "bi-patch-check-fill" : tone === "is-error" ? "bi-exclamation-octagon-fill" : tone === "is-aviso" ? "bi-exclamation-triangle-fill" : "bi-shield-check");
     if (!r) qaLabel.textContent = "Revisando calidad…";
-    else if (!r.issues.length) qaLabel.textContent = "La landing cumple todas las reglas";
-    else qaLabel.textContent = [r.errors ? plural(r.errors, "error", "errores") : "", r.warnings ? plural(r.warnings, "aviso", "avisos") : ""].filter(Boolean).join(" · ") +
-      " en " + (DEVICE_NAMES[device] || "la vista previa").toLowerCase() + (rules.general.bloquear && r.errors ? ". Se guarda cuando no quedan errores." : "");
+    else if (!v.issues.length) qaLabel.textContent = "La landing cumple todas las reglas";
+    else qaLabel.textContent = [v.errors ? plural(v.errors, "error", "errores") : "", v.warnings ? plural(v.warnings, "aviso", "avisos") : ""].filter(Boolean).join(" · ") +
+      " en " + (DEVICE_NAMES[device] || "la vista previa").toLowerCase() + (rules.general.bloquear && v.errors ? ". Se guarda cuando no quedan errores." : "");
     if (!r) return;
-    var list = r.issues.slice().sort(function (x, y) {
-      return (x.level === y.level ? 0 : x.level === "error" ? -1 : 1) || ((x.module == null ? -1 : x.module) - (y.module == null ? -1 : y.module));
+    qaShown = v.issues.concat(v.ignored);
+    var html = "";
+    var last;
+    v.issues.forEach(function (issue) {
+      if (issue.module !== last) {
+        last = issue.module;
+        var it = issue.module == null ? null : state.items[issue.module];
+        html += '<li class="lb-qa-group">' + (it
+          ? '<button type="button" data-qa-module="' + issue.module + '">' + String(issue.module + 1).padStart(2, "0") + " · " + escapeHtml(byId[it.id].group) + "</button>"
+          : "<span>Toda la landing</span>") + "</li>";
+      }
+      html += qaItemHtml(issue, false);
     });
-    qaList.hidden = !list.length;
-    qaList.innerHTML = list.map(function (issue) {
-      var it = issue.module == null ? null : state.items[issue.module];
-      var where = it ? String(issue.module + 1).padStart(2, "0") + " · " + byId[it.id].group : "Toda la landing";
-      return '<li class="lb-qa-item is-' + issue.level + '">' +
-        '<span class="rg-tag is-' + issue.level + '">' + (issue.level === "error" ? "Error" : "Aviso") + "</span>" +
-        '<span class="lb-qa-text"><b>' + escapeHtml(issue.text) + "</b><small>" + escapeHtml(where) + (issue.detail ? " · " + escapeHtml(issue.detail) : "") + "</small></span>" +
-        '<span class="lb-qa-acts">' +
-        (fixAction(issue) ? '<button type="button" class="lb-qa-fix" data-qa-fix="' + r.issues.indexOf(issue) + '">Corregir</button>' : "") +
-        (issue.el || issue.module != null ? '<button type="button" class="lb-link" data-qa-show="' + r.issues.indexOf(issue) + '">Ver</button>' : "") +
-        "</span></li>";
-    }).join("");
+    if (v.ignored.length) {
+      html += '<li class="lb-qa-ignored"><details><summary>' + plural(v.ignored.length, "ignorado", "ignorados") + "</summary><ul>" +
+        v.ignored.map(function (issue) { return qaItemHtml(issue, true); }).join("") + "</ul></details></li>";
+    }
+    qaList.hidden = !html;
+    qaList.innerHTML = html;
+  }
+
+  function qaItemHtml(issue, ignored) {
+    var n = qaShown.indexOf(issue);
+    var fix = !ignored && fixAction(issue);
+    var canShow = issue.el || issue.module != null;
+    return '<li class="lb-qa-item is-' + issue.level + (ignored ? " is-ignored" : "") + '">' +
+      '<span class="rg-tag is-' + issue.level + '">' + (issue.level === "error" ? "Error" : "Aviso") + "</span>" +
+      '<span class="lb-qa-text"><b>' + escapeHtml(issue.text) + "</b>" + (issue.detail ? "<small>" + escapeHtml(issue.detail) + "</small>" : "") + "</span>" +
+      '<span class="lb-qa-acts">' +
+      (ignored
+        ? '<button type="button" class="lb-link" data-qa-unignore="' + n + '">Volver a mostrar</button>'
+        : (fix ? '<button type="button" class="lb-qa-fix" data-qa-fix="' + n + '">Arreglar</button>'
+          : canShow ? '<button type="button" class="lb-qa-fix is-ghost" data-qa-show="' + n + '">Ver</button>' : "") +
+          '<button type="button" class="lb-link lb-qa-ignore" data-qa-ignore="' + n + '">Ignorar</button>') +
+      "</span></li>";
+  }
+
+  /* Vista del panel: las fotos del modelo van juntas y lo ignorado queda aparte */
+  var qaView = { issues: [], ignored: [], errors: 0, warnings: 0 };
+  var qaShown = [];
+
+  function isSamplePhoto(issue) {
+    if (issue.area !== "imagenes" || !issue.el || !issue.el.isConnected || /texto alternativo/i.test(issue.text) || issue.el.closest(".nx-brand")) return false;
+    var img = issue.el.closest("[data-lb-i]");
+    var it = state.items[issue.module];
+    return !!img && !!it && !(it.imagenes && it.imagenes[img.getAttribute("data-lb-i")]);
+  }
+
+  function issueKey(issue) {
+    if (issue.key) return issue.key;
+    var it = issue.module == null ? null : state.items[issue.module];
+    return (it ? it.id : "landing") + "|" + issue.text;
+  }
+
+  function buildQaView() {
+    var ignoredKeys = state.ignorados || [];
+    var view = { issues: [], ignored: [], errors: 0, warnings: 0 };
+    if (!qaReport) { qaView = view; return; }
+    var samples = [];
+    var all = [];
+    qaReport.issues.forEach(function (issue) {
+      if (isSamplePhoto(issue)) samples.push(issue);
+      else all.push(issue);
+    });
+    if (samples.length) {
+      all.push({
+        key: "landing|fotos-ejemplo", level: "aviso", area: "imagenes", module: null, fotos: samples,
+        text: samples.length === 1 ? "Queda 1 foto de ejemplo" : "Quedan " + samples.length + " fotos de ejemplo",
+        detail: "Son las del modelo. Cambialas por fotos del cliente antes de publicar."
+      });
+    }
+    all.forEach(function (issue) {
+      if (ignoredKeys.indexOf(issueKey(issue)) !== -1) { view.ignored.push(issue); return; }
+      view.issues.push(issue);
+      if (issue.level === "error") view.errors++;
+      else view.warnings++;
+    });
+    view.issues.sort(function (x, y) {
+      return ((x.module == null ? -1 : x.module) - (y.module == null ? -1 : y.module)) || (x.level === y.level ? 0 : x.level === "error" ? -1 : 1);
+    });
+    qaView = view;
+  }
+
+  function setIgnored(issue, on) {
+    var key = issueKey(issue);
+    var list = (state.ignorados || []).filter(function (k) { return k !== key; });
+    if (on) list.push(key);
+    state.ignorados = list;
+    buildQaView();
+    renderQa();
+    renderMode();
+    saveDraft();
+    var text = issue.text.replace(/\.$/, "");
+    say(on ? "Ignoraste «" + text + "». Está abajo de todo en el panel, por si querés volver a mostrarlo." : "«" + text + "» volvió a la lista.", "ok");
   }
 
   function scrollToEl(el) {
@@ -1776,7 +1857,7 @@
     setTimeout(function () { el.classList.remove("lb-qa-flag"); }, 3200);
   }
 
-  /* «Corregir»: lleva al lugar donde se arregla cada problema */
+  /* «Arreglar»: lleva al lugar donde se arregla cada problema */
   var EXAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "2345 6789": "telefono", "Marca Ejemplo": "nombre", "Calle Ejemplo": "direccion" };
   var FIELD_NAMES = { email: "el email", telefono: "el teléfono", nombre: "el nombre", direccion: "la dirección" };
 
@@ -1826,6 +1907,15 @@
   }
 
   function fixAction(issue) {
+    if (issue.fotos) {
+      var first = issue.fotos.map(function (f) { return f.el.isConnected && f.el.closest("[data-lb-i]"); }).filter(Boolean)[0];
+      if (!first) return null;
+      return function () {
+        editImage(first);
+        say(issue.fotos.length === 1 ? "Esta es la foto de ejemplo que queda: «Cambiar imagen» para subir la del cliente."
+          : "Empezá por esta: «Cambiar imagen» para subir la del cliente. Después «Arreglar» te lleva a la siguiente.", "ok");
+      };
+    }
     if (issue.campo) {
       return function () {
         openClientForm(issue.campo);
@@ -1894,10 +1984,20 @@
 
   qaList.addEventListener("click", function (e) {
     if (!qaReport) return;
-    var show = e.target.closest("[data-qa-show]");
-    if (show) showIssue(qaReport.issues[Number(show.getAttribute("data-qa-show"))]);
-    var fix = e.target.closest("[data-qa-fix]");
-    var act = fix && fixAction(qaReport.issues[Number(fix.getAttribute("data-qa-fix"))]);
+    var pick = function (attr) {
+      var btn = e.target.closest("[" + attr + "]");
+      return btn ? qaShown[Number(btn.getAttribute(attr))] : null;
+    };
+    var module = e.target.closest("[data-qa-module]");
+    if (module) { showIssue({ module: Number(module.getAttribute("data-qa-module")) }); return; }
+    var issue = pick("data-qa-show");
+    if (issue) { showIssue(issue); return; }
+    issue = pick("data-qa-ignore");
+    if (issue) { setIgnored(issue, true); return; }
+    issue = pick("data-qa-unignore");
+    if (issue) { setIgnored(issue, false); return; }
+    issue = pick("data-qa-fix");
+    var act = issue && fixAction(issue);
     if (act) act();
   });
 
@@ -1931,8 +2031,8 @@
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
-    if (rules && rules.general.bloquear && state.items.length && qaReport && qaReport.errors) {
-      out.push({ key: "qa", text: "Corregí " + (qaReport.errors === 1 ? "1 error" : qaReport.errors + " errores") + " de calidad" });
+    if (rules && rules.general.bloquear && state.items.length && qaReport && qaView.errors) {
+      out.push({ key: "qa", text: "Corregí " + (qaView.errors === 1 ? "1 error" : qaView.errors + " errores") + " de calidad" });
     }
     return out;
   }
@@ -2029,7 +2129,8 @@
         if (it.ocultos) item.ocultos = it.ocultos;
         return item;
       }),
-      estilo: lp.estilo || ""
+      estilo: lp.estilo || "",
+      ignorados: lp.ignorados || []
     };
     savedSnapshot = snapshot();
     nameInput.value = state.name;
@@ -2167,7 +2268,7 @@
     if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo };
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [] };
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -2211,7 +2312,7 @@
   }
 
   function startNew(clienteId) {
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "" };
+    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [] };
     savedSnapshot = null;
     nameInput.value = "";
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
@@ -2340,13 +2441,14 @@
       clienteId: draft.clienteId || null,
       landingId: draft.landingId || null,
       items: draft.items.filter(function (it) { return byId[it.id]; }),
-      estilo: draft.estilo || ""
+      estilo: draft.estilo || "",
+      ignorados: draft.ignorados || []
     };
     savedSnapshot = draft.saved || null;
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
-    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "" };
+    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [] };
     savedSnapshot = null;
     return last;
   }

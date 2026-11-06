@@ -149,6 +149,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT ''
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT '';
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
@@ -350,7 +351,7 @@ def delete_client(client_id):
 # --- Landings ----------------------------------------------------------------
 
 LANDING_SELECT = (
-    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.portada, l.creado, l.actualizado, "
+    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.portada, l.creado, l.actualizado, "
     "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
     "c.nombre AS cliente, c.slug AS cliente_slug "
     "FROM landings l JOIN clientes c ON c.id = l.cliente_id"
@@ -371,6 +372,7 @@ def landing_dict(row):
         "slug": row["slug"],
         "items": row["items"] or [],
         "estilo": row["estilo"],
+        "ignorados": row["ignorados"] or [],
         "creado": row["creado"],
         "actualizado": row["actualizado"],
         "url": url,
@@ -439,6 +441,8 @@ def save_landing(data, landing_id=None):
         raise ApiError(400, "Faltan el nombre o el HTML")
     if not isinstance(items, list):
         raise ApiError(400, "Los módulos no tienen el formato esperado")
+    ignorados = data.get("ignorados") or []
+    ignorados = [str(k)[:300] for k in ignorados][:200] if isinstance(ignorados, list) else []
 
     with tx() as con:
         client = get_client_row(con, client_id)
@@ -453,17 +457,17 @@ def save_landing(data, landing_id=None):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, client["logo"])
         stamp = now_ms()
-        values = (client_id, nombre, slug, Jsonb(items), estilo, html, cover_of(html), stamp)
+        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), html, cover_of(html), stamp)
         if landing_id:
             con.execute(
-                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, html = %s, "
+                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, html = %s, "
                 "portada = %s, preview = '', actualizado = %s WHERE id = %s",
                 values + (landing_id,),
             )
         else:
             landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, html, portada, creado, actualizado) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, html, portada, creado, actualizado) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 values + (stamp,),
             ).fetchone()["id"]
         return landing_dict(get_landing_row(con, landing_id))
@@ -484,9 +488,9 @@ def duplicate_landing(landing_id):
         html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(nombre) + "</title>", row["html"], count=1, flags=re.S)
         stamp = now_ms()
         new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, html, portada, preview, creado, actualizado) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], html, row["portada"], row["preview"], stamp, stamp),
+            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, html, portada, preview, creado, actualizado) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), html, row["portada"], row["preview"], stamp, stamp),
         ).fetchone()["id"]
         return landing_dict(get_landing_row(con, new_id))
 
