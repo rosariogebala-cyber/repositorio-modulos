@@ -165,9 +165,61 @@
 
   function toggle(id, on) {
     var idx = state.items.findIndex(function (it) { return it.id === id; });
-    if (on && idx === -1) state.items.push({ id: id, width: "full" });
+    if (on && idx === -1) state.items.push(menuDefault({ id: id, width: "full" }));
     if (!on && idx !== -1) state.items.splice(idx, 1);
     update();
+  }
+
+  function menuLimit() {
+    var rule = rules && rules.estructura.reglas.find(function (r) { return r.id === "max-menu" && r.activo; });
+    return rule ? rule.valor : 0;
+  }
+
+  /* Ítems del menú en orden, sin repetir (el menú de escritorio y el móvil comparten textos) */
+  function menuEntries(it) {
+    var tpl = document.createElement("template");
+    tpl.innerHTML = it.html || byId[it.id].html;
+    var seen = {}, entries = [], textOf = {};
+    linkNodes(tpl.content).forEach(function (el, k) {
+      var text = el.textContent.replace(/\s+/g, " ").trim();
+      textOf[k] = text.toLowerCase();
+      if (!el.classList.contains("nav-link") || !text || seen[textOf[k]]) return;
+      seen[textOf[k]] = true;
+      entries.push({ key: String(k), text: text });
+    });
+    return { entries: entries, textOf: textOf };
+  }
+
+  function menuHidden(it, info) {
+    var hidden = {};
+    Object.keys(it.ocultos || {}).forEach(function (k) { if (info.textOf[k]) hidden[info.textOf[k]] = true; });
+    return hidden;
+  }
+
+  function menuDefault(it) {
+    var limit = menuLimit();
+    if (!limit || !byId[it.id] || byId[it.id].groupId !== "navegacion") return it;
+    var extra = menuEntries(it).entries.slice(limit);
+    if (!extra.length) return it;
+    it.ocultos = {};
+    extra.forEach(function (e) { it.ocultos[e.key] = true; });
+    return it;
+  }
+
+  function showMenuItem(index) {
+    var it = state.items[index];
+    if (!it || !it.ocultos) return;
+    var info = menuEntries(it);
+    var hidden = menuHidden(it, info);
+    var next = info.entries.find(function (e) { return hidden[e.text.toLowerCase()]; });
+    if (!next) { delete it.ocultos; update(); return; }
+    Object.keys(it.ocultos).forEach(function (k) { if (info.textOf[k] === next.text.toLowerCase()) delete it.ocultos[k]; });
+    if (!Object.keys(it.ocultos).length) delete it.ocultos;
+    update();
+    var shown = info.entries.length - Object.keys(menuHidden(it, info)).length;
+    var limit = menuLimit();
+    if (limit && shown > limit) say("Sumaste «" + next.text + "». El menú tiene " + shown + " ítems y lo recomendado es " + limit + ".", "warn");
+    else say("Sumaste «" + next.text + "» al menú. Tocalo en «Editar» para cambiar el texto o el link.", "ok");
   }
 
   function ruleOn(id) {
@@ -281,7 +333,7 @@
       "<span>" + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
       '<button type="button" data-index="' + i + '" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
       '<button type="button" data-index="' + i + '" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
-      (it.ocultos ? '<button type="button" data-index="' + i + '" data-restore><i class="bi bi-arrow-counterclockwise"></i> Mostrar ítems quitados</button>' : "") +
+      (it.ocultos ? '<button type="button" data-index="' + i + '" data-restore><i class="bi bi-plus-lg"></i> Agregar ítem al menú</button>' : "") +
       "</div>";
   }
 
@@ -1265,7 +1317,7 @@
     it.ocultos = it.ocultos || {};
     it.ocultos[el.getAttribute("data-lb-l")] = true;
     update();
-    say("Quitaste «" + label + "» del menú. Para recuperarlo: «Mostrar ítems quitados» en la barra del módulo.", "ok");
+    say("Quitaste «" + label + "» del menú. Para sumarlo de nuevo: «Agregar ítem al menú» en la barra del módulo.", "ok");
   }
 
   function revertLink() {
@@ -1369,7 +1421,7 @@
     aiRequest(aiModulesBtn, { tarea: "modulos", cliente: aiClient(), objetivo: state.name.trim(), catalogo: catalogo, reglas: reglas },
       "La IA está eligiendo los módulos para " + currentClient().nombre + "…").then(function (data) {
       aiUndo = JSON.stringify(state.items);
-      state.items = data.modulos.map(function (id) { return { id: id, width: "full" }; });
+      state.items = data.modulos.map(function (id) { return menuDefault({ id: id, width: "full" }); });
       update();
       showTab("order");
       say("La IA sugirió " + data.modulos.length + " módulos. " + data.motivo, "ok", { act: "ia-undo", text: "Deshacer" });
@@ -1686,7 +1738,7 @@
         var section = frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[issue.module];
         var first = section && Array.prototype.find.call(section.querySelectorAll(".nav-link[data-lb-l]"), function (a) { return a.offsetParent; });
         if (first) { scrollToEl(first); selectLink(first); }
-        say("Tocá cada ítem que sobra y elegí «Quitar del menú». El máximo se cambia en Reglas.", "ok");
+        say("Lo recomendado es " + menuLimit() + " ítems. Si querés achicarlo, tocá un ítem y elegí «Quitar del menú».", "ok");
       };
     }
     return null;
@@ -2095,11 +2147,7 @@
   window.addEventListener("message", function (e) {
     if (e.source !== frame.contentWindow || !e.data) return;
     if (e.data.lbRestore) {
-      var it = state.items[e.data.lbRestore.index];
-      if (!it || !it.ocultos) return;
-      delete it.ocultos;
-      update();
-      say("Volvieron todos los ítems del menú.", "ok");
+      showMenuItem(e.data.lbRestore.index);
       return;
     }
     if (e.data.lbWidth) setWidth(e.data.lbWidth.index, e.data.lbWidth.width);

@@ -17,7 +17,7 @@
         { id: "sin-repetidos", label: "No repite el mismo tipo de sección", activo: true, nivel: "aviso" },
         { id: "min-modulos", label: "Cantidad mínima de secciones", activo: true, nivel: "aviso", valor: 5, unidad: "secciones" },
         { id: "max-modulos", label: "Cantidad máxima de secciones", activo: true, nivel: "aviso", valor: 12, unidad: "secciones" },
-        { id: "max-menu", label: "Ítems máximos en el menú", activo: true, nivel: "error", valor: 6, unidad: "ítems" },
+        { id: "max-menu", label: "Ítems recomendados en el menú", activo: true, nivel: "aviso", valor: 3, unidad: "ítems" },
         { id: "nombre-max", label: "Largo máximo del nombre de la landing", activo: true, nivel: "aviso", valor: 60, unidad: "caracteres" }
       ]
     },
@@ -304,7 +304,7 @@
         safeAll(root, ".nav-link").forEach(function (a) { var t = norm(a.textContent).toLowerCase(); if (t) seen[t] = true; });
         var count = Object.keys(seen).length;
         if (count > est["max-menu"].valor) {
-          add(est["max-menu"].nivel, "estructura", mi, "El menú tiene " + count + " ítems y el máximo es " + est["max-menu"].valor + ".", "Agrupá o quitá ítems del menú.", null, { regla: "menu" });
+          add(est["max-menu"].nivel, "estructura", mi, "El menú tiene " + count + " ítems y lo recomendado es " + est["max-menu"].valor + ".", "Podés dejarlo así o quitar los que sobren.", null, { regla: "menu" });
         }
       }
 

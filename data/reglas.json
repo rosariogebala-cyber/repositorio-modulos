@@ -59,10 +59,10 @@
       },
       {
         "id": "max-menu",
-        "label": "Ítems máximos en el menú",
+        "label": "Ítems recomendados en el menú",
         "activo": true,
-        "nivel": "error",
-        "valor": 6,
+        "nivel": "aviso",
+        "valor": 3,
         "unidad": "ítems"
       },
       {
