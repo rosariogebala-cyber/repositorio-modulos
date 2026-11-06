@@ -710,6 +710,11 @@
     } catch (e) { /* noop */ }
     setupEditing();
     scheduleQa(300);
+    var pend = pendingSelect;
+    pendingSelect = null;
+    var pendEl = pend && frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[pend.module];
+    pendEl = pendEl && pendEl.querySelector('[data-lb-i="' + pend.key + '"]');
+    if (pendEl) setTimeout(function () { scrollToEl(pendEl); selectImage(pendEl); }, 200);
     var section = focusModule >= 0 && frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[focusModule];
     focusModule = -1;
     if (section) {
@@ -749,7 +754,12 @@
     "#lbLinkTip select{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}" +
     "#lbLinkTip .lb-link-modes{display:flex;gap:.25em;padding:.2em;border-radius:999px;background:#1d2150}" +
     "#lbLinkTip .lb-link-modes button{flex:1;background:none;color:#c9cbe0;padding:.5em .6em;font-weight:600}" +
-    "#lbLinkTip .lb-link-modes button[aria-pressed=true]{background:#fff;color:#0e1130}";
+    "#lbLinkTip .lb-link-modes button[aria-pressed=true]{background:#fff;color:#0e1130}" +
+    "#lbImgTip .lb-prod{display:flex;flex-direction:column;gap:.45em;margin-top:.2em;padding-top:.65em;border-top:1px solid #2b2f52}" +
+    "#lbImgTip .lb-prod-cats{display:flex;flex-wrap:wrap;gap:.35em}" +
+    "#lbImgTip .lb-prod-cats button{background:#1d2150;color:#c9cbe0;font-weight:600;padding:.45em .8em}" +
+    "#lbImgTip .lb-prod-cats button[aria-pressed=true]{background:#fff;color:#0e1130}" +
+    "#lbImgTip .lb-prod-cats button[aria-pressed=true]::before{content:'✓ '}";
 
   function moduleIndex(el) {
     var doc = frameDoc();
@@ -783,6 +793,12 @@
         if (!editing) return;
         if (e.target.closest("[data-lb-link]")) { selectLink(editing.el.closest("a[data-lb-l]")); return; }
         if (e.target.closest("[data-lb-hide]")) { hideMenuItem(editing.el.closest(".nav-link[data-lb-l]")); return; }
+        if (e.target.closest("[data-lb-prod]")) {
+          var img = productOf(editing.el).querySelector("[data-lb-i]");
+          endEdit();
+          selectImage(img);
+          return;
+        }
         if (!e.target.closest("[data-lb-revert]")) return;
         var orig = originalText(state.items[editing.module], editing.key);
         if (orig != null) editing.el.innerHTML = orig;
@@ -806,6 +822,7 @@
       '<span class="' + tone + '">' + len + (role && role.max ? " / " + role.max : "") + " caracteres</span>" +
       (editing.el.closest("a[data-lb-l]") ? '<button type="button" data-lb-link>Cambiar link</button>' : "") +
       (editing.el.closest(".nav-link[data-lb-l]") ? '<button type="button" data-lb-hide>Quitar del menú</button>' : "") +
+      (productOf(editing.el) && productOf(editing.el).querySelector("[data-lb-i]") ? '<button type="button" data-lb-prod>Producto</button>' : "") +
       (changed ? '<button type="button" data-lb-revert>Volver al original</button>' : "");
     var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
     tip.style.fontSize = Math.round(13 / scale) + "px";
@@ -1004,6 +1021,119 @@
       : role.minAncho ? role.minAncho + "\u00a0px de\u00a0ancho" : role.minAlto + "\u00a0px de\u00a0alto";
   }
 
+  /* Productos: duplicar, quitar y elegir categorías. Cambian la estructura del módulo:
+     el HTML queda en it.html y las ediciones por posición se reacomodan. */
+  function productOf(el) {
+    var item = el.closest("[data-item]");
+    if (item) return item;
+    var card = el.closest(".prod-card");
+    return card && card.parentElement && /\bcol-/.test(card.parentElement.className) ? card.parentElement : null;
+  }
+
+  function productsIn(root) {
+    var out = [];
+    root.querySelectorAll("[data-item], .prod-card").forEach(function (el) {
+      var p = productOf(el);
+      if (p && out.indexOf(p) === -1) out.push(p);
+    });
+    return out;
+  }
+
+  function productCategories(product) {
+    var group = product.closest("[data-filter-group]");
+    if (!group || !product.hasAttribute("data-item")) return [];
+    return Array.prototype.filter.call(group.querySelectorAll("[data-filter]"), function (b) { return b.getAttribute("data-filter") !== "todos"; })
+      .map(function (b) { return { id: b.getAttribute("data-filter"), label: b.textContent.replace(/\s+/g, " ").trim() }; });
+  }
+
+  var pendingSelect = null;
+
+  function restructure(index, change) {
+    var it = state.items[index];
+    if (!it) return false;
+    var tpl = document.createElement("template");
+    tpl.innerHTML = it.html || byId[it.id].html;
+    var marks = [["data-lz-t", editableNodes], ["data-lz-i", imageNodes], ["data-lz-l", linkNodes]];
+    marks.forEach(function (m) { m[1](tpl.content).forEach(function (el, k) { el.setAttribute(m[0], k); }); });
+    if (change(tpl.content) === false) return false;
+    var remap = function (attr, nodes, store) {
+      if (!store) return null;
+      var out = {};
+      nodes.forEach(function (el, k) {
+        var old = el.getAttribute(attr);
+        if (old != null && store[old] != null) out[k] = JSON.parse(JSON.stringify(store[old]));
+      });
+      return Object.keys(out).length ? out : null;
+    };
+    var images = imageNodes(tpl.content);
+    var links = linkNodes(tpl.content);
+    var next = {
+      textos: remap("data-lz-t", editableNodes(tpl.content), it.textos),
+      imagenes: remap("data-lz-i", images, it.imagenes),
+      links: remap("data-lz-l", links, it.links),
+      ocultos: remap("data-lz-l", links, it.ocultos)
+    };
+    var picked = tpl.content.querySelector("[data-lz-pick]");
+    var pickImg = picked && images.filter(function (img) { return picked.contains(img); })[0];
+    var pick = pickImg ? images.indexOf(pickImg) : -1;
+    tpl.content.querySelectorAll("[data-lz-t], [data-lz-i], [data-lz-l], [data-lz-pick]").forEach(function (el) {
+      ["data-lz-t", "data-lz-i", "data-lz-l", "data-lz-pick"].forEach(function (a) { el.removeAttribute(a); });
+    });
+    it.html = tpl.innerHTML;
+    Object.keys(next).forEach(function (k) { if (next[k]) it[k] = next[k]; else delete it[k]; });
+    if (pick >= 0) pendingSelect = { module: index, key: String(pick) };
+    return true;
+  }
+
+  function productAction(el, act, value) {
+    var section = el.closest("section.mq-block");
+    var module = moduleIndex(el);
+    var product = productOf(el);
+    if (!section || !product) return;
+    var n = productsIn(section).indexOf(product);
+    var name = (product.querySelector("h3") || {}).textContent || "el producto";
+    var done = restructure(module, function (root) {
+      var list = productsIn(root);
+      var target = list[n];
+      if (!target) return false;
+      if (act === "dup") {
+        var copy = target.cloneNode(true);
+        copy.setAttribute("data-lz-pick", "");
+        target.after(copy);
+      } else if (act === "remove") {
+        if (list.length < 2) return false;
+        target.remove();
+      } else if (act === "cat") {
+        var tags = (target.getAttribute("data-tags") || "").split(/\s+/).filter(Boolean);
+        tags = tags.indexOf(value) === -1 ? tags.concat(value) : tags.filter(function (t) { return t !== value; });
+        if (!tags.length) return false;
+        target.setAttribute("data-tags", tags.join(" "));
+        target.setAttribute("data-lz-pick", "");
+      }
+    });
+    if (!done) {
+      if (act === "remove") say("Es el único producto del módulo: si no lo querés, quitá el módulo entero.", "warn");
+      if (act === "cat") say("Cada producto tiene que estar en al menos una categoría.", "warn");
+      return;
+    }
+    closeImage();
+    update();
+    if (act === "dup") say("Duplicaste «" + name.trim() + "». Cambiale la foto, el nombre y el precio a la copia.", "ok");
+    if (act === "remove") say("Quitaste «" + name.trim() + "».", "ok");
+  }
+
+  function productTipHtml(el) {
+    var product = productOf(el);
+    if (!product) return "";
+    var cats = productCategories(product);
+    var tags = (product.getAttribute("data-tags") || "").split(/\s+/);
+    return '<div class="lb-prod"><b>Producto</b>' +
+      (cats.length ? "<small>Aparece en estas categorías:</small><div class=\"lb-prod-cats\">" + cats.map(function (c) {
+        return '<button type="button" data-prod-cat="' + escapeHtml(c.id) + '" aria-pressed="' + (tags.indexOf(c.id) !== -1) + '">' + escapeHtml(c.label) + "</button>";
+      }).join("") + "</div>" : "") +
+      '<div class="lb-img-row"><button type="button" class="is-ghost" data-prod-dup>Duplicar producto</button><button type="button" class="is-ghost" data-prod-remove>Quitar producto</button></div></div>';
+  }
+
   function imgTip() {
     var doc = frameDoc();
     var tip = doc.getElementById("lbImgTip");
@@ -1018,6 +1148,9 @@
         else if (e.target.closest("[data-img-revert]")) revertImage();
         else if (e.target.closest("[data-img-close]")) closeImage();
         else if (e.target.closest("[data-img-link]")) selectLink(imgSel.el.closest("a[data-lb-l]"));
+        else if (e.target.closest("[data-prod-dup]")) productAction(imgSel.el, "dup");
+        else if (e.target.closest("[data-prod-remove]")) productAction(imgSel.el, "remove");
+        else if (e.target.closest("[data-prod-cat]")) productAction(imgSel.el, "cat", e.target.closest("[data-prod-cat]").getAttribute("data-prod-cat"));
       });
       tip.addEventListener("input", function (e) {
         if (imgSel && e.target.matches("[data-img-alt]")) commitImage({ alt: e.target.value });
@@ -1049,7 +1182,8 @@
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
       '<button type="button" class="is-save" data-img-save hidden></button>' +
       (el.closest("a[data-lb-l]") ? '<button type="button" class="is-ghost" data-img-link>Cambiar link</button>' : "") +
-      (changed ? '<button type="button" class="is-ghost" data-img-revert>Volver a la original</button>' : "") + "</div>";
+      (changed ? '<button type="button" class="is-ghost" data-img-revert>Volver a la original</button>' : "") + "</div>" +
+      productTipHtml(el);
     renderImgSave();
     probe.onload = function () {
       var span = tip.querySelector("#" + sizeId);
