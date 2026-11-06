@@ -2263,6 +2263,7 @@ body:not(.lib-page) .mq-caption { max-width: none; padding-inline: calc(var(--nx
 .landing-page { background: var(--paper); }
 .landing-page .mq-block { padding: 0; }
 .landing-page > section[data-module] { scroll-margin-top: var(--nx-nav-h, 0px); }
+html:has(> .landing-page) { scroll-behavior: smooth; }
 .landing-page > section[data-module^="navegacion"] {
   position: sticky;
   top: 0;

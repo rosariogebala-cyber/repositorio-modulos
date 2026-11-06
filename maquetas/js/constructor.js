@@ -443,6 +443,17 @@
     return { tpl: tpl, nodes: nodes, images: images, links: links };
   }
 
+  function sectionAnchors() {
+    var used = {};
+    return state.items.map(function (it) {
+      var base = slugify(byId[it.id].group);
+      var id = base;
+      for (var n = 2; used[id]; n++) id = base + "-" + n;
+      used[id] = true;
+      return id;
+    });
+  }
+
   function moduleMarkup(it, prefix, i, preview) {
     var tpl = moduleTemplate(it, preview, true).tpl;
     tpl.content.querySelectorAll(".nx").forEach(function (el) {
@@ -455,7 +466,7 @@
         .replace(/(src|href)="\.\.\/assets\//g, '$1="' + prefix + "../assets/")
         .replace(/url\((['"]?)(img\/|\.\.\/assets\/)/g, "url($1" + prefix + "$2");
     }
-    return '  <section class="mq-block" data-module="' + it.id + '" data-width="' + it.width + '">\n    <div class="mq-frame">' + html + "</div>" +
+    return '  <section class="mq-block" id="' + sectionAnchors()[i] + '" data-module="' + it.id + '" data-width="' + it.width + '">\n    <div class="mq-frame">' + html + "</div>" +
       (preview ? previewTools(it, i) : "") + "\n  </section>";
   }
 
@@ -546,7 +557,11 @@
     ":is(#lbImgTip,#lbLinkTip) label{display:flex;flex-direction:column;gap:.3em;font-size:.92em;color:#c9cbe0}" +
     ":is(#lbImgTip,#lbLinkTip) input{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}" +
     ".lb-editing a[data-lb-l]:not([data-lb-t]):not(:has([data-lb-t],[data-lb-i])){cursor:pointer;outline:1px dashed rgba(90,61,242,.55);outline-offset:3px;border-radius:4px}" +
-    ".lb-editing a[data-lb-l].lb-link-on{outline:2px solid #5a3df2!important;outline-offset:3px}";
+    ".lb-editing a[data-lb-l].lb-link-on{outline:2px solid #5a3df2!important;outline-offset:3px}" +
+    "#lbLinkTip select{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}" +
+    "#lbLinkTip .lb-link-modes{display:flex;gap:.25em;padding:.2em;border-radius:999px;background:#1d2150}" +
+    "#lbLinkTip .lb-link-modes button{flex:1;background:none;color:#c9cbe0;padding:.5em .6em;font-weight:600}" +
+    "#lbLinkTip .lb-link-modes button[aria-pressed=true]{background:#fff;color:#0e1130}";
 
   function moduleIndex(el) {
     var doc = frameDoc();
@@ -615,22 +630,26 @@
     tip.style.left = Math.max(8, Math.min(r.left + win.scrollX, doc.documentElement.clientWidth - tip.offsetWidth - 8)) + "px";
   }
 
-  function commitEdit() {
-    if (!editing) return;
-    var it = state.items[editing.module];
+  function storeText(el) {
+    var it = state.items[moduleIndex(el)];
     if (!it) return;
-    var html = cleanEdited(editing.el);
+    var key = el.getAttribute("data-lb-t");
+    var html = cleanEdited(el);
     it.textos = it.textos || {};
-    if (html === originalText(it, editing.key)) delete it.textos[editing.key];
-    else it.textos[editing.key] = html;
+    if (html === originalText(it, key)) delete it.textos[key];
+    else it.textos[key] = html;
     if (!Object.keys(it.textos).length) delete it.textos;
-    var section = editing.el.closest("section.mq-block");
-    section.querySelectorAll('[data-lb-t="' + editing.key + '"]').forEach(function (o) { if (o !== editing.el) o.innerHTML = html; });
+    el.closest("section.mq-block").querySelectorAll('[data-lb-t="' + key + '"]').forEach(function (o) { if (o !== el) o.innerHTML = html; });
     renderMode();
     renderOrder();
     saveDraft();
-    renderTip();
     scheduleQa(900);
+  }
+
+  function commitEdit() {
+    if (!editing) return;
+    storeText(editing.el);
+    renderTip();
   }
 
   function beginEdit(el, focus) {
@@ -683,11 +702,17 @@
     doc.body.classList.toggle("lb-editing", editMode);
     doc.addEventListener("pointerdown", function (e) {
       if (!editMode || e.target.closest("#lbEditTip, #lbImgTip, #lbLinkTip, [data-bs-slide], [data-bs-slide-to]")) return;
+      var img = e.target.closest("[data-lb-i]");
+      var link = e.target.closest("a[data-lb-l]");
+      if (link && !img && (link.classList.contains("nx-brand") || linkTextEl(link) || !link.querySelector("[data-lb-t]"))) {
+        e.preventDefault();
+        closeImage();
+        selectLink(link);
+        return;
+      }
       var el = e.target.closest("[data-lb-t]");
       if (el) { closeImage(); closeLink(); beginEdit(el); return; }
-      var img = e.target.closest("[data-lb-i]");
       if (img) { closeLink(); selectImage(img); return; }
-      var link = e.target.closest("a[data-lb-l]");
       if (link) selectLink(link);
       else { closeImage(); closeLink(); }
     }, true);
@@ -1018,10 +1043,29 @@
         else if (e.target.closest("[data-link-revert]")) revertLink();
         else if (e.target.closest("[data-link-close]")) closeLink();
         else if (e.target.closest("[data-link-hide]")) hideMenuItem(linkSel.el);
+        else if (e.target.closest("[data-link-mode]")) {
+          linkSel.mode = e.target.closest("[data-link-mode]").getAttribute("data-link-mode");
+          renderLinkTip();
+          var field = tip.querySelector("[data-link-href], [data-link-section]");
+          if (field) field.focus();
+        }
         else if (client) { var field = client.getAttribute("data-link-client"); closeLink(); openClientForm(field); }
       });
+      tip.addEventListener("change", function (e) {
+        if (linkSel && e.target.matches("[data-link-section]") && e.target.value) commitLink(e.target.value);
+      });
       tip.addEventListener("input", function (e) {
-        if (!linkSel || !e.target.matches("[data-link-href]")) return;
+        if (!linkSel) return;
+        if (e.target.matches("[data-link-text]")) {
+          var textEl = linkTextEl(linkSel.el);
+          if (!textEl) return;
+          setPlainText(textEl, e.target.value);
+          storeText(textEl);
+          var count = tip.querySelector("[data-link-count]");
+          if (count) count.innerHTML = textCount(textEl).html;
+          return;
+        }
+        if (!e.target.matches("[data-link-href]")) return;
         var v = e.target.value.trim();
         var orig = originalLink(state.items[linkSel.module], linkSel.key) || "";
         var net = /(instagram|facebook|linkedin)\.com/.exec(orig);
@@ -1037,18 +1081,64 @@
     return tip;
   }
 
+  function linkTextEl(a) {
+    if (a.hasAttribute("data-lb-t")) return a;
+    var texts = a.querySelectorAll("[data-lb-t]");
+    return texts.length === 1 ? texts[0] : null;
+  }
+
+  function setPlainText(el, text) {
+    var walker = el.ownerDocument.createTreeWalker(el, 4);
+    var nodes = [];
+    var node;
+    while ((node = walker.nextNode())) if (/\S/.test(node.nodeValue)) nodes.push(node);
+    if (!nodes.length) { el.appendChild(el.ownerDocument.createTextNode(text)); return; }
+    var first = nodes[0].nodeValue;
+    nodes[0].nodeValue = (/^\s/.test(first) ? " " : "") + text + (/\s$/.test(first) ? " " : "");
+    nodes.slice(1).forEach(function (n) { n.nodeValue = ""; });
+  }
+
+  function textCount(el) {
+    var role = rules && window.LanzateReglas ? window.LanzateReglas.textRole(el, rules) : null;
+    var len = el.textContent.replace(/\s+/g, " ").trim().length;
+    var tone = role && role.max && len > role.max ? "is-bad" : "";
+    return { label: role ? role.label : "Texto", html: '<span class="' + tone + '">' + len + (role && role.max ? "/" + role.max : "") + "</span>" };
+  }
+
+  function sectionOptions(href) {
+    var anchors = sectionAnchors();
+    var opts = [["#top", "Arriba de todo"]].concat(state.items.map(function (it, i) {
+      return ["#" + anchors[i], String(i + 1).padStart(2, "0") + " · " + byId[it.id].group];
+    }));
+    var found = opts.some(function (o) { return o[0] === href; });
+    return (found ? "" : '<option value="" selected disabled>Elegí una sección</option>') + opts.map(function (o) {
+      return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === href ? " selected" : "") + ">" + escapeHtml(o[1]) + "</option>";
+    }).join("");
+  }
+
   function renderLinkTip() {
     if (!linkSel) return;
     var el = linkSel.el;
     var tip = linkTip();
     var it = state.items[linkSel.module];
     var href = el.getAttribute("href") || "";
-    var kind = linkKind(el, originalLink(it, linkSel.key) || href);
+    var kind = linkKind(el, href || originalLink(it, linkSel.key) || "");
     var brand = el.classList.contains("nx-brand");
+    var textEl = brand ? null : linkTextEl(el);
+    if (!linkSel.mode) linkSel.mode = /^#/.test(href) ? "section" : "external";
+    var section = linkSel.mode === "section";
+    var count = textEl && textCount(textEl);
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-link-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(kind.label) + "</b>" + (kind.hint ? "<br><small>" + escapeHtml(kind.hint) + "</small>" : "") + "</div>" +
-      '<label>A dónde lleva<input type="text" data-link-href value="' + escapeHtml(href) + '" placeholder="Web, email, teléfono o #sección" spellcheck="false"></label>' +
+      (textEl ? '<label><span>' + escapeHtml(count.label) + ' · <span data-link-count>' + count.html + "</span></span>" +
+        '<input type="text" data-link-text value="' + escapeHtml(textEl.textContent.replace(/\s+/g, " ").trim()) + '"></label>' : "") +
+      '<div class="lb-link-modes" role="group" aria-label="A dónde lleva">' +
+      '<button type="button" data-link-mode="section" aria-pressed="' + section + '">Sección</button>' +
+      '<button type="button" data-link-mode="external" aria-pressed="' + !section + '">Link externo</button></div>' +
+      (section
+        ? '<label>Lleva a<select data-link-section>' + sectionOptions(href) + "</select></label>"
+        : '<label>Lleva a<input type="text" data-link-href value="' + escapeHtml(/^#/.test(href) ? "" : href) + '" placeholder="Web, email, teléfono o @usuario" spellcheck="false"></label>') +
       '<div class="lb-img-row"><button type="button" class="is-save" data-link-save hidden></button>' +
       (el.classList.contains("nav-link") ? '<button type="button" data-link-hide>Quitar del menú</button>' : "") +
       (kind.field ? '<button type="button" class="is-ghost" data-link-client="' + kind.field + '">' + (brand ? "Cambiar logo o nombre" : "Datos del cliente") + "</button>" : "") +
@@ -1094,6 +1184,11 @@
     else it.links[linkSel.key] = href;
     if (!Object.keys(it.links).length) delete it.links;
     linkSel.el.closest("section.mq-block").querySelectorAll('[data-lb-l="' + linkSel.key + '"]').forEach(function (o) { setHref(o, href || orig || ""); });
+    var head = frameDoc().querySelector("#lbLinkTip > div:first-of-type");
+    if (head && !linkSel.el.classList.contains("nx-brand")) {
+      var kind = linkKind(linkSel.el, linkSel.el.getAttribute("href") || "");
+      head.innerHTML = "<b>" + escapeHtml(kind.label) + "</b>" + (kind.hint ? "<br><small>" + escapeHtml(kind.hint) + "</small>" : "");
+    }
     var revert = frameDoc().querySelector("#lbLinkTip [data-link-revert]");
     if (revert) revert.hidden = !(it.links && it.links[linkSel.key] != null);
     renderMode();
