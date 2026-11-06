@@ -24,7 +24,7 @@
     textos: {
       viudas: true,
       ejemplos: true,
-      listaEjemplos: ["example.com", "5491123456789", "lorem ipsum", "Nexoia", "Tu marca", "Nombre Apellido"],
+      listaEjemplos: ["example.com", "5491123456789", "lorem ipsum", "Marca Ejemplo", "Tu marca", "Nombre Apellido"],
       roles: [
         { id: "kicker", label: "Antetítulo", selector: ".nx-kicker, .plan-kicker", min: 0, max: 32, activo: true },
         { id: "faq", label: "Pregunta frecuente", selector: ".accordion-button", min: 10, max: 90, activo: true },
@@ -103,7 +103,7 @@
   }
 
   function api(method, url, body) {
-    if (window.Nexoia && window.Nexoia.api) return window.Nexoia.api(method, url, body);
+    if (window.Lanzate && window.Lanzate.api) return window.Lanzate.api(method, url, body);
     return Promise.reject(new Error("Sin conexión"));
   }
 
@@ -475,7 +475,7 @@
     return (rules || merge(null)).imagenes.roles.filter(function (r) { return r.activo && r.selector && safeMatches(el, r.selector); })[0] || null;
   }
 
-  window.NexoiaReglas = {
+  window.LanzateReglas = {
     defaults: function () { return clone(DEFAULTS); },
     merge: merge,
     load: load,

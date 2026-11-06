@@ -481,7 +481,7 @@
   }
   if (document.body.classList.contains("lib-page")) addLogout();
 
-  window.Nexoia = { api: api, esc: esc, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
+  window.Lanzate = { api: api, esc: esc, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 
   var page = document.body.getAttribute("data-page");
   if (page === "clientes") pageClientes();

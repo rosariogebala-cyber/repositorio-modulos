@@ -527,7 +527,7 @@
       start.setHours(Number(parts[0]), Number(parts[1]));
       var end = new Date(start.getTime() + (parseInt(values.duracion, 10) || 30) * 60000);
       function stamp(d) { return isoDate(d).replace(/-/g, "") + "T" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + "00"; }
-      var ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Nexoia//Turnos//ES", "BEGIN:VEVENT",
+      var ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Lanzate//Turnos//ES", "BEGIN:VEVENT",
         "UID:" + Date.now() + "@example.com", "DTSTART:" + stamp(start), "DTEND:" + stamp(end),
         "SUMMARY:" + (values.servicio || "Turno") + (values.profesional ? " con " + values.profesional : ""),
         "LOCATION:Calle Ejemplo 123, Buenos Aires", "END:VEVENT", "END:VCALENDAR"].join("\r\n");

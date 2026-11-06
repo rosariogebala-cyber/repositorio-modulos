@@ -1,11 +1,11 @@
 # Deploy en Render: https://render.com
 # 1. Conectá este repo
 # 2. New → Blueprint → elegí este archivo
-# 3. La URL pública queda tipo https://nexoia.onrender.com
+# 3. La URL pública queda tipo https://lanzate.onrender.com
 
 services:
   - type: web
-    name: nexoia
+    name: lanzate
     runtime: python
     plan: free
     buildCommand: "true"

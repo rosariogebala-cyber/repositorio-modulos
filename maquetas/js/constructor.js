@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var DRAFT = "nexoia-landing-draft";
+  var DRAFT = "lanzate-landing-draft";
   var FONTS = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap";
   var BOOTSTRAP_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css";
   var ICONS_CSS = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css";
@@ -41,7 +41,7 @@
   var qaBox = $("[data-lb-qa]");
   var qaLabel = $("[data-lb-qa-label]");
   var qaList = $("[data-lb-qa-list]");
-  var api = window.Nexoia.api;
+  var api = window.Lanzate.api;
   var DEVICE_NAMES = { 1280: "Escritorio", 820: "Tablet", 390: "Celular" };
   var rules = null;
   var qaReport = null;
@@ -265,7 +265,7 @@
   }
 
   /* Datos del cliente: reemplazan los de ejemplo de las maquetas */
-  var SAMPLE = { nombre: "Nexoia", email: "hola@example.com", telefono: "+54 11 2345 6789", wa: "5491123456789" };
+  var SAMPLE = { nombre: "Marca Ejemplo", email: "hola@example.com", telefono: "+54 11 2345 6789", wa: "5491123456789" };
   var DEFAULT_COLORS = { c1: "#1b5e42", c2: "#e7f3ee" };
 
   function waNumber(tel) {
@@ -303,7 +303,7 @@
       if (!href) return;
       if (c.email) href = href.replace("mailto:" + SAMPLE.email, "mailto:" + c.email);
       if (wa) href = href.replace("wa.me/" + SAMPLE.wa, "wa.me/" + wa);
-      if (c.nombre) href = href.replace("q=" + SAMPLE.nombre, "q=" + encodeURIComponent(c.nombre).replace(/%20/g, "+"));
+      if (c.nombre) href = href.replace("q=" + SAMPLE.nombre.replace(/ /g, "+"), "q=" + encodeURIComponent(c.nombre).replace(/%20/g, "+"));
       el.setAttribute("href", href);
     });
     var logo = logoSrc(c, preview);
@@ -428,7 +428,7 @@
       '  <link href="' + FONTS + '" rel="stylesheet">',
       '  <link href="' + BOOTSTRAP_CSS + '" rel="stylesheet">',
       '  <link href="' + ICONS_CSS + '" rel="stylesheet">',
-      '  <link href="' + prefix + 'css/nexoia.css" rel="stylesheet">',
+      '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
       "</head>",
@@ -437,7 +437,7 @@
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = [
       '  <script src="' + BOOTSTRAP_JS + '"></' + "script>",
-      '  <script src="' + prefix + 'js/nexoia.js"></' + "script>"
+      '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
       tail.push("  <script>document.addEventListener('click',function(e){var t=e.target.closest('.lp-tools [data-value]');if(t){parent.postMessage({lbWidth:{index:+t.getAttribute('data-index'),width:t.getAttribute('data-value')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
@@ -543,7 +543,7 @@
     if (!editing) return;
     var doc = frameDoc();
     var tip = editTip();
-    var role = rules && window.NexoiaReglas ? window.NexoiaReglas.textRole(editing.el, rules) : null;
+    var role = rules && window.LanzateReglas ? window.LanzateReglas.textRole(editing.el, rules) : null;
     var len = editing.el.textContent.replace(/\s+/g, " ").trim().length;
     var tone = role && role.max && len > role.max ? "is-over" : role && role.min && len < role.min ? "is-under" : "";
     var it = state.items[editing.module];
@@ -680,7 +680,7 @@
   document.body.appendChild(imgInput);
 
   function imageRoleOf(el) {
-    return rules && window.NexoiaReglas && window.NexoiaReglas.imageRole ? window.NexoiaReglas.imageRole(el, rules) : null;
+    return rules && window.LanzateReglas && window.LanzateReglas.imageRole ? window.LanzateReglas.imageRole(el, rules) : null;
   }
 
   function originalImage(it, key) {
@@ -1000,7 +1000,7 @@
     library.forEach(function (g) {
       g.modules.forEach(function (m) { catalogo.push({ id: m.id, grupo: g.name, variante: m.variant, nota: m.note }); });
     });
-    var reglas = rules && window.NexoiaReglas ? window.NexoiaReglas.toPrompt(rules, names).split("\nTEXTOS")[0] : "";
+    var reglas = rules && window.LanzateReglas ? window.LanzateReglas.toPrompt(rules, names).split("\nTEXTOS")[0] : "";
     aiRequest(aiModulesBtn, { tarea: "modulos", cliente: aiClient(), objetivo: state.name.trim(), catalogo: catalogo, reglas: reglas },
       "La IA está eligiendo los módulos para " + currentClient().nombre + "…").then(function (data) {
       aiUndo = JSON.stringify(state.items);
@@ -1023,9 +1023,9 @@
         var k = el.getAttribute("data-lb-t");
         if (seen[k] || el.closest(".lp-tools, .nav-link, a[href^='mailto:'], a[href^='tel:'], a[href*='wa.me']")) return;
         seen[k] = true;
-        var text = window.NexoiaReglas.norm(el.textContent);
+        var text = window.LanzateReglas.norm(el.textContent);
         if (text.length < 2 || /@|^\+?[\d\s().-]{6,}$/.test(text)) return;
-        var role = rules ? window.NexoiaReglas.textRole(el, rules) : null;
+        var role = rules ? window.LanzateReglas.textRole(el, rules) : null;
         out.push({
           id: m + "." + k,
           seccion: byId[it.id].group,
@@ -1141,7 +1141,7 @@
     renderQa();
     var fonts = doc && doc.fonts ? doc.fonts.ready.catch(function () {}) : Promise.resolve();
     fonts.then(function () {
-      return window.NexoiaReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name,
+      return window.LanzateReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name,
         groupNames: library.reduce(function (acc, g) { acc[g.id] = g.name; return acc; }, {}) });
     }).then(function (report) {
       if (run !== qaRun) return;
@@ -1212,7 +1212,7 @@
   }
 
   /* «Corregir»: lleva al lugar donde se arregla cada problema */
-  var EXAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "Nexoia": "nombre" };
+  var EXAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "Marca Ejemplo": "nombre" };
   var FIELD_NAMES = { email: "el email", telefono: "el teléfono", nombre: "el nombre" };
 
   function editableFor(el) {
@@ -1246,7 +1246,7 @@
   function openClientForm(field) {
     var client = currentClient();
     if (!client) { goTo("client"); return; }
-    window.Nexoia.clientForm(client).then(function (saved) {
+    window.Lanzate.clientForm(client).then(function (saved) {
       if (!saved || saved.deleted) return;
       loadClients().then(function () {
         renderPreview();
@@ -1470,7 +1470,7 @@
     return api("GET", "/api/landings").then(function (list) {
       savedList.innerHTML = "";
       list.forEach(function (lp) {
-        savedList.appendChild(window.Nexoia.landingRow(lp, { showClient: true, onEdit: editLanding, onChange: renderSaved, onMessage: libSay }));
+        savedList.appendChild(window.Lanzate.landingRow(lp, { showClient: true, onEdit: editLanding, onChange: renderSaved, onMessage: libSay }));
       });
       savedCount.textContent = list.length;
       savedEmpty.hidden = list.length > 0;
@@ -1534,7 +1534,7 @@
   $("[data-lb-assign-close]").addEventListener("click", function () { assignDialog.close(); });
 
   $("[data-lb-assign-new]").addEventListener("click", function () {
-    window.Nexoia.clientForm(null).then(function (client) {
+    window.Lanzate.clientForm(null).then(function (client) {
       if (!client || client.deleted) return;
       loadClients().then(function () {
         fillAssignClients();
@@ -1670,7 +1670,7 @@
   });
 
   $("[data-lb-new-client]").addEventListener("click", function () {
-    window.Nexoia.clientForm(null).then(function (client) {
+    window.Lanzate.clientForm(null).then(function (client) {
       if (!client || client.deleted) return;
       state.clienteId = client.id;
       loadClients().then(function () {
@@ -1803,8 +1803,8 @@
     }
   }
 
-  if (window.NexoiaReglas) {
-    window.NexoiaReglas.load().then(function (loaded) {
+  if (window.LanzateReglas) {
+    window.LanzateReglas.load().then(function (loaded) {
       rules = loaded;
       scheduleQa(0);
     });

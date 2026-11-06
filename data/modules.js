@@ -1,4 +1,4 @@
-window.NEXOIA_MODULES = [
+window.LANZATE_MODULES = [
   {
     "id": "whatsapp",
     "nombre": "WhatsApp",

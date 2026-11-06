@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 
 # Clientes y landings viven en Supabase
-data/nexoia.db*
 data/db.json*
 data/previews/
 data/logos/

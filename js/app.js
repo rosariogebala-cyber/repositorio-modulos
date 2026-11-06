@@ -1,5 +1,5 @@
 'use strict';
-const modulos = window.NEXOIA_MODULES;
+const modulos = window.LANZATE_MODULES;
 const palette = { estructura:'#5a3df2', contenido:'#3b4fd8', negocio:'#b0703a', confianza:'#c2415d', informacion:'#1f6f5c' };
 const $ = selector => document.querySelector(selector);
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();

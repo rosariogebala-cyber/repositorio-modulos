@@ -9,7 +9,7 @@ se publica en /l/<cliente>/<landing>/.
 En Vercel, api/index.py usa el mismo Handler. En local:
     python3 server.py [puerto]   (por defecto 8877)
 La conexión y la clave de acceso salen de las variables DATABASE_URL y
-LANZATE_CLAVE, o de ~/.nexoia/lanzate.env (fuera del repositorio).
+LANZATE_CLAVE, o de ~/.lanzate/lanzate.env (fuera del repositorio).
 """
 
 import base64
@@ -34,7 +34,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".nexoia")
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".lanzate")
 LOCAL_ENV = os.path.join(CONFIG_DIR, "lanzate.env")
 REGLAS_JSON = os.path.join(ROOT, "data", "reglas.json")
 

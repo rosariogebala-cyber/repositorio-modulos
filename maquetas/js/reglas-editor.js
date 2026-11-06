@@ -1,8 +1,8 @@
 (function () {
   "use strict";
 
-  var R = window.NexoiaReglas;
-  var esc = window.Nexoia.esc;
+  var R = window.LanzateReglas;
+  var esc = window.Lanzate.esc;
   var $ = function (sel) { return document.querySelector(sel); };
   var msg = $("[data-rg-msg]");
   var saveBtn = $("[data-rg-save]");

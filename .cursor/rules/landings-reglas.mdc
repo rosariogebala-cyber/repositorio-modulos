@@ -11,7 +11,7 @@ Toda landing que armes o edites cumple las reglas de la plataforma, las mismas q
 - Fuente: `maquetas/js/reglas.js` (`DEFAULTS`) con lo guardado en la base (tabla `ajustes` de Supabase, o `data/reglas.json` si todavía no se guardó nada) encima (lo guardado manda). Leé los dos antes de escribir.
 - Textos: respetá el mínimo y el máximo de caracteres de cada rol (título de portada, botón, ítem de menú, etc.), contando espacios. El rol sale del `selector` de cada regla.
 - Estructura: empieza con la Navegación, sigue la portada y termina con el Footer. Una sola sección de cada tipo, con las secciones obligatorias incluidas, y la cantidad de secciones e ítems de menú dentro de los límites.
-- Datos del cliente: ningún dato de ejemplo (`listaEjemplos`: Nexoia, el nombre de ejemplo de las maquetas, `hola@example.com`, `+54 11 2345 6789`, `wa.me/5491123456789`, etc.). Usá los del cliente (tabla `clientes` de Supabase) o dejá el pendiente marcado para el equipo.
+- Datos del cliente: ningún dato de ejemplo (`listaEjemplos`: Marca Ejemplo, el nombre de ejemplo de las maquetas, `hola@example.com`, `+54 11 2345 6789`, `wa.me/5491123456789`, etc.). Usá los del cliente (tabla `clientes` de Supabase) o dejá el pendiente marcado para el equipo.
 - Imágenes: tamaño mínimo, proporción y peso por rol, en los formatos permitidos y con `alt`.
 - Sin viudas: uní las dos últimas palabras de títulos, párrafos y botones con `&nbsp;`.
 - Escribí en español rioplatense, con voseo y frases afirmativas.
