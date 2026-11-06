@@ -280,7 +280,7 @@
         });
       }
       if (est["min-modulos"] && flow.length < est["min-modulos"].valor) {
-        add(est["min-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el mínimo es " + est["min-modulos"].valor + ".", "Sumá secciones para contar la propuesta completa.", null, { regla: "sumar" });
+        add(est["min-modulos"].nivel, "estructura", null, "Tiene " + flow.length + (flow.length === 1 ? " sección" : " secciones") + " y el mínimo es " + est["min-modulos"].valor + ".", "Sumá secciones para contar la propuesta completa.", null, { regla: "sumar" });
       }
       if (est["max-modulos"] && flow.length > est["max-modulos"].valor) {
         add(est["max-modulos"].nivel, "estructura", null, "Tiene " + flow.length + " secciones y el máximo es " + est["max-modulos"].valor + ".", "Quitá las que repiten información.", null, { regla: "orden" });

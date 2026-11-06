@@ -1237,7 +1237,7 @@
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
-      (isImg ? '<label>Descripción (alt)<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve en la foto"></label>' : "") +
+      (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
       '<button type="button" class="is-save" data-img-save hidden></button>' +
       (el.closest("a[data-lb-l]") ? '<button type="button" class="is-ghost" data-img-link>Cambiar link</button>' : "") +
@@ -2251,6 +2251,7 @@
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
     editHint.hidden = !state.items.length;
+    if (jumpBtn) renderJump();
     renderAi();
     renderImgSave();
     stepDone(1, !!state.clienteId && !!state.name.trim());
@@ -2543,6 +2544,28 @@
 
   newBtn.addEventListener("click", newLanding);
 
+  /* En celular la vista previa queda debajo de los módulos: un botón salta de uno a otro */
+  var jumpBtn = $("[data-lb-jump]");
+  var stage = $(".lb-stage");
+  var side = $(".lb-side");
+  function onStage() {
+    var r = stage.getBoundingClientRect();
+    return r.top < window.innerHeight * 0.5;
+  }
+  function renderJump() {
+    jumpBtn.hidden = !state.items.length;
+    var there = onStage();
+    $("[data-lb-jump-label]").textContent = there ? "Módulos" : "Ver landing";
+    $("[data-lb-jump-icon]").className = "bi " + (there ? "bi-grid" : "bi-eye");
+  }
+  jumpBtn.addEventListener("click", function () {
+    var target = onStage() ? side.querySelector('[data-lb-step="2"]') : stage;
+    var header = $(".lib-header");
+    var offset = (header ? header.getBoundingClientRect().height : 0) + 12;
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - offset, behavior: "smooth" });
+  });
+  window.addEventListener("scroll", renderJump, { passive: true });
+
   document.querySelectorAll("[data-lb-tab]").forEach(function (tab) {
     tab.addEventListener("click", function () { showTab(tab.getAttribute("data-lb-tab")); });
   });
@@ -2674,7 +2697,7 @@
     update();
     if (!restored) return;
     if (restored.kind === "draft") {
-      say("Recuperamos la landing que estabas armando.", "", { act: "new", text: "Empezar de cero" });
+      say("Recuperamos la landing que estabas\u00a0armando.", "", { act: "new", text: "Empezar de cero" });
     } else if (restored.kind === "unsaved") {
       say("Recuperamos los cambios sin guardar de «" + restored.name + "».", "", { act: "new", text: "Crear una nueva" });
     } else {

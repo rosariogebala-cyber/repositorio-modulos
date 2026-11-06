@@ -16,7 +16,7 @@
   <header class="lib-header">
     <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
     <nav aria-label="Navegación principal">
-      <a href="../index.html">Biblioteca de módulos</a>
+      <a href="../index.html">Biblioteca<span class="lib-nav-long"> de módulos</span></a>
       <a href="index.html">Maquetas</a>
       <a class="is-current" href="constructor.html">Crear landing</a>
       <a href="landings.html">Landings</a>
@@ -52,7 +52,7 @@
         </div>
         <div class="lb-tabs" role="tablist" aria-label="Módulos de la landing">
           <button type="button" role="tab" id="lbTabAdd" aria-controls="lbPanelAdd" aria-selected="true" data-lb-tab="add"><i class="bi bi-plus-square"></i> Agregar</button>
-          <button type="button" role="tab" id="lbTabOrder" aria-controls="lbPanelOrder" aria-selected="false" data-lb-tab="order"><i class="bi bi-list-ol"></i> Ordenar y ajustar <span class="lb-tab-count" data-lb-tab-count>0</span></button>
+          <button type="button" role="tab" id="lbTabOrder" aria-controls="lbPanelOrder" aria-selected="false" data-lb-tab="order"><i class="bi bi-list-ol"></i> Ordenar <span class="lb-tab-count" data-lb-tab-count>0</span></button>
         </div>
 
         <div id="lbPanelAdd" role="tabpanel" aria-labelledby="lbTabAdd" data-lb-panel="add">
@@ -72,10 +72,10 @@
         <div id="lbPanelOrder" role="tabpanel" aria-labelledby="lbTabOrder" data-lb-panel="order" hidden>
           <div class="lb-settings" data-lb-settings hidden>
             <div class="lb-setting">
-              <span>Ancho de todos</span>
+              <span>Ancho de los módulos</span>
               <div class="lb-seg" role="group" aria-label="Ancho de todos los módulos" data-lb-all>
-                <button type="button" data-value="contained" aria-pressed="false"><i class="bi bi-layout-three-columns"></i> Márgenes</button>
-                <button type="button" data-value="full" aria-pressed="false"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>
+                <button type="button" data-value="contained" aria-pressed="false"><i class="bi bi-layout-three-columns"></i> Con márgenes</button>
+                <button type="button" data-value="full" aria-pressed="false"><i class="bi bi-arrows-angle-expand"></i> A todo el ancho</button>
               </div>
             </div>
           </div>
@@ -95,6 +95,7 @@
         <div class="lb-actions">
           <button class="btn-nx-outline btn-sm" type="button" data-lb-new hidden title="Nueva landing"><i class="bi bi-plus-lg"></i><span class="lb-btn-text"> Nueva landing</span></button>
           <button class="btn-nx-outline btn-sm" type="button" data-lb-library-open title="Mis landings"><i class="bi bi-collection"></i><span class="lb-btn-text"> Mis landings</span> <span class="lb-badge" data-lb-saved-count>0</span></button>
+          <button class="btn-nx-outline btn-sm lb-jump" type="button" data-lb-jump hidden><i class="bi bi-eye" data-lb-jump-icon></i> <span data-lb-jump-label>Ver landing</span></button>
           <button class="btn-nx btn-sm" type="button" data-lb-create><i class="bi bi-check2-circle" data-lb-create-icon></i> <span data-lb-create-label>Crear landing</span></button>
         </div>
       </div>
@@ -139,7 +140,7 @@
     <div class="lb-dialog-head">
       <div>
         <h2 id="lbLibraryTitle">Mis landings</h2>
-        <p>Cada una se publica en /l/&lt;cliente&gt;/&lt;landing&gt;/.</p>
+        <p>Cada landing tiene su propia dirección para&nbsp;compartir.</p>
       </div>
       <button class="lb-dialog-close" type="button" data-lb-library-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
     </div>

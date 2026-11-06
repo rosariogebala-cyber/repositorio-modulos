@@ -1684,7 +1684,18 @@ html:has(.lib-page) { scroll-behavior: smooth; }
 
 @media (max-width: 800px) {
   .lib-header { flex-wrap: wrap; gap: 12px; padding: 12px 20px; }
-  .lib-header nav { order: 3; width: 100%; gap: 18px; overflow-x: auto; scrollbar-width: none; }
+  .lib-header nav {
+    order: 3;
+    width: 100%;
+    gap: 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-right: 28px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+  }
+  .lib-header nav a { flex-shrink: 0; white-space: nowrap; }
+  .lib-nav-long { display: none; }
   .lib-header nav::-webkit-scrollbar { display: none; }
   .lib-cats { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .lib-cats a { flex-shrink: 0; }
@@ -2768,7 +2779,13 @@ html:has(> .landing-page) { scroll-behavior: smooth; }
     box-shadow: 0 -8px 24px rgba(18, 23, 60, 0.08);
   }
   .lb-actions [data-lb-create] { flex: 1; justify-content: center; }
+  .lb-actions .lb-jump:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .lb-actions [data-lb-create] { white-space: nowrap; }
 }
+@media (max-width: 379px) {
+  .lb-jump [data-lb-jump-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+@media (min-width: 992px) { .lb-jump { display: none !important; } }
 @media (max-width: 575.98px) {
   .lb-btn-text { display: none; }
   .lb-statusbar { padding: 10px 12px; }

@@ -3,6 +3,13 @@
 
   var OFFLINE = "No hay conexión con el servidor. Revisá internet y probá de nuevo.";
 
+  var currentNav = document.querySelector(".lib-header nav .is-current");
+  if (currentNav && currentNav.parentElement.scrollWidth > currentNav.parentElement.clientWidth) {
+    var nav = currentNav.parentElement;
+    var left = currentNav.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+    nav.scrollLeft = left - (nav.clientWidth - currentNav.offsetWidth) / 2;
+  }
+
   function toLogin() {
     if (/login\.html$/.test(location.pathname)) return;
     location.href = "login.html?volver=" + encodeURIComponent(location.pathname + location.search);
