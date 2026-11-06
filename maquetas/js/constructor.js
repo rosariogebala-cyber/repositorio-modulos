@@ -616,18 +616,19 @@
   });
 
   /* Edición de textos sobre la vista previa */
-  var editBtn = $("[data-lb-edit]");
-  var editMode = false;
+  var editHint = $("[data-lb-edit]");
+  var editMode = true;
   var editing = null;
+  var hoverEl = null;
   var EDIT_CSS =
-    ".lb-editing [data-lb-t]{cursor:text;outline:1px dashed rgba(90,61,242,.55);outline-offset:3px;border-radius:2px}" +
-    ".lb-editing [data-lb-t]:hover{outline:2px solid #5a3df2}" +
+    ".lb-editing [data-lb-t]{cursor:text}.lb-editing [data-lb-i],.lb-editing a[data-lb-l]{cursor:pointer}" +
+    ".lb-hover{outline:2px solid #5a3df2!important;outline-offset:3px;border-radius:2px}[data-lb-i].lb-hover{outline-offset:-3px}" +
+    "#lbHover{position:absolute;z-index:2147482999;pointer-events:none;display:flex;align-items:center;gap:.35em;padding:.35em .6em;border-radius:6px;background:#5a3df2;color:#fff;font:700 12px/1 Inter,system-ui,sans-serif;white-space:nowrap;box-shadow:0 4px 12px rgba(14,17,48,.25)}#lbHover[hidden]{display:none}" +
     "[data-lb-t][contenteditable]{outline:2px solid #5a3df2!important;background:rgba(255,255,255,.85);color:#0e1130;caret-color:#5a3df2}" +
     "#lbEditTip{position:absolute;z-index:2147483000;display:flex;align-items:center;gap:.6em;padding:.45em .8em;border-radius:999px;background:#0e1130;color:#fff;font:600 13px/1.2 Inter,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap}" +
     "#lbEditTip[hidden]{display:none}#lbEditTip .is-over{color:#ff8a80}#lbEditTip .is-under{color:#ffd27a}" +
     "#lbEditTip button{border:0;background:none;color:#d5f660;font:inherit;text-decoration:underline;cursor:pointer;padding:0}" +
-    ".lb-editing [data-lb-i]{cursor:pointer;outline:2px dashed rgba(213,246,96,.95);outline-offset:-2px;box-shadow:inset 0 0 0 4px rgba(90,61,242,.45)}" +
-    ".lb-editing [data-lb-i]:hover,[data-lb-i].lb-img-on{outline:3px solid #5a3df2!important;outline-offset:-3px}" +
+    "[data-lb-i].lb-img-on{outline:3px solid #5a3df2!important;outline-offset:-3px}" +
     ":is(#lbImgTip,#lbLinkTip){position:absolute;z-index:2147483000;display:flex;flex-direction:column;gap:.55em;width:min(22em,calc(100vw - 16px));padding:.8em .9em;border-radius:14px;background:#0e1130;color:#fff;font:500 13px/1.35 Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)}" +
     ":is(#lbImgTip,#lbLinkTip)[hidden]{display:none}:is(#lbImgTip,#lbLinkTip) b{font-weight:700}#lbImgTip small,#lbLinkTip small{color:#c9cbe0;font-size:.9em;text-wrap:pretty}#lbImgTip .is-bad,#lbLinkTip .is-bad{color:#ff8a80}" +
     ":is(#lbImgTip,#lbLinkTip) .lb-img-row{display:flex;flex-wrap:wrap;gap:.5em;align-items:center}" +
@@ -638,7 +639,6 @@
     ":is(#lbImgTip,#lbLinkTip)>div:first-of-type{padding-right:1.8em}" +
     ":is(#lbImgTip,#lbLinkTip) label{display:flex;flex-direction:column;gap:.3em;font-size:.92em;color:#c9cbe0}" +
     ":is(#lbImgTip,#lbLinkTip) input{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}" +
-    ".lb-editing a[data-lb-l]:not([data-lb-t]):not(:has([data-lb-t],[data-lb-i])){cursor:pointer;outline:1px dashed rgba(90,61,242,.55);outline-offset:3px;border-radius:4px}" +
     ".lb-editing a[data-lb-l].lb-link-on{outline:2px solid #5a3df2!important;outline-offset:3px}" +
     "#lbLinkTip select{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}" +
     "#lbLinkTip .lb-link-modes{display:flex;gap:.25em;padding:.2em;border-radius:999px;background:#1d2150}" +
@@ -763,11 +763,52 @@
   }
 
   function setEditMode(on) {
-    editMode = on;
-    editBtn.setAttribute("aria-pressed", String(on));
-    var doc = frameDoc();
-    if (doc) doc.body.classList.toggle("lb-editing", on);
     if (!on) { endEdit(); closeImage(); closeLink(); }
+  }
+
+  function editTarget(t) {
+    var img = t.closest("[data-lb-i]");
+    var link = t.closest("a[data-lb-l]");
+    if (link && !img && (link.classList.contains("nx-brand") || linkTextEl(link) || !link.querySelector("[data-lb-t]"))) return { kind: "link", el: link, direct: true };
+    var el = t.closest("[data-lb-t]");
+    if (el) return { kind: "text", el: el };
+    if (img) return { kind: "img", el: img };
+    if (link) return { kind: "link", el: link };
+    return null;
+  }
+
+  function hoverLabel(target) {
+    if (target.kind === "text") return '<i class="bi bi-pencil"></i> Editar texto';
+    if (target.kind === "img") return '<i class="bi bi-image"></i> Cambiar foto';
+    if (target.el.classList.contains("nx-brand")) return '<i class="bi bi-pencil"></i> Cambiar logo';
+    return '<i class="bi bi-link-45deg"></i> ' + (linkTextEl(target.el) ? "Editar texto y link" : "Cambiar link");
+  }
+
+  function showHover(target) {
+    var doc = frameDoc();
+    if (!doc) return;
+    var chip = doc.getElementById("lbHover");
+    if (hoverEl && (!target || hoverEl !== target.el)) hoverEl.classList.remove("lb-hover");
+    hoverEl = null;
+    var busy = target && ((editing && editing.el === target.el) || (imgSel && imgSel.el === target.el) || (linkSel && linkSel.el === target.el));
+    if (!target || busy) { if (chip) chip.hidden = true; return; }
+    if (!chip) {
+      chip = doc.createElement("div");
+      chip.id = "lbHover";
+      doc.body.appendChild(chip);
+    }
+    hoverEl = target.el;
+    hoverEl.classList.add("lb-hover");
+    chip.innerHTML = hoverLabel(target);
+    var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
+    chip.style.fontSize = Math.round(12 / scale) + "px";
+    chip.hidden = false;
+    var r = target.el.getBoundingClientRect();
+    var win = doc.defaultView;
+    var top = r.top + win.scrollY - chip.offsetHeight - 6;
+    if (top < win.scrollY) top = r.top + win.scrollY + 6;
+    chip.style.top = top + "px";
+    chip.style.left = Math.max(4, Math.min(r.left + win.scrollX, doc.documentElement.clientWidth - chip.offsetWidth - 4)) + "px";
   }
 
   function setupEditing() {
@@ -782,21 +823,27 @@
     style.textContent = EDIT_CSS;
     doc.head.appendChild(style);
     doc.body.classList.toggle("lb-editing", editMode);
+    hoverEl = null;
+    doc.addEventListener("pointerover", function (e) {
+      if (e.pointerType && e.pointerType !== "mouse") return;
+      var skip = e.target.closest("#lbEditTip, #lbImgTip, #lbLinkTip, .lp-tools, [data-bs-slide], [data-bs-slide-to]");
+      showHover(skip ? null : editTarget(e.target));
+    });
+    doc.documentElement.addEventListener("pointerleave", function () { showHover(null); });
     doc.addEventListener("pointerdown", function (e) {
       if (!editMode || e.target.closest("#lbEditTip, #lbImgTip, #lbLinkTip, [data-bs-slide], [data-bs-slide-to]")) return;
-      var img = e.target.closest("[data-lb-i]");
-      var link = e.target.closest("a[data-lb-l]");
-      if (link && !img && (link.classList.contains("nx-brand") || linkTextEl(link) || !link.querySelector("[data-lb-t]"))) {
-        e.preventDefault();
+      var target = editTarget(e.target);
+      showHover(null);
+      if (!target) { closeImage(); closeLink(); return; }
+      if (target.kind === "link") {
+        if (target.direct) e.preventDefault();
         closeImage();
-        selectLink(link);
+        selectLink(target.el);
         return;
       }
-      var el = e.target.closest("[data-lb-t]");
-      if (el) { closeImage(); closeLink(); beginEdit(el); return; }
-      if (img) { closeLink(); selectImage(img); return; }
-      if (link) selectLink(link);
-      else { closeImage(); closeLink(); }
+      if (target.kind === "text") { closeImage(); closeLink(); beginEdit(target.el); return; }
+      closeLink();
+      selectImage(target.el);
     }, true);
     doc.addEventListener("click", function (e) {
       if (!editMode || e.target.closest(".lp-tools, #lbEditTip, #lbImgTip, #lbLinkTip, [data-bs-slide], [data-bs-slide-to]")) return;
@@ -821,11 +868,6 @@
       if (editing && e.target === editing.el) endEdit();
     }, true);
   }
-
-  editBtn.addEventListener("click", function () {
-    setEditMode(!editMode);
-    if (editMode) say("Tocá un texto, una foto, un botón o un ícono para cambiarlo. Enter para terminar, Esc para deshacer.", "ok");
-  });
 
   function editElement(el) {
     setEditMode(true);
@@ -931,9 +973,9 @@
     if (!doc) return;
     var dirty = isDirty();
     doc.querySelectorAll("#lbImgTip [data-img-save], #lbLinkTip [data-link-save]").forEach(function (btn) {
-      btn.hidden = !dirty && !state.landingId;
+      btn.hidden = !state.landingId;
       btn.disabled = busy || !dirty;
-      btn.textContent = busy ? "Guardando…" : !dirty ? "Guardada ✓" : state.landingId ? "Guardar" : "Crear landing";
+      btn.textContent = busy ? "Guardando…" : !dirty ? "Guardada ✓" : "Guardar cambios";
     });
   }
 
@@ -1503,7 +1545,7 @@
       renderOrder();
       renderPreview();
       saveDraft();
-      say("La IA escribió " + count + " textos. Revisalos en la vista previa: con «Editar textos, fotos y links» podés ajustar cualquiera.", "ok", { act: "ia-undo", text: "Deshacer" });
+      say("La IA escribió " + count + " textos. Revisalos en la vista previa: tocá cualquiera para ajustarlo.", "ok", { act: "ia-undo", text: "Deshacer" });
     }, function () { /* el error ya se mostró */ });
   }
 
@@ -1809,7 +1851,7 @@
     createBtn.classList.toggle("is-pending", todo.length > 0);
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
-    editBtn.hidden = !state.items.length;
+    editHint.hidden = !state.items.length;
     renderAi();
     renderImgSave();
     stepDone(1, !!state.clienteId && !!state.name.trim());

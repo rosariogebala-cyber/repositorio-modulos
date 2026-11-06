@@ -3192,7 +3192,8 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   white-space: nowrap;
 }
 .lb-edit-btn[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
-.lb-edit-btn[hidden] { display: none; }
+.lb-edit-btn[hidden], .lb-edit-hint[hidden] { display: none; }
+.lb-edit-hint { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; color: #5a3df2; text-wrap: balance; }
 .lb-preview-tools { flex-wrap: wrap; justify-content: flex-end; }
 
 /* IA en el constructor */
