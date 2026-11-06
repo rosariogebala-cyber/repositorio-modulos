@@ -56,6 +56,7 @@
         <div class="lb-tabs" role="tablist" aria-label="Módulos de la landing">
           <button type="button" role="tab" id="lbTabAdd" aria-controls="lbPanelAdd" aria-selected="true" data-lb-tab="add"><i class="bi bi-plus-square"></i> Agregar</button>
           <button type="button" role="tab" id="lbTabOrder" aria-controls="lbPanelOrder" aria-selected="false" data-lb-tab="order"><i class="bi bi-list-ol"></i> Ordenar <span class="lb-tab-count" data-lb-tab-count>0</span></button>
+          <button type="button" role="tab" id="lbTabAnim" aria-controls="lbPanelAnim" aria-selected="false" data-lb-tab="anim"><i class="bi bi-magic"></i> Animar</button>
         </div>
 
         <div id="lbPanelAdd" role="tabpanel" aria-labelledby="lbTabAdd" data-lb-panel="add">
@@ -81,19 +82,21 @@
                 <button type="button" data-value="full" aria-pressed="false"><i class="bi bi-arrows-angle-expand"></i> A todo el ancho</button>
               </div>
             </div>
-            <div class="lb-setting">
-              <span>Animaciones</span>
-              <div class="lb-seg" role="group" aria-label="Animaciones al bajar por la landing" data-lb-anim>
-                <button type="button" data-value="" aria-pressed="false">Sin animación</button>
-                <button type="button" data-value="suave" aria-pressed="false">Suaves</button>
-                <button type="button" data-value="marcada" aria-pressed="false">Marcadas</button>
-              </div>
-              <p class="lb-setting-note">Las secciones aparecen al bajar por la página. Se ven en la landing publicada y en <button class="lb-link" type="button" data-lb-anim-see>Ver&nbsp;landing</button>.</p>
-            </div>
           </div>
           <ol class="lb-order" data-lb-order></ol>
           <p class="lb-empty" data-lb-order-empty>Todavía no sumaste módulos. Elegilos en «Agregar».</p>
           <p class="lb-order-foot" data-lb-order-foot hidden><button class="lb-link" type="button" data-lb-clear><i class="bi bi-trash3"></i> Quitar todos</button></p>
+        </div>
+
+        <div id="lbPanelAnim" role="tabpanel" aria-labelledby="lbTabAnim" data-lb-panel="anim" hidden>
+          <p class="lb-anim-intro">Los títulos, los textos y las secciones aparecen a medida que se baja por la&nbsp;página.</p>
+          <div class="lb-anim-opts" role="group" aria-label="Animaciones de la landing" data-lb-anim>
+            <button type="button" data-value="" aria-pressed="false"><strong>Sin animación</strong><span>La página aparece quieta, sin&nbsp;movimiento.</span></button>
+            <button type="button" data-value="suave" aria-pressed="false"><strong>Suaves</strong><span>Fundido y un leve movimiento hacia&nbsp;arriba.</span></button>
+            <button type="button" data-value="marcada" aria-pressed="false"><strong>Marcadas</strong><span>Más recorrido, títulos que salen de una máscara y tarjetas en&nbsp;cascada.</span></button>
+          </div>
+          <button class="btn-nx-outline btn-sm lb-anim-see" type="button" data-lb-anim-see><i class="bi bi-play-circle"></i> Ver cómo queda</button>
+          <p class="lb-hint">En la vista previa de al lado no se mueve nada, para que edites tranquila. Se ven en la landing publicada y en «Ver&nbsp;cómo&nbsp;queda».</p>
         </div>
       </section>
     </aside>
