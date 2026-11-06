@@ -546,11 +546,17 @@
       return /\S/.test(el.textContent) && !el.closest(".nx-brand, .lp-tools, script, style, svg, select, .visually-hidden");
     });
     var set = new Set(all);
-    return all.filter(function (el) {
+    var nodes = all.filter(function (el) {
       for (var p = el.parentElement; p; p = p.parentElement) { if (set.has(p) && ownText(p)) return false; }
       return ownText(el) || !all.some(function (o) { return o !== el && el.contains(o); });
     });
+    /* Van al final para no correr las posiciones de los textos ya guardados */
+    Array.prototype.forEach.call(root.querySelectorAll(EDIT_EXTRA), function (el) {
+      if (/\S/.test(el.textContent) && !nodes.some(function (n) { return n.contains(el) || el.contains(n); })) nodes.push(el);
+    });
+    return nodes;
   }
+  var EDIT_EXTRA = ".nx-phone strong, .nx-phone span";
 
   /* Imágenes editables: cada módulo guarda en it.imagenes { src, alt } por posición */
   var IMG_SEL = "img, [style*='background-image']";
@@ -864,7 +870,9 @@
   function beginEdit(el, focus) {
     if (editing && editing.el === el) return;
     endEdit();
-    editing = { el: el, module: moduleIndex(el), key: el.getAttribute("data-lb-t"), start: el.innerHTML };
+    var it = state.items[moduleIndex(el)];
+    editing = { el: el, module: moduleIndex(el), key: el.getAttribute("data-lb-t"), start: el.innerHTML,
+      startText: plainText(el), hadEdit: !!(it && it.textos && it.textos[el.getAttribute("data-lb-t")] != null) };
     el.setAttribute("contenteditable", "true");
     el.setAttribute("spellcheck", "true");
     if (focus) {
@@ -879,14 +887,79 @@
   function endEdit() {
     if (!editing) return;
     var el = editing.el;
+    var done = editing;
     commitEdit();
     el.removeAttribute("contenteditable");
     el.removeAttribute("spellcheck");
     editing = null;
+    syncClientField(done, plainText(el));
     var doc = frameDoc();
     var tip = doc && doc.getElementById("lbEditTip");
     if (tip) tip.hidden = true;
     scheduleQa(200);
+  }
+
+  function plainText(el) { return el.textContent.replace(/\s+/g, " ").trim(); }
+
+  /* Si el texto editado reemplaza un dato de ejemplo del cliente, el dato nuevo se guarda en el cliente */
+  var CLIENT_SYNC = ["telefono", "email", "direccion", "sitio"];
+  var saveAfterQa = null;
+
+  function isSampleValue(val) {
+    var low = val.toLowerCase();
+    var list = (rules && rules.textos.listaEjemplos) || [];
+    return list.concat(Object.keys(EXAMPLE_FIELDS)).some(function (s) {
+      s = String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+      return s && low.indexOf(s) !== -1;
+    });
+  }
+
+  function syncClientField(done, after) {
+    var client = currentClient();
+    if (!client || !after || after === done.startText) return;
+    CLIENT_SYNC.some(function (k) {
+      var val = String(client[k] || "").replace(/\s+/g, " ").trim();
+      if (!val || !isSampleValue(val)) return false;
+      var at = done.startText.indexOf(val);
+      if (at === -1 || after.indexOf(val) !== -1) return false;
+      var head = done.startText.slice(0, at);
+      var tail = done.startText.slice(at + val.length);
+      if (after.length < head.length + tail.length || after.indexOf(head) !== 0 || after.slice(after.length - tail.length) !== tail) return false;
+      var value = after.slice(head.length, after.length - tail.length).trim();
+      if (!value) return false;
+      saveClientField(client, k, value, done);
+      return true;
+    });
+  }
+
+  function saveClientField(client, field, value, done) {
+    var data = Object.assign({}, client);
+    data[field] = value;
+    ["logo", "logo_url", "lista", "landings"].forEach(function (k) { delete data[k]; });
+    say("Guardando " + (FIELD_NAMES[field] || "el dato") + " de «" + client.nombre + "»…");
+    window.Lanzate.api("PUT", "/api/clientes/" + client.id, data).then(function () {
+      return loadClients();
+    }).then(function () {
+      var it = state.items[done.module];
+      if (it && it.textos && !done.hadEdit) {
+        delete it.textos[done.key];
+        if (!Object.keys(it.textos).length) delete it.textos;
+      }
+      saveAfterQa = { field: field, nombre: client.nombre };
+      renderPreview();
+      renderOrder();
+      renderMode();
+      saveDraft();
+      say("Guardamos " + (FIELD_NAMES[field] || "el dato") + " nuevo en los datos de «" + client.nombre + "»: ya se usa en toda la\u00a0landing.", "ok");
+    }).catch(function (err) { say(err.message, "warn"); });
+  }
+
+  function afterClientFix(report) {
+    var pending = saveAfterQa;
+    if (!pending) return;
+    if (report.issues.some(function (i) { return i.campo === pending.field; })) return;
+    saveAfterQa = null;
+    if (state.landingId && !busy) createLanding();
   }
 
   function setEditMode(on) {
@@ -1908,6 +1981,7 @@
       qaBusy = false;
       renderQa();
       renderMode();
+      afterClientFix(report);
     }).catch(function () {
       if (run !== qaRun) return;
       qaBusy = false;
@@ -2088,15 +2162,16 @@
     window.Lanzate.clientForm(client).then(function (saved) {
       if (!saved || saved.deleted) return;
       loadClients().then(function () {
+        if (field) saveAfterQa = { field: field, nombre: saved.nombre };
         renderPreview();
         renderMode();
         saveDraft();
-        say("Datos de «" + saved.nombre + "» actualizados: la landing ya los usa.", "ok");
+        say("Datos de «" + saved.nombre + "» actualizados: la landing ya los\u00a0usa.", "ok");
       });
     });
     var input = document.querySelector(field === "logo" ? "dialog[open] [data-pf-logo-input]" : 'dialog[open] [name="' + field + '"]');
     if (input && field === "logo") input = input.closest("label") || input;
-    if (input) setTimeout(function () { input.focus(); }, 60);
+    if (input) setTimeout(function () { input.focus(); if (input.select) input.select(); }, 60);
   }
 
   function fixAction(issue) {
