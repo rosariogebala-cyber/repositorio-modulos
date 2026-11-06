@@ -760,6 +760,7 @@
     ":is(#lbImgTip,#lbLinkTip) .lb-img-row{display:flex;flex-wrap:wrap;gap:.5em;align-items:center}" +
     ":is(#lbImgTip,#lbLinkTip) button{border:0;border-radius:999px;padding:.5em .95em;font:700 1em/1 Inter,system-ui,sans-serif;cursor:pointer;background:#d5f660;color:#0e1130}" +
     ":is(#lbImgTip,#lbLinkTip) button.is-ghost{background:none;color:#d5f660;text-decoration:underline;padding:.5em .2em}" +
+    "#lbImgTip button.lb-img-ai{align-self:flex-start;margin-top:-.2em;display:inline-flex;gap:.35em;align-items:center}" +
     ":is(#lbImgTip,#lbLinkTip) button.is-save,#lbLinkTip button.is-save{background:#5a3df2;color:#fff}#lbImgTip button.is-save:disabled,#lbLinkTip button.is-save:disabled{background:#2b2f52;color:#c9cbe0;cursor:default}#lbImgTip button[hidden],#lbLinkTip button[hidden]{display:none}" +
     ":is(#lbImgTip,#lbLinkTip) button.lb-img-x{position:absolute;top:.35em;right:.4em;background:none;color:#fff;font-size:1.4em;padding:.1em .35em}" +
     ":is(#lbImgTip,#lbLinkTip)>div:first-of-type{padding-right:1.8em}" +
@@ -1278,6 +1279,7 @@
         else if (e.target.closest("[data-img-save]")) createLanding();
         else if (e.target.closest("[data-img-revert]")) revertImage();
         else if (e.target.closest("[data-img-close]")) closeImage();
+        else if (e.target.closest("[data-img-ai]")) { var target = imgSel.el; withAi(function () { describeOne(target, false); }); }
         else if (e.target.closest("[data-img-link]")) selectLink(imgSel.el.closest("a[data-lb-l]"));
         else if (e.target.closest("[data-prod-dup]")) productAction(imgSel.el, "dup");
         else if (e.target.closest("[data-prod-remove]")) productAction(imgSel.el, "remove");
@@ -1320,7 +1322,8 @@
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
-      (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' : "") +
+      (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' +
+        (ai ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
       '<button type="button" class="is-save" data-img-save hidden></button>' +
       (el.closest("a[data-lb-l]") ? '<button type="button" class="is-ghost" data-img-link>Cambiar link</button>' : "") +
@@ -1483,6 +1486,7 @@
       renderImgTip();
       if (out.svg) { say("Imagen cambiada.", "ok"); return; }
       var small = role && ((role.minAncho && out.w < role.minAncho) || (role.minAlto && out.h < role.minAlto));
+      if (!small && ai && ai.configurada && sel.el.tagName === "IMG") { describeOne(sel.el, true); return; }
       say(small
         ? "Imagen cambiada, pero mide " + out.w + "×" + out.h + " px y el mínimo es " + minLabel(role) + ". Buscá una versión más grande."
         : "Imagen cambiada: " + out.w + "×" + out.h + " px, " + out.kb + " KB.", small ? "warn" : "ok");
@@ -1755,6 +1759,7 @@
   var aiBar = $("[data-lb-ai]");
   var aiModulesBtn = $("[data-lb-ai-modules]");
   var aiTextsBtn = $("[data-lb-ai-texts]");
+  var qaAiBtn = $("[data-lb-qa-ai]");
   var aiDialog = $("[data-lb-ia-dialog]");
   var aiProvider = $("[data-lb-ia-provider]");
   var aiKey = $("[data-lb-ia-key]");
@@ -1775,6 +1780,7 @@
   function renderAi() {
     aiBar.hidden = !ai;
     aiTextsBtn.hidden = !ai || !state.items.length;
+    renderQaAi();
   }
 
   function aiSay(text, tone) {
@@ -1810,8 +1816,8 @@
 
   function aiRequest(btn, body, waitText) {
     aiBusy = true;
-    aiModulesBtn.disabled = aiTextsBtn.disabled = true;
-    btn.classList.add("is-busy");
+    aiModulesBtn.disabled = aiTextsBtn.disabled = qaAiBtn.disabled = true;
+    if (btn) btn.classList.add("is-busy");
     say(waitText);
     return api("POST", "/api/ia", body).catch(function (err) {
       var config = /clave|Configurá/i.test(err.message);
@@ -1819,8 +1825,8 @@
       throw err;
     }).finally(function () {
       aiBusy = false;
-      aiModulesBtn.disabled = aiTextsBtn.disabled = false;
-      btn.classList.remove("is-busy");
+      aiModulesBtn.disabled = aiTextsBtn.disabled = qaAiBtn.disabled = false;
+      if (btn) btn.classList.remove("is-busy");
     });
   }
 
@@ -1835,7 +1841,13 @@
       clientSelect.focus();
       return;
     }
-    if (state.items.length && !window.confirm("La sugerencia reemplaza los " + state.items.length + " módulos que elegiste. ¿Seguimos?")) return;
+    if (!state.name.trim()) {
+      say("Contale a la IA qué landing querés: escribí el nombre, por ejemplo «Promo de verano 20% off».", "warn");
+      nameInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      nameInput.focus({ preventScroll: true });
+      return;
+    }
+    if (state.items.length && !window.confirm("La IA arma la landing de cero y reemplaza los " + state.items.length + " módulos que elegiste. ¿Seguimos?")) return;
     var names = {};
     library.forEach(function (g) { names[g.id] = g.name; });
     var catalogo = [];
@@ -1844,12 +1856,14 @@
     });
     var reglas = rules && window.LanzateReglas ? window.LanzateReglas.toPrompt(rules, names).split("\nTEXTOS")[0] : "";
     aiRequest(aiModulesBtn, { tarea: "modulos", cliente: aiClient(), objetivo: state.name.trim(), catalogo: catalogo, reglas: reglas },
-      "La IA está eligiendo los módulos para " + currentClient().nombre + "…").then(function (data) {
-      aiUndo = JSON.stringify(state.items);
+      "Paso 1 de 2: la IA está eligiendo los módulos para " + currentClient().nombre + "…").then(function (data) {
+      var before = JSON.stringify(state.items);
       state.items = data.modulos.map(function (id) { return menuDefault({ id: id, width: "full" }); });
+      frame.addEventListener("load", function () {
+        setTimeout(function () { writeTexts(before, data); }, 400);
+      }, { once: true });
       update();
       showTab("order");
-      say("La IA sugirió " + data.modulos.length + " módulos. " + data.motivo, "ok", { act: "ia-undo", text: "Deshacer" });
     }, function () { /* el error ya se mostró */ });
   }
 
@@ -1896,7 +1910,8 @@
     return lead + body + trail;
   }
 
-  function writeTexts() {
+  function writeTexts(undoTo, built) {
+    if (typeof undoTo !== "string") undoTo = null;
     var textos = aiTextList();
     if (!textos.length) { say("Todavía no hay textos en la vista previa. Sumá módulos y esperá a que cargue.", "warn"); return; }
     if (!currentClient()) {
@@ -1906,7 +1921,7 @@
     }
     setEditMode(false);
     aiRequest(aiTextsBtn, { tarea: "textos", cliente: aiClient(), objetivo: state.name.trim(), textos: textos },
-      "La IA está escribiendo " + textos.length + " textos para " + currentClient().nombre + ". Puede tardar un minuto…").then(function (data) {
+      (built ? "Paso 2 de 2: la IA" : "La IA") + " está escribiendo " + textos.length + " textos para " + currentClient().nombre + ". Puede tardar un minuto…").then(function (data) {
       var doc = frameDoc();
       var sections = doc ? doc.querySelectorAll("body > section.mq-block") : [];
       var prev = JSON.stringify(state.items);
@@ -1923,13 +1938,215 @@
         if (!Object.keys(it.textos).length) delete it.textos;
         count++;
       });
-      aiUndo = prev;
+      aiUndo = undoTo || prev;
       renderMode();
       renderOrder();
       renderPreview();
       saveDraft();
-      say("La IA escribió " + count + " textos. Revisalos en la vista previa: tocá cualquiera para ajustarlo.", "ok", { act: "ia-undo", text: "Deshacer" });
-    }, function () { /* el error ya se mostró */ });
+      if (built) {
+        say("La IA armó la landing: " + plural(state.items.length, "módulo", "módulos") + " y " + count + " textos. " + (built.motivo ? built.motivo + " " : "") +
+          "Revisala, cambiá las fotos por las del cliente y guardala.", "ok", { act: "ia-undo", text: "Deshacer" });
+      } else {
+        say("La IA escribió " + count + " textos. Revisalos en la vista previa: tocá cualquiera para ajustarlo.", "ok", { act: "ia-undo", text: "Deshacer" });
+      }
+    }, function () {
+      if (built) {
+        aiUndo = undoTo;
+        say("La IA eligió los módulos pero no pudo escribir los textos. Probá «Escribir con IA» en la vista previa.", "warn", { act: "ia-undo", text: "Deshacer" });
+      }
+    });
+  }
+
+  /* IA: arreglar los errores de calidad que se pueden resolver solos */
+  function aiFixList() {
+    var out = { texts: [], widows: [], photos: [], total: 0 };
+    var seen = new Set();
+    qaView.issues.forEach(function (issue) {
+      if (!issue.el || !issue.el.isConnected) return;
+      var el = null;
+      if (issue.largo || issue.viuda) {
+        el = editableFor(issue.el);
+        if (!el || seen.has(el)) return;
+        if (issue.largo) out.texts.push({ el: el, largo: issue.largo });
+        else out.widows.push(el);
+      } else if (issue.area === "imagenes" && /texto alternativo/i.test(issue.text)) {
+        el = issue.el.closest("[data-lb-i]");
+        if (!el || el.tagName !== "IMG" || seen.has(el)) return;
+        out.photos.push(el);
+      } else return;
+      seen.add(el);
+      out.total++;
+    });
+    return out;
+  }
+
+  function renderQaAi() {
+    var n = ai && qaReport ? aiFixList().total : 0;
+    qaAiBtn.hidden = !n;
+    $("[data-lb-qa-ai-count]").textContent = n;
+    qaAiBtn.title = "La IA arregla " + plural(n, "problema", "problemas") + ": largo de textos, palabras sueltas y descripciones de fotos";
+  }
+
+  function applyAiTexts(list) {
+    var sections = frameDoc() ? frameDoc().querySelectorAll("body > section.mq-block") : [];
+    var count = 0;
+    list.forEach(function (t) {
+      var parts = t.id.split(".");
+      var it = state.items[Number(parts[0])];
+      var el = sections[Number(parts[0])] && sections[Number(parts[0])].querySelector('[data-lb-t="' + parts[1] + '"]');
+      if (!it || !el) return;
+      var html = aiHtml(el, t.texto);
+      it.textos = it.textos || {};
+      if (html === originalText(it, parts[1])) delete it.textos[parts[1]];
+      else it.textos[parts[1]] = html;
+      if (!Object.keys(it.textos).length) delete it.textos;
+      count++;
+    });
+    return count;
+  }
+
+  function aiThumb(el) {
+    return new Promise(function (resolve) {
+      var src = imageData(el).src;
+      if (!src) { resolve(null); return; }
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var ratio = Math.min(1, 512 / Math.max(img.naturalWidth, img.naturalHeight));
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.naturalWidth * ratio));
+          canvas.height = Math.max(1, Math.round(img.naturalHeight * ratio));
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = function () { resolve(null); };
+      try { img.src = new URL(src, frameDoc().baseURI).href; } catch (e) { resolve(null); }
+    });
+  }
+
+  function setAlt(module, key, alt) {
+    var it = state.items[module];
+    if (!it) return;
+    var orig = originalImage(it, key) || {};
+    var cur = Object.assign({}, it.imagenes && it.imagenes[key], { alt: alt });
+    if (cur.alt === (orig.alt || "")) delete cur.alt;
+    it.imagenes = it.imagenes || {};
+    if (Object.keys(cur).length) it.imagenes[key] = cur;
+    else delete it.imagenes[key];
+    if (!Object.keys(it.imagenes).length) delete it.imagenes;
+    var section = frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[module];
+    if (section) section.querySelectorAll('[data-lb-i="' + key + '"]').forEach(function (o) { if (o.tagName === "IMG") o.setAttribute("alt", alt); });
+  }
+
+  function describePhotos(els, btn) {
+    return Promise.all(els.map(function (el) {
+      return aiThumb(el).then(function (src) {
+        if (!src) return null;
+        var m = moduleIndex(el);
+        var section = el.closest("section.mq-block");
+        var heading = section && section.querySelector("h1, h2, h3");
+        var card = el.closest(".card, article, li, figure");
+        var near = card && card !== section ? card.textContent : heading ? heading.textContent : "";
+        return { el: el, module: m, key: el.getAttribute("data-lb-i"), foto: {
+          id: m + "." + el.getAttribute("data-lb-i"), seccion: state.items[m] ? byId[state.items[m].id].group : "",
+          contexto: window.LanzateReglas.norm(near || "").slice(0, 160), imagen: src } };
+      });
+    })).then(function (rows) {
+      rows = rows.filter(Boolean);
+      var byFoto = {};
+      rows.forEach(function (r) { byFoto[r.foto.id] = r; });
+      var count = 0;
+      var chain = Promise.resolve();
+      for (var i = 0; i < rows.length; i += 6) {
+        (function (chunk) {
+          chain = chain.then(function () {
+            var body = { tarea: "fotos", cliente: aiClient(), max: (rules && rules.imagenes.altMax) || 125, fotos: chunk.map(function (r) { return r.foto; }) };
+            var wait = "La IA está mirando " + (rows.length === 1 ? "la foto" : rows.length + " fotos") + " para describirlas…";
+            return (btn ? aiRequest(btn, body, wait) : api("POST", "/api/ia", body)).then(function (data) {
+              data.fotos.forEach(function (f) {
+                var r = byFoto[f.id];
+                if (!r) return;
+                setAlt(r.module, r.key, f.alt);
+                r.alt = f.alt;
+                count++;
+              });
+            });
+          });
+        })(rows.slice(i, i + 6));
+      }
+      return chain.then(function () { return { count: count, rows: rows }; });
+    });
+  }
+
+  function fixAllAi() {
+    var list = aiFixList();
+    if (!list.total) return;
+    var prev = JSON.stringify(state.items);
+    var done = { textos: 0, viudas: 0, fotos: 0 };
+    var payload = list.texts.map(function (t) {
+      var role = window.LanzateReglas.textRole(t.el, rules);
+      var m = moduleIndex(t.el);
+      return { id: m + "." + t.el.getAttribute("data-lb-t"), seccion: state.items[m] ? byId[state.items[m].id].group : "",
+        tipo: role ? role.label : "Texto", min: t.largo.min || 0, max: t.largo.max || 0, actual: window.LanzateReglas.norm(t.el.textContent) };
+    });
+    setEditMode(false);
+    list.widows.forEach(function (el) {
+      beginEdit(el);
+      if (joinLastWords(el)) done.viudas++;
+      endEdit();
+    });
+    var chain = Promise.resolve();
+    if (payload.length) {
+      chain = chain.then(function () {
+        return aiRequest(qaAiBtn, { tarea: "ajustar", cliente: aiClient(), textos: payload },
+          "La IA está ajustando el largo de " + plural(payload.length, "texto", "textos") + "…").then(function (data) {
+          done.textos = applyAiTexts(data.textos);
+        });
+      });
+    }
+    if (list.photos.length) {
+      chain = chain.then(function () {
+        return describePhotos(list.photos, qaAiBtn).then(function (res) { done.fotos = res.count; });
+      });
+    }
+    var finish = function (ok) {
+      var parts = [];
+      if (done.textos) parts.push(plural(done.textos, "texto ajustado", "textos ajustados"));
+      if (done.viudas) parts.push(plural(done.viudas, "palabra suelta unida", "palabras sueltas unidas"));
+      if (done.fotos) parts.push(plural(done.fotos, "foto descrita", "fotos descritas"));
+      if (parts.length) aiUndo = prev;
+      renderMode();
+      renderOrder();
+      renderPreview();
+      saveDraft();
+      if (!parts.length) return;
+      var text = "La IA arregló: " + parts.join(", ") + "." + (ok ? " Revisá cómo quedó en la vista previa." : " El resto no se pudo: probá de nuevo.");
+      say(text, ok ? "ok" : "warn", { act: "ia-undo", text: "Deshacer" });
+    };
+    chain.then(function () { finish(true); }, function () { finish(false); });
+  }
+
+  function describeOne(el, auto) {
+    var m = moduleIndex(el);
+    var key = el.getAttribute("data-lb-i");
+    var prev = JSON.stringify(state.items);
+    describePhotos([el], auto ? null : qaAiBtn).then(function (res) {
+      if (!res.count) { if (!auto) say("La IA no pudo ver esta foto. Escribí la descripción a mano.", "warn"); return; }
+      aiUndo = prev;
+      renderMode();
+      renderOrder();
+      saveDraft();
+      scheduleQa(300);
+      if (imgSel && imgSel.module === m && imgSel.key === key) {
+        var input = frameDoc().querySelector("#lbImgTip [data-img-alt]");
+        if (input) input.value = res.rows[0].alt;
+      }
+      say((auto ? "Imagen cambiada. " : "") + "La IA la describió como «" + res.rows[0].alt + "». Podés ajustarlo en «Descripción de la foto».", "ok", { act: "ia-undo", text: "Deshacer" });
+    }, function (err) { if (!auto && err && err.message) say(err.message, "warn"); });
   }
 
   function undoAi() {
@@ -1941,7 +2158,8 @@
   }
 
   aiModulesBtn.addEventListener("click", function () { withAi(suggestModules); });
-  aiTextsBtn.addEventListener("click", function () { withAi(writeTexts); });
+  aiTextsBtn.addEventListener("click", function () { withAi(function () { writeTexts(); }); });
+  qaAiBtn.addEventListener("click", function () { withAi(fixAllAi); });
   $("[data-lb-ai-config]").addEventListener("click", function () { if (ai) openAiConfig(); });
   $("[data-lb-ia-close]").addEventListener("click", function () { aiDialog.close(); });
   aiDialog.addEventListener("click", function (e) { if (e.target === aiDialog) aiDialog.close(); });
@@ -2034,6 +2252,7 @@
     }
     qaList.hidden = !html;
     qaList.innerHTML = html;
+    if (qaAiBtn) renderQaAi();
   }
 
   function qaItemHtml(issue, ignored) {

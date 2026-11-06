@@ -574,20 +574,28 @@ def save_ia_settings(data):
     return ia_status()
 
 
-def ia_call(system, prompt):
+def ia_call(system, prompt, images=None):
     cfg = ia_settings()
     if not cfg["clave"]:
         raise ApiError(400, "Configurá la IA: tocá «Configurar IA» y pegá la clave")
     if cfg["proveedor"] == "openai":
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": "Bearer " + cfg["clave"], "Content-Type": "application/json"}
+        content = prompt
+        if images:
+            content = [{"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % (m, d)}} for m, d in images]
+            content.append({"type": "text", "text": prompt})
         body = {"model": cfg["modelo"], "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}]}
     else:
         url = "https://api.anthropic.com/v1/messages"
         headers = {"x-api-key": cfg["clave"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+        content = prompt
+        if images:
+            content = [{"type": "image", "source": {"type": "base64", "media_type": m, "data": d}} for m, d in images]
+            content.append({"type": "text", "text": prompt})
         body = {"model": cfg["modelo"], "max_tokens": 16000, "system": system,
-                "messages": [{"role": "user", "content": prompt}]}
+                "messages": [{"role": "user", "content": content}]}
     req = Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
     try:
         with urlopen(req, timeout=180) as resp:
@@ -682,6 +690,62 @@ def ia_write_texts(data):
     if not result:
         raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
     return {"textos": result}
+
+
+def ia_fit_texts(data):
+    textos = data.get("textos") or []
+    if not textos:
+        raise ApiError(400, "No hay textos para ajustar")
+    lines = ['[%s] %s · %s (entre %d y %d caracteres, hoy tiene %d): "%s"' % (
+        t.get("id"), t.get("seccion", ""), t.get("tipo", "texto"), t.get("min") or 0, t.get("max") or 999,
+        len(t.get("actual") or ""), t.get("actual", "")) for t in textos]
+    prompt = (
+        ia_client_text(data.get("cliente")) + "\n"
+        + "\nEstos textos de la landing no cumplen el largo. Reescribí cada uno para que quede DENTRO del rango "
+        + "de caracteres indicado (contando espacios): acortá los largos y completá los cortos.\n"
+        + "- Mantené el sentido, el tono y los datos (nombres, cifras, contacto) del texto original.\n"
+        + "- Si el original tiene palabras entre *asteriscos*, podés mantener ese destacado.\n"
+        + "- Sin comillas alrededor del texto.\n\n"
+        + "\n".join(lines)
+        + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
+    )
+    out = ia_call(IA_SYSTEM, prompt)
+    valid = {str(t.get("id")) for t in textos}
+    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
+              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
+    if not result:
+        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
+    return {"textos": result}
+
+
+def ia_describe_images(data):
+    fotos = (data.get("fotos") or [])[:6]
+    images, lines = [], []
+    for f in fotos:
+        m = re.match(r"^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$", str(f.get("imagen") or ""))
+        if not m or len(m.group(2)) > 700000:
+            continue
+        images.append((m.group(1), m.group(2)))
+        lines.append("Imagen %d → id [%s] · sección %s%s" % (len(images), f.get("id"), f.get("seccion", ""),
+                                                          (" · texto cercano: " + str(f.get("contexto"))[:160]) if f.get("contexto") else ""))
+    if not images:
+        raise ApiError(400, "No llegaron fotos para describir")
+    limit = int(data.get("max") or 125)
+    prompt = (
+        ia_client_text(data.get("cliente")) + "\n\n"
+        + "Escribí el texto alternativo (alt) de cada imagen, en el mismo orden en que llegan:\n"
+        + "\n".join(lines)
+        + "\n\n- Describí lo que se ve, en una frase concreta de hasta %d caracteres.\n" % limit
+        + "- Sin «imagen de» ni «foto de» al principio, sin comillas y sin inventar marcas ni nombres.\n"
+        + '\nRespondé con este JSON: {"fotos": [{"id": "...", "alt": "..."}, ...]}'
+    )
+    out = ia_call(IA_SYSTEM, prompt, images)
+    valid = {str(f.get("id")) for f in fotos}
+    result = [{"id": str(x.get("id")), "alt": str(x.get("alt") or "").strip()[:limit]}
+              for x in out.get("fotos") or [] if str(x.get("id")) in valid and str(x.get("alt") or "").strip()]
+    if not result:
+        raise ApiError(502, "La IA no describió las fotos. Probá de nuevo.")
+    return {"fotos": result}
 
 
 # --- HTTP ----------------------------------------------------------------------
@@ -849,6 +913,10 @@ class Handler(SimpleHTTPRequestHandler):
                     return ia_suggest_modules(data)
                 if data.get("tarea") == "textos":
                     return ia_write_texts(data)
+                if data.get("tarea") == "ajustar":
+                    return ia_fit_texts(data)
+                if data.get("tarea") == "fotos":
+                    return ia_describe_images(data)
                 raise ApiError(400, "Tarea de IA desconocida")
         raise ApiError(405, "Método no permitido")
 

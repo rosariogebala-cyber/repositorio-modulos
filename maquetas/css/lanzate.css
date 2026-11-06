@@ -3274,7 +3274,10 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   font-weight: 700;
 }
 .lb-ai-btn:hover { border-color: var(--green); }
-.lb-ai-btn:disabled, .lb-ai-texts:disabled { opacity: 0.6; cursor: progress; }
+.lb-qa-ai { margin: 12px 16px 4px; height: 34px; font-size: 13px; }
+.lb-qa-ai[hidden] { display: none; }
+.lb-qa-col .lb-qa-ai { margin: 10px 12px 2px; }
+.lb-ai-btn:disabled, .lb-ai-texts:disabled, .lb-qa-ai:disabled { opacity: 0.6; cursor: progress; }
 .lb-ai-texts { border-color: #ad9bf7; background: linear-gradient(135deg, #ece7ff, #e9ebf9); color: var(--green-deep, #4128d1); }
 .lb-ai-btn.is-busy i, .lb-ai-texts.is-busy i { animation: lb-ai-pulse 1s ease-in-out infinite alternate; }
 @keyframes lb-ai-pulse { from { opacity: 1; } to { opacity: 0.25; } }

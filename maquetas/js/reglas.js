@@ -327,9 +327,9 @@
         var len = text.length;
         var role = c.role;
         if (role.max && len > role.max) {
-          add("error", "textos", mi, role.label + ": " + len + " caracteres, el máximo es " + role.max + ".", "«" + cut(text) + "»", c.el);
+          add("error", "textos", mi, role.label + ": " + len + " caracteres, el máximo es " + role.max + ".", "«" + cut(text) + "»", c.el, { largo: { min: role.min || 0, max: role.max } });
         } else if (role.min && len < role.min) {
-          add("aviso", "textos", mi, role.label + ": " + len + " caracteres, el mínimo es " + role.min + ".", "«" + cut(text) + "»", c.el);
+          add("aviso", "textos", mi, role.label + ": " + len + " caracteres, el mínimo es " + role.min + ".", "«" + cut(text) + "»", c.el, { largo: { min: role.min, max: role.max || 0 } });
         }
         if (rules.textos.viudas && role.id !== "boton" && role.id !== "menu" && isWidow(c.el)) {
           add("aviso", "textos", mi, role.label + ": queda una palabra sola en la última línea.", "«" + cut(text) + "»", c.el, { viuda: true });
