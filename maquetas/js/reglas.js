@@ -426,7 +426,7 @@
     groupNames = groupNames || {};
     var L = [];
     var name = function (id) { return groupNames[id] || id; };
-    L.push("Reglas de calidad para landings Nexoia");
+    L.push("Reglas de calidad para landings Lanzate");
     L.push("");
     L.push("ESTRUCTURA");
     if (rules.estructura.obligatorios.length) L.push("- Secciones obligatorias: " + rules.estructura.obligatorios.map(name).join(", ") + ".");
@@ -471,6 +471,10 @@
     return null;
   }
 
+  function imageRole(el, rules) {
+    return (rules || merge(null)).imagenes.roles.filter(function (r) { return r.activo && r.selector && safeMatches(el, r.selector); })[0] || null;
+  }
+
   window.NexoiaReglas = {
     defaults: function () { return clone(DEFAULTS); },
     merge: merge,
@@ -478,6 +482,7 @@
     save: save,
     check: check,
     textRole: textRole,
+    imageRole: imageRole,
     norm: norm,
     toPrompt: toPrompt,
     proporciones: PROPORCIONES

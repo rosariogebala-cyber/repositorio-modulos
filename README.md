@@ -1,4 +1,4 @@
-# Nexoia · Biblioteca actualizada
+# Lanzate · Biblioteca actualizada
 
 Abrí index.html en el navegador o la carpeta en Cursor. No requiere instalación ni compilación.
 

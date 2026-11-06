@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": "{server.py,data/reglas.json}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index?__path=/api/:path*" },
+    { "source": "/l/:cliente/:landing", "destination": "/api/index?__path=/l/:cliente/:landing" },
+    { "source": "/l/:cliente/:landing/", "destination": "/api/index?__path=/l/:cliente/:landing" },
+    { "source": "/Templates/:cliente/:landing", "destination": "/api/index?__path=/l/:cliente/:landing" },
+    { "source": "/Templates/:cliente/:landing/", "destination": "/api/index?__path=/l/:cliente/:landing" },
+    { "source": "/Templates/:cliente/:landing/index.html", "destination": "/api/index?__path=/l/:cliente/:landing" }
+  ]
+}

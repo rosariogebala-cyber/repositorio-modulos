@@ -2,7 +2,11 @@
 __pycache__/
 *.pyc
 
-# Base local de trabajo: la copia versionada es data/db.json
-data/nexoia.db
-data/nexoia.db-*
-data/db.json.tmp
+# Clientes y landings viven en Supabase
+data/nexoia.db*
+data/db.json*
+data/previews/
+data/logos/
+Templates/
+.vercel
+.env*

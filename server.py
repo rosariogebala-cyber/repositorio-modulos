@@ -1,87 +1,91 @@
 #!/usr/bin/env python3
-"""Servidor local de la plataforma Nexoia.
+"""Servidor de la plataforma Lanzate.
 
 Sirve el repositorio como `python3 -m http.server` y expone una API para
-gestionar clientes y sus landings. Los datos viven en data/nexoia.db (SQLite)
-y cada landing se publica en Templates/<cliente>/<landing>/ con su HTML y una
-copia de los estilos, scripts e imágenes que usa.
+gestionar clientes y sus landings. Los datos viven en Postgres (Supabase):
+clientes, landings con su HTML, logos, vistas previas y reglas. Cada landing
+se publica en /l/<cliente>/<landing>/.
 
-Uso: python3 server.py [puerto]   (por defecto 8877)
+En Vercel, api/index.py usa el mismo Handler. En local:
+    python3 server.py [puerto]   (por defecto 8877)
+La conexión y la clave de acceso salen de las variables DATABASE_URL y
+LANZATE_CLAVE, o de ~/.nexoia/lanzate.env (fuera del repositorio).
 """
 
 import base64
+import hashlib
+import hmac
 import json
 import os
-import posixpath
 import re
-import shutil
-import sqlite3
-import subprocess
 import sys
-import tempfile
-import threading
 import time
 import unicodedata
 from contextlib import contextmanager
 from functools import partial
 from html import escape
-from pathlib import Path
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from urllib.request import Request, urlopen
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-MAQUETAS = os.path.join(ROOT, "maquetas")
-ASSETS = os.path.join(ROOT, "assets")
-TEMPLATES = os.path.join(ROOT, "Templates")
-DATA = os.path.join(ROOT, "data")
-DB_PATH = os.path.join(DATA, "nexoia.db")
-DB_JSON = os.path.join(DATA, "db.json")
-REGLAS_JSON = os.path.join(DATA, "reglas.json")
-LOGOS = os.path.join(DATA, "logos")
-PREVIEWS = os.path.join(DATA, "previews")
-CHROME_PATHS = (
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-)
-MAX_BODY = 8 * 1024 * 1024
-MAX_LOGO = 2 * 1024 * 1024
+import psycopg
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
-DEMO_CLIENT = {
-    "nombre": "Cliente de ejemplo",
-    "contacto": "Ana Pérez",
-    "email": "hola@example.com",
-    "telefono": "+54 11 5555-0000",
-    "rubro": "Ejemplo",
-    "sitio": "",
-    "color_primario": "#1b5e42",
-    "color_secundario": "#e7f3ee",
-    "notas": "Agrupa las landings creadas antes de la plataforma. Podés pasarlas a otro cliente desde el constructor.",
-    "estado": "activo",
-}
+ROOT = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".nexoia")
+LOCAL_ENV = os.path.join(CONFIG_DIR, "lanzate.env")
+REGLAS_JSON = os.path.join(ROOT, "data", "reglas.json")
+
+
+def load_local_env():
+    if not os.path.isfile(LOCAL_ENV):
+        return
+    with open(LOCAL_ENV, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+load_local_env()
+
+ON_VERCEL = bool(os.environ.get("VERCEL"))
+MAX_BODY = 40 * 1024 * 1024
+MAX_LOGO = 2 * 1024 * 1024
+SESSION_DAYS = 30
+COOKIE = "lz_sesion"
+
 CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "color_primario", "color_secundario", "notas", "estado")
 COLOR_DEFAULTS = {"color_primario": "#1b5e42", "color_secundario": "#e7f3ee"}
 ESTADOS = ("activo", "pausado")
-LOGO_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
+LOGO_TYPES = ("image/png", "image/jpeg", "image/webp", "image/svg+xml")
 
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 HTML_REF = re.compile(r'((?:src|href)=")((?:img|css|js)/[^"#?]+|\.\./assets/[^"#?]+)(")')
-URL_REF = re.compile(r"(url\(\s*['\"]?)([^'\")]+)(['\"]?\s*\))")
+URL_REF = re.compile(r"(url\(\s*(?:&quot;|['\"])?)((?:img|css|js)/[^'\")&]+|\.\./assets/[^'\")&]+)")
+COVER_RE = re.compile(r"""(?:src="|url\(\s*(?:&quot;|['"])?)(/(?:maquetas|assets)/(?!modulos/)[^"')&]+\.(?:jpe?g|png|webp))""", re.I)
+IMG_TOKEN = re.compile(r"lzimg:(\d+):(\d+)")
 
 ROUTES = [
+    (re.compile(r"^/api/sesion$"), "sesion"),
+    (re.compile(r"^/api/login$"), "login"),
+    (re.compile(r"^/api/logout$"), "logout"),
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
+    (re.compile(r"^/api/landings/(\d+)/preview$"), "preview"),
     (re.compile(r"^/api/reglas$"), "reglas"),
     (re.compile(r"^/api/ia$"), "ia"),
 ]
-
-LOCK = threading.RLock()
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview")
+LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
 class ApiError(Exception):
@@ -99,120 +103,75 @@ def slugify(text, fallback="landing"):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or fallback
 
 
-def inside(path, base):
-    return os.path.commonpath([path, base]) == base
+# --- Base de datos (Postgres en Supabase) --------------------------------------
 
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS clientes (
+  id BIGSERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  contacto TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  telefono TEXT NOT NULL DEFAULT '',
+  rubro TEXT NOT NULL DEFAULT '',
+  sitio TEXT NOT NULL DEFAULT '',
+  logo TEXT NOT NULL DEFAULT '',
+  color_primario TEXT NOT NULL DEFAULT '#1b5e42',
+  color_secundario TEXT NOT NULL DEFAULT '#e7f3ee',
+  notas TEXT NOT NULL DEFAULT '',
+  estado TEXT NOT NULL DEFAULT 'activo',
+  creado BIGINT NOT NULL,
+  actualizado BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS landings (
+  id BIGSERIAL PRIMARY KEY,
+  cliente_id BIGINT NOT NULL REFERENCES clientes(id),
+  nombre TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  items JSONB NOT NULL DEFAULT '[]',
+  estilo TEXT NOT NULL DEFAULT '',
+  html TEXT NOT NULL DEFAULT '',
+  portada TEXT NOT NULL DEFAULT '',
+  preview TEXT NOT NULL DEFAULT '',
+  creado BIGINT NOT NULL,
+  actualizado BIGINT NOT NULL,
+  UNIQUE (cliente_id, slug)
+);
+CREATE TABLE IF NOT EXISTS ajustes (
+  clave TEXT PRIMARY KEY,
+  valor JSONB NOT NULL
+);
+ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
+"""
 
-# --- Base de datos -----------------------------------------------------------
+_schema_ready = False
+
 
 @contextmanager
 def tx():
-    with LOCK:
-        con = sqlite3.connect(DB_PATH)
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA foreign_keys = ON")
-        try:
-            yield con
-            con.commit()
-        except Exception:
-            con.rollback()
-            raise
-        finally:
-            con.close()
-
-
-def init_db():
-    os.makedirs(DATA, exist_ok=True)
-    os.makedirs(TEMPLATES, exist_ok=True)
-    with tx() as con:
-        con.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS clientes (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              slug TEXT NOT NULL UNIQUE,
-              nombre TEXT NOT NULL,
-              contacto TEXT NOT NULL DEFAULT '',
-              email TEXT NOT NULL DEFAULT '',
-              telefono TEXT NOT NULL DEFAULT '',
-              rubro TEXT NOT NULL DEFAULT '',
-              sitio TEXT NOT NULL DEFAULT '',
-              logo TEXT NOT NULL DEFAULT '',
-              color_primario TEXT NOT NULL DEFAULT '#1b5e42',
-              color_secundario TEXT NOT NULL DEFAULT '#e7f3ee',
-              notas TEXT NOT NULL DEFAULT '',
-              estado TEXT NOT NULL DEFAULT 'activo',
-              creado INTEGER NOT NULL,
-              actualizado INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS landings (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              cliente_id INTEGER NOT NULL REFERENCES clientes(id),
-              nombre TEXT NOT NULL,
-              slug TEXT NOT NULL,
-              items TEXT NOT NULL DEFAULT '[]',
-              estilo TEXT NOT NULL DEFAULT '',
-              creado INTEGER NOT NULL,
-              actualizado INTEGER NOT NULL,
-              UNIQUE (cliente_id, slug)
-            );
-            """
-        )
-        cols = [r["name"] for r in con.execute("PRAGMA table_info(landings)")]
-        if "estilo" not in cols:
-            con.execute("ALTER TABLE landings ADD COLUMN estilo TEXT NOT NULL DEFAULT ''")
-
-
-# --- data/db.json: copia versionada que también usa la versión de GitHub Pages ---
-
-CLIENT_COLS = ("id", "slug", "nombre", "contacto", "email", "telefono", "rubro", "sitio", "logo",
-               "color_primario", "color_secundario", "notas", "estado", "creado", "actualizado")
-LANDING_COLS = ("id", "cliente_id", "nombre", "slug", "items", "estilo", "creado", "actualizado")
-COVER_RE = re.compile(r"""(?:src="|url\(\s*['"]?)((?:img|assets)/(?!modulos/)[^"')]+\.(?:jpe?g|png|webp))""", re.I)
-
-
-def landing_cover(cliente_slug, slug):
+    """Conexión por pedido; confirma al salir bien y deshace si hay error."""
+    global _schema_ready
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise ApiError(500, "Falta la conexión con la base de datos (DATABASE_URL).")
     try:
-        with open(os.path.join(landing_folder(cliente_slug, slug), "index.html"), encoding="utf-8") as fh:
-            m = COVER_RE.search(fh.read())
-        return m.group(1) if m else ""
-    except OSError:
-        return ""
-
-
-def export_db():
-    portadas = {}
-    try:
-        with open(DB_JSON, encoding="utf-8") as fh:
-            portadas = {l["id"]: l.get("portada", "") for l in json.load(fh).get("landings", [])}
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
-    with tx() as con:
-        clientes = [{k: r[k] for k in CLIENT_COLS} for r in con.execute("SELECT * FROM clientes ORDER BY id")]
-        slugs = {c["id"]: c["slug"] for c in clientes}
-        landings = []
-        for r in con.execute("SELECT * FROM landings ORDER BY id"):
-            row = {k: r[k] for k in LANDING_COLS}
-            row["items"] = json.loads(row["items"] or "[]")
-            row["portada"] = landing_cover(slugs.get(row["cliente_id"], ""), row["slug"]) or portadas.get(row["id"], "")
-            landings.append(row)
-        seq = {r["name"]: r["seq"] for r in con.execute("SELECT name, seq FROM sqlite_sequence")}
-    data = {
-        "version": 1,
-        "next_id": {
-            "clientes": max([seq.get("clientes", 0)] + [c["id"] for c in clientes]) + 1,
-            "landings": max([seq.get("landings", 0)] + [l["id"] for l in landings]) + 1,
-        },
-        "clientes": clientes,
-        "landings": landings,
-    }
-    tmp = DB_JSON + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
-    os.replace(tmp, DB_JSON)
+        con = psycopg.connect(url, row_factory=dict_row, prepare_threshold=None, connect_timeout=15)
+    except psycopg.OperationalError:
+        raise ApiError(503, "No se pudo conectar con la base de datos. Probá de nuevo en unos segundos.")
+    with con:
+        if not _schema_ready:
+            con.execute(SCHEMA)
+            _schema_ready = True
+        yield con
 
 
 def read_rules():
+    with tx() as con:
+        row = con.execute("SELECT valor FROM ajustes WHERE clave = 'reglas'").fetchone()
+    if row and isinstance(row["valor"], dict):
+        return row["valor"]
     try:
         with open(REGLAS_JSON, encoding="utf-8") as fh:
             data = json.load(fh)
@@ -225,59 +184,57 @@ def save_rules(data):
     if not isinstance(data.get("textos"), dict) or not isinstance(data.get("imagenes"), dict):
         raise ApiError(400, "Las reglas no tienen el formato esperado")
     data["actualizado"] = now_ms()
-    tmp = REGLAS_JSON + ".tmp"
-    with LOCK:
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
-        os.replace(tmp, REGLAS_JSON)
+    with tx() as con:
+        con.execute(
+            "INSERT INTO ajustes (clave, valor) VALUES ('reglas', %s) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor",
+            (Jsonb(data),),
+        )
     return data
 
 
-def import_db():
-    with open(DB_JSON, encoding="utf-8") as fh:
-        data = json.load(fh)
-    with tx() as con:
-        con.execute("DELETE FROM landings")
-        con.execute("DELETE FROM clientes")
-        for c in data.get("clientes", []):
-            cols = [k for k in CLIENT_COLS if k in c]
-            con.execute("INSERT INTO clientes (%s) VALUES (%s)" % (", ".join(cols), ", ".join("?" * len(cols))),
-                        [c[k] for k in cols])
-        for l in data.get("landings", []):
-            con.execute(
-                "INSERT INTO landings (id, cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (l["id"], l["cliente_id"], l["nombre"], l["slug"], json.dumps(l.get("items") or [], ensure_ascii=False),
-                 l.get("estilo") or "", l["creado"], l["actualizado"]),
-            )
-        nxt = data.get("next_id") or {}
-        con.execute("DELETE FROM sqlite_sequence WHERE name IN ('clientes', 'landings')")
-        for name in ("clientes", "landings"):
-            top = con.execute("SELECT COALESCE(MAX(id), 0) FROM %s" % name).fetchone()[0]
-            con.execute("INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)", (name, max(top, int(nxt.get(name, 1)) - 1)))
+# --- Sesión ----------------------------------------------------------------------
+
+def access_key():
+    return os.environ.get("LANZATE_CLAVE") or ""
+
+
+def session_secret():
+    return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
+
+
+def make_session():
+    expires = str(int(time.time()) + SESSION_DAYS * 86400)
+    sig = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+    return expires + "." + sig
+
+
+def valid_session(value):
+    try:
+        expires, sig = value.split(".", 1)
+        good = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, good) and int(expires) > time.time()
+    except (ValueError, AttributeError):
+        return False
+
+
+def login_required():
+    """En Vercel siempre hace falta la clave; en local, solo si está configurada."""
+    return ON_VERCEL or bool(access_key())
 
 
 # --- Clientes ----------------------------------------------------------------
 
-def logo_url(row):
-    if not row["logo"]:
-        return ""
-    path = os.path.join(ROOT, row["logo"])
-    stamp = int(os.path.getmtime(path)) if os.path.isfile(path) else 0
-    return "/" + row["logo"] + "?v=" + str(stamp)
-
-
 def client_dict(row, count=None):
     data = {k: row[k] for k in row.keys() if k != "n"}
-    data["logo_url"] = logo_url(row)
-    data["carpeta"] = "Templates/" + row["slug"] + "/"
+    data["logo_url"] = row["logo"]
+    data["carpeta"] = "/l/" + row["slug"] + "/"
     if count is not None:
         data["landings"] = count
     return data
 
 
 def get_client_row(con, client_id):
-    row = con.execute("SELECT * FROM clientes WHERE id = ?", (client_id,)).fetchone()
+    row = con.execute("SELECT * FROM clientes WHERE id = %s", (client_id,)).fetchone()
     if not row:
         raise ApiError(404, "El cliente no existe")
     return row
@@ -302,47 +259,29 @@ def clean_client(data):
 def unique_client_slug(con, nombre, exclude_id=0):
     base = slugify(nombre, "cliente")
     slug, n = base, 2
-    while (con.execute("SELECT 1 FROM clientes WHERE slug = ? AND id <> ?", (slug, exclude_id)).fetchone()
-           or (not exclude_id and os.path.exists(os.path.join(TEMPLATES, slug)))):
+    while con.execute("SELECT 1 FROM clientes WHERE slug = %s AND id <> %s", (slug, exclude_id)).fetchone():
         slug, n = "%s-%d" % (base, n), n + 1
     return slug
 
 
-def save_logo(slug, data_url):
+def clean_logo(data_url):
     match = re.match(r"^data:([\w/+.-]+);base64,(.+)$", data_url or "", re.S)
     if not match or match.group(1) not in LOGO_TYPES:
         raise ApiError(400, "El logo tiene que ser PNG, JPG, WEBP o SVG")
-    raw = base64.b64decode(match.group(2))
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except ValueError:
+        raise ApiError(400, "No se pudo leer el logo")
     if len(raw) > MAX_LOGO:
         raise ApiError(400, "El logo pesa más de 2 MB")
-    remove_logo(slug)
-    os.makedirs(LOGOS, exist_ok=True)
-    name = slug + "." + LOGO_TYPES[match.group(1)]
-    with open(os.path.join(LOGOS, name), "wb") as fh:
-        fh.write(raw)
-    return "data/logos/" + name
-
-
-def remove_logo(slug):
-    for ext in LOGO_TYPES.values():
-        path = os.path.join(LOGOS, slug + "." + ext)
-        if os.path.isfile(path):
-            os.remove(path)
-
-
-def write_client_json(row):
-    folder = os.path.join(TEMPLATES, row["slug"])
-    os.makedirs(folder, exist_ok=True)
-    data = {k: row[k] for k in row.keys() if k not in ("creado", "actualizado")}
-    with open(os.path.join(folder, "cliente.json"), "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+    return "data:%s;base64,%s" % (match.group(1), base64.b64encode(raw).decode())
 
 
 def list_clients():
     with tx() as con:
         rows = con.execute(
             "SELECT c.*, (SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n "
-            "FROM clientes c ORDER BY c.nombre COLLATE NOCASE"
+            "FROM clientes c ORDER BY lower(c.nombre)"
         ).fetchall()
         return [client_dict(r, r["n"]) for r in rows]
 
@@ -350,11 +289,7 @@ def list_clients():
 def get_client(client_id):
     with tx() as con:
         row = get_client_row(con, client_id)
-        landings = con.execute(
-            "SELECT l.*, c.nombre AS cliente, c.slug AS cliente_slug FROM landings l "
-            "JOIN clientes c ON c.id = l.cliente_id WHERE l.cliente_id = ? ORDER BY l.actualizado DESC",
-            (client_id,),
-        ).fetchall()
+        landings = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         data = client_dict(row, len(landings))
         data["lista"] = [landing_dict(l) for l in landings]
         return data
@@ -363,159 +298,79 @@ def get_client(client_id):
 def create_client(data):
     values = clean_client(data)
     with tx() as con:
-        slug = unique_client_slug(con, values["nombre"])
-        values["logo"] = save_logo(slug, data["logo_data"]) if data.get("logo_data") else ""
-        stamp = now_ms()
-        cols = list(values) + ["slug", "creado", "actualizado"]
-        cur = con.execute(
-            "INSERT INTO clientes (%s) VALUES (%s)" % (", ".join(cols), ", ".join("?" * len(cols))),
-            list(values.values()) + [slug, stamp, stamp],
-        )
-        row = get_client_row(con, cur.lastrowid)
-        write_client_json(row)
-        return client_dict(row, 0)
+        values["slug"] = unique_client_slug(con, values["nombre"])
+        values["logo"] = clean_logo(data["logo_data"]) if data.get("logo_data") else ""
+        values["creado"] = values["actualizado"] = now_ms()
+        cols = list(values)
+        new_id = con.execute(
+            "INSERT INTO clientes (%s) VALUES (%s) RETURNING id" % (", ".join(cols), ", ".join(["%s"] * len(cols))),
+            list(values.values()),
+        ).fetchone()["id"]
+        return client_dict(get_client_row(con, new_id), 0)
 
 
 def update_client(client_id, data):
     values = clean_client(data)
     with tx() as con:
-        row = get_client_row(con, client_id)
+        get_client_row(con, client_id)
         if data.get("logo_data"):
-            values["logo"] = save_logo(row["slug"], data["logo_data"])
+            values["logo"] = clean_logo(data["logo_data"])
         elif data.get("logo_quitar"):
-            remove_logo(row["slug"])
             values["logo"] = ""
         values["actualizado"] = now_ms()
         con.execute(
-            "UPDATE clientes SET %s WHERE id = ?" % ", ".join(k + " = ?" for k in values),
+            "UPDATE clientes SET %s WHERE id = %%s" % ", ".join(k + " = %s" for k in values),
             list(values.values()) + [client_id],
         )
-        row = get_client_row(con, client_id)
-        write_client_json(row)
-        count = con.execute("SELECT COUNT(*) FROM landings WHERE cliente_id = ?", (client_id,)).fetchone()[0]
-        return client_dict(row, count)
+        count = con.execute("SELECT COUNT(*) AS n FROM landings WHERE cliente_id = %s", (client_id,)).fetchone()["n"]
+        return client_dict(get_client_row(con, client_id), count)
 
 
 def delete_client(client_id):
     with tx() as con:
         row = get_client_row(con, client_id)
-        count = con.execute("SELECT COUNT(*) FROM landings WHERE cliente_id = ?", (client_id,)).fetchone()[0]
+        count = con.execute("SELECT COUNT(*) AS n FROM landings WHERE cliente_id = %s", (client_id,)).fetchone()["n"]
         if count:
             raise ApiError(409, "«%s» tiene %d landing%s. Eliminalas o pasalas a otro cliente antes de borrarlo."
                            % (row["nombre"], count, "" if count == 1 else "s"))
-        con.execute("DELETE FROM clientes WHERE id = ?", (client_id,))
-        remove_logo(row["slug"])
-        folder = os.path.join(TEMPLATES, row["slug"])
-        meta = os.path.join(folder, "cliente.json")
-        if os.path.isfile(meta):
-            os.remove(meta)
-        if os.path.isdir(folder) and not os.listdir(folder):
-            os.rmdir(folder)
+        con.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
         return row["nombre"]
 
 
 # --- Landings ----------------------------------------------------------------
 
-def landing_folder(cliente_slug, slug):
-    return os.path.join(TEMPLATES, cliente_slug, slug)
+LANDING_SELECT = (
+    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.portada, l.creado, l.actualizado, "
+    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
+    "c.nombre AS cliente, c.slug AS cliente_slug "
+    "FROM landings l JOIN clientes c ON c.id = l.cliente_id"
+)
 
 
 def landing_dict(row):
-    rel = "Templates/%s/%s/" % (row["cliente_slug"], row["slug"])
-    shot = preview_path(row["id"])
+    url = "/l/%s/%s/" % (row["cliente_slug"], row["slug"])
+    preview = "/api/landings/%d/preview?v=%d" % (row["id"], row["actualizado"]) if row["tiene_preview"] else row["portada"]
     return {
-        "preview": "/data/previews/%d.jpg?v=%d" % (row["id"], os.path.getmtime(shot)) if os.path.isfile(shot) else "",
+        "preview": preview,
+        "portada": row["portada"],
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": row["cliente"],
         "cliente_slug": row["cliente_slug"],
         "nombre": row["nombre"],
         "slug": row["slug"],
-        "items": json.loads(row["items"] or "[]"),
+        "items": row["items"] or [],
         "estilo": row["estilo"],
         "creado": row["creado"],
         "actualizado": row["actualizado"],
-        "url": "/" + rel,
-        "path": rel + "index.html",
-        "disponible": os.path.isfile(os.path.join(ROOT, rel, "index.html")),
+        "url": url,
+        "path": url.lstrip("/"),
+        "disponible": row["disponible"],
     }
 
 
-def preview_path(landing_id):
-    return os.path.join(PREVIEWS, "%d.jpg" % landing_id)
-
-
-def find_chrome():
-    for path in CHROME_PATHS + tuple(filter(None, (shutil.which(n) for n in ("google-chrome", "chromium", "chromium-browser")))):
-        if os.path.isfile(path):
-            return path
-    return None
-
-
-_preview_lock = threading.Lock()
-
-
-def capture_preview(landing_id, folder):
-    """Saca una captura del primer pantallazo de la landing con Chrome headless."""
-    chrome = find_chrome()
-    index = os.path.join(folder, "index.html")
-    if not chrome or not os.path.isfile(index):
-        return False
-    with _preview_lock:
-        os.makedirs(PREVIEWS, exist_ok=True)
-        profile = tempfile.mkdtemp(prefix=".chrome-", dir=PREVIEWS)
-        png = os.path.join(profile, "shot.png")
-        out = preview_path(landing_id)
-        proc = None
-        try:
-            # Chrome escribe la captura pero su actualizador puede dejar el proceso vivo:
-            # se espera el archivo y se cierra el proceso.
-            proc = subprocess.Popen(
-                [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
-                 "--no-default-browser-check", "--user-data-dir=" + profile, "--window-size=1280,800",
-                 "--screenshot=" + png, Path(index).as_uri()],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
-            )
-            size, deadline = -1, time.time() + 45
-            while time.time() < deadline:
-                time.sleep(0.5)
-                current = os.path.getsize(png) if os.path.isfile(png) else 0
-                if current and current == size:
-                    break
-                size = current
-                if proc.poll() is not None and not current:
-                    return False
-            else:
-                return False
-            jpg = os.path.join(profile, "shot.jpg")
-            if shutil.which("sips"):
-                subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "75",
-                                "--resampleWidth", "800", png, "--out", jpg], capture_output=True, timeout=30)
-            os.replace(jpg if os.path.isfile(jpg) else png, out)
-            return True
-        except (OSError, subprocess.SubprocessError):
-            return False
-        finally:
-            if proc:
-                try:
-                    os.killpg(proc.pid, 9)
-                except OSError:
-                    pass
-                proc.wait()
-            shutil.rmtree(profile, ignore_errors=True)
-
-
-def schedule_preview(landing):
-    folder = os.path.join(ROOT, landing["path"].rsplit("/", 1)[0])
-    threading.Thread(target=capture_preview, args=(landing["id"], folder), daemon=True).start()
-
-
 def get_landing_row(con, landing_id):
-    row = con.execute(
-        "SELECT l.*, c.nombre AS cliente, c.slug AS cliente_slug FROM landings l "
-        "JOIN clientes c ON c.id = l.cliente_id WHERE l.id = ?",
-        (landing_id,),
-    ).fetchone()
+    row = con.execute(LANDING_SELECT + " WHERE l.id = %s", (landing_id,)).fetchone()
     if not row:
         raise ApiError(404, "La landing no existe")
     return row
@@ -523,13 +378,10 @@ def get_landing_row(con, landing_id):
 
 def list_landings(client_id=None):
     with tx() as con:
-        sql = ("SELECT l.*, c.nombre AS cliente, c.slug AS cliente_slug FROM landings l "
-               "JOIN clientes c ON c.id = l.cliente_id")
-        args = ()
         if client_id:
-            sql += " WHERE l.cliente_id = ?"
-            args = (client_id,)
-        rows = con.execute(sql + " ORDER BY l.actualizado DESC", args).fetchall()
+            rows = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
+        else:
+            rows = con.execute(LANDING_SELECT + " ORDER BY l.actualizado DESC").fetchall()
         return [landing_dict(r) for r in rows]
 
 
@@ -538,86 +390,28 @@ def get_landing(landing_id):
         return landing_dict(get_landing_row(con, landing_id))
 
 
-def target_for(source):
-    """Ruta relativa dentro de la carpeta de la landing para un archivo fuente."""
-    if inside(source, MAQUETAS):
-        return os.path.relpath(source, MAQUETAS)
-    if inside(source, ASSETS):
-        return os.path.join("assets", os.path.relpath(source, ASSETS))
-    return None
+def publish_html(html, items, logo):
+    """Deja el HTML listo para servir desde /l/: rutas absolutas y las imágenes en su lugar."""
+    html = HTML_REF.sub(lambda m: m.group(1) + absolute_ref(m.group(2)) + m.group(3), html)
+    html = URL_REF.sub(lambda m: m.group(1) + absolute_ref(m.group(2)), html)
 
-
-def copy_into(source, dest_dir, rel):
-    out = os.path.join(dest_dir, rel)
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    shutil.copy2(source, out)
-
-
-def copy_css(source, dest_dir, rel):
-    with open(source, encoding="utf-8") as fh:
-        css = fh.read()
-    css_dir = os.path.dirname(source)
-    rel_dir = os.path.dirname(rel)
-
-    def repl(match):
-        url = match.group(2).strip()
-        if re.match(r"^(data:|https?:|//|#)", url):
+    def image(match):
+        try:
+            return items[int(match.group(1))]["imagenes"][match.group(2)]["src"]
+        except (IndexError, KeyError, TypeError, ValueError):
             return match.group(0)
-        src = os.path.normpath(os.path.join(css_dir, url))
-        dest_rel = target_for(src)
-        if not dest_rel or not os.path.isfile(src):
-            return match.group(0)
-        copy_into(src, dest_dir, dest_rel)
-        new_url = posixpath.relpath(dest_rel.replace(os.sep, "/"), rel_dir.replace(os.sep, "/") or ".")
-        return match.group(1) + new_url + match.group(3)
 
-    css = URL_REF.sub(repl, css)
-    out = os.path.join(dest_dir, rel)
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    with open(out, "w", encoding="utf-8") as fh:
-        fh.write(css)
+    html = IMG_TOKEN.sub(image, html)
+    return html.replace("lzlogo:", logo) if logo else html
 
 
-def build_site(dest, html):
-    """Escribe index.html en dest y copia los archivos locales que referencia."""
-    copied = set()
-
-    def handle(ref):
-        src = os.path.normpath(os.path.join(MAQUETAS, ref))
-        dest_rel = target_for(src)
-        if not dest_rel or not os.path.isfile(src):
-            return None
-        if dest_rel not in copied:
-            copied.add(dest_rel)
-            if src.endswith(".css"):
-                copy_css(src, dest, dest_rel)
-            else:
-                copy_into(src, dest, dest_rel)
-        return dest_rel.replace(os.sep, "/")
-
-    def html_repl(match):
-        new = handle(match.group(2))
-        return match.group(1) + (new or match.group(2)) + match.group(3)
-
-    def url_repl(match):
-        url = match.group(2).strip()
-        if not re.match(r"^(img/|\.\./assets/)", url):
-            return match.group(0)
-        new = handle(url)
-        return match.group(1) + (new or url) + match.group(3)
-
-    html = HTML_REF.sub(html_repl, html)
-    html = URL_REF.sub(url_repl, html)
-    with open(os.path.join(dest, "index.html"), "w", encoding="utf-8") as fh:
-        fh.write(html)
+def absolute_ref(ref):
+    return "/assets/" + ref[len("../assets/"):] if ref.startswith("../assets/") else "/maquetas/" + ref
 
 
-def write_landing_json(folder, nombre, slug, cliente, items, estilo=""):
-    meta = {"nombre": nombre, "slug": slug, "cliente": cliente, "items": items}
-    if estilo:
-        meta["estilo"] = estilo
-    with open(os.path.join(folder, "landing.json"), "w", encoding="utf-8") as fh:
-        json.dump(meta, fh, ensure_ascii=False, indent=2)
+def cover_of(html):
+    match = COVER_RE.search(html)
+    return match.group(1) if match else ""
 
 
 def save_landing(data, landing_id=None):
@@ -633,150 +427,89 @@ def save_landing(data, landing_id=None):
         raise ApiError(400, "Elegí el cliente de la landing")
     if not nombre or not html:
         raise ApiError(400, "Faltan el nombre o el HTML")
+    if not isinstance(items, list):
+        raise ApiError(400, "Los módulos no tienen el formato esperado")
 
     with tx() as con:
         client = get_client_row(con, client_id)
-        old = get_landing_row(con, landing_id) if landing_id else None
+        if landing_id:
+            get_landing_row(con, landing_id)
         slug = slugify(nombre)
         clash = con.execute(
-            "SELECT 1 FROM landings WHERE cliente_id = ? AND slug = ? AND id <> ?",
+            "SELECT 1 FROM landings WHERE cliente_id = %s AND slug = %s AND id <> %s",
             (client_id, slug, landing_id or 0),
         ).fetchone()
         if clash:
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-
-        parent = os.path.join(TEMPLATES, client["slug"])
-        os.makedirs(parent, exist_ok=True)
-        tmp = tempfile.mkdtemp(prefix=".tmp-", dir=parent)
-        try:
-            build_site(tmp, html)
-            write_landing_json(tmp, nombre, slug, client["slug"], items, estilo)
-        except Exception:
-            shutil.rmtree(tmp, ignore_errors=True)
-            raise
-
-        if old:
-            previous = landing_folder(old["cliente_slug"], old["slug"])
-            if os.path.isdir(previous):
-                shutil.rmtree(previous)
-        dest = os.path.join(parent, slug)
-        if os.path.isdir(dest):
-            shutil.rmtree(dest)
-        os.rename(tmp, dest)
-
+        html = publish_html(html, items, client["logo"])
         stamp = now_ms()
-        payload = json.dumps(items, ensure_ascii=False)
-        if old:
+        values = (client_id, nombre, slug, Jsonb(items), estilo, html, cover_of(html), stamp)
+        if landing_id:
             con.execute(
-                "UPDATE landings SET cliente_id = ?, nombre = ?, slug = ?, items = ?, estilo = ?, actualizado = ? WHERE id = ?",
-                (client_id, nombre, slug, payload, estilo, stamp, landing_id),
+                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, html = %s, "
+                "portada = %s, preview = '', actualizado = %s WHERE id = %s",
+                values + (landing_id,),
             )
         else:
             landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (client_id, nombre, slug, payload, estilo, stamp, stamp),
-            ).lastrowid
-        write_client_json(client)
+                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, html, portada, creado, actualizado) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                values + (stamp,),
+            ).fetchone()["id"]
         return landing_dict(get_landing_row(con, landing_id))
 
 
 def duplicate_landing(landing_id):
     with tx() as con:
-        row = get_landing_row(con, landing_id)
-        src = landing_folder(row["cliente_slug"], row["slug"])
-        if not os.path.isdir(src):
-            raise ApiError(404, "No se encontró la carpeta de la landing")
+        row = con.execute("SELECT * FROM landings WHERE id = %s", (landing_id,)).fetchone()
+        if not row:
+            raise ApiError(404, "La landing no existe")
         n = 1
         while True:
             nombre = row["nombre"] + (" (copia)" if n == 1 else " (copia %d)" % n)
             slug = slugify(nombre)
-            taken = con.execute("SELECT 1 FROM landings WHERE cliente_id = ? AND slug = ?", (row["cliente_id"], slug)).fetchone()
-            if not taken and not os.path.exists(landing_folder(row["cliente_slug"], slug)):
+            if not con.execute("SELECT 1 FROM landings WHERE cliente_id = %s AND slug = %s", (row["cliente_id"], slug)).fetchone():
                 break
             n += 1
-        dest = landing_folder(row["cliente_slug"], slug)
-        shutil.copytree(src, dest)
-        items = json.loads(row["items"] or "[]")
-        write_landing_json(dest, nombre, slug, row["cliente_slug"], items, row["estilo"])
-        index = os.path.join(dest, "index.html")
-        with open(index, encoding="utf-8") as fh:
-            html = fh.read()
-        html = re.sub(r"<title>.*?</title>", "<title>" + escape(nombre) + "</title>", html, count=1, flags=re.S)
-        with open(index, "w", encoding="utf-8") as fh:
-            fh.write(html)
+        html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(nombre) + "</title>", row["html"], count=1, flags=re.S)
         stamp = now_ms()
         new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (row["cliente_id"], nombre, slug, row["items"], row["estilo"], stamp, stamp),
-        ).lastrowid
-        if os.path.isfile(preview_path(landing_id)):
-            shutil.copy2(preview_path(landing_id), preview_path(new_id))
+            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, html, portada, preview, creado, actualizado) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], html, row["portada"], row["preview"], stamp, stamp),
+        ).fetchone()["id"]
         return landing_dict(get_landing_row(con, new_id))
 
 
 def delete_landing(landing_id):
     with tx() as con:
         row = get_landing_row(con, landing_id)
-        folder = landing_folder(row["cliente_slug"], row["slug"])
-        if os.path.isdir(folder):
-            shutil.rmtree(folder)
-        con.execute("DELETE FROM landings WHERE id = ?", (landing_id,))
-        if os.path.isfile(preview_path(landing_id)):
-            os.remove(preview_path(landing_id))
+        con.execute("DELETE FROM landings WHERE id = %s", (landing_id,))
         return row["nombre"]
 
 
-# --- Migración de landings anteriores a la plataforma -------------------------
-
-def migrate_legacy():
-    """Pasa las carpetas Templates/<landing>/ sueltas al cliente de ejemplo."""
-    legacy = [n for n in sorted(os.listdir(TEMPLATES))
-              if os.path.isfile(os.path.join(TEMPLATES, n, "index.html"))]
-    if not legacy:
-        return
+def landing_preview(landing_id):
     with tx() as con:
-        row = con.execute("SELECT * FROM clientes WHERE nombre = ?", (DEMO_CLIENT["nombre"],)).fetchone()
-        if not row:
-            slug = unique_client_slug(con, DEMO_CLIENT["nombre"])
-            stamp = now_ms()
-            cols = list(DEMO_CLIENT) + ["slug", "creado", "actualizado"]
-            cur = con.execute(
-                "INSERT INTO clientes (%s) VALUES (%s)" % (", ".join(cols), ", ".join("?" * len(cols))),
-                list(DEMO_CLIENT.values()) + [slug, stamp, stamp],
-            )
-            row = get_client_row(con, cur.lastrowid)
-        for name in legacy:
-            src = os.path.join(TEMPLATES, name)
-            meta = {}
-            try:
-                with open(os.path.join(src, "landing.json"), encoding="utf-8") as fh:
-                    meta = json.load(fh)
-            except (OSError, ValueError):
-                pass
-            nombre = meta.get("nombre") or meta.get("name") or name
-            items = meta.get("items") or []
-            base = slugify(nombre)
-            slug, n = base, 2
-            while (con.execute("SELECT 1 FROM landings WHERE cliente_id = ? AND slug = ?", (row["id"], slug)).fetchone()
-                   or os.path.exists(landing_folder(row["slug"], slug))):
-                slug, n = "%s-%d" % (base, n), n + 1
-            os.makedirs(os.path.join(TEMPLATES, row["slug"]), exist_ok=True)
-            dest = landing_folder(row["slug"], slug)
-            os.rename(src, dest)
-            write_landing_json(dest, nombre, slug, row["slug"], items)
-            stamp = int(os.path.getmtime(os.path.join(dest, "index.html")) * 1000)
-            con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, creado, actualizado) VALUES (?, ?, ?, ?, ?, ?)",
-                (row["id"], nombre, slug, json.dumps(items, ensure_ascii=False), stamp, stamp),
-            )
-            print("Landing «%s» asignada a «%s»: %s" % (nombre, row["nombre"], os.path.relpath(dest, ROOT)))
-        write_client_json(row)
+        row = con.execute("SELECT preview FROM landings WHERE id = %s", (landing_id,)).fetchone()
+    match = re.match(r"^data:(image/[\w+.-]+);base64,(.+)$", (row or {}).get("preview") or "", re.S)
+    if not match:
+        return None
+    return match.group(1), base64.b64decode(match.group(2))
+
+
+def landing_page(cliente_slug, slug):
+    with tx() as con:
+        row = con.execute(
+            "SELECT l.html FROM landings l JOIN clientes c ON c.id = l.cliente_id WHERE c.slug = %s AND l.slug = %s",
+            (cliente_slug, slug),
+        ).fetchone()
+    return row["html"] if row and row["html"] else None
 
 
 # --- IA (textos y módulos sugeridos) ------------------------------------------
-# La clave vive fuera del repositorio (el servidor publica toda la carpeta).
+# En local la clave vive fuera del repositorio; en Vercel, en sus variables de entorno.
 
-IA_CONFIG = os.path.join(os.path.expanduser("~"), ".nexoia", "ia.json")
+IA_CONFIG = os.path.join(CONFIG_DIR, "ia.json")
 IA_PROVIDERS = {
     "anthropic": {"nombre": "Claude (Anthropic)", "modelo": "claude-haiku-5-5", "env": "ANTHROPIC_API_KEY"},
     "openai": {"nombre": "ChatGPT (OpenAI)", "modelo": "gpt-6-luna", "env": "OPENAI_API_KEY"},
@@ -785,7 +518,7 @@ IA_PROVIDERS = {
 
 def ia_settings():
     data = {}
-    if os.path.isfile(IA_CONFIG):
+    if not ON_VERCEL and os.path.isfile(IA_CONFIG):
         try:
             with open(IA_CONFIG, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -810,6 +543,8 @@ def ia_status():
 
 
 def save_ia_settings(data):
+    if ON_VERCEL:
+        raise ApiError(400, "En la versión online la clave de la IA se carga en Vercel (variable ANTHROPIC_API_KEY u OPENAI_API_KEY).")
     provider = data.get("proveedor")
     if provider not in IA_PROVIDERS:
         raise ApiError(400, "Elegí Claude u OpenAI")
@@ -936,18 +671,39 @@ def ia_write_texts(data):
 
 # --- HTTP ----------------------------------------------------------------------
 
+NOT_FOUND_PAGE = (
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+    "<title>Página no encontrada</title><style>body{font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;"
+    "background:#f7f6f2;color:#0e1130}main{text-align:center;padding:24px}h1{font-size:28px;margin:0 0 8px}</style></head>"
+    "<body><main><h1>Esta página no existe</h1><p>Revisá el link o pedile uno nuevo a quien te lo&nbsp;compartió.</p></main></body></html>"
+)
+
+
 class Handler(SimpleHTTPRequestHandler):
+    extra_headers = ()
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
-    def send_json(self, status, payload):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    def route(self):
+        url = urlsplit(self.path)
+        query = parse_qs(url.query)
+        path = query.pop("__path", [""])[0] or unquote(url.path)
+        return path, query
+
+    def send_body(self, status, body, content_type):
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        for name, value in self.extra_headers:
+            self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def send_json(self, status, payload):
+        self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def read_json(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -961,78 +717,115 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError(400, "El contenido no es JSON válido")
         return data
 
-    def api(self, method):
-        url = urlsplit(self.path)
+    def cookie(self, name):
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == name:
+                return value
+        return ""
+
+    def session_cookie(self, value, max_age):
+        secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
+        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
+
+    def authorized(self):
+        if not login_required():
+            return True
+        return bool(access_key()) and valid_session(self.cookie(COOKIE))
+
+    def serve_lanzate(self, method):
+        """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
+        path, query = self.route()
+        page = LANDING_PAGE.match(path)
+        if page and method in ("GET", "HEAD"):
+            try:
+                html = landing_page(*page.groups())
+            except ApiError as err:
+                self.send_body(err.status, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                return True
+            self.send_body(200 if html else 404, (html or NOT_FOUND_PAGE).encode("utf-8"), "text/html; charset=utf-8")
+            return True
         for pattern, name in ROUTES:
-            match = pattern.match(url.path)
+            match = pattern.match(path)
             if match:
                 break
         else:
+            if path.startswith("/api/") or ON_VERCEL:
+                self.send_json(404, {"error": "Ruta inexistente"})
+                return True
             return False
         ident = int(match.group(1)) if match.groups() else None
         try:
-            result = self.dispatch(method, name, ident, parse_qs(url.query))
-            if method != "GET" and name not in ("reglas", "ia"):
-                export_db()
+            if name not in PUBLIC_ROUTES and not self.authorized():
+                raise ApiError(401, "Ingresá la clave para usar la plataforma.")
+            if name == "preview":
+                shot = landing_preview(ident)
+                if not shot:
+                    raise ApiError(404, "La landing no tiene vista previa")
+                self.send_body(200, shot[1], shot[0])
+                return True
+            result = self.dispatch(method, name, ident, query)
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
-        except (OSError, sqlite3.Error) as err:
-            self.send_json(500, {"error": "No se pudo completar la acción: %s" % err})
+        except psycopg.Error as err:
+            print("Error de base de datos: %s" % err, file=sys.stderr)
+            self.send_json(500, {"error": "No se pudo completar la acción en la base de datos. Probá de nuevo."})
         else:
             self.send_json(200, result)
         return True
 
     def dispatch(self, method, name, ident, query):
+        if name == "sesion" and method == "GET":
+            return {"ok": self.authorized(), "requiere": login_required()}
+        if name == "login" and method == "POST":
+            if not access_key():
+                raise ApiError(500, "Falta configurar la clave de acceso (LANZATE_CLAVE).")
+            clave = str(self.read_json().get("clave") or "")
+            if not hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8")):
+                time.sleep(1)
+                raise ApiError(401, "La clave no es correcta.")
+            self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
+            return {"ok": True}
+        if name == "logout" and method == "POST":
+            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0)),)
+            return {"ok": True}
         if name == "clientes":
             if method == "GET":
                 return list_clients()
             if method == "POST":
-                client = create_client(self.read_json())
-                print("Cliente dado de alta: " + client["nombre"])
-                return client
+                return create_client(self.read_json())
         if name == "cliente":
             if method == "GET":
                 return get_client(ident)
             if method == "PUT":
                 return update_client(ident, self.read_json())
             if method == "DELETE":
-                print("Cliente eliminado: " + delete_client(ident))
+                delete_client(ident)
                 return {"ok": True}
         if name == "landings":
             if method == "GET":
                 client = (query.get("cliente") or [""])[0]
                 return list_landings(int(client) if client.isdigit() else None)
             if method == "POST":
-                landing = save_landing(self.read_json())
-                schedule_preview(landing)
-                print("Landing guardada en " + landing["path"])
-                return landing
+                return save_landing(self.read_json())
         if name == "landing":
             if method == "GET":
                 return get_landing(ident)
             if method == "PUT":
-                landing = save_landing(self.read_json(), ident)
-                schedule_preview(landing)
-                print("Landing actualizada en " + landing["path"])
-                return landing
+                return save_landing(self.read_json(), ident)
             if method == "DELETE":
-                print("Landing eliminada: " + delete_landing(ident))
+                delete_landing(ident)
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
-            landing = duplicate_landing(ident)
-            print("Landing duplicada en " + landing["path"])
-            return landing
+            return duplicate_landing(ident)
         if name == "reglas":
             if method == "GET":
                 return read_rules()
             if method == "PUT":
-                print("Reglas actualizadas en data/reglas.json")
                 return save_rules(self.read_json())
         if name == "ia":
             if method == "GET":
                 return ia_status()
-            if self.client_address[0] not in ("127.0.0.1", "::1"):
-                raise ApiError(403, "La IA solo se usa desde la versión local")
             if method == "PUT":
                 return save_ia_settings(self.read_json())
             if method == "POST":
@@ -1045,42 +838,36 @@ class Handler(SimpleHTTPRequestHandler):
         raise ApiError(405, "Método no permitido")
 
     def do_GET(self):
-        if not self.api("GET"):
+        if not self.serve_lanzate("GET"):
             super().do_GET()
 
+    def do_HEAD(self):
+        if not self.serve_lanzate("HEAD"):
+            super().do_HEAD()
+
     def do_POST(self):
-        if not self.api("POST"):
+        if not self.serve_lanzate("POST"):
             self.send_json(404, {"error": "Ruta inexistente"})
 
     def do_PUT(self):
-        if not self.api("PUT"):
+        if not self.serve_lanzate("PUT"):
             self.send_json(404, {"error": "Ruta inexistente"})
 
     def do_DELETE(self):
-        if not self.api("DELETE"):
+        if not self.serve_lanzate("DELETE"):
             self.send_json(404, {"error": "Ruta inexistente"})
 
 
-def capture_missing_previews():
-    for landing in list_landings():
-        if not landing["preview"] and landing["disponible"]:
-            capture_preview(landing["id"], os.path.join(ROOT, landing["path"].rsplit("/", 1)[0]))
-
-
 def main():
-    # En local: 127.0.0.1:8877. En la nube (Render u otro): HOST=0.0.0.0 y PORT del entorno.
     port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
-    host = os.environ.get("HOST") or ("0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
-    init_db()
-    if os.path.isfile(DB_JSON):
-        import_db()
-    migrate_legacy()
-    export_db()
-    threading.Thread(target=capture_missing_previews, daemon=True).start()
-    handler = partial(Handler, directory=ROOT)
-    server = ThreadingHTTPServer((host, port), handler)
-    print("Nexoia en http://%s:%d/" % (host if host != "0.0.0.0" else "127.0.0.1", port))
-    print("  Biblioteca  → /index.html")
+    host = os.environ.get("HOST") or "127.0.0.1"
+    if not os.environ.get("DATABASE_URL"):
+        print("Falta DATABASE_URL: agregala en %s" % LOCAL_ENV, file=sys.stderr)
+        sys.exit(1)
+    with tx():
+        pass
+    server = ThreadingHTTPServer((host, port), partial(Handler, directory=ROOT))
+    print("Lanzate en http://%s:%d/" % (host, port))
     print("  Constructor → /maquetas/constructor.html")
     print("  Landings    → /maquetas/landings.html")
     try:

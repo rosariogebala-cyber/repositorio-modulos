@@ -1,0 +1,10 @@
+.cursor
+.git
+Templates
+data/*.db
+data/db.json
+data/previews
+data/logos
+deploy
+render.yaml
+*.pdf

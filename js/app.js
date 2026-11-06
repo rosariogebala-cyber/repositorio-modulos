@@ -1,6 +1,6 @@
 'use strict';
 const modulos = window.NEXOIA_MODULES;
-const palette = { estructura:'#38a58b', contenido:'#5084a6', negocio:'#b77658', confianza:'#8a75aa', informacion:'#aa8b50' };
+const palette = { estructura:'#5a3df2', contenido:'#3b4fd8', negocio:'#b0703a', confianza:'#c2415d', informacion:'#1f6f5c' };
 const $ = selector => document.querySelector(selector);
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 let termino = '', lastFocus;

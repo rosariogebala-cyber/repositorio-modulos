@@ -249,11 +249,9 @@
       rules = data;
       saved = snapshot();
       renderAll();
-      if (data.local) say("Reglas guardadas en este navegador. Publicalas con la clave para que las use todo el equipo.", "ok");
-      else if (data.publicando) say("Reglas guardadas. En 1 o 2 minutos se aplican en el link para todo el equipo.", "ok");
-      else say("Reglas guardadas en data/reglas.json. Ya se aplican en el constructor.", "ok");
+      say("Reglas guardadas. Ya se aplican en el constructor para todo el equipo.", "ok");
     }).catch(function (err) {
-      say(err.offline ? "No se pudo guardar: iniciá el servidor con «python3 server.py» y volvé a intentarlo." : err.message, "warn");
+      say(err.message, "warn");
     }).then(function () { busy = false; refresh(); });
   }
   saveBtn.addEventListener("click", save);
@@ -302,6 +300,5 @@
     rules = res[0];
     saved = snapshot();
     renderAll();
-    if (rules.local) say("Estas reglas están guardadas solo en este navegador. Publicalas con la clave para que las use todo el equipo.", "warn");
   });
 })();

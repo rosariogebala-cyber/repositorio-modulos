@@ -46,7 +46,7 @@
         "label": "Cantidad mínima de secciones",
         "activo": true,
         "nivel": "aviso",
-        "valor": 5,
+        "valor": 3,
         "unidad": "secciones"
       },
       {
@@ -261,5 +261,6 @@
         "activo": true
       }
     ]
-  }
+  },
+  "actualizado": 1793929117568
 }

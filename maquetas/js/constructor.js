@@ -178,7 +178,7 @@
       li.className = "lb-item";
       li.innerHTML =
         '<span class="lb-item-num">' + String(i + 1).padStart(2, "0") + "</span>" +
-        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + "</small></span>" +
+        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + "</small></span>" +
         '<span class="lb-seg lb-item-seg" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
         '<button type="button" data-act="width" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
         '<button type="button" data-act="width" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
@@ -278,10 +278,8 @@
   }
 
   function logoSrc(c, preview) {
-    if (!c) return "";
-    if (/^data:/.test(c.logo_url || "")) return c.logo_url;
-    if (!c.logo) return "";
-    return (preview ? "../" : "../../../") + c.logo + (preview && c.actualizado ? "?v=" + c.actualizado : "");
+    if (!c || !c.logo_url) return "";
+    return preview ? c.logo_url : "lzlogo:";
   }
 
   function applyClient(root, c, preview) {
@@ -352,17 +350,51 @@
     });
   }
 
+  /* Imágenes editables: cada módulo guarda en it.imagenes { src, alt } por posición */
+  var IMG_SEL = "img, [style*='background-image']";
+
+  function imageNodes(root) {
+    return Array.prototype.filter.call(root.querySelectorAll(IMG_SEL), function (el) {
+      return !el.closest(".nx-brand, .lp-tools, script, style, svg");
+    });
+  }
+
+  function imageData(el) {
+    if (el.tagName === "IMG") return { src: el.getAttribute("src") || "", alt: el.getAttribute("alt") || "" };
+    var m = /url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(el.style.backgroundImage || "");
+    return { src: m ? m[1] : "" };
+  }
+
+  function setImage(el, data) {
+    if (data.src) {
+      if (el.tagName === "IMG") {
+        el.setAttribute("src", data.src);
+        el.removeAttribute("srcset");
+        el.removeAttribute("sizes");
+      } else {
+        el.style.backgroundImage = 'url("' + data.src + '")';
+      }
+    }
+    if (el.tagName === "IMG" && data.alt != null) el.setAttribute("alt", data.alt);
+  }
+
   function moduleTemplate(it, preview, withTexts) {
     var tpl = document.createElement("template");
     tpl.innerHTML = it.html || byId[it.id].html;
     var nodes = editableNodes(tpl.content);
+    var images = imageNodes(tpl.content);
     applyClient(tpl.content, currentClient(), preview);
     var textos = withTexts && it.textos || {};
     nodes.forEach(function (el, k) {
       if (textos[k] != null) el.innerHTML = textos[k];
       if (preview) el.setAttribute("data-lb-t", k);
     });
-    return { tpl: tpl, nodes: nodes };
+    var imagenes = withTexts && it.imagenes || {};
+    images.forEach(function (el, k) {
+      if (imagenes[k]) setImage(el, imagenes[k]);
+      if (preview) el.setAttribute("data-lb-i", k);
+    });
+    return { tpl: tpl, nodes: nodes, images: images };
   }
 
   function moduleMarkup(it, prefix, i, preview) {
@@ -449,12 +481,24 @@
   var editMode = false;
   var editing = null;
   var EDIT_CSS =
-    ".lb-editing [data-lb-t]{cursor:text;outline:1px dashed rgba(27,94,66,.5);outline-offset:3px;border-radius:2px}" +
-    ".lb-editing [data-lb-t]:hover{outline:2px solid #1b5e42}" +
-    "[data-lb-t][contenteditable]{outline:2px solid #1b5e42!important;background:rgba(255,255,255,.85);color:#17352c;caret-color:#1b5e42}" +
-    "#lbEditTip{position:absolute;z-index:2147483000;display:flex;align-items:center;gap:.6em;padding:.45em .8em;border-radius:999px;background:#0b1736;color:#fff;font:600 13px/1.2 Manrope,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap}" +
+    ".lb-editing [data-lb-t]{cursor:text;outline:1px dashed rgba(90,61,242,.55);outline-offset:3px;border-radius:2px}" +
+    ".lb-editing [data-lb-t]:hover{outline:2px solid #5a3df2}" +
+    "[data-lb-t][contenteditable]{outline:2px solid #5a3df2!important;background:rgba(255,255,255,.85);color:#0e1130;caret-color:#5a3df2}" +
+    "#lbEditTip{position:absolute;z-index:2147483000;display:flex;align-items:center;gap:.6em;padding:.45em .8em;border-radius:999px;background:#0e1130;color:#fff;font:600 13px/1.2 Inter,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap}" +
     "#lbEditTip[hidden]{display:none}#lbEditTip .is-over{color:#ff8a80}#lbEditTip .is-under{color:#ffd27a}" +
-    "#lbEditTip button{border:0;background:none;color:#9fd8bd;font:inherit;text-decoration:underline;cursor:pointer;padding:0}";
+    "#lbEditTip button{border:0;background:none;color:#d5f660;font:inherit;text-decoration:underline;cursor:pointer;padding:0}" +
+    ".lb-editing [data-lb-i]{cursor:pointer;outline:2px dashed rgba(213,246,96,.95);outline-offset:-2px;box-shadow:inset 0 0 0 4px rgba(90,61,242,.45)}" +
+    ".lb-editing [data-lb-i]:hover,[data-lb-i].lb-img-on{outline:3px solid #5a3df2!important;outline-offset:-3px}" +
+    "#lbImgTip{position:absolute;z-index:2147483000;display:flex;flex-direction:column;gap:.55em;width:min(22em,calc(100vw - 16px));padding:.8em .9em;border-radius:14px;background:#0e1130;color:#fff;font:500 13px/1.35 Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)}" +
+    "#lbImgTip[hidden]{display:none}#lbImgTip b{font-weight:700}#lbImgTip small{color:#c9cbe0;font-size:.9em;text-wrap:pretty}#lbImgTip .is-bad{color:#ff8a80}" +
+    "#lbImgTip .lb-img-row{display:flex;flex-wrap:wrap;gap:.5em;align-items:center}" +
+    "#lbImgTip button{border:0;border-radius:999px;padding:.5em .95em;font:700 1em/1 Inter,system-ui,sans-serif;cursor:pointer;background:#d5f660;color:#0e1130}" +
+    "#lbImgTip button.is-ghost{background:none;color:#d5f660;text-decoration:underline;padding:.5em .2em}" +
+    "#lbImgTip button.is-save{background:#5a3df2;color:#fff}#lbImgTip button.is-save:disabled{background:#2b2f52;color:#c9cbe0;cursor:default}#lbImgTip button[hidden]{display:none}" +
+    "#lbImgTip button.lb-img-x{position:absolute;top:.35em;right:.4em;background:none;color:#fff;font-size:1.4em;padding:.1em .35em}" +
+    "#lbImgTip>div:first-of-type{padding-right:1.8em}" +
+    "#lbImgTip label{display:flex;flex-direction:column;gap:.3em;font-size:.92em;color:#c9cbe0}" +
+    "#lbImgTip input{width:100%;border:1px solid #2b2f52;border-radius:8px;padding:.5em .6em;font:500 1em/1.2 Inter,system-ui,sans-serif;color:#0e1130;background:#fff}";
 
   function moduleIndex(el) {
     var doc = frameDoc();
@@ -569,25 +613,32 @@
     editBtn.setAttribute("aria-pressed", String(on));
     var doc = frameDoc();
     if (doc) doc.body.classList.toggle("lb-editing", on);
-    if (!on) endEdit();
+    if (!on) { endEdit(); closeImage(); }
   }
 
   function setupEditing() {
     var doc = frameDoc();
     if (!doc) return;
     editing = null;
+    imgSel = null;
+    doc.addEventListener("slid.bs.carousel", function (e) {
+      if (imgSel && e.target.contains(imgSel.el) && !imgSel.el.closest(".carousel-item.active")) closeImage();
+    });
     var style = doc.createElement("style");
     style.textContent = EDIT_CSS;
     doc.head.appendChild(style);
     doc.body.classList.toggle("lb-editing", editMode);
     doc.addEventListener("pointerdown", function (e) {
-      if (!editMode || e.target.closest("#lbEditTip")) return;
+      if (!editMode || e.target.closest("#lbEditTip, #lbImgTip, [data-bs-slide], [data-bs-slide-to]")) return;
       var el = e.target.closest("[data-lb-t]");
-      if (el) beginEdit(el);
+      if (el) { closeImage(); beginEdit(el); return; }
+      var img = e.target.closest("[data-lb-i]");
+      if (img) selectImage(img);
+      else closeImage();
     }, true);
     doc.addEventListener("click", function (e) {
-      if (!editMode || e.target.closest(".lp-tools, #lbEditTip")) return;
-      if (e.target.closest("[data-lb-t], a, button")) { e.preventDefault(); e.stopPropagation(); }
+      if (!editMode || e.target.closest(".lp-tools, #lbEditTip, #lbImgTip, [data-bs-slide], [data-bs-slide-to]")) return;
+      if (e.target.closest("[data-lb-t], [data-lb-i], a, button")) { e.preventDefault(); e.stopPropagation(); }
     }, true);
     doc.addEventListener("keydown", function (e) {
       if (!editing || !editing.el.contains(e.target)) return;
@@ -611,13 +662,251 @@
 
   editBtn.addEventListener("click", function () {
     setEditMode(!editMode);
-    if (editMode) say("Tocá cualquier texto de la vista previa para cambiarlo. Enter para terminar, Esc para deshacer.", "ok");
+    if (editMode) say("Tocá un texto para cambiarlo o una foto para reemplazarla. Enter para terminar, Esc para deshacer.", "ok");
   });
 
   function editElement(el) {
     setEditMode(true);
     scrollToEl(el);
     beginEdit(el, true);
+  }
+
+  /* Edición de imágenes sobre la vista previa */
+  var imgSel = null;
+  var imgInput = document.createElement("input");
+  imgInput.type = "file";
+  imgInput.accept = "image/jpeg,image/png,image/webp,image/avif,image/svg+xml";
+  imgInput.hidden = true;
+  document.body.appendChild(imgInput);
+
+  function imageRoleOf(el) {
+    return rules && window.NexoiaReglas && window.NexoiaReglas.imageRole ? window.NexoiaReglas.imageRole(el, rules) : null;
+  }
+
+  function originalImage(it, key) {
+    var el = moduleTemplate(it, true, false).images[key];
+    return el ? imageData(el) : null;
+  }
+
+  function minLabel(role) {
+    if (!role || (!role.minAncho && !role.minAlto)) return "";
+    return role.minAncho && role.minAlto ? role.minAncho + "×" + role.minAlto + "\u00a0px"
+      : role.minAncho ? role.minAncho + "\u00a0px de\u00a0ancho" : role.minAlto + "\u00a0px de\u00a0alto";
+  }
+
+  function imgTip() {
+    var doc = frameDoc();
+    var tip = doc.getElementById("lbImgTip");
+    if (!tip) {
+      tip = doc.createElement("div");
+      tip.id = "lbImgTip";
+      tip.hidden = true;
+      tip.addEventListener("click", function (e) {
+        if (!imgSel) return;
+        if (e.target.closest("[data-img-pick]")) pickImage();
+        else if (e.target.closest("[data-img-save]")) createLanding();
+        else if (e.target.closest("[data-img-revert]")) revertImage();
+        else if (e.target.closest("[data-img-close]")) closeImage();
+      });
+      tip.addEventListener("input", function (e) {
+        if (imgSel && e.target.matches("[data-img-alt]")) commitImage({ alt: e.target.value });
+      });
+      tip.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" || (e.key === "Enter" && e.target.matches("[data-img-alt]"))) { e.preventDefault(); closeImage(); }
+      });
+      doc.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function renderImgTip() {
+    if (!imgSel) return;
+    var el = imgSel.el;
+    var tip = imgTip();
+    var role = imageRoleOf(el);
+    var it = state.items[imgSel.module];
+    var changed = !!(it && it.imagenes && it.imagenes[imgSel.key]);
+    var data = imageData(el);
+    var need = minLabel(role);
+    var isImg = el.tagName === "IMG";
+    var probe = new Image();
+    var sizeId = "lbImgSize" + Date.now();
+    tip.innerHTML =
+      '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
+      "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
+      (isImg ? '<label>Descripción (alt)<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve en la foto"></label>' : "") +
+      '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
+      '<button type="button" class="is-save" data-img-save hidden></button>' +
+      (changed ? '<button type="button" class="is-ghost" data-img-revert>Volver a la original</button>' : "") + "</div>";
+    renderImgSave();
+    probe.onload = function () {
+      var span = tip.querySelector("#" + sizeId);
+      if (!span) return;
+      var small = role && ((role.minAncho && probe.naturalWidth < role.minAncho) || (role.minAlto && probe.naturalHeight < role.minAlto));
+      span.textContent = "Mide " + probe.naturalWidth + "×" + probe.naturalHeight + "\u00a0px";
+      span.className = small ? "is-bad" : "";
+    };
+    probe.onerror = function () {
+      var span = tip.querySelector("#" + sizeId);
+      if (span) { span.textContent = "No carga"; span.className = "is-bad"; }
+    };
+    try { probe.src = new URL(data.src, frameDoc().baseURI).href; } catch (e) { probe.onerror(); }
+    var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
+    tip.style.fontSize = Math.round(13 / scale) + "px";
+    tip.hidden = false;
+    var doc = frameDoc();
+    var win = doc.defaultView;
+    var r = el.getBoundingClientRect();
+    var top = Math.max(r.top, 0) + win.scrollY + 12;
+    tip.style.top = top + "px";
+    tip.style.left = Math.max(8, Math.min(r.left + win.scrollX + 12, doc.documentElement.clientWidth - tip.offsetWidth - 8)) + "px";
+  }
+
+  function renderImgSave() {
+    var doc = imgSel && frameDoc();
+    var btn = doc && doc.querySelector("#lbImgTip [data-img-save]");
+    if (!btn) return;
+    var dirty = isDirty();
+    btn.hidden = !dirty && !state.landingId;
+    btn.disabled = busy || !dirty;
+    btn.textContent = busy ? "Guardando…" : !dirty ? "Guardada ✓" : state.landingId ? "Guardar" : "Crear landing";
+  }
+
+  function showSlide(el) {
+    var item = el.closest(".carousel-item");
+    var win = frameDoc().defaultView;
+    if (!item || !win.bootstrap) return false;
+    var carousel = win.bootstrap.Carousel.getOrCreateInstance(item.closest(".carousel"));
+    carousel.pause();
+    if (item.classList.contains("active")) return false;
+    carousel.to(Array.prototype.indexOf.call(item.parentElement.children, item));
+    return true;
+  }
+
+  function selectImage(el) {
+    if (imgSel && imgSel.el === el) return;
+    closeImage();
+    endEdit();
+    imgSel = { el: el, module: moduleIndex(el), key: el.getAttribute("data-lb-i") };
+    el.classList.add("lb-img-on");
+    if (showSlide(el)) setTimeout(renderImgTip, 700);
+    renderImgTip();
+  }
+
+  function closeImage() {
+    if (!imgSel) return;
+    imgSel.el.classList.remove("lb-img-on");
+    imgSel = null;
+    var doc = frameDoc();
+    var tip = doc && doc.getElementById("lbImgTip");
+    if (tip) tip.hidden = true;
+    scheduleQa(200);
+  }
+
+  function commitImage(change) {
+    var it = state.items[imgSel.module];
+    if (!it) return;
+    var orig = originalImage(it, imgSel.key) || {};
+    var cur = Object.assign({}, it.imagenes && it.imagenes[imgSel.key], change);
+    if (cur.src === orig.src) delete cur.src;
+    if (cur.alt != null && cur.alt === (orig.alt || "")) delete cur.alt;
+    it.imagenes = it.imagenes || {};
+    if (Object.keys(cur).length) it.imagenes[imgSel.key] = cur;
+    else delete it.imagenes[imgSel.key];
+    if (!Object.keys(it.imagenes).length) delete it.imagenes;
+    var data = { src: change.src, alt: change.alt };
+    imgSel.el.closest("section.mq-block").querySelectorAll('[data-lb-i="' + imgSel.key + '"]').forEach(function (o) { setImage(o, data); });
+    renderMode();
+    renderOrder();
+    saveDraft();
+    scheduleQa(900);
+  }
+
+  function revertImage() {
+    var orig = originalImage(state.items[imgSel.module], imgSel.key);
+    if (!orig) return;
+    commitImage(orig);
+    renderImgTip();
+    say("La imagen volvió a la original.", "ok");
+  }
+
+  function pickImage() {
+    imgInput.value = "";
+    imgInput.click();
+  }
+
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { resolve({ img: img, url: url }); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen. Probá con JPG, PNG o WEBP.")); };
+      img.src = url;
+    });
+  }
+
+  function readDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(new Error("No se pudo leer el archivo.")); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function compressImage(img, role) {
+    var maxW = Math.max((role && role.minAncho) || 0, 1920);
+    var maxH = Math.max((role && role.minAlto) || 0, 1920);
+    var ratio = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * ratio);
+    canvas.height = Math.round(img.naturalHeight * ratio);
+    var ctx = canvas.getContext("2d");
+    var webp = canvas.toDataURL("image/webp", 0.8).indexOf("data:image/webp") === 0;
+    if (!webp) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    var type = webp ? "image/webp" : "image/jpeg";
+    var maxBytes = ((role && role.maxKB) || 300) * 1024;
+    var out = "";
+    for (var q = 0.86; q >= 0.5; q -= 0.08) {
+      out = canvas.toDataURL(type, q);
+      if (out.length * 0.75 <= maxBytes) break;
+    }
+    return { src: out, w: canvas.width, h: canvas.height, kb: Math.round(out.length * 0.75 / 1024) };
+  }
+
+  imgInput.addEventListener("change", function () {
+    var file = imgInput.files && imgInput.files[0];
+    if (!file || !imgSel) return;
+    var sel = imgSel;
+    var role = imageRoleOf(sel.el);
+    var svg = /svg/.test(file.type);
+    say("Preparando la imagen…");
+    var job = svg ? readDataUrl(file).then(function (src) { return { src: src, svg: true }; })
+      : loadImage(file).then(function (res) {
+        var out = compressImage(res.img, role);
+        URL.revokeObjectURL(res.url);
+        return out;
+      });
+    job.then(function (out) {
+      if (imgSel !== sel) selectImage(sel.el);
+      commitImage({ src: out.src });
+      renderImgTip();
+      if (out.svg) { say("Imagen cambiada.", "ok"); return; }
+      var small = role && ((role.minAncho && out.w < role.minAncho) || (role.minAlto && out.h < role.minAlto));
+      say(small
+        ? "Imagen cambiada, pero mide " + out.w + "×" + out.h + " px y el mínimo es " + minLabel(role) + ". Buscá una versión más grande."
+        : "Imagen cambiada: " + out.w + "×" + out.h + " px, " + out.kb + " KB.", small ? "warn" : "ok");
+    }).catch(function (err) { say(err.message, "warn"); });
+  });
+
+  function editImage(el, focusAlt) {
+    setEditMode(true);
+    scrollToEl(el);
+    selectImage(el);
+    var input = focusAlt && frameDoc().querySelector("#lbImgTip [data-img-alt]");
+    if (input) { input.focus(); input.select(); }
+    else if (!focusAlt) pickImage();
   }
 
   /* IA: sugerir módulos y escribir textos. Solo con el servidor local: la clave nunca llega al navegador. */
@@ -638,7 +927,6 @@
   var aiUndo = null;
 
   function loadAi() {
-    if (window.NexoiaGitHub) return;
     api("GET", "/api/ia").then(function (data) { ai = data; renderAi(); }, function () { ai = null; renderAi(); });
   }
 
@@ -798,7 +1086,7 @@
       renderOrder();
       renderPreview();
       saveDraft();
-      say("La IA escribió " + count + " textos. Revisalos en la vista previa: con «Editar textos» podés ajustar cualquiera.", "ok", { act: "ia-undo", text: "Deshacer" });
+      say("La IA escribió " + count + " textos. Revisalos en la vista previa: con «Editar textos y fotos» podés ajustar cualquiera.", "ok", { act: "ia-undo", text: "Deshacer" });
     }, function () { /* el error ya se mostró */ });
   }
 
@@ -853,7 +1141,8 @@
     renderQa();
     var fonts = doc && doc.fonts ? doc.fonts.ready.catch(function () {}) : Promise.resolve();
     fonts.then(function () {
-      return window.NexoiaReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name });
+      return window.NexoiaReglas.check({ doc: frameDoc(), win: frame.contentWindow, items: qaItems(), rules: rules, name: state.name,
+        groupNames: library.reduce(function (acc, g) { acc[g.id] = g.name; return acc; }, {}) });
     }).then(function (report) {
       if (run !== qaRun) return;
       qaReport = report;
@@ -966,7 +1255,8 @@
         say("Datos de «" + saved.nombre + "» actualizados: la landing ya los usa.", "ok");
       });
     });
-    var input = document.querySelector('dialog[open] [name="' + field + '"]');
+    var input = document.querySelector(field === "logo" ? "dialog[open] [data-pf-logo-input]" : 'dialog[open] [name="' + field + '"]');
+    if (input && field === "logo") input = input.closest("label") || input;
     if (input) setTimeout(function () { input.focus(); }, 60);
   }
 
@@ -991,6 +1281,19 @@
         };
       }
       return function () { editElement(el); };
+    }
+    if (issue.area === "imagenes" && issue.el && issue.el.isConnected) {
+      if (issue.el.closest(".nx-brand")) {
+        return function () {
+          if (!currentClient()) { goTo("client"); return; }
+          openClientForm("logo");
+          say("Subí el logo de «" + currentClient().nombre + "»: se aplica solo en toda la landing.", "ok");
+        };
+      }
+      var img = issue.el.closest("[data-lb-i]");
+      if (!img) return null;
+      var alt = /texto alternativo/i.test(issue.text);
+      return function () { editImage(img, alt); };
     }
     if (issue.regla === "obligatorio" || issue.regla === "sumar") {
       return function () {
@@ -1075,6 +1378,7 @@
     newBtn.hidden = !editing;
     editBtn.hidden = !state.items.length;
     renderAi();
+    renderImgSave();
     stepDone(1, !!state.clienteId && !!state.name.trim());
     stepDone(2, state.items.length > 0);
 
@@ -1093,12 +1397,9 @@
     }
 
     modeHint.className = "lb-hint lb-mode";
-    var browserOnly = window.NexoiaGitHub && !window.NexoiaGitHub.connected();
-    modeHint.textContent = browserOnly
-      ? "Se guarda en este navegador. Después la podés publicar en el link."
-      : client
-      ? "Se guarda en Templates/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "")
-      : "Cada landing se guarda en la carpeta de su cliente.";
+    modeHint.textContent = client
+      ? "Se publica en /l/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "")
+      : "Cada landing se publica con el nombre de su cliente.";
   }
 
   function showTab(name) {
@@ -1142,6 +1443,7 @@
         var item = { id: it.id, width: it.width };
         if (it.html) item.html = it.html;
         if (it.textos) item.textos = it.textos;
+        if (it.imagenes) item.imagenes = it.imagenes;
         return item;
       }),
       estilo: lp.estilo || ""
@@ -1197,24 +1499,102 @@
   }
 
   function goTo(key) {
-    if (key === "client") { clientSelect.focus(); return; }
-    if (key === "name") { nameInput.focus(); return; }
+    if (key === "client" || key === "name") { openAssign(); return; }
     if (key === "qa") { qaBox.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     showTab("add");
     search.scrollIntoView({ behavior: "smooth", block: "center" });
     search.focus({ preventScroll: true });
   }
 
+  var assignDialog = $("[data-lb-assign-dialog]");
+  var assignClient = $("[data-lb-assign-client]");
+  var assignName = $("[data-lb-assign-name]");
+  var assignMsg = $("[data-lb-assign-msg]");
+
+  function fillAssignClients() {
+    assignClient.innerHTML = '<option value="">Elegí un cliente</option>' + clients.map(function (c) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.nombre) + (c.estado === "pausado" ? " (pausado)" : "") + "</option>";
+    }).join("");
+    assignClient.value = state.clienteId ? String(state.clienteId) : "";
+  }
+
+  var assignCreates = false;
+
+  function openAssign(create) {
+    assignCreates = !!create;
+    fillAssignClients();
+    assignName.value = state.name;
+    assignMsg.textContent = "";
+    assignMsg.className = "lb-msg";
+    $("[data-lb-assign-label]").textContent = !create ? "Listo" : state.landingId ? "Guardar" : "Crear landing";
+    assignDialog.showModal();
+    (assignClient.value ? assignName : assignClient).focus();
+  }
+
+  $("[data-lb-assign-close]").addEventListener("click", function () { assignDialog.close(); });
+
+  $("[data-lb-assign-new]").addEventListener("click", function () {
+    window.Nexoia.clientForm(null).then(function (client) {
+      if (!client || client.deleted) return;
+      loadClients().then(function () {
+        fillAssignClients();
+        assignClient.value = String(client.id);
+        assignName.focus();
+      });
+    });
+  });
+
+  $("[data-lb-assign-form]").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var id = Number(assignClient.value) || null;
+    var name = assignName.value.trim();
+    if (!id || !name) {
+      assignMsg.textContent = !id ? "Elegí el cliente o dalo de alta con «Nuevo cliente»." : "Ponele un nombre a la landing.";
+      assignMsg.className = "lb-msg is-warn";
+      (!id ? assignClient : assignName).focus();
+      return;
+    }
+    state.clienteId = id;
+    state.name = name;
+    clientSelect.value = String(id);
+    nameInput.value = name;
+    assignDialog.close();
+    renderMode();
+    renderPreview();
+    saveDraft();
+    if (assignCreates) createLanding();
+  });
+
+  /* Vercel acepta hasta 4,5 MB por pedido: las fotos viajan una sola vez, dentro de items */
+  var MAX_SAVE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 38 * 1048576 : 4.3 * 1048576;
+
+  function imageTokens(html) {
+    state.items.forEach(function (it, i) {
+      Object.keys(it.imagenes || {}).forEach(function (k) {
+        var src = it.imagenes[k].src;
+        if (src && src.indexOf("data:") === 0) html = html.split(src).join("lzimg:" + i + ":" + k);
+      });
+    });
+    return html;
+  }
+
   function createLanding() {
     var todo = missing();
+    if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
     if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: html, items: state.items, estilo: state.estilo };
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo };
+    var payload = JSON.stringify(body);
+    if (payload.length > MAX_SAVE) {
+      say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
+        (MAX_SAVE / 1048576).toFixed(1).replace(".", ",") + " MB. Usá menos fotos o más livianas.", "warn");
+      return;
+    }
     busy = true;
     renderMode();
     say((editing ? "Guardando «" : "Creando «") + body.nombre + "»…");
-    (editing ? api("PUT", "/api/landings/" + state.landingId, body) : api("POST", "/api/landings", body))
+    (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
       .then(function (data) {
         state.landingId = data.id;
         if (data.cliente_id && data.cliente_id !== state.clienteId) {
@@ -1229,16 +1609,10 @@
         savedSnapshot = snapshot();
         saveDraft();
         renderSaved();
-        var later = data.publicando ? " Queda online en 1 o 2 minutos." : "";
-        if (data.local) {
-          say((editing ? "Cambios guardados en este navegador." : "¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ". Quedó guardada en este navegador."), "ok", [
-            { href: data.url, text: "Abrir landing", blank: true },
-            { act: "publish", text: "Publicar en el link" }
-          ].concat(editing ? [] : [{ act: "new", text: "Crear otra" }]));
-        } else if (editing) {
-          say("Cambios guardados en " + data.path + "." + later, "ok", { href: data.url, text: "Abrir landing", blank: true });
+        if (editing) {
+          say("Cambios guardados y publicados.", "ok", { href: data.url, text: "Abrir landing", blank: true });
         } else {
-          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + "." + later, "ok", [
+          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
             { href: data.url, text: "Abrir landing", blank: true },
             { href: "landings.html", text: "Ver en Landings" },
             { act: "new", text: "Crear otra" }
@@ -1248,28 +1622,9 @@
       .catch(function (err) {
         if (!err.offline) { say(err.message, "warn"); return; }
         download(html, slugify(state.name) + ".html");
-        say("No se pudo guardar: iniciá el servidor con «python3 server.py» y volvé a intentarlo. Mientras tanto se descargó el HTML.", "warn");
+        say("No se pudo guardar: revisá la conexión y volvé a intentarlo. Mientras tanto se descargó el HTML.", "warn");
       })
       .then(function () { busy = false; renderMode(); });
-  }
-
-  function publishLanding(btn) {
-    if (!state.landingId) return;
-    btn.disabled = true;
-    api("POST", "/api/landings/" + state.landingId + "/publish")
-      .then(function (data) {
-        state.landingId = data.id;
-        state.clienteId = data.cliente_id;
-        loadClients().then(function () {
-          clientSelect.value = String(state.clienteId);
-          savedSnapshot = snapshot();
-          saveDraft();
-          renderMode();
-        });
-        renderSaved();
-        say("Se publicó «" + data.nombre + "». Queda online en 1 o 2 minutos.", "ok", { href: data.url, text: "Abrir landing", blank: true });
-      })
-      .catch(function (err) { btn.disabled = false; say(err.message, "warn"); });
   }
 
   function startNew(clienteId) {
@@ -1304,7 +1659,6 @@
   msg.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-msg-act]");
     if (btn && btn.getAttribute("data-msg-act") === "new") newLanding();
-    if (btn && btn.getAttribute("data-msg-act") === "publish") publishLanding(btn);
     if (btn && btn.getAttribute("data-msg-act") === "ia-undo") undoAi();
     if (btn && btn.getAttribute("data-msg-act") === "ia-config" && ai) openAiConfig();
   });
@@ -1383,6 +1737,14 @@
   });
   search.addEventListener("input", renderPicker);
   window.addEventListener("resize", fitPreview);
+  if (window.ResizeObserver) {
+    var lastViewportW = 0;
+    new ResizeObserver(function () {
+      if (viewport.clientWidth === lastViewportW) return;
+      lastViewportW = viewport.clientWidth;
+      fitPreview();
+    }).observe(viewport);
+  }
 
   // Al entrar sin parámetros se arranca una landing nueva; una guardada solo se retoma si quedaron cambios sin guardar.
   function restoreDraft() {

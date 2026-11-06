@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Crear landing · Nexoia</title>
+  <title>Crear landing · Lanzate</title>
+  <link rel="icon" href="../assets/favicon-lanzate.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Inter:wght@300;400;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="css/nexoia.css" rel="stylesheet">
 </head>
 <body class="lib-page builder-page">
   <header class="lib-header">
-    <a class="lib-brand" href="../index.html">Nexoia</a>
+    <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
     <nav aria-label="Navegación principal">
       <a href="../index.html">Biblioteca de módulos</a>
       <a href="index.html">Maquetas</a>
@@ -100,7 +101,7 @@
       <div class="lb-statusbar">
         <p class="lb-status" data-lb-status role="status" aria-live="polite"></p>
         <div class="lb-preview-tools">
-          <button class="lb-edit-btn" type="button" data-lb-edit aria-pressed="false" hidden><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar textos</button>
+          <button class="lb-edit-btn" type="button" data-lb-edit aria-pressed="false" hidden><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar textos y&nbsp;fotos</button>
           <button class="lb-edit-btn lb-ai-texts" type="button" data-lb-ai-texts hidden><i class="bi bi-stars" aria-hidden="true"></i> Escribir con IA</button>
           <div class="split-toggle" role="group" aria-label="Dispositivo">
             <button type="button" data-lb-device="1280" aria-pressed="true" title="Escritorio"><i class="bi bi-display"></i><span> Escritorio</span></button>
@@ -111,21 +112,25 @@
         </div>
       </div>
       <p class="lb-msg" data-lb-msg role="status" aria-live="polite"></p>
-      <section class="lb-qa" data-lb-qa aria-label="Control de calidad" hidden>
-        <div class="lb-qa-head">
-          <p class="lb-qa-sum"><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Revisando calidad…</span></p>
-          <a class="lb-link" href="reglas.html">Editar reglas</a>
+      <div class="lb-work">
+        <div class="lb-viewport" data-lb-viewport>
+          <div class="lb-device" data-lb-device-frame>
+            <iframe title="Vista previa de la landing" data-lb-frame></iframe>
+          </div>
+          <div class="lb-placeholder" data-lb-placeholder>
+            <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+            <p>Elegí módulos a la izquierda y la vista previa aparece acá.</p>
+          </div>
         </div>
-        <ul class="lb-qa-list" data-lb-qa-list></ul>
-      </section>
-      <div class="lb-viewport" data-lb-viewport>
-        <div class="lb-device" data-lb-device-frame>
-          <iframe title="Vista previa de la landing" data-lb-frame></iframe>
-        </div>
-        <div class="lb-placeholder" data-lb-placeholder>
-          <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
-          <p>Elegí módulos a la izquierda y la vista previa aparece acá.</p>
-        </div>
+        <aside class="lb-qa-col">
+          <section class="lb-qa" data-lb-qa aria-label="Control de calidad" hidden>
+            <div class="lb-qa-head">
+              <p class="lb-qa-sum"><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Revisando calidad…</span></p>
+              <a class="lb-link" href="reglas.html">Editar reglas</a>
+            </div>
+            <ul class="lb-qa-list" data-lb-qa-list></ul>
+          </section>
+        </aside>
       </div>
     </section>
   </main>
@@ -134,7 +139,7 @@
     <div class="lb-dialog-head">
       <div>
         <h2 id="lbLibraryTitle">Mis landings</h2>
-        <p>Se guardan en Templates/&lt;cliente&gt;/&lt;landing&gt;/.</p>
+        <p>Cada una se publica en /l/&lt;cliente&gt;/&lt;landing&gt;/.</p>
       </div>
       <button class="lb-dialog-close" type="button" data-lb-library-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
     </div>
@@ -170,7 +175,29 @@
     </form>
   </dialog>
 
-  <script src="js/github-store.js"></script>
+  <dialog class="lb-dialog lb-ia-dialog" data-lb-assign-dialog aria-labelledby="lbAssignTitle">
+    <form method="dialog" data-lb-assign-form>
+      <div class="lb-dialog-head">
+        <div>
+          <h2 id="lbAssignTitle">¿Para qué cliente es?</h2>
+          <p>La landing se guarda en la carpeta del cliente y usa su logo, colores y&nbsp;datos.</p>
+        </div>
+        <button class="lb-dialog-close" type="button" data-lb-assign-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="lb-card-head">
+        <label class="lb-label" for="lbAssignClient">Cliente</label>
+        <button class="lb-link" type="button" data-lb-assign-new><i class="bi bi-plus-lg"></i> Nuevo cliente</button>
+      </div>
+      <select class="lb-input" id="lbAssignClient" data-lb-assign-client></select>
+      <label class="lb-label lb-label-gap" for="lbAssignName">Nombre de la landing</label>
+      <input class="lb-input" id="lbAssignName" type="text" placeholder="Ej: Promo primavera" autocomplete="off" data-lb-assign-name>
+      <p class="lb-msg" data-lb-assign-msg role="status" aria-live="polite"></p>
+      <div class="lb-ia-foot">
+        <button class="btn-nx btn-sm" type="submit"><i class="bi bi-check2-circle"></i> <span data-lb-assign-label>Crear landing</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="js/plataforma.js"></script>
   <script src="js/reglas.js"></script>
   <script src="js/constructor.js"></script>

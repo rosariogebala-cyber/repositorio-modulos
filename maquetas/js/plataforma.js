@@ -1,7 +1,12 @@
 (function () {
   "use strict";
 
-  var OFFLINE = "No hay conexión con el servidor: iniciá la plataforma con «python3 server.py».";
+  var OFFLINE = "No hay conexión con el servidor. Revisá internet y probá de nuevo.";
+
+  function toLogin() {
+    if (/login\.html$/.test(location.pathname)) return;
+    location.href = "login.html?volver=" + encodeURIComponent(location.pathname + location.search);
+  }
 
   function esc(text) {
     return String(text == null ? "" : text).replace(/[&<>"]/g, function (c) {
@@ -10,13 +15,14 @@
   }
 
   function api(method, url, body) {
-    if (window.NexoiaGitHub) return window.NexoiaGitHub.request(method, url, body);
-    var opts = { method: method, cache: "no-store" };
+    var opts = { method: method, cache: "no-store", credentials: "same-origin" };
     if (body !== undefined) {
       opts.headers = { "Content-Type": "application/json" };
-      opts.body = JSON.stringify(body);
+      opts.body = typeof body === "string" ? body : JSON.stringify(body);
     }
     return fetch(url, opts).then(function (r) {
+      if (r.status === 401 && !/\/api\/login$/.test(url)) toLogin();
+      if (r.status === 413) throw new Error("La landing pesa demasiado para guardarla. Usá menos fotos o más livianas.");
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) throw new Error(data.error || "No se pudo completar la acción.");
         return data;
@@ -195,7 +201,7 @@
         showLogo(c.logo_url || "");
         dialog.querySelector("#pfFormTitle").textContent = client ? "Editar cliente" : "Nuevo cliente";
         dialog.querySelector("[data-pf-form-sub]").textContent = client
-          ? "Sus landings se guardan en " + client.carpeta + "."
+          ? "Sus landings se publican en " + client.carpeta + "<landing>/."
           : "Completá los datos del cliente. Solo el nombre es obligatorio.";
         dialog.querySelector("[data-pf-delete]").hidden = !client;
         say(msg, "");
@@ -231,10 +237,8 @@
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
       (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +
       "<small>" + meta.join(" · ") + "</small>" +
-      (lp.disponible ? "" : '<small><b class="pf-missing">Falta la carpeta</b></small>') +
-      (lp.local ? '<small><b class="pf-local">' + (lp.publicada ? "Cambios sin publicar" : "Solo en este navegador") + "</b></small>" : "") + "</span>" +
+      (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + "</span>" +
       '<span class="lb-saved-actions">' +
-      (lp.local ? icon("button", 'type="button" data-act="publish"', "bi-cloud-upload", "Publicar", " is-publish") : "") +
       icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
@@ -255,25 +259,16 @@
       var act = btn.getAttribute("data-act");
       var report = opts.onMessage || function () {};
       if (act === "edit") opts.onEdit(lp);
-      if (act === "publish") {
-        btn.disabled = true;
-        report("Publicando «" + lp.nombre + "»…");
-        api("POST", "/api/landings/" + lp.id + "/publish")
-          .then(function () { report("Se publicó «" + lp.nombre + "». Queda online en 1 o 2 minutos.", "ok"); if (opts.onChange) opts.onChange(); })
-          .catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
-      }
       if (act === "duplicate") {
         btn.disabled = true;
         api("POST", "/api/landings/" + lp.id + "/duplicate")
           .then(function (copy) {
-            report("Se creó «" + copy.nombre + "»" + (copy.local ? ", guardada en este navegador." : " en " + copy.path + "."), "ok");
+            report("Se creó «" + copy.nombre + "».", "ok");
             if (opts.onChange) opts.onChange();
           })
           .catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
       }
-      var question = lp.local && !lp.publicada
-        ? "¿Eliminar «" + lp.nombre + "» de este navegador?"
-        : "¿Eliminar «" + lp.nombre + "»? Se borra la carpeta " + lp.path.replace("index.html", "") + ".";
+      var question = "¿Eliminar «" + lp.nombre + "»? Deja de estar publicada en " + lp.url + ".";
       if (act === "delete" && confirm(question)) {
         btn.disabled = true;
         api("DELETE", "/api/landings/" + lp.id)
@@ -313,7 +308,6 @@
           '<div class="pf-client-top">' + avatar(c) +
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
-          (c.local ? '<b class="pf-local">' + (c.publicado ? "Cambios sin publicar" : "Solo en este navegador") + "</b>" : "") +
           "</div>" + status(c) + "</div>" +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
@@ -382,7 +376,7 @@
     }
 
     function render(c) {
-      document.title = c.nombre + " · Nexoia";
+      document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio) + "</a>" : "";
       profile.innerHTML =
@@ -468,6 +462,24 @@
     select.addEventListener("change", render);
     load();
   }
+
+  function addLogout() {
+    var nav = document.querySelector(".lib-header nav");
+    if (!nav || nav.querySelector("[data-pf-logout]")) return;
+    api("GET", "/api/sesion").then(function (s) {
+      if (!s.requiere || !s.ok) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "lib-logout";
+      btn.setAttribute("data-pf-logout", "");
+      btn.innerHTML = '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir';
+      btn.addEventListener("click", function () {
+        api("POST", "/api/logout", {}).then(function () { location.href = "login.html"; });
+      });
+      nav.appendChild(btn);
+    }).catch(function () { /* sin sesión: el botón no hace falta */ });
+  }
+  if (document.body.classList.contains("lib-page")) addLogout();
 
   window.Nexoia = { api: api, esc: esc, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 
