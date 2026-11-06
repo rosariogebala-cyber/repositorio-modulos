@@ -59,7 +59,8 @@ MAX_LOGO = 2 * 1024 * 1024
 SESSION_DAYS = 30
 COOKIE = "lz_sesion"
 
-CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "color_primario", "color_secundario", "notas", "estado")
+CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "direccion", "horario",
+                 "instagram", "facebook", "linkedin", "color_primario", "color_secundario", "notas", "estado")
 COLOR_DEFAULTS = {"color_primario": "#1b5e42", "color_secundario": "#e7f3ee"}
 ESTADOS = ("activo", "pausado")
 LOGO_TYPES = ("image/png", "image/jpeg", "image/webp", "image/svg+xml")
@@ -141,6 +142,11 @@ CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
 );
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS direccion TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
@@ -610,7 +616,8 @@ IA_SYSTEM = (
 def ia_client_text(c):
     c = c or {}
     parts = ["Negocio: " + (c.get("nombre") or "sin nombre")]
-    for key, label in (("rubro", "Rubro"), ("notas", "Notas del cliente"), ("sitio", "Sitio actual")):
+    for key, label in (("rubro", "Rubro"), ("notas", "Notas del cliente"), ("sitio", "Sitio actual"),
+                       ("direccion", "Dirección"), ("horario", "Horario de atención")):
         if c.get(key):
             parts.append("%s: %s" % (label, c[key]))
     return "\n".join(parts)

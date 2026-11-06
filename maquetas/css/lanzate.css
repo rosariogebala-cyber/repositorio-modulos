@@ -2837,7 +2837,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-logo-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .pf-logo-btns label { cursor: pointer; }
 .pf-colors { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.pf-colors label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #33395f; cursor: pointer; }
+.pf-colors label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #33395f; cursor: pointer; white-space: nowrap; }
 .pf-colors input[type="color"] { width: 34px; height: 34px; padding: 2px; border: 1px solid #d6d9ea; border-radius: 10px; background: #fff; cursor: pointer; }
 .pf-form-dialog .lb-msg { margin: 14px 0 0; }
 .pf-form-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f5f3ee; }
@@ -2855,6 +2855,10 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .pf-form-foot .lb-act.is-danger { order: 2; flex: 1 1 100%; justify-content: center; }
   .pf-form-actions { width: 100%; }
   .pf-form-actions > * { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 359.98px) {
+  .pf-brand { flex-direction: column; }
 }
 
 /* WhatsApp flotante */

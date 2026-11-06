@@ -34,6 +34,16 @@
     });
   }
 
+  var SOCIAL_HOSTS = { instagram: "instagram.com", facebook: "facebook.com", linkedin: "linkedin.com/company" };
+
+  function socialUrl(network, value) {
+    var v = String(value || "").trim();
+    if (!v) return "";
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^(www\.)?[a-z0-9-]+\.[a-z]{2,}\//i.test(v)) return "https://" + v;
+    return "https://" + SOCIAL_HOSTS[network] + "/" + v.replace(/^@/, "");
+  }
+
   function formatDate(ms) {
     return new Date(ms).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
@@ -62,6 +72,7 @@
 
   /* Formulario de cliente (alta y edición) */
   var form = null;
+  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "direccion", "horario", "instagram", "facebook", "linkedin", "notas"];
 
   function buildForm() {
     var dialog = document.createElement("dialog");
@@ -78,6 +89,11 @@
       '<label class="pf-field"><span>Email</span><input class="lb-input" name="email" type="email" autocomplete="email" placeholder="hola@example.com"></label>' +
       '<label class="pf-field"><span>Teléfono</span><input class="lb-input" name="telefono" type="tel" autocomplete="tel" placeholder="+54 11 5555-0000"></label>' +
       '<label class="pf-field is-wide"><span>Sitio web</span><input class="lb-input" name="sitio" type="url" placeholder="https://example.com"></label>' +
+      '<label class="pf-field is-wide"><span>Dirección</span><input class="lb-input" name="direccion" autocomplete="street-address" placeholder="Ej: Av. Corrientes 1234, CABA"></label>' +
+      '<label class="pf-field is-wide"><span>Horario de atención</span><input class="lb-input" name="horario" placeholder="Ej: Lun a Vie, 9 a 18 h"></label>' +
+      '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +
+      '<label class="pf-field"><span>Facebook</span><input class="lb-input" name="facebook" placeholder="Link de la página"></label>' +
+      '<label class="pf-field is-wide"><span>LinkedIn</span><input class="lb-input" name="linkedin" placeholder="Link de la empresa o perfil"></label>' +
       '<div class="pf-field is-wide"><span>Marca</span>' +
       '<div class="pf-brand">' +
       '<div class="pf-logo" data-pf-logo-preview></div>' +
@@ -157,7 +173,7 @@
     f.addEventListener("submit", function (e) {
       e.preventDefault();
       var data = {};
-      ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "notas", "color_primario", "color_secundario"].forEach(function (k) {
+      TEXT_FIELDS.concat(["color_primario", "color_secundario"]).forEach(function (k) {
         data[k] = f.elements[k].value.trim();
       });
       data.estado = currentEstado();
@@ -194,7 +210,7 @@
         state.saved = null;
         f.reset();
         var c = client || {};
-        ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "notas"].forEach(function (k) { f.elements[k].value = c[k] || ""; });
+        TEXT_FIELDS.forEach(function (k) { f.elements[k].value = c[k] || ""; });
         f.elements.color_primario.value = c.color_primario || "#1b5e42";
         f.elements.color_secundario.value = c.color_secundario || "#e7f3ee";
         setEstado(c.estado || "activo");
@@ -388,6 +404,12 @@
         field("envelope", "Email", c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + "</a>" : "") +
         field("telephone", "Teléfono", esc(c.telefono)) +
         field("globe2", "Sitio web", site) +
+        field("geo-alt", "Dirección", esc(c.direccion)) +
+        field("clock", "Horario", esc(c.horario)) +
+        field("share", "Redes", ["instagram", "facebook", "linkedin"].filter(function (k) { return c[k]; }).map(function (k) {
+          var handle = socialUrl(k, c[k]).replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop();
+          return '<a href="' + esc(socialUrl(k, c[k])) + '" target="_blank" rel="noopener"><i class="bi bi-' + k + '"></i> @' + esc(handle) + "</a>";
+        }).join(" ")) +
         field("palette", "Colores", '<span class="pf-swatch" style="background:' + esc(c.color_primario) + '"></span><span class="pf-swatch" style="background:' + esc(c.color_secundario) + '"></span> ' + esc(c.color_primario) + " · " + esc(c.color_secundario)) +
         field("folder2", "Carpeta", esc(c.carpeta)) +
         "</dl>" +
@@ -481,7 +503,7 @@
   }
   if (document.body.classList.contains("lib-page")) addLogout();
 
-  window.Lanzate = { api: api, esc: esc, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
+  window.Lanzate = { api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 
   var page = document.body.getAttribute("data-page");
   if (page === "clientes") pageClientes();

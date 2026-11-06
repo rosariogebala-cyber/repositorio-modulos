@@ -265,7 +265,13 @@
   }
 
   /* Datos del cliente: reemplazan los de ejemplo de las maquetas */
-  var SAMPLE = { nombre: "Marca Ejemplo", email: "hola@example.com", telefono: "+54 11 2345 6789", wa: "5491123456789" };
+  var SAMPLE = {
+    nombre: "Marca Ejemplo", email: "hola@example.com", telefono: "+54 11 2345 6789", wa: "5491123456789",
+    direccion: "Calle Ejemplo 123, Buenos Aires", mapa: "query=Calle+Ejemplo+123,+Buenos+Aires"
+  };
+  var SAMPLE_HOURS = /Lun a Vie,? 9 a 18 h/g;
+  var SAMPLE_HOURS_TEXT = /de lunes a viernes, de 9 a 18 h/g;
+  var SOCIAL = ["instagram", "facebook", "linkedin"];
   var DEFAULT_COLORS = { c1: "#1b5e42", c2: "#e7f3ee" };
 
   function waNumber(tel) {
@@ -289,6 +295,16 @@
     if (c.nombre) pairs.push([new RegExp(SAMPLE.nombre, "gi"), c.nombre]);
     if (c.email) pairs.push([literal(SAMPLE.email), c.email]);
     if (c.telefono) pairs.push([literal(SAMPLE.telefono), c.telefono]);
+    if (c.direccion) pairs.push([literal(SAMPLE.direccion), c.direccion]);
+    if (c.horario) pairs.push([SAMPLE_HOURS, c.horario], [SAMPLE_HOURS_TEXT, "en este horario: " + c.horario]);
+    root.querySelectorAll("p, span, dd").forEach(function (el) {
+      var html = el.innerHTML.trim();
+      if (c.direccion && /^Calle Ejemplo 123<br>\s*Buenos Aires$/.test(html)) el.textContent = c.direccion;
+      else if (c.horario && /^Lun a Vie<br>\s*9 a 18 h$/.test(html)) el.textContent = c.horario;
+      else if (c.direccion && el.querySelector(".bi-geo-alt") && el.textContent.trim() === "Buenos Aires") {
+        el.lastChild.nodeValue = " " + c.direccion;
+      }
+    });
     function swap(text) {
       pairs.forEach(function (p) { text = text.replace(p[0], function () { return p[1]; }); });
       return text;
@@ -304,7 +320,15 @@
       if (c.email) href = href.replace("mailto:" + SAMPLE.email, "mailto:" + c.email);
       if (wa) href = href.replace("wa.me/" + SAMPLE.wa, "wa.me/" + wa);
       if (c.nombre) href = href.replace("q=" + SAMPLE.nombre.replace(/ /g, "+"), "q=" + encodeURIComponent(c.nombre).replace(/%20/g, "+"));
+      if (c.direccion) href = href.replace(SAMPLE.mapa, "query=" + encodeURIComponent(c.direccion));
       el.setAttribute("href", href);
+    });
+    SOCIAL.forEach(function (k) {
+      root.querySelectorAll('a[href="https://' + k + '.com"]').forEach(function (a) {
+        if (a.closest(".person-card")) return;
+        if (c[k]) a.setAttribute("href", window.Lanzate.socialUrl(k, c[k]));
+        else a.remove();
+      });
     });
     var logo = logoSrc(c, preview);
     if (logo) {
@@ -1212,8 +1236,8 @@
   }
 
   /* «Corregir»: lleva al lugar donde se arregla cada problema */
-  var EXAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "Marca Ejemplo": "nombre" };
-  var FIELD_NAMES = { email: "el email", telefono: "el teléfono", nombre: "el nombre" };
+  var EXAMPLE_FIELDS = { "example.com": "email", "5491123456789": "telefono", "2345 6789": "telefono", "Marca Ejemplo": "nombre", "Calle Ejemplo": "direccion" };
+  var FIELD_NAMES = { email: "el email", telefono: "el teléfono", nombre: "el nombre", direccion: "la dirección" };
 
   function editableFor(el) {
     if (!el || !el.isConnected) return null;

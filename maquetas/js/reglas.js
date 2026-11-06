@@ -24,7 +24,7 @@
     textos: {
       viudas: true,
       ejemplos: true,
-      listaEjemplos: ["example.com", "5491123456789", "lorem ipsum", "Marca Ejemplo", "Tu marca", "Nombre Apellido"],
+      listaEjemplos: ["example.com", "5491123456789", "lorem ipsum", "Marca Ejemplo", "Calle Ejemplo", "2345 6789", "Tu marca", "Nombre Apellido"],
       roles: [
         { id: "kicker", label: "Antetítulo", selector: ".nx-kicker, .plan-kicker", min: 0, max: 32, activo: true },
         { id: "faq", label: "Pregunta frecuente", selector: ".accordion-button", min: 10, max: 90, activo: true },
