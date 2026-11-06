@@ -52,7 +52,7 @@
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [] };
+  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
   var savedSnapshot = null;
   var busy = false;
   var device = 1280;
@@ -66,7 +66,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || []]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || [], (state.descripcion || "").trim()]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -2630,11 +2630,13 @@
         return item;
       }),
       estilo: lp.estilo || "",
-      ignorados: lp.ignorados || []
+      ignorados: lp.ignorados || [],
+      descripcion: lp.descripcion || ""
     };
     savedSnapshot = snapshot();
     menuDefaults(state.items);
     nameInput.value = state.name;
+    renderDesc(true);
     clientSelect.value = String(state.clienteId);
     update();
   }
@@ -2769,7 +2771,7 @@
     if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [] };
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim() };
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -2813,9 +2815,10 @@
   }
 
   function startNew(clienteId) {
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [] };
+    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
     savedSnapshot = null;
     nameInput.value = "";
+    renderDesc(true);
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
     search.value = "";
     showTab("add");
@@ -2937,6 +2940,22 @@
     });
   });
 
+  var descInput = $("[data-lb-desc]");
+  var descHint = $("[data-lb-desc-hint]");
+  function renderDesc(fromState) {
+    if (fromState) descInput.value = state.descripcion || "";
+    var n = descInput.value.trim().length;
+    descHint.textContent = !n ? "Es el texto que aparece en Google y al compartir el link. Si la dejás vacía, se usa el texto que acompaña al título principal."
+      : n + " caracteres" + (n < 70 ? ": sumá un poco más, lo ideal es entre 70 y 160." : n > 160 ? ": Google corta a partir de 160, conviene acortarla." : ", buen largo.");
+    descHint.className = "lb-hint" + (n && (n < 70 || n > 160) ? " is-warn" : "");
+  }
+  descInput.addEventListener("input", function () {
+    state.descripcion = descInput.value;
+    renderDesc(false);
+    renderMode();
+    saveDraft();
+  });
+
   nameInput.addEventListener("input", function () {
     state.name = nameInput.value;
     renderMode();
@@ -2965,14 +2984,15 @@
       landingId: draft.landingId || null,
       items: draft.items.filter(function (it) { return byId[it.id]; }),
       estilo: draft.estilo || "",
-      ignorados: draft.ignorados || []
+      ignorados: draft.ignorados || [],
+      descripcion: draft.descripcion || ""
     };
     savedSnapshot = draft.saved || null;
     if (!state.landingId) menuDefaults(state.items);
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
-    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [] };
+    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "" };
     savedSnapshot = null;
     return last;
   }
@@ -2989,6 +3009,7 @@
       }).catch(function (err) {
         restoreDraft();
         nameInput.value = state.name;
+    renderDesc(true);
         update();
         say(err.message, "warn");
       });
@@ -3001,6 +3022,7 @@
     }
     var restored = restoreDraft();
     nameInput.value = state.name;
+    renderDesc(true);
     renderClients();
     update();
     if (!restored) return;

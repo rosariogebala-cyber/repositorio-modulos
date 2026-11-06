@@ -3285,6 +3285,8 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-ia-dialog .lb-msg { margin-top: 12px; }
 .lb-ia-dialog .lb-hint a { color: var(--green); font-weight: 600; }
 .lb-optional { font-weight: 400; color: #5b6186; }
+.lb-desc { min-height: 5.5em; resize: vertical; field-sizing: content; line-height: 1.45; }
+.lb-hint.is-warn { color: #9a5b00; }
 .lb-ia-foot { display: flex; justify-content: flex-end; margin-top: 18px; }
 .rg-savebar {
   position: fixed;

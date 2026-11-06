@@ -23,7 +23,7 @@ import time
 import unicodedata
 from contextlib import contextmanager
 from functools import partial
-from html import escape
+from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -162,6 +162,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ga4 TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS consultas (
   id BIGSERIAL PRIMARY KEY,
   landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
@@ -379,7 +380,7 @@ def delete_client(client_id):
 # --- Landings ----------------------------------------------------------------
 
 LANDING_SELECT = (
-    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.portada, l.creado, l.actualizado, "
+    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.portada, l.creado, l.actualizado, "
     "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
     "c.nombre AS cliente, c.slug AS cliente_slug, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
@@ -394,6 +395,7 @@ def landing_dict(row):
     return {
         "preview": preview,
         "portada": row["portada"],
+        "descripcion": row.get("descripcion") or "",
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": row["cliente"],
@@ -475,6 +477,7 @@ def save_landing(data, landing_id=None):
         raise ApiError(400, "Los módulos no tienen el formato esperado")
     ignorados = data.get("ignorados") or []
     ignorados = [str(k)[:300] for k in ignorados][:200] if isinstance(ignorados, list) else []
+    descripcion = " ".join(str(data.get("descripcion") or "").split())[:300]
 
     with tx() as con:
         client = get_client_row(con, client_id)
@@ -489,17 +492,17 @@ def save_landing(data, landing_id=None):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, client["logo"])
         stamp = now_ms()
-        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), html, cover_of(html), stamp)
+        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, html, cover_of(html), stamp)
         if landing_id:
             con.execute(
-                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, html = %s, "
+                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, html = %s, "
                 "portada = %s, preview = '', actualizado = %s WHERE id = %s",
                 values + (landing_id,),
             )
         else:
             landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, html, portada, creado, actualizado) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, html, portada, creado, actualizado) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 values + (stamp,),
             ).fetchone()["id"]
         return landing_dict(get_landing_row(con, landing_id))
@@ -520,9 +523,9 @@ def duplicate_landing(landing_id):
         html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(nombre) + "</title>", row["html"], count=1, flags=re.S)
         stamp = now_ms()
         new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, html, portada, preview, creado, actualizado) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), html, row["portada"], row["preview"], stamp, stamp),
+            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, html, portada, preview, creado, actualizado) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), row["descripcion"], html, row["portada"], row["preview"], stamp, stamp),
         ).fetchone()["id"]
         return landing_dict(get_landing_row(con, new_id))
 
@@ -543,21 +546,55 @@ def landing_preview(landing_id):
     return match.group(1), base64.b64decode(match.group(2))
 
 
-def landing_page(cliente_slug, slug):
+def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
-            "SELECT l.id, l.html, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
+            "c.nombre AS cliente, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
     if not row or not row["html"]:
         return None
-    head = '<meta name="lz-landing" content="%d">' % row["id"] + tracking_head(row)
+    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug)) + tracking_head(row)
     html = row["html"].replace("</head>", head + "</head>", 1)
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
     return html
+
+
+def auto_description(html):
+    """Si no cargaron descripción, usa el primer párrafo que sigue al título principal."""
+    after = html.split("</h1>", 1)[1] if "</h1>" in html else html.split("<body", 1)[-1]
+    match = re.search(r"<p\b[^>]*>(.*?)</p>", after, re.S)
+    text = " ".join(unescape(re.sub(r"<[^>]+>", " ", match.group(1))).split()) if match else ""
+    if len(text) > 160:
+        text = text[:157].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
+    return text
+
+
+def share_head(row, origin, path):
+    """Lo que muestran Google y las redes al compartir el link."""
+    desc = row["descripcion"] or auto_description(row["html"])
+    if row["portada"]:
+        image = origin + row["portada"]
+    elif row["tiene_preview"]:
+        image = "%s/api/landings/%d/preview?v=%d" % (origin, row["id"], row["actualizado"])
+    else:
+        image = ""
+    tags = [
+        ("name", "description", desc),
+        ("property", "og:type", "website"),
+        ("property", "og:title", row["nombre"]),
+        ("property", "og:description", desc),
+        ("property", "og:site_name", row["cliente"]),
+        ("property", "og:url", origin + path),
+        ("property", "og:image", image),
+        ("name", "twitter:card", "summary_large_image" if image else "summary"),
+    ]
+    out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
+    return out + '<link rel="canonical" href="%s">' % escape(origin + path)
 
 
 def tracking_head(c):
@@ -939,6 +976,13 @@ class Handler(SimpleHTTPRequestHandler):
         secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
         return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
 
+    def origin(self):
+        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip()
+        proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip()
+        if not re.match(r"^[\w.-]+(:\d+)?$", host) or proto not in ("http", "https"):
+            return ""
+        return "%s://%s" % (proto, host)
+
     def authorized(self):
         if not login_required():
             return True
@@ -950,7 +994,7 @@ class Handler(SimpleHTTPRequestHandler):
         page = LANDING_PAGE.match(path)
         if page and method in ("GET", "HEAD"):
             try:
-                html = landing_page(*page.groups())
+                html = landing_page(*page.groups(), origin=self.origin())
             except ApiError as err:
                 self.send_body(err.status, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
                 return True
