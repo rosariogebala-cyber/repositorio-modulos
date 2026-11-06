@@ -85,8 +85,11 @@ ROUTES = [
     (re.compile(r"^/api/landings/(\d+)/preview$"), "preview"),
     (re.compile(r"^/api/reglas$"), "reglas"),
     (re.compile(r"^/api/ia$"), "ia"),
+    (re.compile(r"^/api/consultas$"), "consultas"),
+    (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
+    (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
@@ -150,6 +153,17 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
+CREATE TABLE IF NOT EXISTS consultas (
+  id BIGSERIAL PRIMARY KEY,
+  landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL DEFAULT 'contacto',
+  datos JSONB NOT NULL DEFAULT '{}',
+  origen TEXT NOT NULL DEFAULT '',
+  leida BOOLEAN NOT NULL DEFAULT FALSE,
+  creado BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS consultas_landing ON consultas (landing_id, creado DESC);
+ALTER TABLE consultas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
@@ -353,7 +367,9 @@ def delete_client(client_id):
 LANDING_SELECT = (
     "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.portada, l.creado, l.actualizado, "
     "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
-    "c.nombre AS cliente, c.slug AS cliente_slug "
+    "c.nombre AS cliente, c.slug AS cliente_slug, "
+    "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
+    "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id AND NOT q.leida) AS consultas_nuevas "
     "FROM landings l JOIN clientes c ON c.id = l.cliente_id"
 )
 
@@ -373,6 +389,8 @@ def landing_dict(row):
         "items": row["items"] or [],
         "estilo": row["estilo"],
         "ignorados": row["ignorados"] or [],
+        "consultas": row.get("consultas") or 0,
+        "consultas_nuevas": row.get("consultas_nuevas") or 0,
         "creado": row["creado"],
         "actualizado": row["actualizado"],
         "url": url,
@@ -514,10 +532,84 @@ def landing_preview(landing_id):
 def landing_page(cliente_slug, slug):
     with tx() as con:
         row = con.execute(
-            "SELECT l.html FROM landings l JOIN clientes c ON c.id = l.cliente_id WHERE c.slug = %s AND l.slug = %s",
+            "SELECT l.id, l.html FROM landings l JOIN clientes c ON c.id = l.cliente_id WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
-    return row["html"] if row and row["html"] else None
+    if not row or not row["html"]:
+        return None
+    meta = '<meta name="lz-landing" content="%d">' % row["id"]
+    return row["html"].replace("</head>", meta + "</head>", 1)
+
+
+# --- Consultas que llegan desde los formularios de las landings publicadas -----
+
+def new_lead(data):
+    if str(data.get("web") or "").strip():
+        return {"ok": True}
+    try:
+        landing_id = int(data.get("landing"))
+    except (TypeError, ValueError):
+        raise ApiError(400, "Falta la landing")
+    datos = data.get("datos")
+    if not isinstance(datos, dict):
+        raise ApiError(400, "La consulta está vacía")
+    clean = {}
+    for key, value in list(datos.items())[:20]:
+        if isinstance(value, bool):
+            value = "Sí" if value else "No"
+        value = str("" if value is None else value).strip()[:1000]
+        if value:
+            clean[str(key)[:40]] = value
+    if not clean:
+        raise ApiError(400, "La consulta está vacía")
+    tipo = "turno" if data.get("tipo") == "turno" else "contacto"
+    origen = str(data.get("origen") or "")[:300]
+    stamp = now_ms()
+    with tx() as con:
+        if not con.execute("SELECT 1 FROM landings WHERE id = %s", (landing_id,)).fetchone():
+            raise ApiError(404, "La landing no existe")
+        recent = con.execute("SELECT COUNT(*) AS n FROM consultas WHERE landing_id = %s AND creado > %s",
+                             (landing_id, stamp - 600000)).fetchone()["n"]
+        if recent >= 30:
+            raise ApiError(429, "Llegaron muchas consultas seguidas. Probá de nuevo en unos minutos.")
+        con.execute("INSERT INTO consultas (landing_id, tipo, datos, origen, creado) VALUES (%s, %s, %s, %s, %s)",
+                    (landing_id, tipo, Jsonb(clean), origen, stamp))
+    return {"ok": True}
+
+
+def list_leads(query):
+    where, params = [], []
+    for key, column in (("landing", "q.landing_id"), ("cliente", "c.id")):
+        value = (query.get(key) or [""])[0]
+        if value.isdigit():
+            where.append(column + " = %s")
+            params.append(int(value))
+    sql = ("SELECT q.id, q.landing_id, q.tipo, q.datos, q.origen, q.leida, q.creado, l.nombre AS landing, l.slug, "
+           "c.id AS cliente_id, c.nombre AS cliente, c.slug AS cliente_slug "
+           "FROM consultas q JOIN landings l ON l.id = q.landing_id JOIN clientes c ON c.id = l.cliente_id"
+           + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY q.creado DESC LIMIT 500")
+    with tx() as con:
+        rows = con.execute(sql, params).fetchall()
+    out = []
+    for r in rows:
+        item = dict(r)
+        item["url"] = "/l/%s/%s/" % (r["cliente_slug"], r["slug"])
+        out.append(item)
+    return out
+
+
+def update_lead(lead_id, data):
+    with tx() as con:
+        row = con.execute("UPDATE consultas SET leida = %s WHERE id = %s RETURNING id", (bool(data.get("leida")), lead_id)).fetchone()
+    if not row:
+        raise ApiError(404, "La consulta no existe")
+    return {"ok": True}
+
+
+def delete_lead(lead_id):
+    with tx() as con:
+        con.execute("DELETE FROM consultas WHERE id = %s", (lead_id,))
+    return {"ok": True}
 
 
 # --- IA (textos y módulos sugeridos) ------------------------------------------
@@ -902,6 +994,15 @@ class Handler(SimpleHTTPRequestHandler):
                 return read_rules()
             if method == "PUT":
                 return save_rules(self.read_json())
+        if name == "consulta-nueva" and method == "POST":
+            return new_lead(self.read_json())
+        if name == "consultas" and method == "GET":
+            return list_leads(query)
+        if name == "consulta":
+            if method == "PUT":
+                return update_lead(ident, self.read_json())
+            if method == "DELETE":
+                return delete_lead(ident)
         if name == "ia":
             if method == "GET":
                 return ia_status()

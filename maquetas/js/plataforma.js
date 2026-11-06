@@ -265,6 +265,10 @@
     var count = (lp.items || []).length;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
+    if (lp.consultas) {
+      meta.push('<a class="pf-leads-link' + (lp.consultas_nuevas ? " is-new" : "") + '" href="consultas.html?landing=' + lp.id + '">' +
+        plural(lp.consultas, "consulta", "consultas") + (lp.consultas_nuevas ? " (" + lp.consultas_nuevas + (lp.consultas_nuevas === 1 ? " nueva" : " nuevas") + ")" : "") + "</a>");
+    }
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
         '<i class="bi ' + ico + '" aria-hidden="true"></i></' + tag + ">";
@@ -509,6 +513,133 @@
     load();
   }
 
+  /* Página: consultas que llegan desde las landings */
+  var LEAD_LABELS = { nombre: "Nombre", email: "Email", telefono: "Teléfono", servicio: "Servicio", profesional: "Profesional",
+    dia: "Día", horario: "Horario", notas: "Mensaje", mensaje: "Mensaje", recordatorio: "Recordatorio por WhatsApp", duracion: "Duración" };
+
+  var LEAD_ORDER = ["nombre", "email", "telefono", "servicio", "profesional", "dia", "horario", "duracion", "recordatorio", "notas", "mensaje"];
+
+  function waLink(tel) {
+    var d = String(tel || "").replace(/\D/g, "");
+    if (!d) return "";
+    if (d.indexOf("54") !== 0) d = "549" + d.replace(/^0/, "");
+    return "https://wa.me/" + d;
+  }
+
+  function pageConsultas() {
+    var list = document.querySelector("[data-pf-leads]");
+    var empty = document.querySelector("[data-pf-leads-empty]");
+    var msg = document.querySelector("[data-pf-msg]");
+    var search = document.querySelector("[data-pf-search]");
+    var clientSel = document.querySelector("[data-pf-client-filter]");
+    var landingSel = document.querySelector("[data-pf-landing-filter]");
+    var count = document.querySelector("[data-pf-count]");
+    var leads = [];
+    var params = new URLSearchParams(location.search);
+    var presetLanding = params.get("landing") || "";
+
+    function fillLandings() {
+      var cid = clientSel.value;
+      var seen = {};
+      var opts = leads.filter(function (l) { return !cid || String(l.cliente_id) === cid; }).filter(function (l) {
+        if (seen[l.landing_id]) return false;
+        seen[l.landing_id] = true;
+        return true;
+      });
+      var current = landingSel.value || presetLanding;
+      landingSel.innerHTML = '<option value="">Todas las landings</option>' + opts.map(function (l) {
+        return '<option value="' + l.landing_id + '">' + esc(l.landing) + (cid ? "" : " · " + esc(l.cliente)) + "</option>";
+      }).join("");
+      landingSel.value = opts.some(function (l) { return String(l.landing_id) === current; }) ? current : "";
+      presetLanding = "";
+    }
+
+    function card(l) {
+      var d = l.datos || {};
+      var who = d.nombre || d.email || d.telefono || "Consulta sin nombre";
+      var fields = Object.keys(d).sort(function (a, b) {
+        var ia = LEAD_ORDER.indexOf(a), ib = LEAD_ORDER.indexOf(b);
+        return (ia === -1 ? 50 : ia) - (ib === -1 ? 50 : ib);
+      }).map(function (k) {
+        var label = LEAD_LABELS[k] || k.charAt(0).toUpperCase() + k.slice(1);
+        return '<div class="pf-fact"><dt>' + esc(label) + "</dt><dd>" + esc(d[k]) + "</dd></div>";
+      }).join("");
+      var acts = [];
+      if (d.email) acts.push('<a class="lb-act" href="mailto:' + esc(d.email) + "?subject=" + encodeURIComponent("Tu consulta en " + l.cliente) + '"><i class="bi bi-envelope"></i> Responder por email</a>');
+      if (d.telefono && waLink(d.telefono)) acts.push('<a class="lb-act" href="' + esc(waLink(d.telefono)) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a>');
+      acts.push('<button class="lb-act" type="button" data-act="read">' + (l.leida ? '<i class="bi bi-envelope"></i> Marcar como nueva' : '<i class="bi bi-check2"></i> Marcar como leída') + "</button>");
+      acts.push('<button class="lb-act lb-act-icon is-danger" type="button" data-act="delete" title="Borrar consulta" aria-label="Borrar consulta de ' + esc(who) + '"><i class="bi bi-trash3"></i></button>');
+      var li = document.createElement("li");
+      li.className = "pf-lead" + (l.leida ? "" : " is-new");
+      li.innerHTML =
+        '<div class="pf-lead-head"><div><strong>' + esc(who) + "</strong>" +
+        '<small><span class="pf-lead-type">' + (l.tipo === "turno" ? "Turno" : "Contacto") + "</span>" +
+        (l.leida ? "" : '<span class="pf-lead-new">Nueva</span>') +
+        '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.landing) + '</a> · <a href="cliente.html?id=' + l.cliente_id + '">' + esc(l.cliente) + "</a></small></div>" +
+        '<time datetime="' + new Date(l.creado).toISOString() + '">' + esc(formatDate(l.creado)) + "</time></div>" +
+        '<dl class="pf-facts">' + fields + "</dl>" +
+        (l.origen ? '<p class="pf-lead-origin">Origen: ' + esc(l.origen) + "</p>" : "") +
+        '<div class="pf-lead-acts">' + acts.join("") + "</div>";
+      li.addEventListener("click", function (e) {
+        var btn = e.target.closest("button[data-act]");
+        if (!btn) return;
+        btn.disabled = true;
+        if (btn.getAttribute("data-act") === "read") {
+          api("PUT", "/api/consultas/" + l.id, { leida: !l.leida }).then(function () { l.leida = !l.leida; render(); })
+            .catch(function (err) { btn.disabled = false; say(msg, err.message, "warn"); });
+        } else if (confirm("¿Borrar la consulta de «" + who + "»? No se puede recuperar.")) {
+          api("DELETE", "/api/consultas/" + l.id).then(function () {
+            leads = leads.filter(function (x) { return x !== l; });
+            say(msg, "Se borró la consulta.", "ok");
+            render();
+          }).catch(function (err) { btn.disabled = false; say(msg, err.message, "warn"); });
+        } else btn.disabled = false;
+      });
+      return li;
+    }
+
+    function render() {
+      var q = normalize(search.value.trim());
+      var cid = clientSel.value;
+      var lid = landingSel.value;
+      var shown = leads.filter(function (l) {
+        return (!cid || String(l.cliente_id) === cid) && (!lid || String(l.landing_id) === lid) &&
+          (!q || normalize(Object.keys(l.datos || {}).map(function (k) { return l.datos[k]; }).join(" ") + " " + l.landing + " " + l.cliente).indexOf(q) !== -1);
+      });
+      list.innerHTML = "";
+      shown.forEach(function (l) { list.appendChild(card(l)); });
+      var nuevas = shown.filter(function (l) { return !l.leida; }).length;
+      count.textContent = plural(shown.length, "consulta", "consultas") + (nuevas ? " · " + plural(nuevas, "nueva", "nuevas") : "");
+      empty.hidden = shown.length > 0;
+      empty.textContent = leads.length ? "No hay consultas con ese filtro."
+        : "Todavía no llegó ninguna consulta. Aparecen acá cuando alguien completa un formulario o reserva un turno en una landing&nbsp;publicada.".replace("&nbsp;", "\u00a0");
+    }
+
+    function load() {
+      return Promise.all([api("GET", "/api/clientes"), api("GET", "/api/consultas")]).then(function (res) {
+        leads = res[1];
+        var withLeads = {};
+        leads.forEach(function (l) { withLeads[l.cliente_id] = (withLeads[l.cliente_id] || 0) + 1; });
+        var current = clientSel.value || params.get("cliente") || "";
+        if (presetLanding) {
+          var match = leads.filter(function (l) { return String(l.landing_id) === presetLanding; })[0];
+          if (match) current = String(match.cliente_id);
+        }
+        clientSel.innerHTML = '<option value="">Todos los clientes</option>' + res[0].filter(function (c) { return withLeads[c.id]; }).map(function (c) {
+          return '<option value="' + c.id + '">' + esc(c.nombre) + " (" + withLeads[c.id] + ")</option>";
+        }).join("");
+        clientSel.value = withLeads[current] ? current : "";
+        fillLandings();
+        render();
+      }).catch(function (err) { say(msg, err.message, "warn"); });
+    }
+
+    search.addEventListener("input", render);
+    clientSel.addEventListener("change", function () { fillLandings(); render(); });
+    landingSel.addEventListener("change", render);
+    load();
+  }
+
   function addLogout() {
     var nav = document.querySelector(".lib-header nav");
     if (!nav || nav.querySelector("[data-pf-logout]")) return;
@@ -533,4 +664,5 @@
   if (page === "clientes") pageClientes();
   if (page === "cliente") pageCliente();
   if (page === "landings") pageLandings();
+  if (page === "consultas") pageConsultas();
 })();

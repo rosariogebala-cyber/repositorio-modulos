@@ -1,6 +1,54 @@
 (function () {
   "use strict";
 
+  /* En una landing publicada los formularios envían la consulta; en las maquetas y la vista previa son de muestra */
+  var leadMeta = document.querySelector('meta[name="lz-landing"]');
+  var LEAD_FAIL = "No se pudo enviar. Revisá la conexión y probá de nuevo.";
+
+  function leadData(form, extra) {
+    var data = {};
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (!el.name || el.name === "web" || el.disabled || el.type === "submit" || el.type === "button") return;
+      if (el.type === "checkbox") { data[el.name] = el.checked; return; }
+      if (el.type === "radio" && !el.checked) return;
+      var value = el.tagName === "SELECT" && el.selectedIndex > -1 ? el.options[el.selectedIndex].text : el.value;
+      if (String(value).trim()) data[el.name] = value;
+    });
+    Object.keys(extra || {}).forEach(function (k) {
+      if (!/_iso$/.test(k) && extra[k] && data[k] == null) data[k] = extra[k];
+    });
+    return data;
+  }
+
+  function sendLead(form, tipo, extra) {
+    if (!leadMeta) return Promise.resolve(true);
+    var trap = form.querySelector('[name="web"]');
+    var body = {
+      landing: leadMeta.getAttribute("content"),
+      tipo: tipo,
+      datos: leadData(form, extra),
+      origen: [location.search.replace(/^\?/, ""), document.referrer ? "desde " + document.referrer.replace(/^https?:\/\//, "").split("/")[0] : ""].filter(Boolean).join(" · "),
+      web: trap ? trap.value : ""
+    };
+    return fetch("/api/consultas/nueva", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true })
+      .then(function (r) { return r.ok; }, function () { return false; });
+  }
+
+  if (leadMeta) {
+    document.querySelectorAll(".nx-note").forEach(function (el) { el.remove(); });
+    document.querySelectorAll("[data-form-msg]").forEach(function (el) { el.textContent = ""; });
+    document.querySelectorAll("[data-demo-form], [data-book-form]").forEach(function (form) {
+      var trap = document.createElement("input");
+      trap.type = "text";
+      trap.name = "web";
+      trap.tabIndex = -1;
+      trap.autocomplete = "off";
+      trap.setAttribute("aria-hidden", "true");
+      trap.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;opacity:0";
+      form.appendChild(trap);
+    });
+  }
+
   document.querySelectorAll("[data-search-toggle]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var form = btn.closest("[data-nav-search]");
@@ -304,8 +352,13 @@
     var msg = form.querySelector("[data-form-msg]");
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      if (msg) msg.textContent = "¡Gracias! Te escribimos a la brevedad.";
-      form.reset();
+      var btn = form.querySelector('[type="submit"]');
+      if (btn) btn.disabled = true;
+      sendLead(form, "contacto").then(function (ok) {
+        if (btn) btn.disabled = false;
+        if (msg) msg.textContent = ok ? "¡Gracias! Te escribimos a la brevedad." : LEAD_FAIL;
+        if (ok) form.reset();
+      });
     });
   });
 
@@ -516,8 +569,14 @@
         return;
       }
       if (!form.checkValidity()) { form.reportValidity(); return; }
-      toggleDone(true);
-      render();
+      var submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      sendLead(form, "turno", values).then(function (ok) {
+        if (submit) submit.disabled = false;
+        if (!ok) { say(LEAD_FAIL); return; }
+        toggleDone(true);
+        render();
+      });
     });
 
     function downloadIcs() {

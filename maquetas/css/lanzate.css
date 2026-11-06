@@ -3331,3 +3331,24 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   --sage-2: #e7f0ea;
 }
 .lib-page .btn-nx-outline:not(.mq-frame *, .nx *) { border-color: #d4cbfd; }
+
+/* Consultas */
+.pf-leads { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.pf-lead { padding: 18px 20px; border: 1px solid #e3e1f0; border-radius: 16px; background: #fff; }
+.pf-lead.is-new { border-color: #ad9bf7; box-shadow: 0 0 0 3px #ece7ff; }
+.pf-lead-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.pf-lead-head strong { display: block; font-size: 17px; color: #0e1130; }
+.pf-lead-head small { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; color: #5b6186; font-size: 13px; }
+.pf-lead-head small a { color: inherit; text-decoration: underline; }
+.pf-lead-head time { flex: none; color: #5b6186; font-size: 13px; white-space: nowrap; }
+.pf-lead-type, .pf-lead-new { padding: 2px 8px; border-radius: 999px; background: #f1f0f7; color: #2b2f52; font-weight: 600; font-size: 12px; }
+.pf-lead-new { background: #5a3df2; color: #fff; }
+.pf-lead .pf-facts { margin: 14px 0 0; padding-top: 14px; }
+.pf-lead-origin { margin: 10px 0 0; color: #5b6186; font-size: 13px; overflow-wrap: anywhere; }
+.pf-lead-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.pf-leads-link { color: var(--green); font-weight: 600; }
+.pf-leads-link.is-new { color: #b42318; }
+@media (max-width: 575px) {
+  .pf-lead { padding: 16px; }
+  .pf-lead-head { flex-direction: column; gap: 4px; }
+}

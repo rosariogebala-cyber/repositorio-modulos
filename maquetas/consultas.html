@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consultas · Lanzate</title>
+  <link rel="icon" href="../assets/favicon-lanzate.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/lanzate.css" rel="stylesheet">
+</head>
+<body class="lib-page pf-page" data-page="consultas">
+  <header class="lib-header">
+    <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
+    <nav aria-label="Navegación principal">
+      <a href="../index.html">Biblioteca<span class="lib-nav-long"> de módulos</span></a>
+      <a href="index.html">Maquetas</a>
+      <a href="constructor.html">Crear landing</a>
+      <a href="landings.html">Landings</a>
+      <a class="is-current" href="consultas.html">Consultas</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="reglas.html">Reglas</a>
+    </nav>
+  </header>
+
+  <main class="pf-main">
+    <div class="pf-head">
+      <div>
+        <p class="lb-kicker">Plataforma · <span data-pf-count>0 consultas</span></p>
+        <h1 class="pf-title">Consultas</h1>
+        <p class="pf-sub">Lo que llega desde los formularios y las reservas de turnos de las landings&nbsp;publicadas.</p>
+      </div>
+    </div>
+
+    <div class="pf-filters">
+      <div class="lb-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" placeholder="Buscar por nombre, email o teléfono" aria-label="Buscar consulta" data-pf-search>
+      </div>
+      <select class="lb-input pf-select" aria-label="Filtrar por cliente" data-pf-client-filter>
+        <option value="">Todos los clientes</option>
+      </select>
+      <select class="lb-input pf-select" aria-label="Filtrar por landing" data-pf-landing-filter>
+        <option value="">Todas las landings</option>
+      </select>
+    </div>
+
+    <p class="lb-msg" data-pf-msg role="status" aria-live="polite"></p>
+    <section class="pf-panel">
+      <ul class="pf-leads" data-pf-leads></ul>
+      <p class="pf-empty" data-pf-leads-empty hidden></p>
+    </section>
+  </main>
+
+  <script src="js/plataforma.js"></script>
+</body>
+</html>
