@@ -100,6 +100,10 @@
       '<div class="pf-brand-ctrls">' +
       '<div class="pf-logo-btns"><label class="lb-act"><i class="bi bi-upload"></i> <span data-pf-logo-label>Subir logo</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pf-logo-input hidden></label>' +
       '<button class="lb-act" type="button" data-pf-logo-remove hidden><i class="bi bi-x-lg"></i> Quitar</button></div>' +
+      '<div class="lb-seg pf-logo-mode" role="group" aria-label="Cómo se muestra el logo" data-pf-logo-modo>' +
+      '<button type="button" data-value="imagen" aria-pressed="true"><i class="bi bi-image"></i> Imagen</button>' +
+      '<button type="button" data-value="imagen-texto" aria-pressed="false"><i class="bi bi-layout-sidebar"></i> Imagen y&nbsp;texto</button>' +
+      '<button type="button" data-value="texto" aria-pressed="false"><i class="bi bi-fonts"></i> Texto</button></div>' +
       '<div class="pf-colors"><label><input type="color" name="color_primario" value="#1b5e42"> Color principal</label>' +
       '<label><input type="color" name="color_secundario" value="#e7f3ee"> Color secundario</label></div>' +
       "</div></div><small class=\"pf-help\">PNG, JPG, WEBP o SVG de hasta 2 MB.</small></div>" +
@@ -123,6 +127,15 @@
     var logoLabel = dialog.querySelector("[data-pf-logo-label]");
     var msg = dialog.querySelector("[data-pf-form-msg]");
     var estado = dialog.querySelector("[data-pf-estado]");
+    var logoModo = dialog.querySelector("[data-pf-logo-modo]");
+
+    function setLogoModo(value) {
+      logoModo.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-value") === value)); });
+    }
+    logoModo.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-value]");
+      if (b) setLogoModo(b.getAttribute("data-value"));
+    });
 
     function setEstado(value) {
       estado.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-value") === value)); });
@@ -153,6 +166,7 @@
         state.logoData = reader.result;
         state.logoRemove = false;
         showLogo(reader.result);
+        if (logoModo.querySelector('[data-value="texto"][aria-pressed="true"]')) setLogoModo("imagen");
         say(msg, "");
       };
       reader.readAsDataURL(file);
@@ -177,6 +191,8 @@
         data[k] = f.elements[k].value.trim();
       });
       data.estado = currentEstado();
+      var mode = logoModo.querySelector('[aria-pressed="true"]');
+      data.logo_modo = mode ? mode.getAttribute("data-value") : "";
       if (!data.nombre) { say(msg, "Ponele un nombre al cliente.", "warn"); f.elements.nombre.focus(); return; }
       if (data.email && !f.elements.email.checkValidity()) { say(msg, "Revisá el email: no tiene un formato válido.", "warn"); f.elements.email.focus(); return; }
       if (state.logoData) data.logo_data = state.logoData;
@@ -214,6 +230,7 @@
         f.elements.color_primario.value = c.color_primario || "#1b5e42";
         f.elements.color_secundario.value = c.color_secundario || "#e7f3ee";
         setEstado(c.estado || "activo");
+        setLogoModo(c.logo_modo || (c.logo_url ? "imagen" : "texto"));
         showLogo(c.logo_url || "");
         dialog.querySelector("#pfFormTitle").textContent = client ? "Editar cliente" : "Nuevo cliente";
         dialog.querySelector("[data-pf-form-sub]").textContent = client

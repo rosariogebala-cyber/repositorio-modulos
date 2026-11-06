@@ -352,11 +352,21 @@
       });
     });
     var logo = logoSrc(c, preview);
-    if (logo) {
+    var mode = logoMode(c);
+    if (logo && mode !== "texto") {
       root.querySelectorAll(".nx-brand").forEach(function (el) {
-        el.innerHTML = '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(c.nombre) + '">';
+        var name = el.textContent.replace(/\s+/g, " ").trim() || c.nombre;
+        el.classList.toggle("has-name", mode === "imagen-texto");
+        el.innerHTML = mode === "imagen-texto"
+          ? '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt=""><span class="nx-brand-name">' + escapeHtml(name) + "</span>"
+          : '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(c.nombre) + '">';
       });
     }
+  }
+
+  function logoMode(c) {
+    if (!c || !c.logo_url) return "texto";
+    return c.logo_modo || "imagen";
   }
 
   function shade(hex, amount) {
@@ -1049,6 +1059,28 @@
     return el ? el.getAttribute("href") : null;
   }
 
+  function setLogoMode(mode) {
+    var client = currentClient();
+    closeLink();
+    if (!client) { goTo("client"); return; }
+    if (mode !== "texto" && !client.logo_url) {
+      openClientForm("logo");
+      say("Subí el logo de «" + client.nombre + "» para mostrarlo como imagen.", "warn");
+      return;
+    }
+    if (logoMode(client) === mode) return;
+    say("Guardando cómo se ve el logo…");
+    window.Lanzate.api("PUT", "/api/clientes/" + client.id, Object.assign({}, client, { logo_modo: mode })).then(function () {
+      return loadClients();
+    }).then(function () {
+      renderPreview();
+      saveDraft();
+      say("Listo: el logo de «" + client.nombre + "» se ve como " + LOGO_MODES[mode].toLowerCase() + " en todas sus landings.", "ok");
+    }).catch(function (err) { say(err.message, "warn"); });
+  }
+
+  var LOGO_MODES = { imagen: "Imagen", "imagen-texto": "Imagen y texto", texto: "Texto" };
+
   function linkTip() {
     var doc = frameDoc();
     var tip = doc.getElementById("lbLinkTip");
@@ -1063,6 +1095,7 @@
         else if (e.target.closest("[data-link-revert]")) revertLink();
         else if (e.target.closest("[data-link-close]")) closeLink();
         else if (e.target.closest("[data-link-hide]")) hideMenuItem(linkSel.el);
+        else if (e.target.closest("[data-logo-mode]")) setLogoMode(e.target.closest("[data-logo-mode]").getAttribute("data-logo-mode"));
         else if (e.target.closest("[data-link-mode]")) {
           linkSel.mode = e.target.closest("[data-link-mode]").getAttribute("data-link-mode");
           renderLinkTip();
@@ -1151,6 +1184,9 @@
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-link-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(kind.label) + "</b>" + (kind.hint ? "<br><small>" + escapeHtml(kind.hint) + "</small>" : "") + "</div>" +
+      (brand ? '<div class="lb-link-modes" role="group" aria-label="Cómo se ve el logo">' + Object.keys(LOGO_MODES).map(function (m) {
+        return '<button type="button" data-logo-mode="' + m + '" aria-pressed="' + (logoMode(currentClient()) === m) + '">' + LOGO_MODES[m].replace(" y ", " y\u00a0") + "</button>";
+      }).join("") + "</div>" : "") +
       (textEl ? '<label><span>' + escapeHtml(count.label) + ' · <span data-link-count>' + count.html + "</span></span>" +
         '<input type="text" data-link-text value="' + escapeHtml(textEl.textContent.replace(/\s+/g, " ").trim()) + '"></label>' : "") +
       '<div class="lb-link-modes" role="group" aria-label="A dónde lleva">' +

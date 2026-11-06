@@ -211,6 +211,24 @@ button, input, textarea { font-family: inherit; }
   object-fit: contain;
 }
 
+.nx-brand.has-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.nx-brand.has-name .nx-brand-logo {
+  height: 34px;
+  max-width: 120px;
+}
+
+.nx-brand-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .nx-brand.is-lower {
   font-family: Manrope, sans-serif;
   font-weight: 700;
@@ -2858,8 +2876,12 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .pf-form-actions > * { flex: 1; justify-content: center; }
 }
 
-@media (max-width: 359.98px) {
-  .pf-brand { flex-direction: column; }
+@media (max-width: 575.98px) {
+  .pf-brand { flex-direction: column; align-items: stretch; }
+  .pf-brand .pf-logo { align-self: flex-start; }
+  .pf-logo-mode { display: flex; }
+  .pf-logo-mode button { flex: 1 1 auto; justify-content: center; padding-inline: 8px; }
+  .pf-logo-mode i { display: none; }
 }
 
 /* WhatsApp flotante */

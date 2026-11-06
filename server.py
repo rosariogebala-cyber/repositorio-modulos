@@ -60,9 +60,10 @@ SESSION_DAYS = 30
 COOKIE = "lz_sesion"
 
 CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "direccion", "horario",
-                 "instagram", "facebook", "linkedin", "color_primario", "color_secundario", "notas", "estado")
+                 "instagram", "facebook", "linkedin", "logo_modo", "color_primario", "color_secundario", "notas", "estado")
 COLOR_DEFAULTS = {"color_primario": "#1b5e42", "color_secundario": "#e7f3ee"}
 ESTADOS = ("activo", "pausado")
+LOGO_MODOS = ("imagen", "imagen-texto", "texto")
 LOGO_TYPES = ("image/png", "image/jpeg", "image/webp", "image/svg+xml")
 
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -147,6 +148,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
@@ -257,6 +259,8 @@ def clean_client(data):
     for field, default in COLOR_DEFAULTS.items():
         if not COLOR_RE.match(values[field]):
             values[field] = default
+    if values["logo_modo"] not in LOGO_MODOS:
+        values["logo_modo"] = ""
     if values["estado"] not in ESTADOS:
         values["estado"] = "activo"
     return values
