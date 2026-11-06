@@ -1070,7 +1070,9 @@
     }
     if (logoMode(client) === mode) return;
     say("Guardando cómo se ve el logo…");
-    window.Lanzate.api("PUT", "/api/clientes/" + client.id, Object.assign({}, client, { logo_modo: mode })).then(function () {
+    var data = Object.assign({}, client, { logo_modo: mode });
+    ["logo", "logo_url", "lista", "landings"].forEach(function (k) { delete data[k]; });
+    window.Lanzate.api("PUT", "/api/clientes/" + client.id, data).then(function () {
       return loadClients();
     }).then(function () {
       renderPreview();

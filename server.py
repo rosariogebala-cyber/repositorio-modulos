@@ -233,7 +233,7 @@ def login_required():
 # --- Clientes ----------------------------------------------------------------
 
 def client_dict(row, count=None):
-    data = {k: row[k] for k in row.keys() if k != "n"}
+    data = {k: row[k] for k in row.keys() if k not in ("n", "logo")}
     data["logo_url"] = row["logo"]
     data["carpeta"] = "/l/" + row["slug"] + "/"
     if count is not None:
