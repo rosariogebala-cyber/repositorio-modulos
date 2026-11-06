@@ -178,7 +178,7 @@
       li.className = "lb-item";
       li.innerHTML =
         '<span class="lb-item-num">' + String(i + 1).padStart(2, "0") + "</span>" +
-        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + (it.links ? " · links cambiados" : "") + "</small></span>" +
+        '<span class="lb-item-text"><strong>' + escapeHtml(m.group) + "</strong><small>" + escapeHtml(m.variant) + (it.html ? " · personalizado" : "") + (it.textos ? " · textos editados" : "") + (it.imagenes ? " · imágenes cambiadas" : "") + (it.links ? " · links cambiados" : "") + (it.ocultos ? " · ítems quitados" : "") + "</small></span>" +
         '<span class="lb-seg lb-item-seg" role="group" aria-label="Ancho de ' + escapeHtml(m.group) + '">' +
         '<button type="button" data-act="width" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
         '<button type="button" data-act="width" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
@@ -261,6 +261,7 @@
       "<span>" + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
       '<button type="button" data-index="' + i + '" data-value="contained" aria-pressed="' + (it.width !== "full") + '"><i class="bi bi-layout-three-columns"></i> Márgenes</button>' +
       '<button type="button" data-index="' + i + '" data-value="full" aria-pressed="' + (it.width === "full") + '"><i class="bi bi-arrows-angle-expand"></i> Ancho completo</button>' +
+      (it.ocultos ? '<button type="button" data-index="' + i + '" data-restore><i class="bi bi-arrow-counterclockwise"></i> Mostrar ítems quitados</button>' : "") +
       "</div>";
   }
 
@@ -415,6 +416,7 @@
     var nodes = editableNodes(tpl.content);
     var images = imageNodes(tpl.content);
     var links = linkNodes(tpl.content);
+    var linkText = links.map(function (el) { return el.textContent.replace(/\s+/g, " ").trim().toLowerCase(); });
     links.forEach(function (el, k) { el.setAttribute("data-lb-l", k); });
     applyClient(tpl.content, currentClient(), preview);
     var textos = withTexts && it.textos || {};
@@ -430,6 +432,12 @@
     var hrefs = withTexts && it.links || {};
     Object.keys(hrefs).forEach(function (k) {
       tpl.content.querySelectorAll('[data-lb-l="' + k + '"]').forEach(function (el) { setHref(el, hrefs[k]); });
+    });
+    var hidden = withTexts && it.ocultos || {};
+    Object.keys(hidden).forEach(function (k) {
+      links.forEach(function (el, j) {
+        if (linkText[j] === linkText[k] && el.classList.contains("nav-link")) (el.closest("li") || el).remove();
+      });
     });
     if (!preview) tpl.content.querySelectorAll("[data-lb-l]").forEach(function (el) { el.removeAttribute("data-lb-l"); });
     return { tpl: tpl, nodes: nodes, images: images, links: links };
@@ -478,7 +486,7 @@
       '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
-      tail.push("  <script>document.addEventListener('click',function(e){var t=e.target.closest('.lp-tools [data-value]');if(t){parent.postMessage({lbWidth:{index:+t.getAttribute('data-index'),width:t.getAttribute('data-value')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
+      tail.push("  <script>document.addEventListener('click',function(e){var r=e.target.closest('.lp-tools [data-restore]');if(r){parent.postMessage({lbRestore:{index:+r.getAttribute('data-index')}},'*');return;}var t=e.target.closest('.lp-tools [data-value]');if(t){parent.postMessage({lbWidth:{index:+t.getAttribute('data-index'),width:t.getAttribute('data-value')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
     }
     return head.concat(body, tail, ["</body>", "</html>", ""]).join("\n");
   }
@@ -571,6 +579,7 @@
       tip.addEventListener("click", function (e) {
         if (!editing) return;
         if (e.target.closest("[data-lb-link]")) { selectLink(editing.el.closest("a[data-lb-l]")); return; }
+        if (e.target.closest("[data-lb-hide]")) { hideMenuItem(editing.el.closest(".nav-link[data-lb-l]")); return; }
         if (!e.target.closest("[data-lb-revert]")) return;
         var orig = originalText(state.items[editing.module], editing.key);
         if (orig != null) editing.el.innerHTML = orig;
@@ -593,6 +602,7 @@
     tip.innerHTML = (role ? "<span>" + escapeHtml(role.label) + "</span>" : "") +
       '<span class="' + tone + '">' + len + (role && role.max ? " / " + role.max : "") + " caracteres</span>" +
       (editing.el.closest("a[data-lb-l]") ? '<button type="button" data-lb-link>Cambiar link</button>' : "") +
+      (editing.el.closest(".nav-link[data-lb-l]") ? '<button type="button" data-lb-hide>Quitar del menú</button>' : "") +
       (changed ? '<button type="button" data-lb-revert>Volver al original</button>' : "");
     var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
     tip.style.fontSize = Math.round(13 / scale) + "px";
@@ -1007,6 +1017,7 @@
         if (e.target.closest("[data-link-save]")) createLanding();
         else if (e.target.closest("[data-link-revert]")) revertLink();
         else if (e.target.closest("[data-link-close]")) closeLink();
+        else if (e.target.closest("[data-link-hide]")) hideMenuItem(linkSel.el);
         else if (client) { var field = client.getAttribute("data-link-client"); closeLink(); openClientForm(field); }
       });
       tip.addEventListener("input", function (e) {
@@ -1039,6 +1050,7 @@
       "<div><b>" + escapeHtml(kind.label) + "</b>" + (kind.hint ? "<br><small>" + escapeHtml(kind.hint) + "</small>" : "") + "</div>" +
       '<label>A dónde lleva<input type="text" data-link-href value="' + escapeHtml(href) + '" placeholder="Web, email, teléfono o #sección" spellcheck="false"></label>' +
       '<div class="lb-img-row"><button type="button" class="is-save" data-link-save hidden></button>' +
+      (el.classList.contains("nav-link") ? '<button type="button" data-link-hide>Quitar del menú</button>' : "") +
       (kind.field ? '<button type="button" class="is-ghost" data-link-client="' + kind.field + '">' + (brand ? "Cambiar logo o nombre" : "Datos del cliente") + "</button>" : "") +
       '<button type="button" class="is-ghost" data-link-revert' + (it && it.links && it.links[linkSel.key] != null ? "" : " hidden") + ">Volver al original</button></div>";
     renderImgSave();
@@ -1088,6 +1100,19 @@
     renderOrder();
     saveDraft();
     renderImgSave();
+  }
+
+  function hideMenuItem(el) {
+    var module = moduleIndex(el);
+    var it = state.items[module];
+    if (!it) return;
+    var label = el.textContent.replace(/\s+/g, " ").trim();
+    closeLink();
+    endEdit();
+    it.ocultos = it.ocultos || {};
+    it.ocultos[el.getAttribute("data-lb-l")] = true;
+    update();
+    say("Quitaste «" + label + "» del menú. Para recuperarlo: «Mostrar ítems quitados» en la barra del módulo.", "ok");
   }
 
   function revertLink() {
@@ -1496,6 +1521,15 @@
       return function () { showTab("order"); orderList.scrollIntoView({ behavior: "smooth", block: "center" }); };
     }
     if (issue.regla === "nombre") return function () { nameInput.focus(); nameInput.select(); };
+    if (issue.regla === "menu") {
+      return function () {
+        setEditMode(true);
+        var section = frameDoc() && frameDoc().querySelectorAll("body > section.mq-block")[issue.module];
+        var first = section && Array.prototype.find.call(section.querySelectorAll(".nav-link[data-lb-l]"), function (a) { return a.offsetParent; });
+        if (first) { scrollToEl(first); selectLink(first); }
+        say("Tocá cada ítem que sobra y elegí «Quitar del menú». El máximo se cambia en Reglas.", "ok");
+      };
+    }
     return null;
   }
 
@@ -1632,6 +1666,7 @@
         if (it.textos) item.textos = it.textos;
         if (it.imagenes) item.imagenes = it.imagenes;
         if (it.links) item.links = it.links;
+        if (it.ocultos) item.ocultos = it.ocultos;
         return item;
       }),
       estilo: lp.estilo || ""
@@ -1898,8 +1933,16 @@
   });
 
   window.addEventListener("message", function (e) {
-    if (e.source !== frame.contentWindow || !e.data || !e.data.lbWidth) return;
-    setWidth(e.data.lbWidth.index, e.data.lbWidth.width);
+    if (e.source !== frame.contentWindow || !e.data) return;
+    if (e.data.lbRestore) {
+      var it = state.items[e.data.lbRestore.index];
+      if (!it || !it.ocultos) return;
+      delete it.ocultos;
+      update();
+      say("Volvieron todos los ítems del menú.", "ok");
+      return;
+    }
+    if (e.data.lbWidth) setWidth(e.data.lbWidth.index, e.data.lbWidth.width);
   });
 
   $("[data-lb-clear]").addEventListener("click", function () {
