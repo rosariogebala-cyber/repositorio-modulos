@@ -926,7 +926,7 @@ def filter_tags(offer):
         tags.append(offer["vuelo"].replace(" ", "-"))
     noches = offer.get("noches") or 0
     if noches:
-        tags.append("noches-corta" if noches <= 5 else "noches-media" if noches <= 9 else "noches-larga")
+        tags += [t for t, tope in (("noches-5", 5), ("noches-10", 10)) if noches <= tope]
     return " ".join(tags)
 
 
