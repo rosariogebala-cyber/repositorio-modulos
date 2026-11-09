@@ -50,6 +50,19 @@
     "#productos .nx-pad{padding-bottom:0}",
     ":root{--jv-solape:20px}",
     "@media (min-width:992px){#hero .nx-hero-slide{padding-bottom:clamp(80px,16vh,180px)}}",
+    "#productos [hidden]{display:none !important}",
+    "#productos .jv-filtros{margin:20px 0 4px}",
+    "#productos .jv-filtros-fila{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}",
+    "#productos .jv-filtros-grupo{display:flex;flex-wrap:wrap;gap:8px}",
+    "#productos .jv-chip{border:1px solid #d9dee5;background:#fff;color:#33475b;border-radius:999px;padding:7px 14px;font-size:.88rem;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .2s ease,color .2s ease,border-color .2s ease}",
+    "#productos .jv-chip:hover{border-color:#e4570a;color:#e4570a}",
+    "#productos .jv-chip.is-on{background:#e4570a;border-color:#e4570a;color:#fff}",
+    "#productos .jv-chip:focus-visible,#productos .jv-chip-limpiar:focus-visible{outline:2px solid #0b1f38;outline-offset:2px}",
+    "#productos .jv-chip-limpiar{border:0;background:none;color:#0b1f38;font-size:.88rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:7px 4px;cursor:pointer;white-space:nowrap}",
+    "#productos .jv-filtros-vacio{margin:16px 0 0;color:#5b6b80}",
+    "#productos .jv-filtros-vacio button{border:0;background:none;padding:0;color:#e4570a;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}",
+    "@media (max-width:991.98px){#productos .jv-filtros-fila,#productos .jv-filtros-grupo{flex-wrap:nowrap}#productos .jv-filtros-fila{overflow-x:auto;scrollbar-width:none;margin:0 calc(var(--bs-gutter-x,1.5rem) * -.5);padding:2px calc(var(--bs-gutter-x,1.5rem) * .5);mask-image:linear-gradient(90deg,#000 85%,transparent)}#productos .jv-filtros-fila::-webkit-scrollbar{display:none}}",
+    "@media (prefers-reduced-motion:reduce){#productos .jv-chip{transition:none}}",
     "#productos .jv-sobre-hero{position:relative;z-index:3;margin-top:calc(var(--jv-solape) * -1)}",
     "#productos .jv-sobre-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}",
     "@media (min-width:992px){#productos .jv-sobre-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}}",
@@ -187,6 +200,105 @@
   }
   subirDestacadas();
   window.addEventListener("resize", medirSolape);
+
+  var GRUPOS_FILTRO = [
+    { modo: "todos", items: [["aereo", "Vuelo"], ["equipaje", "Equipaje"], ["traslado", "Traslados"], ["excursion", "Visitas"], ["guia", "Guía en español"], ["hotel", "Alojamiento"], ["desayuno", "Desayuno"], ["asistencia", "Asistencia"]] },
+    { modo: "alguno", items: [["media-pension", "Media pensión"], ["all-inclusive", "All inclusive"]] },
+    { modo: "alguno", items: [["directo", "Vuelo directo"], ["con-escala", "Vuelo con escala"]] },
+    { modo: "alguno", items: [["noches-corta", "Hasta 5 noches"], ["noches-media", "6 a 9 noches"], ["noches-larga", "10 noches o más"]] }
+  ];
+  var filtrosActivos = {};
+
+  function tarjetasPromo() {
+    return Array.prototype.slice.call(document.querySelectorAll("#productos .prod-card[data-filtros]"));
+  }
+
+  function etiquetas(card) {
+    return (card.getAttribute("data-filtros") || "").split(" ").filter(Boolean);
+  }
+
+  function filtrar() {
+    var vistas = 0;
+    tarjetasPromo().forEach(function (card) {
+      var tags = etiquetas(card);
+      var ok = GRUPOS_FILTRO.every(function (grupo) {
+        var elegidos = grupo.items.map(function (it) { return it[0]; }).filter(function (k) { return filtrosActivos[k]; });
+        if (!elegidos.length) return true;
+        return grupo.modo === "todos"
+          ? elegidos.every(function (k) { return tags.indexOf(k) !== -1; })
+          : elegidos.some(function (k) { return tags.indexOf(k) !== -1; });
+      });
+      var caja = card.parentElement && card.parentElement.matches(".row > [class*='col-']") ? card.parentElement : card;
+      caja.hidden = !ok;
+      if (ok) vistas += 1;
+    });
+    var tira = document.querySelector("#productos .jv-sobre-hero");
+    if (tira) {
+      var conTira = !!tira.querySelector(".prod-card:not([hidden])");
+      tira.hidden = !conTira;
+      document.body.classList.toggle("jv-con-solape", conTira);
+    }
+    var hay = Object.keys(filtrosActivos).some(function (k) { return filtrosActivos[k]; });
+    var caja = document.querySelector("#productos .jv-filtros");
+    if (!caja) return;
+    caja.querySelector("[data-limpiar]").hidden = !hay;
+    var vacio = caja.querySelector("[data-vacio]");
+    vacio.hidden = vistas > 0;
+  }
+
+  function armarFiltros() {
+    var titulo = document.querySelector("#productos .container > h2");
+    var cards = tarjetasPromo();
+    var caja = document.querySelector("#productos .jv-filtros");
+    if (!titulo || !cards.length) {
+      if (caja) caja.remove();
+      return;
+    }
+    var presentes = {};
+    cards.forEach(function (card) { etiquetas(card).forEach(function (t) { presentes[t] = true; }); });
+    if (!caja) {
+      caja = document.createElement("div");
+      caja.className = "jv-filtros";
+      titulo.insertAdjacentElement("afterend", caja);
+    }
+    var html = ['<div class="jv-filtros-fila" role="group" aria-label="Filtrar promociones">'];
+    GRUPOS_FILTRO.forEach(function (grupo) {
+      var items = grupo.items.filter(function (it) { return presentes[it[0]]; });
+      if (!items.length) return;
+      html.push('<span class="jv-filtros-grupo">');
+      items.forEach(function (it) {
+        var on = !!filtrosActivos[it[0]];
+        html.push('<button type="button" class="jv-chip' + (on ? " is-on" : "") + '" data-filtro="' + it[0] + '" aria-pressed="' + on + '">' + it[1] + "</button>");
+      });
+      html.push("</span>");
+    });
+    html.push('<button type="button" class="jv-chip-limpiar" data-limpiar hidden>Limpiar</button></div>');
+    html.push('<p class="jv-filtros-vacio" data-vacio hidden>No hay promos con esos filtros. <button type="button" data-limpiar-vacio>Ver todas</button></p>');
+    caja.innerHTML = html.join("");
+    Object.keys(filtrosActivos).forEach(function (k) { if (!presentes[k]) delete filtrosActivos[k]; });
+    filtrar();
+  }
+
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest("#productos [data-filtro]");
+    if (chip) {
+      var key = chip.getAttribute("data-filtro");
+      filtrosActivos[key] = !filtrosActivos[key];
+      chip.classList.toggle("is-on", filtrosActivos[key]);
+      chip.setAttribute("aria-pressed", String(filtrosActivos[key]));
+      filtrar();
+      return;
+    }
+    if (e.target.closest("#productos [data-limpiar], #productos [data-limpiar-vacio]")) {
+      filtrosActivos = {};
+      document.querySelectorAll("#productos [data-filtro]").forEach(function (b) {
+        b.classList.remove("is-on");
+        b.setAttribute("aria-pressed", "false");
+      });
+      filtrar();
+    }
+  });
+  armarFiltros();
 
   var resenasPag = document.querySelector("#resenas-de-google [data-jv-resenas]");
   if (resenasPag) {
@@ -414,6 +526,7 @@
       });
       row.insertAdjacentHTML("afterbegin", data.grilla);
       subirDestacadas();
+      armarFiltros();
     }
     var note = document.querySelector("#productos .jv-cierre h2");
     if (note && data.nota) note.innerHTML = data.nota;

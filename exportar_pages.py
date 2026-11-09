@@ -1,9 +1,10 @@
 """Landing de Jimena Vidal como sitio estático para GitHub Pages.
 
   python3 exportar_pages.py --desde-base   copia landing, promos y fotos de Postgres a pages/datos/
-  python3 exportar_pages.py                arma docs/ a partir de pages/datos/ (no usa base ni servidor)
+  python3 exportar_pages.py                arma el sitio a partir de pages/datos/ (no usa base ni servidor)
 
-Las promos se editan en pages/datos/ofertas.json. Después se vuelve a correr el armado y se sube docs/.
+El sitio se escribe en ../jimenavidal, el repo que publica https://rosariogebala-cyber.github.io/jimenavidal/.
+Las promos se editan en pages/datos/ofertas.json; después se vuelve a armar y se sube ese repo.
 """
 
 import hashlib
@@ -19,9 +20,9 @@ import oferta as piezas
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATOS = os.path.join(ROOT, "pages", "datos")
 FOTOS = os.path.join(DATOS, "fotos")
-SALIDA = os.path.join(ROOT, "docs")
+SALIDA = os.path.join(os.path.dirname(ROOT), "jimenavidal")
 LANDING_ID = 26
-BASE_URL = "https://rosariogebala-cyber.github.io/repositorio-modulos/"
+BASE_URL = "https://rosariogebala-cyber.github.io/jimenavidal/"
 EMAIL = "info@jimenavidal.tur.ar"
 
 
@@ -118,7 +119,7 @@ def tarjetas(sitio, ofertas, html):
         cards.append(piezas.promo_card(
             item["id"], src, alt, piezas.card_meta_html(offer), offer["destino"],
             piezas.price_html(offer), piezas.includes_html(offer), detail, href,
-            featured=flags[item["id"]],
+            featured=flags[item["id"]], filtros=piezas.filter_tags(offer),
         ))
     return cards
 
@@ -169,9 +170,15 @@ def armar():
     with open(os.path.join(DATOS, "landing.html"), encoding="utf-8") as f:
         html = f.read()
 
-    if os.path.isdir(SALIDA):
-        shutil.rmtree(SALIDA)
-    os.makedirs(SALIDA)
+    os.makedirs(SALIDA, exist_ok=True)
+    for nombre in os.listdir(SALIDA):
+        if nombre in (".git", "README.md"):
+            continue
+        ruta = os.path.join(SALIDA, nombre)
+        if os.path.isdir(ruta):
+            shutil.rmtree(ruta)
+        else:
+            os.remove(ruta)
 
     cards = tarjetas(sitio, ofertas, html)
     html = piezas.apply_offers(html, cards, piezas.PUBLIC_NOTE)

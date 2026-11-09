@@ -602,7 +602,7 @@ def landing_page(cliente_slug, slug, origin=""):
     head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug)) + tracking_head(row)
     html = row["html"].replace("</head>", head + "</head>", 1)
     if cliente_slug == "jimena-vidal":
-        html = html.replace("</body>", '<script src="/maquetas/js/oferta-landing.js?v=20261109bb"></script></body>', 1)
+        html = html.replace("</body>", '<script src="/maquetas/js/oferta-landing.js?v=20261109bc"></script></body>', 1)
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
@@ -1093,7 +1093,7 @@ def _paint(con, landing_id, rows=None):
         cards.append(piezas.promo_card(
             item["id"], src, alt, piezas.card_meta_html(offer), offer["destino"],
             piezas.price_html(offer), piezas.includes_html(offer), detail, href,
-            featured=flags[item["id"]],
+            featured=flags[item["id"]], filtros=piezas.filter_tags(offer),
         ))
     return row, cards, piezas.PUBLIC_NOTE
 

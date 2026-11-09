@@ -916,13 +916,27 @@ def card_line(offer):
     return line
 
 
-def promo_card(oid, src, alt, meta_html, title, price_html, includes_html, detail, href, featured=False):
+def filter_tags(offer):
+    """Etiquetas que usan los filtros de la landing: qué incluye, comidas, vuelo y duración."""
+    tags = list(offer.get("incluye") or [])
+    regimen = {"Desayuno": "desayuno", "Media pensión": "media-pension", "All inclusive": "all-inclusive"}.get(offer.get("regimen"))
+    if regimen and regimen not in tags:
+        tags.append(regimen)
+    if offer.get("vuelo"):
+        tags.append(offer["vuelo"].replace(" ", "-"))
+    noches = offer.get("noches") or 0
+    if noches:
+        tags.append("noches-corta" if noches <= 5 else "noches-media" if noches <= 9 else "noches-larga")
+    return " ".join(tags)
+
+
+def promo_card(oid, src, alt, meta_html, title, price_html, includes_html, detail, href, featured=False, filtros=""):
     """Entran de a cuatro. Las destacadas llevan jv-destacada y la landing las sube sobre el hero."""
     meta = '<p class="meta">%s</p>' % meta_html if meta_html else ""
     sale = '<p class="prod-sale">%s</p>' % nb_html(detail) if detail else ""
     col = "col-6 col-lg-3 jv-destacada" if featured else "col-6 col-lg-3"
     return (
-        '<div class="%s"><article class="prod-card prod-card-xl" data-oferta="%s">'
+        '<div class="%s"><article class="prod-card prod-card-xl" data-oferta="%s" data-filtros="%s">'
         '<div class="nx-frame ratio-1">'
         '<button type="button" class="jv-zoom" data-zoom="%s" aria-label="%s">'
         '<img src="%s" alt="%s"></button></div>'
@@ -930,7 +944,7 @@ def promo_card(oid, src, alt, meta_html, title, price_html, includes_html, detai
         '<a class="prod-more" href="%s" target="_blank" rel="noopener">Escribinos <i class="bi bi-whatsapp"></i></a>'
         "</div></article></div>"
     ) % (
-        col, escape(oid, quote=True), escape(src, quote=True), escape("Ver " + title, quote=True),
+        col, escape(oid, quote=True), escape(filtros, quote=True), escape(src, quote=True), escape("Ver " + title, quote=True),
         escape(src, quote=True), escape(alt, quote=True),
         nb_html(title), meta, price_html, includes_html, sale, escape(href, quote=True),
     )
