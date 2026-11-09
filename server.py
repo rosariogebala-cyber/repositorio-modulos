@@ -21,6 +21,7 @@ import re
 import sys
 import time
 import unicodedata
+import uuid
 from contextlib import contextmanager
 from functools import partial
 from html import escape, unescape
@@ -32,6 +33,8 @@ from urllib.request import Request, urlopen
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+
+import oferta as piezas
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".lanzate")
@@ -89,13 +92,23 @@ ROUTES = [
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
     (re.compile(r"^/api/landings/(\d+)/preview$"), "preview"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/vista$"), "ofertas-vista"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/orden$"), "ofertas-orden"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/([0-9a-f]{32})/destacada$"), "oferta-destacada"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/([0-9a-f]{32})/card\.jpg$"), "oferta-card-id"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/([0-9a-f]{32})/oferta\.png$"), "oferta-png-id"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas/([0-9a-f]{32})$"), "oferta-una"),
+    (re.compile(r"^/api/landings/(\d+)/ofertas$"), "ofertas"),
+    (re.compile(r"^/api/landings/(\d+)/oferta-card\.jpg$"), "oferta-card"),
+    (re.compile(r"^/api/landings/(\d+)/oferta\.png$"), "oferta-png"),
+    (re.compile(r"^/api/landings/(\d+)/oferta$"), "oferta"),
     (re.compile(r"^/api/reglas$"), "reglas"),
     (re.compile(r"^/api/ia$"), "ia"),
     (re.compile(r"^/api/consultas$"), "consultas"),
     (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva", "oferta-card", "oferta-png", "oferta-card-id", "oferta-png-id")
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
@@ -164,6 +177,22 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS animacion TEXT NOT NULL DEFAULT '';
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS oferta JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS oferta_card BYTEA;
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS oferta_png BYTEA;
+CREATE TABLE IF NOT EXISTS ofertas (
+  id TEXT PRIMARY KEY,
+  landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
+  estado TEXT NOT NULL DEFAULT 'pendiente',
+  orden INTEGER NOT NULL DEFAULT 0,
+  datos JSONB NOT NULL DEFAULT '{}',
+  card BYTEA,
+  png BYTEA,
+  foto BYTEA,
+  creado BIGINT NOT NULL,
+  actualizado BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ofertas_landing_idx ON ofertas (landing_id, estado, orden);
 CREATE TABLE IF NOT EXISTS consultas (
   id BIGSERIAL PRIMARY KEY,
   landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
@@ -381,7 +410,7 @@ def delete_client(client_id):
 # --- Landings ----------------------------------------------------------------
 
 LANDING_SELECT = (
-    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.portada, l.creado, l.actualizado, "
+    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.oferta, l.portada, l.creado, l.actualizado, "
     "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
     "c.nombre AS cliente, c.slug AS cliente_slug, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
@@ -398,6 +427,7 @@ def landing_dict(row):
         "portada": row["portada"],
         "descripcion": row.get("descripcion") or "",
         "animacion": row.get("animacion") or "",
+        "oferta": row.get("oferta") if isinstance(row.get("oferta"), dict) else {},
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": row["cliente"],
@@ -561,8 +591,18 @@ def landing_page(cliente_slug, slug, origin=""):
         ).fetchone()
     if not row or not row["html"]:
         return None
+    if cliente_slug == "jimena-vidal":
+        with tx() as con:
+            _migrate_legacy(con, row["id"])
+            _refresh_offer_html(con, row["id"])
+            fresh = con.execute("SELECT html FROM landings WHERE id = %s", (row["id"],)).fetchone()
+        if fresh and fresh["html"]:
+            row = dict(row)
+            row["html"] = fresh["html"]
     head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug)) + tracking_head(row)
     html = row["html"].replace("</head>", head + "</head>", 1)
+    if cliente_slug == "jimena-vidal":
+        html = html.replace("</body>", '<script src="/maquetas/js/oferta-landing.js?v=20261109bb"></script></body>', 1)
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
@@ -591,11 +631,13 @@ def share_head(row, origin, path):
     tags = [
         ("name", "description", desc),
         ("property", "og:type", "website"),
+        ("property", "og:locale", "es_AR"),
         ("property", "og:title", row["nombre"]),
         ("property", "og:description", desc),
         ("property", "og:site_name", row["cliente"]),
         ("property", "og:url", origin + path),
         ("property", "og:image", image),
+        ("property", "og:image:alt", row["nombre"] if image else ""),
         ("name", "twitter:card", "summary_large_image" if image else "summary"),
     ]
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
@@ -922,6 +964,393 @@ def ia_describe_images(data):
     return {"fotos": result}
 
 
+# --- Ofertas (gestor en la landing + PNG para Instagram) -----------------------
+
+def offer_file(landing_id, kind):
+    column = {"card": "oferta_card", "png": "oferta_png"}[kind]
+    with tx() as con:
+        row = con.execute("SELECT " + column + " AS blob FROM landings WHERE id = %s", (landing_id,)).fetchone()
+    if not row or not row["blob"]:
+        return None
+    return bytes(row["blob"])
+
+
+def offer_blob(landing_id, offer_id, kind):
+    column = {"card": "card", "png": "png"}[kind]
+    with tx() as con:
+        row = con.execute(
+            "SELECT " + column + " AS blob FROM ofertas WHERE landing_id = %s AND id = %s",
+            (landing_id, offer_id),
+        ).fetchone()
+    if not row or not row["blob"]:
+        return None
+    return bytes(row["blob"])
+
+
+def _landing_bundle(con, landing_id):
+    row = con.execute(
+        "SELECT l.html, l.items, l.slug AS landing_slug, l.oferta, l.oferta_card, l.oferta_png, "
+        "c.nombre AS nombre_cliente, c.slug, c.telefono, c.instagram, c.direccion, c.color_primario "
+        "FROM landings l JOIN clientes c ON c.id = l.cliente_id WHERE l.id = %s",
+        (landing_id,),
+    ).fetchone()
+    if not row:
+        raise ApiError(404, "La landing no existe")
+    return row
+
+
+def _payload(data, offer, previous=None):
+    payload = {
+        "destino": offer["destino"], "noches": offer["noches"], "origen": offer["origen"],
+        "fechas": offer["fechas"], "incluye": offer["incluye"], "regimen": offer["regimen"],
+        "moneda": offer.get("moneda") or "USD",
+        "precio_antes": offer.get("precio_antes") or 0,
+        "precio": offer.get("precio_ahora") or 0,
+        "precio_nota": offer.get("precio_nota") or "",
+        "hotel": offer["hotel"], "estrellas": offer["estrellas"],
+        "vuelo": offer.get("vuelo") or "",
+    }
+    if isinstance(previous, dict) and "destacada" in previous:
+        payload["destacada"] = bool(previous["destacada"])
+    return payload
+
+
+def _offer_datos(item):
+    return item["datos"] if isinstance(item["datos"], dict) else {}
+
+
+def _featured_map(published):
+    """Sin marcas guardadas, las cuatro primeras publicadas siguen destacadas."""
+    explicit = any("destacada" in _offer_datos(item) for item in published)
+    flags = {}
+    for index, item in enumerate(published):
+        if explicit:
+            flags[item["id"]] = bool(_offer_datos(item).get("destacada"))
+        else:
+            flags[item["id"]] = index < 4
+    return flags
+
+
+def _offer_public(row):
+    datos = row["datos"] if isinstance(row["datos"], dict) else {}
+    try:
+        offer = piezas.build_offer(datos)
+    except ValueError:
+        offer = {"destino": datos.get("destino") or "Oferta", "estadia": "", "consultar": True, "precio": ""}
+    return {
+        "id": row["id"],
+        "estado": row["estado"],
+        "orden": row["orden"],
+        "destino": offer.get("destino") or "",
+        "estadia": offer.get("estadia") or "",
+        "noches": datos.get("noches") or 0,
+        "origen": datos.get("origen") or "",
+        "fechas": datos.get("fechas") or "",
+        "incluye": datos.get("incluye") or [],
+        "regimen": datos.get("regimen") or "",
+        "moneda": offer.get("moneda") or "USD",
+        "precio_antes": offer.get("precio_antes") or "",
+        "precio": offer.get("precio_ahora") or "",
+        "precio_texto": offer.get("precio") or "",
+        "precio_nota": offer.get("precio_nota") or "",
+        "hotel": datos.get("hotel") or "",
+        "estrellas": datos.get("estrellas") or 0,
+        "vuelo": offer.get("vuelo") or "",
+        "destacada": bool(datos["destacada"]) if "destacada" in datos else None,
+        "tiene_foto": bool(row.get("foto")),
+        "card": "/api/landings/%d/ofertas/%s/card.jpg?v=%d" % (row["landing_id"], row["id"], row["actualizado"]),
+        "png": "/api/landings/%d/ofertas/%s/oferta.png?v=%d" % (row["landing_id"], row["id"], row["actualizado"]),
+        "archivo": "oferta-%s.png" % slugify(offer.get("destino") or "salida"),
+    }
+
+
+def _rows(con, landing_id):
+    return con.execute(
+        "SELECT id, landing_id, estado, orden, datos, (foto IS NOT NULL) AS foto, creado, actualizado "
+        "FROM ofertas WHERE landing_id = %s ORDER BY estado DESC, orden, creado",
+        (landing_id,),
+    ).fetchall()
+
+
+def _paint(con, landing_id, rows=None):
+    row = _landing_bundle(con, landing_id)
+    rows = list(rows if rows is not None else _rows(con, landing_id))
+    published = [item for item in rows if item["estado"] == "publicada"]
+    flags = _featured_map(published)
+    published = sorted(published, key=lambda item: (0 if flags[item["id"]] else 1, item["orden"]))
+    cards = []
+    for item in published:
+        datos = item["datos"] if isinstance(item["datos"], dict) else {}
+        try:
+            offer = piezas.build_offer(datos)
+        except ValueError:
+            continue
+        meta, detail, alt = piezas.promo_copy(offer)
+        if len(detail) > 320 or len(meta) > 320 or len(offer["destino"]) > 48:
+            continue
+        src = "/api/landings/%d/ofertas/%s/card.jpg?v=%d" % (landing_id, item["id"], item["actualizado"])
+        href = piezas.offer_href(row["html"] or "", offer["destino"], offer["estadia"], offer.get("fechas", ""), offer.get("precio", ""))
+        cards.append(piezas.promo_card(
+            item["id"], src, alt, piezas.card_meta_html(offer), offer["destino"],
+            piezas.price_html(offer), piezas.includes_html(offer), detail, href,
+            featured=flags[item["id"]],
+        ))
+    return row, cards, piezas.PUBLIC_NOTE
+
+
+def _sync(con, landing_id, rows=None):
+    row, cards, note = _paint(con, landing_id, rows)
+    html = piezas.apply_offers(row["html"] or "", cards, note)
+    if html is None:
+        raise ApiError(400, "Esta landing no tiene una sección de promociones para actualizar.")
+    items = list(row["items"] or [])
+    patched = False
+    for item in items:
+        inner = item.get("html") or ""
+        if "prod-card" not in inner:
+            continue
+        new_inner = piezas.apply_offers(inner, cards, note)
+        if not new_inner:
+            continue
+        item["html"] = new_inner
+        imagenes = {}
+        for index, tag in enumerate(re.findall(r"<img\b[^>]*>", new_inner, re.I)):
+            src = re.search(r'\bsrc="([^"]*)"', tag)
+            alt = re.search(r'\balt="([^"]*)"', tag)
+            imagenes[str(index)] = {
+                "src": unescape(src.group(1)) if src else "",
+                "alt": unescape(alt.group(1)) if alt else "",
+            }
+        item["imagenes"] = imagenes
+        item["textos"] = {}
+        patched = True
+        break
+    if not patched:
+        raise ApiError(400, "Esta landing no tiene una sección de promociones para actualizar.")
+    first = next((item for item in (rows or _rows(con, landing_id)) if item["estado"] == "publicada"), None)
+    legacy_card = legacy_png = None
+    if first:
+        blobs = con.execute("SELECT card, png FROM ofertas WHERE id = %s", (first["id"],)).fetchone()
+        legacy_card = blobs["card"] if blobs else None
+        legacy_png = blobs["png"] if blobs else None
+    con.execute(
+        "UPDATE landings SET html = %s, items = %s, actualizado = %s, oferta_card = %s, oferta_png = %s WHERE id = %s",
+        (html, Jsonb(items), now_ms(), legacy_card, legacy_png, landing_id),
+    )
+    return html, note, cards
+
+
+def _migrate_legacy(con, landing_id):
+    if con.execute("SELECT 1 FROM ofertas WHERE landing_id = %s LIMIT 1", (landing_id,)).fetchone():
+        return
+    con.execute("SELECT pg_advisory_xact_lock(%s)", (landing_id,))
+    if con.execute("SELECT 1 FROM ofertas WHERE landing_id = %s LIMIT 1", (landing_id,)).fetchone():
+        return
+    row = _landing_bundle(con, landing_id)
+    datos = row["oferta"] if isinstance(row["oferta"], dict) else {}
+    if not datos.get("destino"):
+        return
+    try:
+        offer = piezas.build_offer(datos)
+    except ValueError:
+        return
+    brand = piezas.brand_of({
+        "nombre": row["nombre_cliente"], "slug": row["slug"], "telefono": row["telefono"],
+        "instagram": row["instagram"], "direccion": row["direccion"], "color_primario": row["color_primario"],
+    })
+    stamp = now_ms()
+    con.execute(
+        "INSERT INTO ofertas (id, landing_id, estado, orden, datos, card, png, foto, creado, actualizado) "
+        "VALUES (%s, %s, 'publicada', 0, %s, %s, %s, NULL, %s, %s)",
+        (uuid.uuid4().hex, landing_id, Jsonb(_payload(datos, offer)), piezas.card_bytes(offer, brand), piezas.png_bytes(offer, brand), stamp, stamp),
+    )
+    _sync(con, landing_id)
+
+
+def _refresh_offer_html(con, landing_id):
+    row = con.execute("SELECT html FROM landings WHERE id = %s", (landing_id,)).fetchone()
+    html = (row or {}).get("html") or ""
+    published = con.execute(
+        "SELECT 1 FROM ofertas WHERE landing_id = %s AND estado = 'publicada' LIMIT 1",
+        (landing_id,),
+    ).fetchone()
+    if published and "prod-bajada" not in html and "jv-cierre" not in html:
+        _sync(con, landing_id)
+
+
+def list_offers(landing_id):
+    with tx() as con:
+        _migrate_legacy(con, landing_id)
+        rows = _rows(con, landing_id)
+        _row, cards, note = _paint(con, landing_id, rows)
+        return {
+            "ofertas": [_offer_public(row) for row in rows],
+            "grilla": "".join(cards),
+            "nota": piezas.note_title_html(),
+        }
+
+
+def _compose(data, photo):
+    try:
+        offer = piezas.build_offer(data)
+    except ValueError as err:
+        raise ApiError(400, str(err))
+    meta, detail, _alt = piezas.promo_copy(offer)
+    if len(detail) > 320 or len(meta) > 320 or len(offer["destino"]) > 48:
+        raise ApiError(400, "La oferta queda muy larga. Acortá el destino o qué incluye.")
+    return offer
+
+
+def save_offer(landing_id, data, offer_id=None):
+    estado = "publicada" if data.get("estado") == "publicada" else "pendiente"
+    try:
+        uploaded = piezas.photo_from_upload(data.get("foto"))
+    except ValueError as err:
+        raise ApiError(400, str(err))
+    with tx() as con:
+        row = _landing_bundle(con, landing_id)
+        _migrate_legacy(con, landing_id)
+        current = None
+        if offer_id:
+            current = con.execute(
+                "SELECT id, estado, orden, foto, datos FROM ofertas WHERE landing_id = %s AND id = %s",
+                (landing_id, offer_id),
+            ).fetchone()
+            if not current:
+                raise ApiError(404, "Esa oferta no está en esta landing.")
+        stored = bytes(current["foto"]) if current and current["foto"] else None
+        photo = uploaded or piezas.photo_from_bytes(stored)
+        offer = _compose(data, photo)
+        brand = piezas.brand_of({
+            "nombre": row["nombre_cliente"], "slug": row["slug"], "telefono": row["telefono"],
+            "instagram": row["instagram"], "direccion": row["direccion"], "color_primario": row["color_primario"],
+        })
+        card = piezas.card_bytes(offer, brand, photo)
+        png = piezas.png_bytes(offer, brand, photo)
+        foto = piezas.store_photo(photo)
+        stamp = now_ms()
+        payload = _payload(data, offer, current["datos"] if current else None)
+        if estado != "publicada":
+            payload["destacada"] = False
+        if current and current["estado"] == estado:
+            orden = current["orden"]
+        else:
+            orden = con.execute(
+                "SELECT COALESCE(MAX(orden), -1) + 1 AS n FROM ofertas WHERE landing_id = %s AND estado = %s",
+                (landing_id, estado),
+            ).fetchone()["n"]
+        if current:
+            con.execute(
+                "UPDATE ofertas SET estado = %s, orden = %s, datos = %s, card = %s, png = %s, foto = %s, actualizado = %s "
+                "WHERE id = %s",
+                (estado, orden, Jsonb(payload), card, png, foto, stamp, offer_id),
+            )
+        else:
+            offer_id = uuid.uuid4().hex
+            con.execute(
+                "INSERT INTO ofertas (id, landing_id, estado, orden, datos, card, png, foto, creado, actualizado) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (offer_id, landing_id, estado, orden, Jsonb(payload), card, png, foto, stamp, stamp),
+            )
+        rows = _rows(con, landing_id)
+        _html, note, cards = _sync(con, landing_id, rows)
+        saved = next(item for item in rows if item["id"] == offer_id)
+        return {
+            "ok": True,
+            "oferta": _offer_public(saved),
+            "png": "/api/landings/%d/ofertas/%s/oferta.png?v=%d" % (landing_id, offer_id, stamp),
+            "archivo": "%s-%s.png" % (row["landing_slug"], slugify(offer["destino"])),
+            "ofertas": [_offer_public(item) for item in rows],
+            "grilla": "".join(cards),
+            "nota": piezas.note_title_html(),
+        }
+
+
+def set_featured(landing_id, offer_id, data):
+    on = bool((data or {}).get("destacada"))
+    with tx() as con:
+        rows = list(_rows(con, landing_id))
+        published = [item for item in rows if item["estado"] == "publicada"]
+        if not any(item["id"] == offer_id for item in published):
+            raise ApiError(400, "Solo se destaca una oferta publicada.")
+        flags = _featured_map(published)
+        flags[offer_id] = on
+        if sum(1 for value in flags.values() if value) > 4:
+            raise ApiError(400, "Podés destacar hasta cuatro. Sacá una para destacar esta.")
+        for item in published:
+            datos = dict(_offer_datos(item))
+            datos["destacada"] = flags[item["id"]]
+            con.execute("UPDATE ofertas SET datos = %s WHERE id = %s", (Jsonb(datos), item["id"]))
+            item["datos"] = datos
+        _, note, cards = _sync(con, landing_id, rows)
+        return {
+            "ok": True,
+            "ofertas": [_offer_public(item) for item in rows],
+            "grilla": "".join(cards),
+            "nota": piezas.note_title_html(),
+        }
+
+
+def delete_offer(landing_id, offer_id):
+    with tx() as con:
+        _migrate_legacy(con, landing_id)
+        deleted = con.execute("DELETE FROM ofertas WHERE landing_id = %s AND id = %s", (landing_id, offer_id))
+        if not deleted.rowcount:
+            raise ApiError(404, "Esa oferta no está en esta landing.")
+        rows = _rows(con, landing_id)
+        _, note, cards = _sync(con, landing_id, rows)
+        return {"ok": True, "ofertas": [_offer_public(item) for item in rows], "grilla": "".join(cards), "nota": piezas.note_title_html()}
+
+
+def reorder_offers(landing_id, data):
+    ids = data.get("ids")
+    if not isinstance(ids, list) or not ids or not all(re.fullmatch(r"[0-9a-f]{32}", str(item)) for item in ids):
+        raise ApiError(400, "El orden tiene que ser la lista de ofertas.")
+    with tx() as con:
+        _migrate_legacy(con, landing_id)
+        stamp = now_ms()
+        for index, offer_id in enumerate(ids):
+            updated = con.execute(
+                "UPDATE ofertas SET orden = %s, actualizado = %s WHERE landing_id = %s AND id = %s",
+                (index, stamp, landing_id, offer_id),
+            )
+            if not updated.rowcount:
+                raise ApiError(400, "Hay una oferta que no pertenece a esta landing.")
+        rows = _rows(con, landing_id)
+        _, note, cards = _sync(con, landing_id, rows)
+        return {"ok": True, "ofertas": [_offer_public(item) for item in rows], "grilla": "".join(cards), "nota": piezas.note_title_html()}
+
+
+def preview_offer(landing_id, data):
+    try:
+        uploaded = piezas.photo_from_upload(data.get("foto"))
+    except ValueError as err:
+        raise ApiError(400, str(err))
+    offer_id = str(data.get("id") or "")
+    with tx() as con:
+        row = _landing_bundle(con, landing_id)
+        photo = uploaded
+        if photo is None and re.fullmatch(r"[0-9a-f]{32}", offer_id):
+            stored = con.execute(
+                "SELECT foto FROM ofertas WHERE landing_id = %s AND id = %s",
+                (landing_id, offer_id),
+            ).fetchone()
+            if stored and stored["foto"]:
+                photo = piezas.photo_from_bytes(bytes(stored["foto"]))
+    offer = _compose(data, photo)
+    brand = piezas.brand_of({
+        "nombre": row["nombre_cliente"], "slug": row["slug"], "telefono": row["telefono"],
+        "instagram": row["instagram"], "direccion": row["direccion"], "color_primario": row["color_primario"],
+    })
+    return piezas.preview_bytes(offer, brand, photo)
+
+
+def publish_offer(landing_id, data):
+    data = dict(data or {})
+    data["estado"] = "publicada"
+    return save_offer(landing_id, data)
+
+
 # --- HTTP ----------------------------------------------------------------------
 
 NOT_FOUND_PAGE = (
@@ -1015,6 +1444,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return True
             return False
         ident = int(match.group(1)) if match.groups() else None
+        offer_id = match.group(2) if match.lastindex and match.lastindex >= 2 else None
         try:
             if name not in PUBLIC_ROUTES and not self.authorized():
                 raise ApiError(401, "Ingresá la clave para usar la plataforma.")
@@ -1024,7 +1454,35 @@ class Handler(SimpleHTTPRequestHandler):
                     raise ApiError(404, "La landing no tiene vista previa")
                 self.send_body(200, shot[1], shot[0])
                 return True
-            result = self.dispatch(method, name, ident, query)
+            if name == "oferta-card" and method == "GET":
+                blob = offer_file(ident, "card")
+                if not blob:
+                    raise ApiError(404, "Todavía no hay una oferta publicada.")
+                self.send_body(200, blob, "image/jpeg")
+                return True
+            if name == "oferta-png" and method == "GET":
+                blob = offer_file(ident, "png")
+                if not blob:
+                    raise ApiError(404, "Todavía no hay una oferta para descargar.")
+                self.send_body(200, blob, "application/zip" if blob[:2] == b"PK" else "image/png")
+                return True
+            if name == "oferta-card-id" and method == "GET":
+                blob = offer_blob(ident, offer_id, "card")
+                if not blob:
+                    raise ApiError(404, "Todavía no hay una oferta publicada.")
+                self.send_body(200, blob, "image/jpeg")
+                return True
+            if name == "oferta-png-id" and method == "GET":
+                blob = offer_blob(ident, offer_id, "png")
+                if not blob:
+                    raise ApiError(404, "Todavía no hay una oferta para descargar.")
+                self.send_body(200, blob, "application/zip" if blob[:2] == b"PK" else "image/png")
+                return True
+            if name == "ofertas-vista" and method == "POST":
+                blob = preview_offer(ident, self.read_json())
+                self.send_body(200, blob, "image/jpeg")
+                return True
+            result = self.dispatch(method, name, ident, query, offer_id)
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
         except psycopg.Error as err:
@@ -1034,7 +1492,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, result)
         return True
 
-    def dispatch(self, method, name, ident, query):
+    def dispatch(self, method, name, ident, query, offer_id=None):
         if name == "sesion" and method == "GET":
             return {"ok": self.authorized(), "requiere": login_required()}
         if name == "login" and method == "POST":
@@ -1078,6 +1536,20 @@ class Handler(SimpleHTTPRequestHandler):
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
             return duplicate_landing(ident)
+        if name == "ofertas" and method == "GET":
+            return list_offers(ident)
+        if name == "ofertas" and method == "POST":
+            return save_offer(ident, self.read_json())
+        if name == "oferta-una" and method == "PUT":
+            return save_offer(ident, self.read_json(), offer_id)
+        if name == "oferta-una" and method == "DELETE":
+            return delete_offer(ident, offer_id)
+        if name == "ofertas-orden" and method == "POST":
+            return reorder_offers(ident, self.read_json())
+        if name == "oferta-destacada" and method == "POST":
+            return set_featured(ident, offer_id, self.read_json())
+        if name == "oferta" and method == "POST":
+            return publish_offer(ident, self.read_json())
         if name == "reglas":
             if method == "GET":
                 return read_rules()
