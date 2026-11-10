@@ -1,4 +1,4 @@
-/* Promos, filtros y detalles de la landing de Jimena Vidal. La gestión está en /jimenavidal/gestion/. */
+/* Promos, filtros y detalles de la landing de ofertas. */
 (function () {
   var meta = document.querySelector('meta[name="lz-landing"]');
   var id = meta && meta.getAttribute("content");
