@@ -706,16 +706,14 @@ def landing_page(cliente_slug, slug, origin=""):
         ).fetchone()
     if not row or not row["html"]:
         return None
-    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug)) + tracking_head(row)
+    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug))
     html = row["html"].replace("</head>", head + "</head>", 1)
-    if row["gtm"]:
-        html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
-                      'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
-    return accessible_landing(
+    html = accessible_landing(
         html, row["nombre"],
         legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal",
         primary_color=row["color_primario"],
     )
+    return add_tracking_consent(html, row)
 
 
 def auto_description(html):
@@ -773,7 +771,7 @@ def local_business_head(row, url):
     return '<script type="application/ld+json">%s</script>' % payload
 
 
-def tracking_head(c):
+def tracking_scripts(c):
     """Códigos de medición del cliente; se validan al guardarlos (solo letras, números y guiones)."""
     out = ""
     if c["gtm"]:
@@ -792,6 +790,86 @@ def tracking_head(c):
                 "s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');"
                 "fbq('init','%s');fbq('track','PageView');</script>" % c["meta_pixel"])
     return out
+
+
+TRACKING_CONSENT_UI = """
+<template data-lz-tracking>__TRACKING__</template>
+<style>
+[data-lz-consent]{position:fixed;inset:auto 1rem 1rem;z-index:1090;max-width:34rem;padding:1rem;border:1px solid #555;border-radius:.75rem;background:#fff;color:#171717;box-shadow:0 4px 24px #0003}
+[data-lz-consent][hidden]{display:none}
+[data-lz-consent] p{margin:0 0 .75rem}
+[data-lz-consent] div{display:flex;flex-wrap:wrap;gap:.5rem}
+[data-lz-consent] button,[data-lz-consent-open]{min-height:44px;padding:.5rem .75rem;border:1px solid #222;border-radius:.35rem;background:#fff;color:#171717}
+[data-lz-consent] button:focus-visible,[data-lz-consent-open]:focus-visible{outline:3px solid #2358a0;outline-offset:2px}
+[data-lz-consent-open]{display:block;margin:1rem}
+</style>
+<button type="button" data-lz-consent-open>Preferencias de cookies</button>
+<section data-lz-consent aria-label="Preferencias de cookies" hidden>
+<p>Podés permitir o rechazar las cookies de medición y marketing. Tu elección se puede cambiar desde Preferencias de cookies.</p>
+<div>
+<button type="button" data-choice="denied">Rechazar</button>
+<button type="button" data-choice="allowed">Aceptar</button>
+</div>
+</section>
+<script>
+(function () {
+  var template = document.querySelector("[data-lz-tracking]");
+  var panel = document.querySelector("[data-lz-consent]");
+  var opener = document.querySelector("[data-lz-consent-open]");
+  var key = "lanzate:tracking:v1:__LANDING_ID__";
+  var choice = "";
+  var started = false;
+  try { choice = localStorage.getItem(key) || ""; } catch (error) {}
+
+  function start() {
+    if (started) return;
+    started = true;
+    template.content.querySelectorAll("script").forEach(function (source) {
+      var script = document.createElement("script");
+      Array.from(source.attributes).forEach(function (attr) {
+        script.setAttribute(attr.name, attr.value);
+      });
+      script.textContent = source.textContent;
+      document.head.appendChild(script);
+    });
+  }
+
+  function save(value) {
+    var persisted = false;
+    try {
+      localStorage.setItem(key, value);
+      persisted = true;
+    } catch (error) {}
+    if (started && value === "denied") {
+      location.reload();
+      return;
+    }
+    choice = value;
+    panel.hidden = true;
+    opener.focus();
+    if (choice === "allowed" && persisted) start();
+  }
+
+  if (choice === "allowed") start();
+  panel.hidden = choice === "allowed" || choice === "denied";
+  opener.addEventListener("click", function () {
+    panel.hidden = false;
+    panel.querySelector("button").focus();
+  });
+  panel.addEventListener("click", function (event) {
+    if (event.target.dataset.choice) save(event.target.dataset.choice);
+  });
+})();
+</script>
+"""
+
+
+def add_tracking_consent(html, landing):
+    scripts = tracking_scripts(landing)
+    if not scripts:
+        return html
+    ui = TRACKING_CONSENT_UI.replace("__LANDING_ID__", str(int(landing["id"]))).replace("__TRACKING__", scripts)
+    return re.sub(r"</body\s*>", lambda match: ui + match.group(), html, count=1, flags=re.IGNORECASE)
 
 
 # --- Consultas que llegan desde los formularios de las landings publicadas -----
