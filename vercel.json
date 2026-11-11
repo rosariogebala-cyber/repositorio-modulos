@@ -3,7 +3,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,404.html,data/reglas.json,maquetas/*.html}"
+      "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html}"
     }
   },
   "rewrites": [
@@ -24,6 +24,12 @@
     { "source": "/Templates/:cliente/:landing/index.html", "destination": "/api/index?__path=/l/:cliente/:landing" }
   ],
   "headers": [
+    {
+      "source": "/(maquetas/img|assets)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

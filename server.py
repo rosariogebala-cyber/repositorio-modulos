@@ -87,6 +87,7 @@ ROUTES = [
     (re.compile(r"^/api/logout$"), "logout"),
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
+    (re.compile(r"^/api/clientes/(\d+)/logo$"), "logo"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
@@ -97,7 +98,7 @@ ROUTES = [
     (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva")
 PANEL_PAGES = {
     "/maquetas/" + name + ".html"
     for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
@@ -285,10 +286,23 @@ def client_type(row):
     return "demo" if domain in ("example.com", "example.net", "example.org") else "real"
 
 
+def logo_ref(client_id, logo, stamp):
+    return "/api/clientes/%d/logo?v=%d" % (client_id, stamp) if logo else ""
+
+
+def client_logo(client_id):
+    with tx() as con:
+        row = con.execute("SELECT logo FROM clientes WHERE id = %s", (client_id,)).fetchone()
+    match = re.match(r"^data:([\w/+.-]+);base64,(.+)$", (row or {}).get("logo") or "", re.S)
+    if not match:
+        return None
+    return match.group(1), base64.b64decode(match.group(2))
+
+
 def client_dict(row, count=None):
     data = {k: row[k] for k in row.keys() if k not in ("n", "logo")}
     data["tipo_cliente"] = client_type(row)
-    data["logo_url"] = row["logo"]
+    data["logo_url"] = logo_ref(row["id"], row["logo"], row["actualizado"])
     data["carpeta"] = "/l/" + row["slug"] + "/"
     if count is not None:
         data["landings"] = count
@@ -543,6 +557,37 @@ DEMO_PLACEHOLDERS = re.compile(
 )
 
 
+def structure_errors(items, rules):
+    """Errores de estructura que bloquean el guardado, con el mismo criterio que maquetas/js/reglas.js."""
+    if not (rules.get("general") or {}).get("bloquear"):
+        return []
+    estructura = rules.get("estructura") or {}
+    groups = [str(it.get("id") or "").rsplit("-", 1)[0] for it in items if isinstance(it, dict)]
+    if not groups:
+        return []
+    flow = [g for g in groups if g != "whatsapp"]
+    active = {r.get("id"): r for r in estructura.get("reglas") or [] if r.get("activo") and r.get("nivel") == "error"}
+    try:
+        with open(os.path.join(ROOT, "data", "modules.json"), encoding="utf-8") as fh:
+            names = {m["id"]: m["nombre"] for m in json.load(fh)}
+    except (OSError, ValueError, KeyError, TypeError):
+        names = {}
+    errors = []
+    if estructura.get("nivelObligatorios", "error") == "error":
+        for group in estructura.get("obligatorios") or []:
+            if group not in groups:
+                errors.append("falta la sección «%s»" % names.get(group, group))
+    if "inicio-navegacion" in active and "navegacion" in flow and flow[0] != "navegacion":
+        errors.append("la Navegación tiene que ir primera")
+    if "hero-segundo" in active and "hero-full-imagen" in flow:
+        expected = flow.index("navegacion") + 1 if "navegacion" in flow else 0
+        if flow.index("hero-full-imagen") != expected:
+            errors.append("la portada tiene que ir justo después de la Navegación")
+    if "fin-footer" in active and "footer" in flow and flow[-1] != "footer":
+        errors.append("el Footer tiene que ir al final")
+    return errors
+
+
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
@@ -558,6 +603,9 @@ def save_landing(data, landing_id=None):
         raise ApiError(400, "Faltan el nombre o el HTML")
     if not isinstance(items, list):
         raise ApiError(400, "Los módulos no tienen el formato esperado")
+    errors = structure_errors(items, read_rules())
+    if errors:
+        raise ApiError(400, "No se puede guardar: " + "; ".join(errors) + ".")
     ignorados = data.get("ignorados") or []
     ignorados = [str(k)[:300] for k in ignorados][:200] if isinstance(ignorados, list) else []
     descripcion = " ".join(str(data.get("descripcion") or "").split())[:300]
@@ -576,7 +624,7 @@ def save_landing(data, landing_id=None):
         ).fetchone()
         if clash:
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-        html = publish_html(html, items, client["logo"])
+        html = publish_html(html, items, logo_ref(client["id"], client["logo"], client["actualizado"]))
         if client_type(client) == "real":
             placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
             if placeholder:
@@ -658,7 +706,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
 
-    cta_color = accessible_button_color(primary_color)
+    cta_color = None if "--green:" in markup else accessible_button_color(primary_color)
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
         style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
@@ -675,6 +723,11 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
                 image.set("loading", "lazy")
             if not image.get("decoding"):
                 image.set("decoding", "async")
+
+    for heading in body.xpath('.//footer//h2[not(contains(concat(" ", normalize-space(@class), " "), " nx-display "))]'):
+        if len(" ".join(heading.text_content().split())) <= 30:
+            heading.tag = "p"
+            heading.set("class", "h6 nx-footer-label")
 
     for link in body.xpath('.//footer//a[starts-with(@href, "#footer")]'):
         label = " ".join(link.text_content().casefold().split())
@@ -765,6 +818,7 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
+            "c.id AS cliente_id, c.actualizado AS cliente_actualizado, "
             "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
             "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
@@ -814,7 +868,7 @@ def share_head(row, origin, path):
     if client_type(row) == "demo":
         tags.append(("name", "robots", "noindex, nofollow"))
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
-    icon = row["logo"] or "/assets/favicon-lanzate.svg"
+    icon = logo_ref(row["cliente_id"], row["logo"], row["cliente_actualizado"]) or "/assets/favicon-lanzate.svg"
     return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
         escape(icon, quote=True), escape(origin + path, quote=True)
     ) + local_business_head(row, origin + path)
@@ -1434,6 +1488,16 @@ class Handler(SimpleHTTPRequestHandler):
                 if not shot:
                     raise ApiError(404, "La landing no tiene vista previa")
                 self.send_body(200, shot[1], shot[0])
+                return True
+            if name == "logo":
+                logo = client_logo(ident)
+                if not logo:
+                    raise ApiError(404, "El cliente no tiene logo")
+                self.cache_control = "public, max-age=31536000, immutable"
+                try:
+                    self.send_body(200, logo[1], logo[0])
+                finally:
+                    self.cache_control = "no-store"
                 return True
             result = self.dispatch(method, name, ident, query)
         except ApiError as err:

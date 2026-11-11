@@ -5,7 +5,7 @@
 
   var DEFAULTS = {
     version: 1,
-    general: { bloquear: false },
+    general: { bloquear: true },
     estructura: {
       obligatorios: ["navegacion", "hero-full-imagen", "footer"],
       nivelObligatorios: "error",
