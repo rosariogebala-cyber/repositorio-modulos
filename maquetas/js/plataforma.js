@@ -92,6 +92,7 @@
       '<button class="lb-dialog-close" type="button" data-pf-cancel aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>' +
       '<div class="pf-form">' +
       '<label class="pf-field is-wide"><span>Nombre o razón social *</span><input class="lb-input" name="nombre" required autocomplete="organization" placeholder="Ej: Estudio Aurora"></label>' +
+      '<label class="pf-field"><span>Tipo de cliente</span><select class="lb-input" name="tipo_cliente"><option value="real">Real</option><option value="demo">Demo</option></select></label>' +
       '<label class="pf-field"><span>Rubro</span><input class="lb-input" name="rubro" placeholder="Ej: Arquitectura"></label>' +
       '<label class="pf-field"><span>Contacto</span><input class="lb-input" name="contacto" autocomplete="name" placeholder="Nombre y apellido"></label>' +
       '<label class="pf-field"><span>Email</span><input class="lb-input" name="email" type="email" autocomplete="email" placeholder="hola@example.com"></label>' +
@@ -203,6 +204,7 @@
       TEXT_FIELDS.concat(["color_primario", "color_secundario"]).forEach(function (k) {
         data[k] = f.elements[k].value.trim();
       });
+      data.tipo_cliente = f.elements.tipo_cliente.value;
       data.estado = currentEstado();
       var mode = logoModo.querySelector('[aria-pressed="true"]');
       data.logo_modo = mode ? mode.getAttribute("data-value") : "";
@@ -242,6 +244,7 @@
         TEXT_FIELDS.forEach(function (k) { f.elements[k].value = c[k] || ""; });
         f.elements.color_primario.value = c.color_primario || "#1b5e42";
         f.elements.color_secundario.value = c.color_secundario || "#e7f3ee";
+        f.elements.tipo_cliente.value = c.tipo_cliente || "real";
         setEstado(c.estado || "activo");
         setLogoModo(c.logo_modo || (c.logo_url ? "imagen" : "texto"));
         showLogo(c.logo_url || "");
@@ -340,6 +343,7 @@
     var msg = document.querySelector("[data-pf-msg]");
     var search = document.querySelector("[data-pf-search]");
     var filter = document.querySelector("[data-pf-filter]");
+    var typeFilter = document.querySelector("[data-pf-type]");
     var count = document.querySelector("[data-pf-count]");
     var clients = [];
     var estado = "";
@@ -348,6 +352,7 @@
       var q = normalize(search.value.trim());
       var list = clients.filter(function (c) {
         return (!estado || c.estado === estado) &&
+          (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
       });
       grid.innerHTML = "";
@@ -365,7 +370,7 @@
           (c.telefono ? '<li><i class="bi bi-telephone"></i>' + esc(c.telefono) + "</li>" : "") +
           (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
           "</ul>" +
-          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + "</span>" +
+          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + "</span>" +
           '<span class="pf-client-actions"><button class="lb-act" type="button" data-act="edit"><i class="bi bi-pencil"></i> Editar</button>' +
           '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
         art.querySelector('[data-act="edit"]').addEventListener("click", function () { edit(c); });
@@ -397,6 +402,7 @@
       });
     });
     search.addEventListener("input", render);
+    typeFilter.addEventListener("change", render);
     filter.addEventListener("click", function (e) {
       var b = e.target.closest("[data-value]");
       if (!b) return;

@@ -4,22 +4,41 @@ const palette = { estructura:'#5a3df2', contenido:'#3b4fd8', negocio:'#b0703a', 
 const $ = selector => document.querySelector(selector);
 const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 let termino = '', lastFocus;
+const bibliotecaCompacta = window.matchMedia('(max-width: 575.98px)');
 const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function renderCategorias() {
   $('#categorias').innerHTML = modulos.map(m => `<a class="category" href="#${m.id}" data-module="${m.id}">${escapeHTML(m.nombre)}</a>`).join('');
 }
 function renderModulos() {
   const visible = modulos.filter(m => normalize(m.nombre+' '+m.descripcion).includes(normalize(termino)));
+  const seccion = modulos.find(m => '#' + m.id === location.hash);
+  const compacta = bibliotecaCompacta.matches && !termino;
+  const mostrados = compacta ? [seccion || visible[0]].filter(Boolean) : visible;
+  document.querySelectorAll('#categorias [data-module]').forEach(link => {
+    const activa = compacta ? link.dataset.module === mostrados[0]?.id : link.hash === location.hash;
+    link.classList.toggle('active', activa);
+    if (activa) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
   $('#sin-resultados').hidden = visible.length > 0;
-  $('#recuento').textContent = `${visible.length} de ${modulos.length} secciones · ${visible.length*3} propuestas`;
+  $('#recuento').textContent = `${mostrados.length} de ${modulos.length} secciones · ${mostrados.length*3} propuestas`;
   $('#limpiar').hidden = !termino;
-  $('#modulos').innerHTML = visible.map(m => `<section class="module-section" id="${m.id}"><div class="module-heading"><div class="module-title"><span class="circle" style="background:${palette[m.categoria]}">${String(m.numero).padStart(2,'0')}</span><h2>${escapeHTML(m.nombre)}</h2></div><p>${escapeHTML(m.descripcion)}</p></div>${m.variantes.map(v=>`<figure class="variant-card"><button type="button" class="preview" aria-label="Ampliar ${escapeHTML(m.nombre)}, variante ${v.nombre}" data-img="${v.imagen}" data-label="${escapeHTML(m.nombre)} · ${v.nombre}"><img loading="lazy" decoding="async" src="${v.imagen}" width="${v.ancho}" height="${v.alto}" alt="${escapeHTML(m.nombre)}, variante ${v.nombre}"></button><figcaption><span>${v.nombre}</span><span>${v.ancho} × ${v.alto} px</span></figcaption></figure>`).join('')}</section>`).join('');
+  $('#modulos').innerHTML = mostrados.map(m => `<section class="module-section" id="${m.id}"><div class="module-heading"><div class="module-title"><span class="circle" style="background:${palette[m.categoria]}">${String(m.numero).padStart(2,'0')}</span><h2>${escapeHTML(m.nombre)}</h2></div><p>${escapeHTML(m.descripcion)}</p></div>${m.variantes.map(v=>`<figure class="variant-card"><button type="button" class="preview" aria-label="Ampliar ${escapeHTML(m.nombre)}, variante ${v.nombre}" data-img="${v.imagen}" data-label="${escapeHTML(m.nombre)} · ${v.nombre}"><img loading="lazy" decoding="async" src="${v.imagen}" width="${v.ancho}" height="${v.alto}" alt="${escapeHTML(m.nombre)}, variante ${v.nombre}"></button><figcaption><span>${v.nombre}</span><span>${v.ancho} × ${v.alto} px</span></figcaption></figure>`).join('')}</section>`).join('');
 }
 $('#categorias').addEventListener('click', e => {
-  const link=e.target.closest('[data-module]');if(!link)return;
-  if(termino){termino='';$('#buscar').value='';renderModulos();}
-  document.querySelectorAll('[data-module]').forEach(a=>{a.classList.toggle('active',a===link);a.removeAttribute('aria-current');});
-  link.setAttribute('aria-current','location');
+  const link = e.target.closest('[data-module]');
+  if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  termino = '';
+  $('#buscar').value = '';
+  if (location.hash !== link.hash) history.pushState(null, '', link.hash);
+  renderModulos();
+  document.getElementById(link.dataset.module)?.scrollIntoView();
+});
+bibliotecaCompacta.addEventListener('change', renderModulos);
+window.addEventListener('hashchange', () => {
+  renderModulos();
+  document.getElementById(location.hash.slice(1))?.scrollIntoView();
 });
 $('#buscar').addEventListener('input',e=>{termino=e.target.value.trim();renderModulos();});
 $('#limpiar').addEventListener('click',()=>{termino='';$('#buscar').value='';renderCategorias();renderModulos();});
