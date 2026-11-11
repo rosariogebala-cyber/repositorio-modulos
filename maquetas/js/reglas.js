@@ -108,10 +108,7 @@
   }
 
   function load() {
-    return api("GET", "/api/reglas").then(merge, function () {
-      return fetch("../data/reglas.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
-        .catch(function () { return null; }).then(merge);
-    });
+    return api("GET", "/api/reglas").then(merge, function () { return merge(null); });
   }
 
   function save(rules) {

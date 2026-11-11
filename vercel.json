@@ -3,10 +3,17 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,data/reglas.json}"
+      "includeFiles": "{server.py,data/reglas.json,maquetas/*.html}"
     }
   },
   "rewrites": [
+    { "source": "/maquetas/constructor.html", "destination": "/api/index?__path=/maquetas/constructor.html" },
+    { "source": "/maquetas/landings.html", "destination": "/api/index?__path=/maquetas/landings.html" },
+    { "source": "/maquetas/clientes.html", "destination": "/api/index?__path=/maquetas/clientes.html" },
+    { "source": "/maquetas/cliente.html", "destination": "/api/index?__path=/maquetas/cliente.html" },
+    { "source": "/maquetas/consultas.html", "destination": "/api/index?__path=/maquetas/consultas.html" },
+    { "source": "/maquetas/reglas.html", "destination": "/api/index?__path=/maquetas/reglas.html" },
+    { "source": "/data/reglas.json", "destination": "/api/index?__path=/data/reglas.json" },
     { "source": "/api/:path*", "destination": "/api/index?__path=/api/:path*" },
     { "source": "/l/:cliente/:landing", "destination": "/api/index?__path=/l/:cliente/:landing" },
     { "source": "/l/:cliente/:landing/", "destination": "/api/index?__path=/l/:cliente/:landing" },

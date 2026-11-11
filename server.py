@@ -26,7 +26,7 @@ from functools import partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 import psycopg
@@ -97,6 +97,10 @@ ROUTES = [
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
 PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
+PANEL_PAGES = {
+    "/maquetas/" + name + ".html"
+    for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
+}
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
@@ -234,6 +238,16 @@ def save_rules(data):
 
 def access_key():
     return os.environ.get("LANZATE_CLAVE") or ""
+
+
+def access_user():
+    return os.environ.get("LANZATE_USUARIO") or "Lanzate11"
+
+
+def valid_credentials(usuario, clave):
+    user_ok = hmac.compare_digest(usuario.encode("utf-8"), access_user().encode("utf-8"))
+    password_ok = hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8"))
+    return user_ok and password_ok
 
 
 def session_secret():
@@ -1325,6 +1339,23 @@ class Handler(SimpleHTTPRequestHandler):
     def serve_lanzate(self, method):
         """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
         path, query = self.route()
+        if path in PANEL_PAGES and method in ("GET", "HEAD"):
+            if not self.authorized():
+                target = path + ("?" + urlencode(query, doseq=True) if query else "")
+                self.send_response(303)
+                self.send_header("Location", "/maquetas/login.html?" + urlencode({"volver": target}))
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
+                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
+            return True
+        if path == "/data/reglas.json" and method in ("GET", "HEAD"):
+            if self.authorized():
+                self.send_json(200, read_rules())
+            else:
+                self.send_json(401, {"error": "Ingresá a Lanzate para consultar las reglas."})
+            return True
         page = LANDING_PAGE.match(path)
         if page and method in ("GET", "HEAD"):
             try:
@@ -1372,10 +1403,12 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "login" and method == "POST":
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave de acceso (LANZATE_CLAVE).")
-            clave = str(self.read_json().get("clave") or "")
-            if not hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8")):
+            credentials = self.read_json()
+            usuario = str(credentials.get("usuario") or "")
+            clave = str(credentials.get("clave") or "")
+            if not valid_credentials(usuario, clave):
                 time.sleep(1)
-                raise ApiError(401, "La clave no es correcta.")
+                raise ApiError(401, "El usuario o la contraseña no son correctos.")
             self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
             return {"ok": True}
         if name == "logout" and method == "POST":
