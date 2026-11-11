@@ -4,6 +4,15 @@
   /* En una landing publicada los formularios envían la consulta; en las maquetas y la vista previa son de muestra */
   var leadMeta = document.querySelector('meta[name="lz-landing"]');
   if (leadMeta) {
+    document.querySelectorAll(".nx-footer h2.h6").forEach(function (heading) {
+      var label = document.createElement("p");
+      Array.prototype.forEach.call(heading.attributes, function (attr) {
+        label.setAttribute(attr.name, attr.value);
+      });
+      label.classList.add("nx-footer-label");
+      while (heading.firstChild) label.appendChild(heading.firstChild);
+      heading.replaceWith(label);
+    });
     document.querySelectorAll('form input[name="web"]').forEach(function (trap) {
       trap.hidden = true;
       trap.tabIndex = -1;

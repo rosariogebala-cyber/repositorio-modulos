@@ -15,6 +15,7 @@
   --shadow: 0 14px 40px rgba(23, 53, 44, 0.08);
   --radius: 18px;
   --fs-label: 12px;
+  --fs-section-title: clamp(2rem, 4vw, 3.15rem);
   --fs-button: 15px;
   --fs-field: 16px;
   --ctl-h-lg: 44px;
@@ -119,7 +120,7 @@ button, input, textarea { font-family: inherit; }
   margin: 0;
   font-family: Fraunces, Georgia, serif;
   font-weight: 500;
-  font-size: clamp(2rem, 4vw, 3.15rem);
+  font-size: var(--fs-section-title);
   letter-spacing: -0.03em;
   line-height: 1.12;
 }
@@ -3436,3 +3437,8 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 #lbImgTip .is-warn { color: #8a4600; }
 #lbImgTip .is-good { color: #17623f; }
+
+/* Los títulos de sección comparten escala en las landings. */
+.landing-page .nx h2:not(.h6, .modal-title, .nx-kicker, .plan-kicker) {
+  font-size: var(--fs-section-title);
+}
