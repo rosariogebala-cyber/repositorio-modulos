@@ -67,7 +67,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.colores || null, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -355,7 +355,6 @@
       li.innerHTML =
         '<span class="lb-item-num">' + (pin ? '<i class="bi bi-pin-angle" title="' + (pin === -1 ? "Fija arriba" : "Fijo al final") + '"></i>' : '<i class="bi bi-grip-vertical lb-item-grip" title="Arrastrá para mover"></i>') + "<b>" + String(i + 1).padStart(2, "0") + "</b></span>" +
         '<strong class="lb-item-text">' + escapeHtml(m.group) + "</strong>" +
-        '<small class="lb-item-meta">' + [escapeHtml(m.variant)].concat(pin === -1 ? ["fija"] : pin === 1 ? ["fijo"] : [], it.html || it.textos || it.imagenes || it.links || it.ocultos ? ["editado"] : []).join("&nbsp;· ") + "</small>" +
         '<span class="lb-item-tools">' +
         '<button type="button" data-act="up" aria-label="Subir ' + escapeHtml(m.group) + '"' + (noUp ? " disabled" : "") + '><i class="bi bi-arrow-up"></i></button>' +
         '<button type="button" data-act="down" aria-label="Bajar ' + escapeHtml(m.group) + '"' + (noDown ? " disabled" : "") + '><i class="bi bi-arrow-down"></i></button>' +
@@ -378,6 +377,7 @@
     orderFoot.hidden = n === 0;
     settings.hidden = n === 0;
     renderSettings();
+    renderSectionColors();
   }
 
   function pressSeg(seg, value) {
@@ -391,6 +391,56 @@
     var same = widths.length && widths.every(function (w) { return w === widths[0]; }) ? widths[0] : "";
     pressSeg(allSeg, same);
     pressSeg(animSeg, state.animacion || "");
+  }
+
+  function fondoNote(it) {
+    if (!it.fondo) return { bad: false, text: "Todavía usa el fondo del módulo." };
+    var colors = effectiveColors();
+    var checks = [["Títulos", colors.titulos], ["Párrafos", colors.parrafos], ["Etiquetas", colors.etiquetas]];
+    if (/^navegacion/.test(it.id) && colors.nav) checks = [["Textos del menú", colors.nav]];
+    if (/^hero/.test(it.id) && colors.hero) checks = [["Textos de la portada", colors.hero]];
+    var worst = checks.map(function (pair) {
+      return { name: pair[0], ratio: contrastRatio(pair[1], it.fondo) };
+    }).sort(function (a, b) { return a.ratio - b.ratio; })[0];
+    var value = (Math.round(worst.ratio * 10) / 10).toFixed(1);
+    var bad = worst.ratio < 4.5;
+    return { bad: bad, text: worst.name + " sobre este fondo: " + value + ":1. " + (bad ? "Hace falta 4.5:1." : "Llega a 4.5:1.") };
+  }
+
+  function paintFondoNodes(root, color) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll(".nx").forEach(function (el) {
+      if (el.parentElement && el.parentElement.closest(".nx")) return;
+      el.style.backgroundColor = color || "";
+    });
+  }
+
+  function paintFondo(color, index) {
+    var doc = frameDoc();
+    var section = doc && doc.querySelectorAll("body > section.mq-block")[index];
+    if (section) paintFondoNodes(section, color);
+  }
+
+  function normalizeHex(value) {
+    var hex = String(value || "").trim();
+    if (hex.charAt(0) !== "#") hex = "#" + hex;
+    return /^#[0-9a-f]{6}$/i.test(hex) ? hex.toLowerCase() : "";
+  }
+
+  function paintLandingColors() {
+    var doc = frameDoc();
+    if (!doc || !doc.head) return;
+    var style = doc.getElementById("lz-live-colors");
+    if (!state.colores) {
+      if (style) style.remove();
+      return;
+    }
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "lz-live-colors";
+      doc.head.appendChild(style);
+    }
+    style.textContent = colorStyle(state.colores);
   }
 
   function frameDoc() {
@@ -545,6 +595,154 @@
     return vars.length ? ":root { " + vars.join("; ") + "; }" : "";
   }
 
+  var COLOR_MARK = /\/\*lz-colores (\{[\s\S]*?\})\*\//;
+
+  function channelLinear(channel) {
+    var value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  }
+
+  function luminance(hex) {
+    var n = parseInt(String(hex).slice(1), 16);
+    return [16, 8, 0].reduce(function (sum, shift, i) {
+      return sum + [0.2126, 0.7152, 0.0722][i] * channelLinear((n >> shift) & 255);
+    }, 0);
+  }
+
+  function contrastRatio(a, b) {
+    var hi = Math.max(luminance(a), luminance(b));
+    var lo = Math.min(luminance(a), luminance(b));
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  function readLandingColors(estilo) {
+    var match = COLOR_MARK.exec(estilo || "");
+    if (!match) return null;
+    try {
+      var data = JSON.parse(match[1]);
+      if (data.texto && !data.titulos) data.titulos = data.texto;
+      return ["titulos", "acento", "iconos"].every(function (key) { return /^#[0-9a-f]{6}$/i.test(data[key] || ""); }) ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function stripLandingColors(estilo) {
+    return (estilo || "").replace(COLOR_MARK, "").replace(/^\n+/, "");
+  }
+
+  function effectiveColors() {
+    var client = currentClient();
+    var accent = client && /^#[0-9a-f]{6}$/i.test(client.color_primario || "") ? client.color_primario : DEFAULT_COLORS.c1;
+    var base = { titulos: "#17352c", parrafos: "#5f6f68", etiquetas: accent, acento: accent, iconos: accent };
+    if (state.colores && state.colores.texto && !state.colores.titulos) base.titulos = state.colores.texto;
+    return Object.assign(base, state.colores || {});
+  }
+
+  function colorStyle(colors) {
+    if (!colors) return "";
+    return ":root { --ink: " + colors.titulos + "; --muted: " + colors.parrafos + "; --lz-label: " + colors.etiquetas +
+      "; --green: " + colors.acento + "; --green-deep: " + shade(colors.acento, -0.28) + "; --lz-icon: " + colors.iconos + "; }" +
+      ".landing-page { color: var(--ink); }" +
+      ".landing-page :is(p, li, blockquote, figcaption, dd) { color: var(--muted); }" +
+      ".landing-page :is(.nx-kicker, .plan-kicker, .badge, .k) { color: var(--lz-label); }" +
+      ".landing-page .bi { color: var(--lz-icon); }" +
+      (colors.nav ? '.landing-page [data-module^="navegacion"] :is(a, span, strong, p, li, button, .bi):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.nav + "; }" : "") +
+      (colors.hero ? '.landing-page [data-module^="hero"] :is(h1, h2, h3, p, li, span, .nx-kicker):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.hero + "; }" : "") +
+      ".landing-page :is(.btn-nx, .btn-nx-outline, .btn-nx-light) .bi { color: inherit; }";
+  }
+
+  function contrastNotes(colors) {
+    var pairs = [
+      ["Texto blanco del botón", "#ffffff", colors.acento, 4.5],
+      ["Íconos sobre fondo claro", colors.iconos, "#f7f4ef", 3]
+    ];
+    return pairs.map(function (pair) {
+      var ratio = contrastRatio(pair[1], pair[2]);
+      var ok = ratio >= pair[3];
+      var value = (Math.round(ratio * 10) / 10).toFixed(1);
+      return '<li class="' + (ok ? "" : "is-bad") + '">' + pair[0] + ": " + value + ":1. " +
+        (ok ? "Llega al mínimo de " + pair[3] + ":1." : "Hace falta " + pair[3] + ":1. Oscurecé o aclará uno de los dos.") + "</li>";
+    }).join("");
+  }
+
+  function renderSectionColors() {
+    var list = document.querySelector("[data-lb-fondos]");
+    if (!list) return;
+    list.innerHTML = "";
+    if (!state.items.length) {
+      list.innerHTML = '<li class="lb-hint">Sumá módulos y acá vas a poder pintar el fondo de cada uno.</li>';
+      return;
+    }
+    state.items.forEach(function (it, i) {
+      var m = byId[it.id];
+      if (!m) return;
+      var status = fondoNote(it);
+      var li = document.createElement("li");
+      li.className = "lb-fondo-row";
+      li.innerHTML =
+        '<span class="lb-swatch-name"><b>' + String(i + 1).padStart(2, "0") + "</b> " + escapeHtml(m.group) + "</span>" +
+        '<span class="lb-color-controls">' +
+        '<input type="color" data-fondo value="' + (it.fondo || "#f7f4ef") + '" aria-label="Fondo de ' + escapeHtml(m.group) + '">' +
+        '<input class="lb-hex" type="text" data-fondo-hex value="' + (it.fondo || "#f7f4ef") + '" maxlength="7" spellcheck="false" autocapitalize="off" aria-label="Hexadecimal del fondo de ' + escapeHtml(m.group) + '">' +
+        "</span>" +
+        '<span class="lb-fondo-note' + (status.bad ? " is-bad" : "") + '" data-fondo-note' + (it.fondo ? "" : " hidden") + ">" + status.text + "</span>" +
+        '<button type="button" class="lb-link" data-fondo-reset' + (it.fondo ? "" : " hidden") + ">Color original</button>";
+      var input = li.querySelector("[data-fondo]");
+      var hexInput = li.querySelector("[data-fondo-hex]");
+      function applyFondo(raw, fromHex) {
+        var hex = normalizeHex(raw);
+        if (!hex) return;
+        it.fondo = hex;
+        if (!fromHex) hexInput.value = hex;
+        input.value = hex;
+        paintFondo(hex, i);
+        var note = li.querySelector("[data-fondo-note]");
+        var next = fondoNote(it);
+        note.hidden = false;
+        note.textContent = next.text;
+        note.classList.toggle("is-bad", next.bad);
+        li.querySelector("[data-fondo-reset]").hidden = false;
+        renderMode();
+        saveDraft();
+      }
+      input.addEventListener("input", function () { applyFondo(input.value, false); });
+      hexInput.addEventListener("input", function () { applyFondo(hexInput.value, true); });
+      li.querySelector("[data-fondo-reset]").addEventListener("click", function () {
+        delete it.fondo;
+        input.value = "#f7f4ef";
+        hexInput.value = "#f7f4ef";
+        paintFondo("", i);
+        li.querySelector("[data-fondo-note]").hidden = true;
+        this.hidden = true;
+        renderMode();
+        saveDraft();
+      });
+      list.appendChild(li);
+    });
+  }
+
+  function renderColors() {
+    var box = document.querySelector("[data-lb-contrast]");
+    if (!box) return;
+    var colors = effectiveColors();
+    document.querySelectorAll("[data-color], [data-hex]").forEach(function (input) {
+      if (document.activeElement === input) return;
+      var key = input.getAttribute("data-color") || input.getAttribute("data-hex");
+      input.value = colors[key] || { nav: "#17352c", hero: "#ffffff" }[key] || input.value;
+    });
+    box.innerHTML = contrastNotes(colors);
+    document.querySelectorAll("[data-lb-fondos] [data-fondo-row], [data-lb-fondos] .lb-fondo-row").forEach(function (row) {
+      var note = row.querySelector("[data-fondo-note]");
+      var input = row.querySelector("[data-fondo]");
+      if (!note || !input || note.hidden) return;
+      var fake = { fondo: input.value };
+      var status = fondoNote(fake);
+      note.textContent = status.text;
+      note.classList.toggle("is-bad", status.bad);
+    });
+  }
+
   /* Textos editables: cada módulo guarda sus cambios en it.textos, por posición */
   var EDIT_SEL = "h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, a, button, label, .nx-kicker, .plan-kicker, .badge";
 
@@ -613,6 +811,7 @@
     var linkText = links.map(function (el) { return el.textContent.replace(/\s+/g, " ").trim().toLowerCase(); });
     links.forEach(function (el, k) { el.setAttribute("data-lb-l", k); });
     applyClient(tpl.content, currentClient(), preview);
+    paintFondoNodes(tpl.content, it.fondo);
     var textos = withTexts && it.textos || {};
     nodes.forEach(function (el, k) {
       if (textos[k] != null) el.innerHTML = textos[k];
@@ -681,6 +880,7 @@
       '  <link href="' + ICONS_CSS + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
+      state.colores ? "  <style>" + colorStyle(state.colores) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
       "</head>",
       '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
@@ -2576,6 +2776,7 @@
     if (jumpBtn) renderJump();
     renderAi();
     renderImgSave();
+    renderColors();
     stepDone(1, !!state.clienteId && !!state.name.trim());
     stepDone(2, state.items.length > 0);
 
@@ -2644,6 +2845,7 @@
         if (it.links) item.links = it.links;
         if (it.ocultos) item.ocultos = it.ocultos;
         if (it.menuAjustado) item.menuAjustado = true;
+        if (/^#[0-9a-f]{6}$/i.test(it.fondo || "")) item.fondo = it.fondo;
         return item;
       }),
       estilo: lp.estilo || "",
@@ -2651,6 +2853,8 @@
       descripcion: lp.descripcion || "",
       animacion: lp.animacion || ""
     };
+    state.colores = readLandingColors(state.estilo);
+    state.estilo = stripLandingColors(state.estilo);
     savedSnapshot = snapshot();
     menuDefaults(state.items);
     nameInput.value = state.name;
@@ -2789,7 +2993,9 @@
     if (todo.length) { goTo(todo[0].key); return; }
     var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: state.estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    var estilo = stripLandingColors(state.estilo);
+    if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
+    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -2984,6 +3190,30 @@
     saveDraft();
   });
 
+  function setLandingColor(key, value) {
+    var hex = normalizeHex(value);
+    if (!hex) return;
+    var next = effectiveColors();
+    next[key] = hex;
+    state.colores = next;
+    paintLandingColors();
+    renderColors();
+    renderMode();
+    saveDraft();
+  }
+  document.querySelectorAll("[data-color], [data-hex]").forEach(function (input) {
+    input.addEventListener("input", function () {
+      setLandingColor(input.getAttribute("data-color") || input.getAttribute("data-hex"), input.value);
+    });
+  });
+  var resetColors = document.querySelector("[data-lb-colors-reset]");
+  if (resetColors) resetColors.addEventListener("click", function () {
+    state.colores = null;
+    paintLandingColors();
+    renderColors();
+    renderMode();
+    saveDraft();
+  });
   nameInput.addEventListener("input", function () {
     state.name = nameInput.value;
     renderMode();
@@ -3016,6 +3246,8 @@
       descripcion: draft.descripcion || "",
       animacion: draft.animacion == null ? "suave" : draft.animacion
     };
+    state.colores = readLandingColors(state.estilo) || draft.colores || null;
+    state.estilo = stripLandingColors(state.estilo);
     savedSnapshot = draft.saved || null;
     if (!state.landingId) menuDefaults(state.items);
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
