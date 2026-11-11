@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
 );
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS tipo_cliente TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS direccion TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT '';
@@ -258,8 +259,17 @@ def login_required():
 
 # --- Clientes ----------------------------------------------------------------
 
+def client_type(row):
+    saved = row.get("tipo_cliente")
+    if saved in ("real", "demo"):
+        return saved
+    domain = row["email"].strip().lower().rpartition("@")[2]
+    return "demo" if domain in ("example.com", "example.net", "example.org") else "real"
+
+
 def client_dict(row, count=None):
     data = {k: row[k] for k in row.keys() if k not in ("n", "logo")}
+    data["tipo_cliente"] = client_type(row)
     data["logo_url"] = row["logo"]
     data["carpeta"] = "/l/" + row["slug"] + "/"
     if count is not None:
@@ -294,6 +304,10 @@ def clean_client(data):
         if value and not pattern.match(value):
             raise ApiError(400, "Revisá la medición: " + hint)
         values[field] = value
+    if "tipo_cliente" in data:
+        if data["tipo_cliente"] not in ("real", "demo"):
+            raise ApiError(400, "Elegí si el cliente es real o demo")
+        values["tipo_cliente"] = data["tipo_cliente"]
     return values
 
 
@@ -462,6 +476,13 @@ def cover_of(html):
     return match.group(1) if match else ""
 
 
+DEMO_PLACEHOLDERS = re.compile(
+    r"\bexample\.(?:com|net|org)\b|\b5491123456789\b|\b2345\s+6789\b|"
+    r"\b(?:marca ejemplo|calle ejemplo|lorem ipsum)\b",
+    re.IGNORECASE,
+)
+
+
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
@@ -496,6 +517,10 @@ def save_landing(data, landing_id=None):
         if clash:
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, client["logo"])
+        if client_type(client) == "real":
+            placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
+            if placeholder:
+                raise ApiError(400, "Reemplazá el dato de ejemplo «%s» antes de publicar." % placeholder.group())
         stamp = now_ms()
         values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
         if landing_id:
@@ -555,7 +580,7 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.ga4, c.gtm, c.meta_pixel "
+            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.ga4, c.gtm, c.meta_pixel "
             "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
@@ -599,6 +624,8 @@ def share_head(row, origin, path):
         ("property", "og:image", image),
         ("name", "twitter:card", "summary_large_image" if image else "summary"),
     ]
+    if client_type(row) == "demo":
+        tags.append(("name", "robots", "noindex, nofollow"))
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
     icon = row["logo"] or "/assets/favicon-lanzate.svg"
     return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
@@ -608,7 +635,7 @@ def share_head(row, origin, path):
 
 def local_business_head(row, url):
     address = row["direccion"].strip()
-    if not address or "ejemplo" in address.casefold() or row["email"].strip().lower().endswith("@example.com"):
+    if not address or "ejemplo" in address.casefold() or client_type(row) == "demo":
         return ""
     business = {
         "@context": "https://schema.org",
