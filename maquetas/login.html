@@ -30,7 +30,7 @@
       var form = document.querySelector("[data-lz-login]");
       var msg = document.querySelector("[data-lz-msg]");
       var volver = new URLSearchParams(location.search).get("volver") || "constructor.html";
-      if (!/^\/(?!\/)/.test(volver) && !/^[\w.-]+\.html/.test(volver)) volver = "constructor.html";
+      if (!/^(?:\/maquetas\/)?(?:constructor|landings|clientes|cliente|consultas|reglas)\.html(?:\?|$)/.test(volver)) volver = "constructor.html";
       fetch("/api/sesion", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (s) {
         if (s.ok) location.replace(volver);
       }).catch(function () {});

@@ -26,7 +26,7 @@ from functools import partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 import psycopg
@@ -97,6 +97,10 @@ ROUTES = [
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
 PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
+PANEL_PAGES = {
+    "/maquetas/" + name + ".html"
+    for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
+}
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
@@ -1325,6 +1329,23 @@ class Handler(SimpleHTTPRequestHandler):
     def serve_lanzate(self, method):
         """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
         path, query = self.route()
+        if path in PANEL_PAGES and method in ("GET", "HEAD"):
+            if not self.authorized():
+                target = path + ("?" + urlencode(query, doseq=True) if query else "")
+                self.send_response(303)
+                self.send_header("Location", "/maquetas/login.html?" + urlencode({"volver": target}))
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
+                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
+            return True
+        if path == "/data/reglas.json" and method in ("GET", "HEAD"):
+            if self.authorized():
+                self.send_json(200, read_rules())
+            else:
+                self.send_json(401, {"error": "Ingresá a Lanzate para consultar las reglas."})
+            return True
         page = LANDING_PAGE.match(path)
         if page and method in ("GET", "HEAD"):
             try:
