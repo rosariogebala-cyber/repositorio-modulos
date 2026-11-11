@@ -652,37 +652,13 @@ def accessible_button_color(color):
             return "#%02x%02x%02x" % candidate
 
 
-def accessible_landing(markup, title, legacy_jimena=False, primary_color=None, legal_links=None):
+def accessible_landing(markup, title, primary_color=None, legal_links=None):
     document = html_dom.document_fromstring(markup)
     body = document.find("body")
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
 
-    if legacy_jimena:
-        assets = "https://rosariogebala-cyber.github.io/jimenavidal/assets/img/"
-        for image in document.xpath('//img[starts-with(@src, "/maquetas/img/jimena/faq/")]'):
-            image.set("src", assets + "faq/" + image.get("src").rsplit("/", 1)[-1])
-        for frame in document.xpath('//article[@data-oferta]/div[button/img[starts-with(@src, "/api/landings/26/ofertas/")]]'):
-            frame.getparent().remove(frame)
-        for meta in document.xpath('//meta[@property="og:image" and contains(@content, "/maquetas/img/jimena/compartir.jpg")]'):
-            meta.set("content", assets + "compartir.jpg")
-        for carousel in document.xpath('//*[@id="heroJimena"]'):
-            carousel.attrib.pop("data-bs-ride", None)
-            carousel.set("data-bs-interval", "false")
-            for video in carousel.xpath(".//video"):
-                video.attrib.pop("autoplay", None)
-                video.attrib.pop("loop", None)
-        style = etree.SubElement(document.find("head"), "style")
-        style.text = (
-            ":root{--green:#c2410c}"
-            "#heroJimena .nx-hero-slide{background-image:url("
-            + assets + "compartir.jpg)}"
-            "@media(max-width:767.98px){#heroJimena .nx-hero-slide .container{"
-            "width:100%;min-width:0;padding-inline:24px;margin-inline:auto}"
-            "#heroJimena .nx-hero-slide .container>div{max-width:100%;margin-inline:0}}"
-        )
-
-    cta_color = accessible_button_color("#c2410c" if legacy_jimena else primary_color)
+    cta_color = accessible_button_color(primary_color)
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
         style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
@@ -800,7 +776,6 @@ def landing_page(cliente_slug, slug, origin=""):
     html = row["html"].replace("</head>", head + "</head>", 1)
     html = accessible_landing(
         html, row["nombre"],
-        legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal",
         primary_color=row["color_primario"],
         legal_links=row,
     )
