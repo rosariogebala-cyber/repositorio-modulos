@@ -677,8 +677,8 @@
       '  <link rel="preconnect" href="https://fonts.googleapis.com">',
       '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
       '  <link href="' + FONTS + '" rel="stylesheet">',
-      '  <link href="' + BOOTSTRAP_CSS + '" rel="stylesheet">',
-      '  <link href="' + ICONS_CSS + '" rel="stylesheet">',
+      '  <link href="' + BOOTSTRAP_CSS + '" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">',
+      '  <link href="' + ICONS_CSS + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
@@ -687,7 +687,7 @@
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = [
-      '  <script src="' + BOOTSTRAP_JS + '"></' + "script>",
+      '  <script src="' + BOOTSTRAP_JS + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
       '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
@@ -1323,7 +1323,7 @@
     var sizeId = "lbImgSize" + Date.now();
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
-      "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
+      "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\" role=\"status\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
       (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' +
         (ai ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
@@ -1336,8 +1336,8 @@
       var span = tip.querySelector("#" + sizeId);
       if (!span) return;
       var small = role && ((role.minAncho && probe.naturalWidth < role.minAncho) || (role.minAlto && probe.naturalHeight < role.minAlto));
-      span.textContent = "Mide " + probe.naturalWidth + "×" + probe.naturalHeight + "\u00a0px";
-      span.className = small ? "is-bad" : "";
+      span.textContent = (small ? "Resolución baja · " : role ? "Resolución correcta · " : "") + probe.naturalWidth + "×" + probe.naturalHeight + "\u00a0px";
+      span.className = small ? "is-warn" : role ? "is-good" : "";
     };
     probe.onerror = function () {
       var span = tip.querySelector("#" + sizeId);
@@ -1449,24 +1449,38 @@
   }
 
   function compressImage(img, role) {
-    var maxW = Math.max((role && role.minAncho) || 0, 1920);
-    var maxH = Math.max((role && role.minAlto) || 0, 1920);
-    var ratio = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    var minW = (role && role.minAncho) || 0;
+    var minH = (role && role.minAlto) || 0;
+    var floor = Math.min(1, Math.max(minW / img.naturalWidth, minH / img.naturalHeight));
+    var scale = Math.min(1, Math.max(floor, 1920 / Math.max(img.naturalWidth, img.naturalHeight)));
     var canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.naturalWidth * ratio);
-    canvas.height = Math.round(img.naturalHeight * ratio);
     var ctx = canvas.getContext("2d");
-    var webp = canvas.toDataURL("image/webp", 0.8).indexOf("data:image/webp") === 0;
-    if (!webp) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    var webp = canvas.toDataURL("image/webp").startsWith("data:image/webp");
     var type = webp ? "image/webp" : "image/jpeg";
     var maxBytes = ((role && role.maxKB) || 300) * 1024;
-    var out = "";
-    for (var q = 0.86; q >= 0.5; q -= 0.08) {
-      out = canvas.toDataURL(type, q);
-      if (out.length * 0.75 <= maxBytes) break;
+    var out;
+    var bytes;
+
+    while (true) {
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      if (!webp) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      for (var quality of [0.86, 0.78, 0.70, 0.62, 0.54, 0.50]) {
+        out = canvas.toDataURL(type, quality);
+        if (!out.startsWith("data:" + type + ";base64,")) throw new Error("No se pudo comprimir la imagen.");
+        var encoded = out.slice(out.indexOf(",") + 1);
+        bytes = encoded.length * 3 / 4 - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0);
+        if (bytes <= maxBytes) break;
+      }
+      if (bytes <= maxBytes || scale <= floor || Math.max(canvas.width, canvas.height) <= 320) break;
+      scale = Math.max(floor, scale * 0.8);
     }
-    return { src: out, w: canvas.width, h: canvas.height, kb: Math.round(out.length * 0.75 / 1024) };
+
+    return { src: out, w: canvas.width, h: canvas.height, kb: Math.round(bytes / 1024), overweight: bytes > maxBytes };
   }
 
   imgInput.addEventListener("change", function () {
@@ -1478,9 +1492,8 @@
     say("Preparando la imagen…");
     var job = svg ? readDataUrl(file).then(function (src) { return { src: src, svg: true }; })
       : loadImage(file).then(function (res) {
-        var out = compressImage(res.img, role);
-        URL.revokeObjectURL(res.url);
-        return out;
+        try { return compressImage(res.img, role); }
+        finally { URL.revokeObjectURL(res.url); }
       });
     job.then(function (out) {
       if (imgSel !== sel) selectImage(sel.el);
@@ -1488,10 +1501,12 @@
       renderImgTip();
       if (out.svg) { say("Imagen cambiada.", "ok"); return; }
       var small = role && ((role.minAncho && out.w < role.minAncho) || (role.minAlto && out.h < role.minAlto));
-      if (!small && ai && ai.configurada && sel.el.tagName === "IMG") { describeOne(sel.el, true); return; }
+      if (!small && !out.overweight && ai && ai.configurada && sel.el.tagName === "IMG") { describeOne(sel.el, true); return; }
       say(small
         ? "Imagen cambiada, pero mide " + out.w + "×" + out.h + " px y el mínimo es " + minLabel(role) + ". Buscá una versión más grande."
-        : "Imagen cambiada: " + out.w + "×" + out.h + " px, " + out.kb + " KB.", small ? "warn" : "ok");
+        : out.overweight
+          ? "Imagen cambiada, pero pesa " + out.kb + " KB. El máximo recomendado es " + ((role && role.maxKB) || 300) + " KB."
+          : "Imagen cambiada: " + out.w + "×" + out.h + " px, " + out.kb + " KB.", small || out.overweight ? "warn" : "ok");
     }).catch(function (err) { say(err.message, "warn"); });
   });
 

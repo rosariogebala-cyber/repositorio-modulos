@@ -8,11 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="lib-page">
+  <a class="lib-skip-link" href="#contenido-maquetas">Saltar al contenido</a>
   <header class="lib-header">
     <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
     <nav aria-label="Navegación principal">
@@ -29,14 +30,15 @@
       <a href="#whatsapp" data-section-link class="is-on">WhatsApp</a><a href="#navegacion" data-section-link>Navegación</a><a href="#hero-full-imagen" data-section-link>Hero</a><a href="#quienes-somos" data-section-link>Quiénes somos</a><a href="#imagen-texto" data-section-link>Imagen y texto</a><a href="#servicios-productos" data-section-link>Servicios</a><a href="#planes" data-section-link>Planes</a><a href="#beneficios" data-section-link>Beneficios</a><a href="#productos" data-section-link>Productos</a><a href="#galeria-imagenes" data-section-link>Galería de imágenes</a><a href="#carrusel-imagenes" data-section-link>Carrusel</a><a href="#video-destacado" data-section-link>Videos</a><a href="#casos-exito" data-section-link>Casos de éxito</a><a href="#resenas-google" data-section-link>Reseñas de Google</a><a href="#equipo" data-section-link>Equipo</a><a href="#proceso" data-section-link>Cómo trabajamos</a><a href="#preguntas-frecuentes" data-section-link>Preguntas frecuentes</a><a href="#donde-nos-encontramos" data-section-link>Dónde nos encontramos</a><a href="#reserva-turno" data-section-link>Reserva tu turno</a><a href="#footer" data-section-link>Footer</a>
     </nav>
   </div>
-  <main class="lib-main">
+  <main class="lib-main" id="contenido-maquetas" tabindex="-1">
+    <h1 class="lib-page-title">Maquetas</h1>
     
-    <section class="lib-section" id="whatsapp" data-section>
+    <section class="lib-section" id="whatsapp" data-section aria-labelledby="whatsapp-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">WA</span>
           <div>
-            <h2>WhatsApp</h2>
+            <h2 id="whatsapp-titulo">WhatsApp</h2>
             <p>Botón flotante que queda fijo abajo a la derecha mientras se hace scroll.</p>
           </div>
         </div>
@@ -55,12 +57,12 @@
   </section>
 
     </section>
-    <section class="lib-section" id="navegacion" data-section>
+    <section class="lib-section" id="navegacion" data-section aria-labelledby="navegacion-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">01</span>
           <div>
-            <h2>Navegación</h2>
+            <h2 id="navegacion-titulo">Navegación</h2>
             <p>Opciones de navegación para distintos tipos de sitios.</p>
           </div>
         </div>
@@ -75,7 +77,7 @@
   <section class="mq-block" id="navegacion-simple">
     <div class="mq-caption"><span>Simple</span><span>Barra blanca</span></div>
     <div class="mq-frame">
-      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full">
+      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full" aria-label="Navegación de ejemplo simple">
         <div class="container">
           <a class="nx-brand is-lower" href="#navegacion-simple">marca ejemplo</a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navSimple" aria-controls="navSimple" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -97,7 +99,7 @@
   <section class="mq-block" id="navegacion-media">
     <div class="mq-caption"><span>Media</span><span>Teléfono y búsqueda</span></div>
     <div class="mq-frame">
-      <nav class="navbar navbar-expand-lg nx nx-nav " data-width="full">
+      <nav class="navbar navbar-expand-lg nx nx-nav " data-width="full" aria-label="Navegación de ejemplo media">
         <div class="container">
           <a class="nx-brand" href="#navegacion-media">Marca Ejemplo</a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMedia" aria-controls="navMedia" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -131,7 +133,7 @@
     <div class="mq-caption"><span>Compleja</span><span>Barra sobre foto</span></div>
     <div class="mq-frame">
       <div class="nav-dark-wrap">
-        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full">
+        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full" aria-label="Navegación de ejemplo compleja">
           <div class="container">
             <a class="nx-brand" href="#navegacion-compleja">Marca Ejemplo</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navDark" aria-controls="navDark" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -164,12 +166,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="hero-full-imagen" data-section>
+    <section class="lib-section" id="hero-full-imagen" data-section aria-labelledby="hero-full-imagen-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">02</span>
           <div>
-            <h2>Hero</h2>
+            <h2 id="hero-full-imagen-titulo">Hero</h2>
             <p>Portadas con imagen completa y texto superpuesto.</p>
           </div>
         </div>
@@ -312,12 +314,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="quienes-somos" data-section>
+    <section class="lib-section" id="quienes-somos" data-section aria-labelledby="quienes-somos-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">03</span>
           <div>
-            <h2>Quiénes somos</h2>
+            <h2 id="quienes-somos-titulo">Quiénes somos</h2>
             <p>Historia, misión y presentación del negocio.</p>
           </div>
         </div>
@@ -402,12 +404,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="imagen-texto" data-section>
+    <section class="lib-section" id="imagen-texto" data-section aria-labelledby="imagen-texto-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">IT</span>
           <div>
-            <h2>Imagen y texto</h2>
+            <h2 id="imagen-texto-titulo">Imagen y texto</h2>
             <p>Bloques con foto y texto. Elegí de qué lado va la imagen.</p>
           </div>
         </div>
@@ -528,12 +530,12 @@
     </div></div>
   </section>
     </section>
-    <section class="lib-section" id="servicios-productos" data-section>
+    <section class="lib-section" id="servicios-productos" data-section aria-labelledby="servicios-productos-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">04</span>
           <div>
-            <h2>Servicios</h2>
+            <h2 id="servicios-productos-titulo">Servicios</h2>
             <p>Propuestas para presentar los servicios del negocio.</p>
           </div>
         </div>
@@ -658,12 +660,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="planes" data-section>
+    <section class="lib-section" id="planes" data-section aria-labelledby="planes-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">P</span>
           <div>
-            <h2>Planes</h2>
+            <h2 id="planes-titulo">Planes</h2>
             <p>Precios ilustrativos para web, tienda y soporte.</p>
           </div>
         </div>
@@ -813,12 +815,12 @@
         </div></div>
       </section>
     </section>
-    <section class="lib-section" id="beneficios" data-section>
+    <section class="lib-section" id="beneficios" data-section aria-labelledby="beneficios-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">05</span>
           <div>
-            <h2>Beneficios</h2>
+            <h2 id="beneficios-titulo">Beneficios</h2>
             <p>Ventajas y características destacadas.</p>
           </div>
         </div>
@@ -889,12 +891,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="productos" data-section>
+    <section class="lib-section" id="productos" data-section aria-labelledby="productos-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">06</span>
           <div>
-            <h2>Productos</h2>
+            <h2 id="productos-titulo">Productos</h2>
             <p>Catálogo con imágenes, precios y opciones.</p>
           </div>
         </div>
@@ -1037,12 +1039,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="galeria-imagenes" data-section>
+    <section class="lib-section" id="galeria-imagenes" data-section aria-labelledby="galeria-imagenes-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">07</span>
           <div>
-            <h2>Galería de imágenes</h2>
+            <h2 id="galeria-imagenes-titulo">Galería de imágenes</h2>
             <p>Galerías con fotografías y filtros.</p>
           </div>
         </div>
@@ -1150,12 +1152,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="carrusel-imagenes" data-section>
+    <section class="lib-section" id="carrusel-imagenes" data-section aria-labelledby="carrusel-imagenes-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">08</span>
           <div>
-            <h2>Carrusel</h2>
+            <h2 id="carrusel-imagenes-titulo">Carrusel</h2>
             <p>Carruseles visuales de proyectos o servicios.</p>
           </div>
         </div>
@@ -1232,12 +1234,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="video-destacado" data-section>
+    <section class="lib-section" id="video-destacado" data-section aria-labelledby="video-destacado-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">09</span>
           <div>
-            <h2>Videos</h2>
+            <h2 id="video-destacado-titulo">Videos</h2>
             <p>Video principal, grilla y lista de reproducción.</p>
           </div>
         </div>
@@ -1350,12 +1352,12 @@
   </div>
   
     </section>
-    <section class="lib-section" id="casos-exito" data-section>
+    <section class="lib-section" id="casos-exito" data-section aria-labelledby="casos-exito-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">10</span>
           <div>
-            <h2>Casos de éxito</h2>
+            <h2 id="casos-exito-titulo">Casos de éxito</h2>
             <p>Testimonios y experiencias compartidas por clientes.</p>
           </div>
         </div>
@@ -1440,12 +1442,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="resenas-google" data-section>
+    <section class="lib-section" id="resenas-google" data-section aria-labelledby="resenas-google-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">11</span>
           <div>
-            <h2>Reseñas de Google</h2>
+            <h2 id="resenas-google-titulo">Reseñas de Google</h2>
             <p>Opiniones y valoraciones de clientes.</p>
           </div>
         </div>
@@ -1535,12 +1537,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="equipo" data-section>
+    <section class="lib-section" id="equipo" data-section aria-labelledby="equipo-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">12</span>
           <div>
-            <h2>Equipo</h2>
+            <h2 id="equipo-titulo">Equipo</h2>
             <p>Personas detrás del negocio.</p>
           </div>
         </div>
@@ -1609,12 +1611,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="proceso" data-section>
+    <section class="lib-section" id="proceso" data-section aria-labelledby="proceso-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">13</span>
           <div>
-            <h2>Cómo trabajamos</h2>
+            <h2 id="proceso-titulo">Cómo trabajamos</h2>
             <p>Pasos de trabajo de forma clara y visual.</p>
           </div>
         </div>
@@ -1685,12 +1687,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="preguntas-frecuentes" data-section>
+    <section class="lib-section" id="preguntas-frecuentes" data-section aria-labelledby="preguntas-frecuentes-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">14</span>
           <div>
-            <h2>Preguntas frecuentes</h2>
+            <h2 id="preguntas-frecuentes-titulo">Preguntas frecuentes</h2>
             <p>Respuestas visibles, acordeones y categorías.</p>
           </div>
         </div>
@@ -1802,12 +1804,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="donde-nos-encontramos" data-section>
+    <section class="lib-section" id="donde-nos-encontramos" data-section aria-labelledby="donde-nos-encontramos-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">15</span>
           <div>
-            <h2>Dónde nos encontramos</h2>
+            <h2 id="donde-nos-encontramos-titulo">Dónde nos encontramos</h2>
             <p>Dirección, horarios y propuestas con Google Maps.</p>
           </div>
         </div>
@@ -1914,12 +1916,12 @@
   </section>
   
     </section>
-    <section class="lib-section" id="reserva-turno" data-section>
+    <section class="lib-section" id="reserva-turno" data-section aria-labelledby="reserva-turno-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">RT</span>
           <div>
-            <h2>Reserva tu turno</h2>
+            <h2 id="reserva-turno-titulo">Reserva tu turno</h2>
             <p>Agenda online: servicio, día, horario y confirmación.</p>
           </div>
         </div>
@@ -2106,12 +2108,12 @@
   </section>
 
     </section>
-    <section class="lib-section" id="footer" data-section>
+    <section class="lib-section" id="footer" data-section aria-labelledby="footer-titulo">
       <div class="lib-head">
         <div class="lib-title">
           <span class="lib-num">16</span>
           <div>
-            <h2>Footer</h2>
+            <h2 id="footer-titulo">Footer</h2>
             <p>Cierres de página con navegación, contacto y redes.</p>
           </div>
         </div>
@@ -2135,7 +2137,7 @@
               <a class="nx-brand is-lower" href="#footer-simple">marca ejemplo</a>
               <p class="mb-0">Hacemos visible lo que hacés.</p>
             </div>
-            <nav class="d-flex flex-wrap gap-3">
+            <nav class="d-flex flex-wrap gap-3" aria-label="Navegación del pie">
               <a href="#footer-simple">Inicio</a>
               <a href="#footer-simple">Servicios</a>
               <a href="#footer-simple">Nosotros</a>
@@ -2166,7 +2168,7 @@
               <p class="muted">Hacemos visible lo que hacés, con una web clara y alguien del otro lado.</p>
             </div>
             <div class="col-6 col-lg-3">
-              <h2 class="h6">Explorá</h2>
+              <p class="h6 nx-footer-label">Explorá</p>
               <ul class="foot-links">
                 <li><a href="#footer-media">Inicio</a></li>
                 <li><a href="#footer-media">Servicios</a></li>
@@ -2175,13 +2177,13 @@
               </ul>
             </div>
             <div class="col-6 col-lg-3">
-              <h2 class="h6">Conversemos</h2>
+              <p class="h6 nx-footer-label">Conversemos</p>
               <p class="mb-2"><a href="mailto:hola@example.com">hola@example.com</a></p>
               <a class="btn-nx btn-sm" href="mailto:hola@example.com">Escribinos <i class="bi bi-arrow-right"></i></a>
               <p class="nx-note">Datos de ejemplo.</p>
             </div>
             <div class="col-md-6 col-lg-3">
-              <h2 class="h6">Seguinos</h2>
+              <p class="h6 nx-footer-label">Seguinos</p>
               <div class="nx-socials mb-2">
                 <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
                 <a href="https://linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
@@ -2205,7 +2207,7 @@
       <footer class="nx nx-footer">
         <div class="nx-sage">
           <div class="container py-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <h2 class="nx-display mb-0" style="font-size:clamp(1.6rem,3vw,2.2rem)">Tu próxima idea empieza acá</h2>
+            <h2 class="nx-display mb-0">Tu próxima idea empieza acá</h2>
             <a class="btn-nx" href="mailto:hola@example.com">Conversemos <i class="bi bi-arrow-right"></i></a>
           </div>
         </div>
@@ -2217,7 +2219,7 @@
                 <p class="muted">Hacemos visible lo que hacés.</p>
               </div>
               <div class="col-6 col-lg-4">
-                <h2 class="h6">Explorá</h2>
+                <p class="h6 nx-footer-label">Explorá</p>
                 <ul class="foot-links">
                   <li><a href="#footer-compleja">Servicios</a></li>
                   <li><a href="#footer-compleja">Quiénes somos</a></li>
@@ -2226,7 +2228,7 @@
                 </ul>
               </div>
               <div class="col-6 col-lg-4">
-                <h2 class="h6">Estamos cerca</h2>
+                <p class="h6 nx-footer-label">Estamos cerca</p>
                 <p class="mb-1"><a href="mailto:hola@example.com">hola@example.com</a></p>
                 <p class="mb-2"><i class="bi bi-geo-alt"></i> Buenos Aires</p>
                 <div class="nx-socials">
@@ -2283,7 +2285,7 @@
                 </div>
               </div>
               <div class="col-6 col-md-4 col-lg-2">
-                <h2>Servicios</h2>
+                <p class="nx-footer-label">Servicios</p>
                 <ul class="foot-links">
                   <li><a href="#footer-cierre">Web profesional</a></li>
                   <li><a href="#footer-cierre">Tienda online</a></li>
@@ -2292,7 +2294,7 @@
                 </ul>
               </div>
               <div class="col-6 col-md-4 col-lg-2">
-                <h2>Marca Ejemplo</h2>
+                <p class="nx-footer-label">Marca Ejemplo</p>
                 <ul class="foot-links">
                   <li><a href="#footer-cierre">Quiénes somos</a></li>
                   <li><a href="#footer-cierre">Casos de éxito</a></li>
@@ -2301,7 +2303,7 @@
                 </ul>
               </div>
               <div class="col-md-4 col-lg-4">
-                <h2>Contacto</h2>
+                <p class="nx-footer-label">Contacto</p>
                 <div class="foot-contact">
                   <img src="img/lucia.jpg" alt="">
                   <div>
@@ -2335,7 +2337,7 @@
   
     </section>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>
 </html>

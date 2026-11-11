@@ -26,10 +26,12 @@ from functools import partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, unquote, urlsplit
+from pathlib import Path
+from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 import psycopg
+from lxml import etree, html as html_dom
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -96,6 +98,10 @@ ROUTES = [
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
 PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "consulta-nueva")
+PANEL_PAGES = {
+    "/maquetas/" + name + ".html"
+    for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
+}
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
 
 
@@ -152,6 +158,9 @@ CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
 );
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS privacidad_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS terminos_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS tipo_cliente TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS direccion TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT '';
@@ -232,6 +241,16 @@ def access_key():
     return os.environ.get("LANZATE_CLAVE") or ""
 
 
+def access_user():
+    return os.environ.get("LANZATE_USUARIO") or "Lanzate11"
+
+
+def valid_credentials(usuario, clave):
+    user_ok = hmac.compare_digest(usuario.encode("utf-8"), access_user().encode("utf-8"))
+    password_ok = hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8"))
+    return user_ok and password_ok
+
+
 def session_secret():
     return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
 
@@ -258,8 +277,17 @@ def login_required():
 
 # --- Clientes ----------------------------------------------------------------
 
+def client_type(row):
+    saved = row.get("tipo_cliente")
+    if saved in ("real", "demo"):
+        return saved
+    domain = row["email"].strip().lower().rpartition("@")[2]
+    return "demo" if domain in ("example.com", "example.net", "example.org") else "real"
+
+
 def client_dict(row, count=None):
     data = {k: row[k] for k in row.keys() if k not in ("n", "logo")}
+    data["tipo_cliente"] = client_type(row)
     data["logo_url"] = row["logo"]
     data["carpeta"] = "/l/" + row["slug"] + "/"
     if count is not None:
@@ -274,14 +302,50 @@ def get_client_row(con, client_id):
     return row
 
 
-def clean_client(data):
+def legal_url(value):
+    if not value or any(char.isspace() or ord(char) < 32 for char in value):
+        return ""
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme in ("http", "https") and parsed.hostname and not parsed.username and not parsed.password:
+            return value
+    except ValueError:
+        pass
+    return ""
+
+
+def valid_business_hours(value):
+    if len(value) > 200 or any(ord(char) < 32 for char in value):
+        return False
+    if value.casefold().rstrip(".") in {"con turno previo", "solo con turno previo", "a convenir", "24 horas"}:
+        return True
+    hour = r"(?:[01]?[0-9]|2[0-3])(?::[0-5][0-9])?"
+    interval = rf"(?<![0-9:]){hour}(?:\s*h)?\s*(?:a|hasta|[-–—])\s*{hour}(?![0-9:])"
+    return bool(re.search(interval, value, re.IGNORECASE))
+
+
+def clean_client(data, previous=None):
     values = {}
     for field in CLIENT_FIELDS:
         values[field] = str(data.get(field) or "").strip()
     if not values["nombre"]:
         raise ApiError(400, "El nombre del cliente es obligatorio")
-    if values["email"] and not EMAIL_RE.match(values["email"]):
-        raise ApiError(400, "Revisá el email: no tiene un formato válido")
+    previous = previous or {}
+    for field in ("email", "telefono", "sitio", "horario"):
+        value = values[field]
+        if not value or value == previous.get(field):
+            continue
+        if field == "email" and not EMAIL_RE.fullmatch(value):
+            raise ApiError(400, "Revisá el email: no tiene un formato válido")
+        if field == "telefono":
+            normalized = re.sub(r"[ ()-]", "", value)
+            if not re.fullmatch(r"\+[1-9][0-9]{7,14}", normalized):
+                raise ApiError(400, "Ingresá el teléfono con código internacional, por ejemplo +54 11 5555-0000")
+            values[field] = normalized
+        if field == "sitio" and not legal_url(value):
+            raise ApiError(400, "Ingresá un sitio web válido que empiece con https:// o http://")
+        if field == "horario" and not valid_business_hours(value):
+            raise ApiError(400, "Ingresá un horario como «Lun a Vie, 9 a 18 h» o «Con turno previo»")
     for field, default in COLOR_DEFAULTS.items():
         if not COLOR_RE.match(values[field]):
             values[field] = default
@@ -294,6 +358,16 @@ def clean_client(data):
         if value and not pattern.match(value):
             raise ApiError(400, "Revisá la medición: " + hint)
         values[field] = value
+    if "tipo_cliente" in data:
+        if data["tipo_cliente"] not in ("real", "demo"):
+            raise ApiError(400, "Elegí si el cliente es real o demo")
+        values["tipo_cliente"] = data["tipo_cliente"]
+    for key, label in (("privacidad_url", "Privacidad"), ("terminos_url", "Términos")):
+        if key in data:
+            value = str(data[key] or "").strip()
+            values[key] = legal_url(value)
+            if value and not values[key]:
+                raise ApiError(400, "Ingresá un enlace web válido para " + label)
     return values
 
 
@@ -351,9 +425,9 @@ def create_client(data):
 
 
 def update_client(client_id, data):
-    values = clean_client(data)
     with tx() as con:
-        get_client_row(con, client_id)
+        previous = get_client_row(con, client_id)
+        values = clean_client(data, previous)
         if data.get("logo_data"):
             values["logo"] = clean_logo(data["logo_data"])
         elif data.get("logo_quitar"):
@@ -462,6 +536,13 @@ def cover_of(html):
     return match.group(1) if match else ""
 
 
+DEMO_PLACEHOLDERS = re.compile(
+    r"\bexample\.(?:com|net|org)\b|\b5491123456789\b|\b2345\s+6789\b|"
+    r"\b(?:marca ejemplo|calle ejemplo|lorem ipsum)\b",
+    re.IGNORECASE,
+)
+
+
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
@@ -496,6 +577,10 @@ def save_landing(data, landing_id=None):
         if clash:
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, client["logo"])
+        if client_type(client) == "real":
+            placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
+            if placeholder:
+                raise ApiError(400, "Reemplazá el dato de ejemplo «%s» antes de publicar." % placeholder.group())
         stamp = now_ms()
         values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
         if landing_id:
@@ -551,22 +636,150 @@ def landing_preview(landing_id):
     return match.group(1), base64.b64decode(match.group(2))
 
 
+def accessible_button_color(color):
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color or ""):
+        return None
+    rgb = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+    def linear(channel):
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    for percent in range(100, -1, -1):
+        candidate = tuple(round(channel * percent / 100) for channel in rgb)
+        luminance = sum(weight * linear(channel) for weight, channel in zip((0.2126, 0.7152, 0.0722), candidate))
+        if 1.05 / (luminance + 0.05) >= 4.5:
+            return "#%02x%02x%02x" % candidate
+
+
+def accessible_landing(markup, title, primary_color=None, legal_links=None):
+    document = html_dom.document_fromstring(markup)
+    body = document.find("body")
+    if body is None or "landing-page" not in body.get("class", "").split():
+        return markup
+
+    cta_color = accessible_button_color(primary_color)
+    if cta_color:
+        style = etree.SubElement(document.find("head"), "style")
+        style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
+    for trap in body.xpath('.//form//input[@name="web" and @aria-hidden="true"]'):
+        trap.set("hidden", "")
+        trap.set("tabindex", "-1")
+
+    for module in body.xpath('.//section[@data-module]'):
+        module_id = module.get("data-module")
+        if module_id.startswith(("hero", "navegacion", "whatsapp")):
+            continue
+        for image in module.xpath(".//img"):
+            if not image.get("loading") and image.get("fetchpriority") != "high":
+                image.set("loading", "lazy")
+            if not image.get("decoding"):
+                image.set("decoding", "async")
+
+    for link in body.xpath('.//footer//a[starts-with(@href, "#footer")]'):
+        label = " ".join(link.text_content().casefold().split())
+        key = {"privacidad": "privacidad_url", "términos": "terminos_url"}.get(label)
+        if not key:
+            continue
+        destination = legal_url((legal_links or {}).get(key, ""))
+        if destination:
+            link.set("href", destination)
+        else:
+            tail = re.sub(r"^\s*[·|]\s*", "", link.tail or "")
+            previous = link.getprevious()
+            parent = link.getparent()
+            if previous is None:
+                parent.text = (parent.text or "") + tail
+            else:
+                separator = previous.tail or ""
+                if link.getnext() is None:
+                    separator = re.sub(r"\s*[·|]\s*$", "", separator)
+                previous.tail = separator + tail
+            parent.remove(link)
+
+    ids = set(document.xpath("//@id"))
+
+    def unique_id(base):
+        value = base
+        number = 2
+        while value in ids:
+            value = f"{base}-{number}"
+            number += 1
+        ids.add(value)
+        return value
+
+    main = body.find("main")
+    if main is None:
+        modules = body.xpath("./section[@data-module]")
+        content = [module for module in modules
+                   if not module.get("data-module").startswith(("navegacion", "whatsapp", "footer"))]
+        if content:
+            first, last = body.index(content[0]), body.index(content[-1])
+            main = etree.Element("main")
+            for element in list(body)[first:last + 1]:
+                main.append(element)
+            body.insert(first, main)
+        else:
+            return markup
+
+    if not main.get("id"):
+        main.set("id", unique_id("contenido-principal"))
+    main.set("tabindex", "-1")
+    if not body.xpath('./a[contains(concat(" ", normalize-space(@class), " "), " lib-skip-link ")]'):
+        skip = etree.Element("a", {"class": "lib-skip-link", "href": "#" + main.get("id")})
+        skip.text = "Saltar al contenido"
+        body.insert(0, skip)
+
+    headings = main.xpath(".//h1")
+    if not headings:
+        candidates = main.xpath(".//section[starts-with(@data-module, 'hero')][1]//h2")
+        heading = next((h for h in candidates
+                        if not h.xpath("ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' carousel-item ')]")), None)
+        if heading is None:
+            heading = etree.Element("h1", {"class": "visually-hidden"})
+            heading.text = title
+            main.insert(0, heading)
+        else:
+            heading.tag = "h1"
+    for heading in headings[1:]:
+        heading.tag = "h2"
+
+    for index, nav in enumerate(body.xpath(".//nav"), 1):
+        if not nav.get("aria-label") and not nav.get("aria-labelledby"):
+            label = "Navegación del pie" if nav.xpath("ancestor::footer") else "Navegación"
+            nav.set("aria-label", f"{label} {index}")
+
+    for section in main.xpath("./section[@data-module]"):
+        if section.get("aria-label") or section.get("aria-labelledby"):
+            continue
+        headings = section.xpath(".//h1|.//h2[not(contains(concat(' ', normalize-space(@class), ' '), ' modal-title '))]")
+        if headings:
+            heading = headings[0]
+            if not heading.get("id"):
+                heading.set("id", unique_id((section.get("id") or "seccion") + "-titulo"))
+            section.set("aria-labelledby", heading.get("id"))
+    return "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
+
+
 def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
+            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
     if not row or not row["html"]:
         return None
-    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug)) + tracking_head(row)
+    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug))
     html = row["html"].replace("</head>", head + "</head>", 1)
-    if row["gtm"]:
-        html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
-                      'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
-    return html
+    html = accessible_landing(
+        html, row["nombre"],
+        primary_color=row["color_primario"],
+        legal_links=row,
+    )
+    return add_tracking_consent(html, row)
 
 
 def auto_description(html):
@@ -598,11 +811,33 @@ def share_head(row, origin, path):
         ("property", "og:image", image),
         ("name", "twitter:card", "summary_large_image" if image else "summary"),
     ]
+    if client_type(row) == "demo":
+        tags.append(("name", "robots", "noindex, nofollow"))
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
-    return out + '<link rel="canonical" href="%s">' % escape(origin + path)
+    icon = row["logo"] or "/assets/favicon-lanzate.svg"
+    return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
+        escape(icon, quote=True), escape(origin + path, quote=True)
+    ) + local_business_head(row, origin + path)
 
 
-def tracking_head(c):
+def local_business_head(row, url):
+    address = row["direccion"].strip()
+    if not address or "ejemplo" in address.casefold() or client_type(row) == "demo":
+        return ""
+    business = {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": row["cliente"],
+        "url": url,
+        "address": {"@type": "PostalAddress", "streetAddress": address},
+    }
+    if re.fullmatch(r"\+[1-9]\d{7,14}", row["telefono"]):
+        business["telephone"] = row["telefono"]
+    payload = json.dumps(business, ensure_ascii=False).replace("<", "\\u003c")
+    return '<script type="application/ld+json">%s</script>' % payload
+
+
+def tracking_scripts(c):
     """Códigos de medición del cliente; se validan al guardarlos (solo letras, números y guiones)."""
     out = ""
     if c["gtm"]:
@@ -621,6 +856,86 @@ def tracking_head(c):
                 "s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');"
                 "fbq('init','%s');fbq('track','PageView');</script>" % c["meta_pixel"])
     return out
+
+
+TRACKING_CONSENT_UI = """
+<template data-lz-tracking>__TRACKING__</template>
+<style>
+[data-lz-consent]{position:fixed;inset:auto 1rem 1rem;z-index:1090;max-width:34rem;padding:1rem;border:1px solid #555;border-radius:.75rem;background:#fff;color:#171717;box-shadow:0 4px 24px #0003}
+[data-lz-consent][hidden]{display:none}
+[data-lz-consent] p{margin:0 0 .75rem}
+[data-lz-consent] div{display:flex;flex-wrap:wrap;gap:.5rem}
+[data-lz-consent] button,[data-lz-consent-open]{min-height:44px;padding:.5rem .75rem;border:1px solid #222;border-radius:.35rem;background:#fff;color:#171717}
+[data-lz-consent] button:focus-visible,[data-lz-consent-open]:focus-visible{outline:3px solid #2358a0;outline-offset:2px}
+[data-lz-consent-open]{display:block;margin:1rem}
+</style>
+<button type="button" data-lz-consent-open>Preferencias de cookies</button>
+<section data-lz-consent aria-label="Preferencias de cookies" hidden>
+<p>Podés permitir o rechazar las cookies de medición y marketing. Tu elección se puede cambiar desde Preferencias de cookies.</p>
+<div>
+<button type="button" data-choice="denied">Rechazar</button>
+<button type="button" data-choice="allowed">Aceptar</button>
+</div>
+</section>
+<script>
+(function () {
+  var template = document.querySelector("[data-lz-tracking]");
+  var panel = document.querySelector("[data-lz-consent]");
+  var opener = document.querySelector("[data-lz-consent-open]");
+  var key = "lanzate:tracking:v1:__LANDING_ID__";
+  var choice = "";
+  var started = false;
+  try { choice = localStorage.getItem(key) || ""; } catch (error) {}
+
+  function start() {
+    if (started) return;
+    started = true;
+    template.content.querySelectorAll("script").forEach(function (source) {
+      var script = document.createElement("script");
+      Array.from(source.attributes).forEach(function (attr) {
+        script.setAttribute(attr.name, attr.value);
+      });
+      script.textContent = source.textContent;
+      document.head.appendChild(script);
+    });
+  }
+
+  function save(value) {
+    var persisted = false;
+    try {
+      localStorage.setItem(key, value);
+      persisted = true;
+    } catch (error) {}
+    if (started && value === "denied") {
+      location.reload();
+      return;
+    }
+    choice = value;
+    panel.hidden = true;
+    opener.focus();
+    if (choice === "allowed" && persisted) start();
+  }
+
+  if (choice === "allowed") start();
+  panel.hidden = choice === "allowed" || choice === "denied";
+  opener.addEventListener("click", function () {
+    panel.hidden = false;
+    panel.querySelector("button").focus();
+  });
+  panel.addEventListener("click", function (event) {
+    if (event.target.dataset.choice) save(event.target.dataset.choice);
+  });
+})();
+</script>
+"""
+
+
+def add_tracking_consent(html, landing):
+    scripts = tracking_scripts(landing)
+    if not scripts:
+        return html
+    ui = TRACKING_CONSENT_UI.replace("__LANDING_ID__", str(int(landing["id"]))).replace("__TRACKING__", scripts)
+    return re.sub(r"</body\s*>", lambda match: ui + match.group(), html, count=1, flags=re.IGNORECASE)
 
 
 # --- Consultas que llegan desde los formularios de las landings publicadas -----
@@ -858,12 +1173,7 @@ def ia_write_texts(data):
         + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {str(t.get("id")) for t in textos}
-    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
-              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
-    if not result:
-        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
-    return {"textos": result}
+    return validate_ia_texts(textos, out)
 
 
 def ia_fit_texts(data):
@@ -884,12 +1194,27 @@ def ia_fit_texts(data):
         + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {str(t.get("id")) for t in textos}
-    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
-              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
-    if not result:
-        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
-    return {"textos": result}
+    return validate_ia_texts(textos, out)
+
+
+def validate_ia_texts(slots, response):
+    limits = {str(slot.get("id")): (slot.get("min") or 0, slot.get("max")) for slot in slots}
+    result = {}
+    for item in response.get("textos") or []:
+        if not isinstance(item, dict):
+            continue
+        slot_id = str(item.get("id"))
+        value = item.get("texto")
+        if slot_id not in limits or not isinstance(value, str):
+            continue
+        text = value.strip()
+        length = len(text.replace("*", ""))
+        minimum, maximum = limits[slot_id]
+        if text and length >= minimum and (not maximum or length <= maximum):
+            result[slot_id] = text
+    if result.keys() != limits.keys():
+        raise ApiError(502, "La IA no devolvió todos los textos dentro del largo solicitado. Probá de nuevo.")
+    return {"textos": [{"id": slot_id, "texto": result[slot_id]} for slot_id in limits]}
 
 
 def ia_describe_images(data):
@@ -924,19 +1249,52 @@ def ia_describe_images(data):
 
 # --- HTTP ----------------------------------------------------------------------
 
-NOT_FOUND_PAGE = (
-    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-    "<title>Página no encontrada</title><style>body{font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;"
-    "background:#f7f6f2;color:#0e1130}main{text-align:center;padding:24px}h1{font-size:28px;margin:0 0 8px}</style></head>"
-    "<body><main><h1>Esta página no existe</h1><p>Revisá el link o pedile uno nuevo a quien te lo&nbsp;compartió.</p></main></body></html>"
+def sitemap_xml(origin):
+    with tx() as con:
+        rows = con.execute(
+            "SELECT c.slug AS cliente, l.slug AS landing, c.tipo_cliente, c.email "
+            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "WHERE l.html <> '' ORDER BY c.slug, l.slug"
+        ).fetchall()
+    paths = ["/"]
+    paths.extend("/l/{cliente}/{landing}/".format(**row) for row in rows if client_type(row) == "real")
+    entries = "".join("<url><loc>%s</loc></url>" % escape(origin + path) for path in paths)
+    return '<?xml version="1.0" encoding="UTF-8"?>' + (
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
+    )
+
+
+def not_found_page():
+    return Path(ROOT, "404.html").read_bytes()
+
+
+SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("Referrer-Policy", "strict-origin-when-cross-origin"),
+    ("X-Frame-Options", "SAMEORIGIN"),
+    ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
+    ("Content-Security-Policy",
+     "default-src 'self'; "
+     "base-uri 'self'; "
+     "form-action 'self' https://wa.me https://api.whatsapp.com mailto:; "
+     "frame-ancestors 'self'; "
+     "img-src 'self' data: blob: https:; "
+     "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net; "
+     "frame-src 'self' https://www.google.com https://maps.google.com https://www.googletagmanager.com; "
+     "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.supabase.co"),
 )
 
 
 class Handler(SimpleHTTPRequestHandler):
     extra_headers = ()
+    cache_control = "no-store"
 
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", self.cache_control)
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
         super().end_headers()
 
     def route(self):
@@ -954,6 +1312,23 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def send_public_landing(self, html):
+        body = html.encode("utf-8")
+        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+        validators = {value.strip().removeprefix("W/") for value in self.headers.get("If-None-Match", "").split(",")}
+        self.cache_control = "public, no-cache"
+        try:
+            if etag in validators or "*" in validators:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.end_headers()
+            else:
+                self.extra_headers = (("ETag", etag),)
+                self.send_body(200, body, "text/html; charset=utf-8")
+        finally:
+            self.cache_control = "no-store"
+            self.extra_headers = ()
 
     def send_json(self, status, payload):
         self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
@@ -996,14 +1371,50 @@ class Handler(SimpleHTTPRequestHandler):
     def serve_lanzate(self, method):
         """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
         path, query = self.route()
+        if path in ("/robots.txt", "/sitemap.xml") and method in ("GET", "HEAD"):
+            origin = self.origin()
+            if not origin:
+                self.send_json(400, {"error": "No se pudo identificar el dominio."})
+            elif path == "/robots.txt":
+                robots = "User-agent: *\nDisallow: /api/\nDisallow: /maquetas/\nDisallow: /data/\nSitemap: " + origin + "/sitemap.xml\n"
+                self.send_body(200, robots.encode("utf-8"), "text/plain; charset=utf-8")
+            else:
+                try:
+                    sitemap = sitemap_xml(origin)
+                except (ApiError, psycopg.Error):
+                    self.send_json(503, {"error": "El sitemap no está disponible temporalmente."})
+                else:
+                    self.send_body(200, sitemap.encode("utf-8"), "application/xml; charset=utf-8")
+            return True
+
+        if path in PANEL_PAGES and method in ("GET", "HEAD"):
+            if not self.authorized():
+                target = path + ("?" + urlencode(query, doseq=True) if query else "")
+                self.send_response(303)
+                self.send_header("Location", "/maquetas/login.html?" + urlencode({"volver": target}))
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
+                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
+            return True
+        if path == "/data/reglas.json" and method in ("GET", "HEAD"):
+            if self.authorized():
+                self.send_json(200, read_rules())
+            else:
+                self.send_json(401, {"error": "Ingresá a Lanzate para consultar las reglas."})
+            return True
         page = LANDING_PAGE.match(path)
         if page and method in ("GET", "HEAD"):
             try:
                 html = landing_page(*page.groups(), origin=self.origin())
             except ApiError as err:
-                self.send_body(err.status, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                self.send_body(err.status, not_found_page(), "text/html; charset=utf-8")
                 return True
-            self.send_body(200 if html else 404, (html or NOT_FOUND_PAGE).encode("utf-8"), "text/html; charset=utf-8")
+            if html:
+                self.send_public_landing(html)
+            else:
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
             return True
         for pattern, name in ROUTES:
             match = pattern.match(path)
@@ -1040,10 +1451,12 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "login" and method == "POST":
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave de acceso (LANZATE_CLAVE).")
-            clave = str(self.read_json().get("clave") or "")
-            if not hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8")):
+            credentials = self.read_json()
+            usuario = str(credentials.get("usuario") or "")
+            clave = str(credentials.get("clave") or "")
+            if not valid_credentials(usuario, clave):
                 time.sleep(1)
-                raise ApiError(401, "La clave no es correcta.")
+                raise ApiError(401, "El usuario o la contraseña no son correctos.")
             self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
             return {"ok": True}
         if name == "logout" and method == "POST":

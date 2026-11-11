@@ -3,15 +3,36 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,data/reglas.json}"
+      "includeFiles": "{server.py,404.html,data/reglas.json,maquetas/*.html}"
     }
   },
   "rewrites": [
+    { "source": "/robots.txt", "destination": "/api/index?__path=/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/api/index?__path=/sitemap.xml" },
+    { "source": "/maquetas/constructor.html", "destination": "/api/index?__path=/maquetas/constructor.html" },
+    { "source": "/maquetas/landings.html", "destination": "/api/index?__path=/maquetas/landings.html" },
+    { "source": "/maquetas/clientes.html", "destination": "/api/index?__path=/maquetas/clientes.html" },
+    { "source": "/maquetas/cliente.html", "destination": "/api/index?__path=/maquetas/cliente.html" },
+    { "source": "/maquetas/consultas.html", "destination": "/api/index?__path=/maquetas/consultas.html" },
+    { "source": "/maquetas/reglas.html", "destination": "/api/index?__path=/maquetas/reglas.html" },
+    { "source": "/data/reglas.json", "destination": "/api/index?__path=/data/reglas.json" },
     { "source": "/api/:path*", "destination": "/api/index?__path=/api/:path*" },
     { "source": "/l/:cliente/:landing", "destination": "/api/index?__path=/l/:cliente/:landing" },
     { "source": "/l/:cliente/:landing/", "destination": "/api/index?__path=/l/:cliente/:landing" },
     { "source": "/Templates/:cliente/:landing", "destination": "/api/index?__path=/l/:cliente/:landing" },
     { "source": "/Templates/:cliente/:landing/", "destination": "/api/index?__path=/l/:cliente/:landing" },
     { "source": "/Templates/:cliente/:landing/index.html", "destination": "/api/index?__path=/l/:cliente/:landing" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; form-action 'self' https://wa.me https://api.whatsapp.com mailto:; frame-ancestors 'self'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net; frame-src 'self' https://www.google.com https://maps.google.com https://www.googletagmanager.com; connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.supabase.co" }
+      ]
+    }
   ]
 }
