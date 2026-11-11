@@ -314,6 +314,16 @@ def legal_url(value):
     return ""
 
 
+def valid_business_hours(value):
+    if len(value) > 200 or any(ord(char) < 32 for char in value):
+        return False
+    if value.casefold().rstrip(".") in {"con turno previo", "solo con turno previo", "a convenir", "24 horas"}:
+        return True
+    hour = r"(?:[01]?[0-9]|2[0-3])(?::[0-5][0-9])?"
+    interval = rf"(?<![0-9:]){hour}(?:\s*h)?\s*(?:a|hasta|[-–—])\s*{hour}(?![0-9:])"
+    return bool(re.search(interval, value, re.IGNORECASE))
+
+
 def clean_client(data, previous=None):
     values = {}
     for field in CLIENT_FIELDS:
@@ -321,7 +331,7 @@ def clean_client(data, previous=None):
     if not values["nombre"]:
         raise ApiError(400, "El nombre del cliente es obligatorio")
     previous = previous or {}
-    for field in ("email", "telefono", "sitio"):
+    for field in ("email", "telefono", "sitio", "horario"):
         value = values[field]
         if not value or value == previous.get(field):
             continue
@@ -334,6 +344,8 @@ def clean_client(data, previous=None):
             values[field] = normalized
         if field == "sitio" and not legal_url(value):
             raise ApiError(400, "Ingresá un sitio web válido que empiece con https:// o http://")
+        if field == "horario" and not valid_business_hours(value):
+            raise ApiError(400, "Ingresá un horario como «Lun a Vie, 9 a 18 h» o «Con turno previo»")
     for field, default in COLOR_DEFAULTS.items():
         if not COLOR_RE.match(values[field]):
             values[field] = default
