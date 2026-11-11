@@ -1293,12 +1293,33 @@ def not_found_page():
     return Path(ROOT, "404.html").read_bytes()
 
 
+SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("Referrer-Policy", "strict-origin-when-cross-origin"),
+    ("X-Frame-Options", "SAMEORIGIN"),
+    ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
+    ("Content-Security-Policy",
+     "default-src 'self'; "
+     "base-uri 'self'; "
+     "form-action 'self' https://wa.me https://api.whatsapp.com mailto:; "
+     "frame-ancestors 'self'; "
+     "img-src 'self' data: blob: https:; "
+     "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net; "
+     "frame-src 'self' https://www.google.com https://maps.google.com https://www.googletagmanager.com; "
+     "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.supabase.co"),
+)
+
+
 class Handler(SimpleHTTPRequestHandler):
     extra_headers = ()
     cache_control = "no-store"
 
     def end_headers(self):
         self.send_header("Cache-Control", self.cache_control)
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
         super().end_headers()
 
     def route(self):
