@@ -1,0 +1,70 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Prueba de consentimiento</title></head><body><main><h1>Prueba de consentimiento</h1></main>
+<template data-lz-tracking><script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-0000000');</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-0000000000"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-0000000000');</script></template>
+<style>
+[data-lz-consent]{position:fixed;inset:auto 1rem 1rem;z-index:1090;max-width:34rem;padding:1rem;border:1px solid #555;border-radius:.75rem;background:#fff;color:#171717;box-shadow:0 4px 24px #0003}
+[data-lz-consent][hidden]{display:none}
+[data-lz-consent] p{margin:0 0 .75rem}
+[data-lz-consent] div{display:flex;flex-wrap:wrap;gap:.5rem}
+[data-lz-consent] button,[data-lz-consent-open]{min-height:44px;padding:.5rem .75rem;border:1px solid #222;border-radius:.35rem;background:#fff;color:#171717}
+[data-lz-consent] button:focus-visible,[data-lz-consent-open]:focus-visible{outline:3px solid #2358a0;outline-offset:2px}
+[data-lz-consent-open]{display:block;margin:1rem}
+</style>
+<button type="button" data-lz-consent-open>Preferencias de cookies</button>
+<section data-lz-consent aria-label="Preferencias de cookies" hidden>
+<p>Podés permitir o rechazar las cookies de medición y marketing. Tu elección se puede cambiar desde Preferencias de cookies.</p>
+<div>
+<button type="button" data-choice="denied">Rechazar</button>
+<button type="button" data-choice="allowed">Aceptar</button>
+</div>
+</section>
+<script>
+(function () {
+  var template = document.querySelector("[data-lz-tracking]");
+  var panel = document.querySelector("[data-lz-consent]");
+  var opener = document.querySelector("[data-lz-consent-open]");
+  var key = "lanzate:tracking:v1:9999999";
+  var choice = "";
+  var started = false;
+  try { choice = localStorage.getItem(key) || ""; } catch (error) {}
+
+  function start() {
+    if (started) return;
+    started = true;
+    template.content.querySelectorAll("script").forEach(function (source) {
+      var script = document.createElement("script");
+      Array.from(source.attributes).forEach(function (attr) {
+        script.setAttribute(attr.name, attr.value);
+      });
+      script.textContent = source.textContent;
+      document.head.appendChild(script);
+    });
+  }
+
+  function save(value) {
+    var persisted = false;
+    try {
+      localStorage.setItem(key, value);
+      persisted = true;
+    } catch (error) {}
+    if (started && value === "denied") {
+      location.reload();
+      return;
+    }
+    choice = value;
+    panel.hidden = true;
+    opener.focus();
+    if (choice === "allowed" && persisted) start();
+  }
+
+  if (choice === "allowed") start();
+  panel.hidden = choice === "allowed" || choice === "denied";
+  opener.addEventListener("click", function () {
+    panel.hidden = false;
+    panel.querySelector("button").focus();
+  });
+  panel.addEventListener("click", function (event) {
+    if (event.target.dataset.choice) save(event.target.dataset.choice);
+  });
+})();
+</script>
+</body></html>
