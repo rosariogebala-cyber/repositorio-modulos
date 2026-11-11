@@ -577,11 +577,35 @@ def landing_preview(landing_id):
     return match.group(1), base64.b64decode(match.group(2))
 
 
-def accessible_landing(markup, title):
+def accessible_landing(markup, title, legacy_jimena=False):
     document = html_dom.document_fromstring(markup)
     body = document.find("body")
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
+
+    if legacy_jimena:
+        assets = "https://rosariogebala-cyber.github.io/jimenavidal/assets/img/"
+        for image in document.xpath('//img[starts-with(@src, "/maquetas/img/jimena/faq/")]'):
+            image.set("src", assets + "faq/" + image.get("src").rsplit("/", 1)[-1])
+        for frame in document.xpath('//article[@data-oferta]/div[button/img[starts-with(@src, "/api/landings/26/ofertas/")]]'):
+            frame.getparent().remove(frame)
+        for meta in document.xpath('//meta[@property="og:image" and contains(@content, "/maquetas/img/jimena/compartir.jpg")]'):
+            meta.set("content", assets + "compartir.jpg")
+        for carousel in document.xpath('//*[@id="heroJimena"]'):
+            carousel.attrib.pop("data-bs-ride", None)
+            carousel.set("data-bs-interval", "false")
+            for video in carousel.xpath(".//video"):
+                video.attrib.pop("autoplay", None)
+                video.attrib.pop("loop", None)
+        style = etree.SubElement(document.find("head"), "style")
+        style.text = (
+            ":root{--green:#c2410c}"
+            "#heroJimena .nx-hero-slide{background-image:url("
+            + assets + "compartir.jpg)}"
+            "@media(max-width:767.98px){#heroJimena .nx-hero-slide .container{"
+            "width:100%;min-width:0;padding-inline:24px;margin-inline:auto}"
+            "#heroJimena .nx-hero-slide .container>div{max-width:100%;margin-inline:0}}"
+        )
 
     ids = set(document.xpath("//@id"))
 
@@ -663,7 +687,7 @@ def landing_page(cliente_slug, slug, origin=""):
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
-    return accessible_landing(html, row["nombre"])
+    return accessible_landing(html, row["nombre"], legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal")
 
 
 def auto_description(html):
