@@ -555,7 +555,7 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "c.nombre AS cliente, c.logo, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
@@ -599,7 +599,10 @@ def share_head(row, origin, path):
         ("name", "twitter:card", "summary_large_image" if image else "summary"),
     ]
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
-    return out + '<link rel="canonical" href="%s">' % escape(origin + path)
+    icon = row["logo"] or "/assets/favicon-lanzate.svg"
+    return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
+        escape(icon, quote=True), escape(origin + path, quote=True)
+    )
 
 
 def tracking_head(c):

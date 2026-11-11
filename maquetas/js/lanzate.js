@@ -3,6 +3,13 @@
 
   /* En una landing publicada los formularios envían la consulta; en las maquetas y la vista previa son de muestra */
   var leadMeta = document.querySelector('meta[name="lz-landing"]');
+  if (leadMeta) {
+    document.querySelectorAll('form input[name="web"]').forEach(function (trap) {
+      trap.hidden = true;
+      trap.tabIndex = -1;
+      trap.setAttribute("aria-hidden", "true");
+    });
+  }
   var LEAD_FAIL = "No se pudo enviar. Revisá la conexión y probá de nuevo.";
 
   function leadData(form, extra) {
@@ -60,7 +67,7 @@
       trap.tabIndex = -1;
       trap.autocomplete = "off";
       trap.setAttribute("aria-hidden", "true");
-      trap.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;opacity:0";
+      trap.hidden = true;
       form.appendChild(trap);
     });
   }
@@ -625,6 +632,15 @@
   if (libBar && libHeader) {
     var libLinks = Array.prototype.slice.call(document.querySelectorAll("[data-section-link]"));
     var libSections = Array.prototype.slice.call(document.querySelectorAll("[data-section]"));
+    var compactLibrary = window.matchMedia("(max-width: 575.98px)");
+    var shownSection;
+    function filterLibrary() {
+      var target = document.getElementById(location.hash.slice(1));
+      shownSection = target && target.closest("[data-section]") || libSections[0];
+      libSections.forEach(function (section) {
+        section.hidden = compactLibrary.matches && section !== shownSection;
+      });
+    }
     function libOffset() {
       var h = libHeader.getBoundingClientRect().height;
       document.documentElement.style.setProperty("--lib-header", h + "px");
@@ -634,8 +650,9 @@
       var line = libHeader.getBoundingClientRect().height + libBar.getBoundingClientRect().height + 24;
       var current = libSections[0];
       libSections.forEach(function (section) {
-        if (section.getBoundingClientRect().top <= line) current = section;
+        if (!section.hidden && section.getBoundingClientRect().top <= line) current = section;
       });
+      if (compactLibrary.matches) current = shownSection;
       if (!current) return;
       libLinks.forEach(function (link) {
         var on = link.getAttribute("href") === "#" + current.id;
@@ -644,8 +661,24 @@
         else link.removeAttribute("aria-current");
       });
     }
-    libOffset();
-    libSpy();
+    function updateLibrary() {
+      filterLibrary();
+      libOffset();
+      libSpy();
+    }
+    libLinks.forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        if (!compactLibrary.matches || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        var hash = link.hash;
+        if (location.hash !== hash) history.pushState(null, "", hash);
+        updateLibrary();
+        shownSection.scrollIntoView();
+      });
+    });
+    compactLibrary.addEventListener("change", updateLibrary);
+    window.addEventListener("hashchange", updateLibrary);
+    updateLibrary();
     window.addEventListener("resize", libOffset);
     document.addEventListener("scroll", libSpy, { passive: true });
   }
