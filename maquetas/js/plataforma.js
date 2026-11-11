@@ -80,7 +80,7 @@
 
   /* Formulario de cliente (alta y edición) */
   var form = null;
-  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "direccion", "horario", "instagram", "facebook", "linkedin", "notas", "ga4", "gtm", "meta_pixel"];
+  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "privacidad_url", "terminos_url", "direccion", "horario", "instagram", "facebook", "linkedin", "notas", "ga4", "gtm", "meta_pixel"];
 
   function buildForm() {
     var dialog = document.createElement("dialog");
@@ -98,6 +98,8 @@
       '<label class="pf-field"><span>Email</span><input class="lb-input" name="email" type="email" autocomplete="email" placeholder="hola@example.com"></label>' +
       '<label class="pf-field"><span>Teléfono</span><input class="lb-input" name="telefono" type="tel" autocomplete="tel" placeholder="+54 11 5555-0000"></label>' +
       '<label class="pf-field is-wide"><span>Sitio web</span><input class="lb-input" name="sitio" type="url" placeholder="https://example.com"></label>' +
+      '<label class="pf-field"><span>Política de privacidad</span><input class="lb-input" name="privacidad_url" type="url" placeholder="https://"></label>' +
+      '<label class="pf-field"><span>Términos y condiciones</span><input class="lb-input" name="terminos_url" type="url" placeholder="https://"></label>' +
       '<label class="pf-field is-wide"><span>Dirección</span><input class="lb-input" name="direccion" autocomplete="street-address" placeholder="Ej: Av. Corrientes 1234, CABA"></label>' +
       '<label class="pf-field is-wide"><span>Horario de atención</span><input class="lb-input" name="horario" placeholder="Ej: Lun a Vie, 9 a 18 h"></label>' +
       '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +

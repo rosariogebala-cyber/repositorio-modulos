@@ -153,6 +153,8 @@ CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
 );
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS privacidad_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS terminos_url TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS tipo_cliente TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS direccion TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
@@ -285,6 +287,18 @@ def get_client_row(con, client_id):
     return row
 
 
+def legal_url(value):
+    if not value or any(char.isspace() or ord(char) < 32 for char in value):
+        return ""
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme in ("http", "https") and parsed.hostname and not parsed.username and not parsed.password:
+            return value
+    except ValueError:
+        pass
+    return ""
+
+
 def clean_client(data):
     values = {}
     for field in CLIENT_FIELDS:
@@ -309,6 +323,12 @@ def clean_client(data):
         if data["tipo_cliente"] not in ("real", "demo"):
             raise ApiError(400, "Elegí si el cliente es real o demo")
         values["tipo_cliente"] = data["tipo_cliente"]
+    for key, label in (("privacidad_url", "Privacidad"), ("terminos_url", "Términos")):
+        if key in data:
+            value = str(data[key] or "").strip()
+            values[key] = legal_url(value)
+            if value and not values[key]:
+                raise ApiError(400, "Ingresá un enlace web válido para " + label)
     return values
 
 
@@ -593,7 +613,7 @@ def accessible_button_color(color):
             return "#%02x%02x%02x" % candidate
 
 
-def accessible_landing(markup, title, legacy_jimena=False, primary_color=None):
+def accessible_landing(markup, title, legacy_jimena=False, primary_color=None, legal_links=None):
     document = html_dom.document_fromstring(markup)
     body = document.find("body")
     if body is None or "landing-page" not in body.get("class", "").split():
@@ -640,6 +660,27 @@ def accessible_landing(markup, title, legacy_jimena=False, primary_color=None):
                 image.set("loading", "lazy")
             if not image.get("decoding"):
                 image.set("decoding", "async")
+
+    for link in body.xpath('.//footer//a[starts-with(@href, "#footer")]'):
+        label = " ".join(link.text_content().casefold().split())
+        key = {"privacidad": "privacidad_url", "términos": "terminos_url"}.get(label)
+        if not key:
+            continue
+        destination = legal_url((legal_links or {}).get(key, ""))
+        if destination:
+            link.set("href", destination)
+        else:
+            tail = re.sub(r"^\s*[·|]\s*", "", link.tail or "")
+            previous = link.getprevious()
+            parent = link.getparent()
+            if previous is None:
+                parent.text = (parent.text or "") + tail
+            else:
+                separator = previous.tail or ""
+                if link.getnext() is None:
+                    separator = re.sub(r"\s*[·|]\s*$", "", separator)
+                previous.tail = separator + tail
+            parent.remove(link)
 
     ids = set(document.xpath("//@id"))
 
@@ -709,7 +750,7 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.ga4, c.gtm, c.meta_pixel "
+            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
             "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
@@ -722,6 +763,7 @@ def landing_page(cliente_slug, slug, origin=""):
         html, row["nombre"],
         legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal",
         primary_color=row["color_primario"],
+        legal_links=row,
     )
     return add_tracking_consent(html, row)
 
