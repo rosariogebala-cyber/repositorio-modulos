@@ -9,3 +9,6 @@ data/logos/
 Templates/
 .vercel
 .env*
+
+# Salida del build de Vercel
+public/
