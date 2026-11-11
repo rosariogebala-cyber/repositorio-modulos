@@ -992,9 +992,10 @@ NOT_FOUND_PAGE = (
 
 class Handler(SimpleHTTPRequestHandler):
     extra_headers = ()
+    cache_control = "no-store"
 
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", self.cache_control)
         super().end_headers()
 
     def route(self):
@@ -1012,6 +1013,23 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def send_public_landing(self, html):
+        body = html.encode("utf-8")
+        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+        validators = {value.strip().removeprefix("W/") for value in self.headers.get("If-None-Match", "").split(",")}
+        self.cache_control = "public, no-cache"
+        try:
+            if etag in validators or "*" in validators:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.end_headers()
+            else:
+                self.extra_headers = (("ETag", etag),)
+                self.send_body(200, body, "text/html; charset=utf-8")
+        finally:
+            self.cache_control = "no-store"
+            self.extra_headers = ()
 
     def send_json(self, status, payload):
         self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
@@ -1061,7 +1079,10 @@ class Handler(SimpleHTTPRequestHandler):
             except ApiError as err:
                 self.send_body(err.status, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
                 return True
-            self.send_body(200 if html else 404, (html or NOT_FOUND_PAGE).encode("utf-8"), "text/html; charset=utf-8")
+            if html:
+                self.send_public_landing(html)
+            else:
+                self.send_body(404, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
             return True
         for pattern, name in ROUTES:
             match = pattern.match(path)
