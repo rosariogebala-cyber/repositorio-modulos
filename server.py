@@ -858,12 +858,7 @@ def ia_write_texts(data):
         + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {str(t.get("id")) for t in textos}
-    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
-              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
-    if not result:
-        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
-    return {"textos": result}
+    return validate_ia_texts(textos, out)
 
 
 def ia_fit_texts(data):
@@ -884,12 +879,27 @@ def ia_fit_texts(data):
         + '\n\nRespondé con este JSON: {"textos": [{"id": "...", "texto": "..."}, ...]} con todos los ids.'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {str(t.get("id")) for t in textos}
-    result = [{"id": str(x.get("id")), "texto": str(x.get("texto") or "").strip()}
-              for x in out.get("textos") or [] if str(x.get("id")) in valid and str(x.get("texto") or "").strip()]
-    if not result:
-        raise ApiError(502, "La IA no devolvió textos. Probá de nuevo.")
-    return {"textos": result}
+    return validate_ia_texts(textos, out)
+
+
+def validate_ia_texts(slots, response):
+    limits = {str(slot.get("id")): (slot.get("min") or 0, slot.get("max")) for slot in slots}
+    result = {}
+    for item in response.get("textos") or []:
+        if not isinstance(item, dict):
+            continue
+        slot_id = str(item.get("id"))
+        value = item.get("texto")
+        if slot_id not in limits or not isinstance(value, str):
+            continue
+        text = value.strip()
+        length = len(text.replace("*", ""))
+        minimum, maximum = limits[slot_id]
+        if text and length >= minimum and (not maximum or length <= maximum):
+            result[slot_id] = text
+    if result.keys() != limits.keys():
+        raise ApiError(502, "La IA no devolvió todos los textos dentro del largo solicitado. Probá de nuevo.")
+    return {"textos": [{"id": slot_id, "texto": result[slot_id]} for slot_id in limits]}
 
 
 def ia_describe_images(data):
