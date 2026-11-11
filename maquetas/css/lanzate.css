@@ -1260,7 +1260,25 @@ button, input, textarea { font-family: inherit; }
 
 /* Footer */
 .nx-footer { color: var(--ink); }
-.nx-footer a { text-decoration: none; }
+.nx-footer .d-flex > *,
+.nx-footer .row > * { min-width: 0; }
+.nx-footer a {
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.nx-footer .foot-links a,
+.nx-footer nav a,
+.nx-footer .nx-socials a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 24px;
+  max-width: 100%;
+}
+.nx-footer .nx-socials a {
+  justify-content: center;
+  min-width: 44px;
+}
 .nx-footer a:hover { text-decoration: underline; }
 .nx-footer-dark {
   background: var(--dark);
@@ -1615,6 +1633,16 @@ html:has(.lib-page) { scroll-behavior: smooth; }
 .lib-main {
   --lib-gutter: clamp(16px, 2.4vw, 44px);
   padding: 8px var(--lib-gutter) 64px;
+}
+.lib-page-title {
+  margin: 24px 0 0;
+  font: 700 clamp(1.75rem, 4vw, 2.5rem) Bricolage Grotesque, Inter, sans-serif;
+}
+.lib-cats a,
+.lib-variants a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .lib-main .mq-block[data-width="full"] > .mq-frame { margin-inline: calc(-1 * var(--lib-gutter)); }
 
@@ -2060,7 +2088,7 @@ html:has(.lib-page) { scroll-behavior: smooth; }
   background: #fff;
   color: var(--ink);
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
 }
 select.bk-input { appearance: none; padding-right: 38px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235f6f68' viewBox='0 0 16 16'%3E%3Cpath d='M1.6 4.6a.7.7 0 0 1 1 0L8 10l5.4-5.4a.7.7 0 1 1 1 1l-5.9 5.9a.7.7 0 0 1-1 0L1.6 5.6a.7.7 0 0 1 0-1z'/%3E%3C/svg%3E") no-repeat right 14px center; }
 textarea.bk-input { min-height: 0; resize: vertical; }
