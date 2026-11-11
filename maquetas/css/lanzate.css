@@ -1912,7 +1912,7 @@ html:has(.lib-page) { scroll-behavior: smooth; }
 .foot-form-note { margin: 10px 4px 0; font-size: 13px; color: #b7cfc2; min-height: 1.3em; }
 
 .foot-main { padding: clamp(44px, 6vw, 68px) 0 28px; }
-.foot-main h2 {
+.foot-main :is(h2, .nx-footer-label) {
   margin: 0 0 14px;
   font-size: 12px;
   font-weight: 700;
@@ -3442,3 +3442,14 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .landing-page .nx h2:not(.h6, .modal-title, .nx-kicker, .plan-kicker) {
   font-size: var(--fs-section-title);
 }
+
+.lib-skip-link {
+  position: fixed;
+  inset: 12px auto auto 12px;
+  z-index: 1100;
+  padding: 12px 16px;
+  background: #fff;
+  color: #0e1130;
+}
+.lib-skip-link:not(:focus) { clip-path: inset(50%); }
+#contenido-maquetas { scroll-margin-top: var(--lib-offset, 160px); }
