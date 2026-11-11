@@ -18,9 +18,11 @@
     <form class="lz-login-card" data-lz-login>
       <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
       <h1>Ingresá a la&nbsp;plataforma</h1>
-      <p>Escribí la clave del equipo para crear y editar&nbsp;landings.</p>
-      <label class="lb-label" for="lzClave">Clave</label>
-      <input class="lb-input" id="lzClave" type="password" autocomplete="current-password" required autofocus>
+      <p>Ingresá tu usuario y contraseña para crear y editar landings.</p>
+      <label class="lb-label" for="lzUsuario">Usuario</label>
+      <input class="lb-input" id="lzUsuario" name="usuario" type="text" autocomplete="username" autocapitalize="none" required autofocus>
+      <label class="lb-label" for="lzClave">Contraseña</label>
+      <input class="lb-input" id="lzClave" name="clave" type="password" autocomplete="current-password" required>
       <p class="lb-msg" data-lz-msg role="status" aria-live="polite"></p>
       <button class="btn-nx" type="submit"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Ingresar</button>
     </form>
@@ -42,7 +44,7 @@
         fetch("/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clave: form.querySelector("input").value })
+          body: JSON.stringify({ usuario: form.elements.usuario.value, clave: form.elements.clave.value })
         }).then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (data) {
             if (!r.ok) throw new Error(data.error || "No se pudo ingresar.");
