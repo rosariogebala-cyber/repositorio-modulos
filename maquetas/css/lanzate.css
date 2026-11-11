@@ -419,19 +419,32 @@ button, input, textarea { font-family: inherit; }
   height: 1rem;
 }
 
-.nx-hero .carousel-indicators { gap: 6px; margin-bottom: 18px; }
+.nx-hero .carousel-indicators { margin-bottom: 10px; }
 
 .nx-hero .carousel-indicators [data-bs-target] {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
   border: 0;
-  border-radius: 50%;
-  background: #fff;
-  opacity: 0.75;
+  background: transparent;
+  opacity: 1;
   margin: 0;
 }
 
-.nx-hero .carousel-indicators .active { background: var(--green); opacity: 1; }
+.nx-hero .carousel-indicators [data-bs-target]::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.75;
+}
+
+.nx-hero .carousel-indicators .active::after {
+  background: var(--green);
+  opacity: 1;
+}
 
 .nx-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
 

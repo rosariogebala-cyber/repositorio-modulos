@@ -677,8 +677,8 @@
       '  <link rel="preconnect" href="https://fonts.googleapis.com">',
       '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
       '  <link href="' + FONTS + '" rel="stylesheet">',
-      '  <link href="' + BOOTSTRAP_CSS + '" rel="stylesheet">',
-      '  <link href="' + ICONS_CSS + '" rel="stylesheet">',
+      '  <link href="' + BOOTSTRAP_CSS + '" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">',
+      '  <link href="' + ICONS_CSS + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
@@ -687,7 +687,7 @@
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = [
-      '  <script src="' + BOOTSTRAP_JS + '"></' + "script>",
+      '  <script src="' + BOOTSTRAP_JS + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
       '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
