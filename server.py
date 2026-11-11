@@ -631,6 +631,16 @@ def accessible_landing(markup, title, legacy_jimena=False, primary_color=None):
         trap.set("hidden", "")
         trap.set("tabindex", "-1")
 
+    for module in body.xpath('.//section[@data-module]'):
+        module_id = module.get("data-module")
+        if module_id.startswith(("hero", "navegacion", "whatsapp")):
+            continue
+        for image in module.xpath(".//img"):
+            if not image.get("loading") and image.get("fetchpriority") != "high":
+                image.set("loading", "lazy")
+            if not image.get("decoding"):
+                image.set("decoding", "async")
+
     ids = set(document.xpath("//@id"))
 
     def unique_id(base):
