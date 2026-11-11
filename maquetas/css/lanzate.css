@@ -3433,3 +3433,6 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .landing-page :is(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) {
   font-size: max(var(--fs-field), 1em);
 }
+
+#lbImgTip .is-warn { color: #8a4600; }
+#lbImgTip .is-good { color: #17623f; }

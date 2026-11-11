@@ -1323,7 +1323,7 @@
     var sizeId = "lbImgSize" + Date.now();
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
-      "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
+      "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\" role=\"status\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
       (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' +
         (ai ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
@@ -1336,8 +1336,8 @@
       var span = tip.querySelector("#" + sizeId);
       if (!span) return;
       var small = role && ((role.minAncho && probe.naturalWidth < role.minAncho) || (role.minAlto && probe.naturalHeight < role.minAlto));
-      span.textContent = "Mide " + probe.naturalWidth + "×" + probe.naturalHeight + "\u00a0px";
-      span.className = small ? "is-bad" : "";
+      span.textContent = (small ? "Resolución baja · " : role ? "Resolución correcta · " : "") + probe.naturalWidth + "×" + probe.naturalHeight + "\u00a0px";
+      span.className = small ? "is-warn" : role ? "is-good" : "";
     };
     probe.onerror = function () {
       var span = tip.querySelector("#" + sizeId);
