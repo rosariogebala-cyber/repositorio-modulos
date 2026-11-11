@@ -314,14 +314,38 @@ def legal_url(value):
     return ""
 
 
-def clean_client(data):
+def valid_business_hours(value):
+    if len(value) > 200 or any(ord(char) < 32 for char in value):
+        return False
+    if value.casefold().rstrip(".") in {"con turno previo", "solo con turno previo", "a convenir", "24 horas"}:
+        return True
+    hour = r"(?:[01]?[0-9]|2[0-3])(?::[0-5][0-9])?"
+    interval = rf"(?<![0-9:]){hour}(?:\s*h)?\s*(?:a|hasta|[-–—])\s*{hour}(?![0-9:])"
+    return bool(re.search(interval, value, re.IGNORECASE))
+
+
+def clean_client(data, previous=None):
     values = {}
     for field in CLIENT_FIELDS:
         values[field] = str(data.get(field) or "").strip()
     if not values["nombre"]:
         raise ApiError(400, "El nombre del cliente es obligatorio")
-    if values["email"] and not EMAIL_RE.match(values["email"]):
-        raise ApiError(400, "Revisá el email: no tiene un formato válido")
+    previous = previous or {}
+    for field in ("email", "telefono", "sitio", "horario"):
+        value = values[field]
+        if not value or value == previous.get(field):
+            continue
+        if field == "email" and not EMAIL_RE.fullmatch(value):
+            raise ApiError(400, "Revisá el email: no tiene un formato válido")
+        if field == "telefono":
+            normalized = re.sub(r"[ ()-]", "", value)
+            if not re.fullmatch(r"\+[1-9][0-9]{7,14}", normalized):
+                raise ApiError(400, "Ingresá el teléfono con código internacional, por ejemplo +54 11 5555-0000")
+            values[field] = normalized
+        if field == "sitio" and not legal_url(value):
+            raise ApiError(400, "Ingresá un sitio web válido que empiece con https:// o http://")
+        if field == "horario" and not valid_business_hours(value):
+            raise ApiError(400, "Ingresá un horario como «Lun a Vie, 9 a 18 h» o «Con turno previo»")
     for field, default in COLOR_DEFAULTS.items():
         if not COLOR_RE.match(values[field]):
             values[field] = default
@@ -401,9 +425,9 @@ def create_client(data):
 
 
 def update_client(client_id, data):
-    values = clean_client(data)
     with tx() as con:
-        get_client_row(con, client_id)
+        previous = get_client_row(con, client_id)
+        values = clean_client(data, previous)
         if data.get("logo_data"):
             values["logo"] = clean_logo(data["logo_data"])
         elif data.get("logo_quitar"):
