@@ -577,7 +577,23 @@ def landing_preview(landing_id):
     return match.group(1), base64.b64decode(match.group(2))
 
 
-def accessible_landing(markup, title, legacy_jimena=False):
+def accessible_button_color(color):
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color or ""):
+        return None
+    rgb = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+    def linear(channel):
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    for percent in range(100, -1, -1):
+        candidate = tuple(round(channel * percent / 100) for channel in rgb)
+        luminance = sum(weight * linear(channel) for weight, channel in zip((0.2126, 0.7152, 0.0722), candidate))
+        if 1.05 / (luminance + 0.05) >= 4.5:
+            return "#%02x%02x%02x" % candidate
+
+
+def accessible_landing(markup, title, legacy_jimena=False, primary_color=None):
     document = html_dom.document_fromstring(markup)
     body = document.find("body")
     if body is None or "landing-page" not in body.get("class", "").split():
@@ -606,6 +622,14 @@ def accessible_landing(markup, title, legacy_jimena=False):
             "width:100%;min-width:0;padding-inline:24px;margin-inline:auto}"
             "#heroJimena .nx-hero-slide .container>div{max-width:100%;margin-inline:0}}"
         )
+
+    cta_color = accessible_button_color("#c2410c" if legacy_jimena else primary_color)
+    if cta_color:
+        style = etree.SubElement(document.find("head"), "style")
+        style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
+    for trap in body.xpath('.//form//input[@name="web" and @aria-hidden="true"]'):
+        trap.set("hidden", "")
+        trap.set("tabindex", "-1")
 
     ids = set(document.xpath("//@id"))
 
@@ -675,7 +699,7 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.ga4, c.gtm, c.meta_pixel "
+            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.ga4, c.gtm, c.meta_pixel "
             "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
@@ -687,7 +711,11 @@ def landing_page(cliente_slug, slug, origin=""):
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
-    return accessible_landing(html, row["nombre"], legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal")
+    return accessible_landing(
+        html, row["nombre"],
+        legacy_jimena=row["id"] == 26 and cliente_slug == "jimena-vidal",
+        primary_color=row["color_primario"],
+    )
 
 
 def auto_description(html):
