@@ -374,7 +374,10 @@
         var role = rules.imagenes.roles.filter(function (r) { return r.activo && r.selector && safeMatches(el, r.selector); })[0];
         if (isImg && rules.imagenes.altObligatorio) {
           var alt = el.getAttribute("alt");
-          if (alt === null || (!norm(alt) && !el.closest("a, button"))) {
+          var control = el.closest("a, button");
+          var decorative = el.getAttribute("aria-hidden") === "true" || el.getAttribute("role") === "presentation";
+          var namedControl = control && norm(control.getAttribute("aria-label") || control.textContent);
+          if (alt === null || (!norm(alt) && !decorative && !namedControl)) {
             add("aviso", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Describí la foto en pocas palabras: ayuda a Google y a la accesibilidad.", el);
           } else if (rules.imagenes.altMax && norm(alt).length > rules.imagenes.altMax) {
             add("aviso", "imagenes", mi, "Texto alternativo de " + norm(alt).length + " caracteres, el máximo es " + rules.imagenes.altMax + ".", "«" + cut(alt) + "»", el);

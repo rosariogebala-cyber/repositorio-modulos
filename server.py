@@ -555,7 +555,8 @@ def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.nombre AS cliente, c.logo, c.ga4, c.gtm, c.meta_pixel FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.ga4, c.gtm, c.meta_pixel "
+            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
         ).fetchone()
@@ -602,7 +603,24 @@ def share_head(row, origin, path):
     icon = row["logo"] or "/assets/favicon-lanzate.svg"
     return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
         escape(icon, quote=True), escape(origin + path, quote=True)
-    )
+    ) + local_business_head(row, origin + path)
+
+
+def local_business_head(row, url):
+    address = row["direccion"].strip()
+    if not address or "ejemplo" in address.casefold() or row["email"].strip().lower().endswith("@example.com"):
+        return ""
+    business = {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": row["cliente"],
+        "url": url,
+        "address": {"@type": "PostalAddress", "streetAddress": address},
+    }
+    if re.fullmatch(r"\+[1-9]\d{7,14}", row["telefono"]):
+        business["telephone"] = row["telefono"]
+    payload = json.dumps(business, ensure_ascii=False).replace("<", "\\u003c")
+    return '<script type="application/ld+json">%s</script>' % payload
 
 
 def tracking_head(c):
