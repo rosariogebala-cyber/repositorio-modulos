@@ -2339,7 +2339,8 @@ body:not(.lib-page) .mq-caption { max-width: none; padding-inline: calc(var(--nx
 /* Landings generadas */
 .landing-page { background: var(--paper); }
 .landing-page .mq-block { padding: 0; }
-.landing-page > section[data-module] { scroll-margin-top: var(--nx-nav-h, 0px); }
+.landing-page > section[data-module],
+.landing-page > main > section[data-module] { scroll-margin-top: var(--nx-nav-h, 0px); }
 html:has(> .landing-page) { scroll-behavior: smooth; }
 .landing-page > section[data-module^="navegacion"] {
   position: sticky;
@@ -3453,3 +3454,5 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 }
 .lib-skip-link:not(:focus) { clip-path: inset(50%); }
 #contenido-maquetas { scroll-margin-top: var(--lib-offset, 160px); }
+
+.landing-page > main { scroll-margin-top: var(--nx-nav-h, 0px); }

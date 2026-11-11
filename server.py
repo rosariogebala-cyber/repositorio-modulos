@@ -30,6 +30,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 import psycopg
+from lxml import etree, html as html_dom
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -576,6 +577,76 @@ def landing_preview(landing_id):
     return match.group(1), base64.b64decode(match.group(2))
 
 
+def accessible_landing(markup, title):
+    document = html_dom.document_fromstring(markup)
+    body = document.find("body")
+    if body is None or "landing-page" not in body.get("class", "").split():
+        return markup
+
+    ids = set(document.xpath("//@id"))
+
+    def unique_id(base):
+        value = base
+        number = 2
+        while value in ids:
+            value = f"{base}-{number}"
+            number += 1
+        ids.add(value)
+        return value
+
+    main = body.find("main")
+    if main is None:
+        modules = body.xpath("./section[@data-module]")
+        content = [module for module in modules
+                   if not module.get("data-module").startswith(("navegacion", "whatsapp", "footer"))]
+        if content:
+            first, last = body.index(content[0]), body.index(content[-1])
+            main = etree.Element("main")
+            for element in list(body)[first:last + 1]:
+                main.append(element)
+            body.insert(first, main)
+        else:
+            return markup
+
+    if not main.get("id"):
+        main.set("id", unique_id("contenido-principal"))
+    main.set("tabindex", "-1")
+    if not body.xpath('./a[contains(concat(" ", normalize-space(@class), " "), " lib-skip-link ")]'):
+        skip = etree.Element("a", {"class": "lib-skip-link", "href": "#" + main.get("id")})
+        skip.text = "Saltar al contenido"
+        body.insert(0, skip)
+
+    headings = main.xpath(".//h1")
+    if not headings:
+        candidates = main.xpath(".//section[starts-with(@data-module, 'hero')][1]//h2")
+        heading = next((h for h in candidates
+                        if not h.xpath("ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' carousel-item ')]")), None)
+        if heading is None:
+            heading = etree.Element("h1", {"class": "visually-hidden"})
+            heading.text = title
+            main.insert(0, heading)
+        else:
+            heading.tag = "h1"
+    for heading in headings[1:]:
+        heading.tag = "h2"
+
+    for index, nav in enumerate(body.xpath(".//nav"), 1):
+        if not nav.get("aria-label") and not nav.get("aria-labelledby"):
+            label = "Navegación del pie" if nav.xpath("ancestor::footer") else "Navegación"
+            nav.set("aria-label", f"{label} {index}")
+
+    for section in main.xpath("./section[@data-module]"):
+        if section.get("aria-label") or section.get("aria-labelledby"):
+            continue
+        headings = section.xpath(".//h1|.//h2[not(contains(concat(' ', normalize-space(@class), ' '), ' modal-title '))]")
+        if headings:
+            heading = headings[0]
+            if not heading.get("id"):
+                heading.set("id", unique_id((section.get("id") or "seccion") + "-titulo"))
+            section.set("aria-labelledby", heading.get("id"))
+    return "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
+
+
 def landing_page(cliente_slug, slug, origin=""):
     with tx() as con:
         row = con.execute(
@@ -592,7 +663,7 @@ def landing_page(cliente_slug, slug, origin=""):
     if row["gtm"]:
         html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s" '
                       'height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' % row["gtm"], html, count=1)
-    return html
+    return accessible_landing(html, row["nombre"])
 
 
 def auto_description(html):
