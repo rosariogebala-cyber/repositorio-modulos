@@ -3,10 +3,12 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,data/reglas.json,maquetas/*.html}"
+      "includeFiles": "{server.py,404.html,data/reglas.json,maquetas/*.html}"
     }
   },
   "rewrites": [
+    { "source": "/robots.txt", "destination": "/api/index?__path=/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/api/index?__path=/sitemap.xml" },
     { "source": "/maquetas/constructor.html", "destination": "/api/index?__path=/maquetas/constructor.html" },
     { "source": "/maquetas/landings.html", "destination": "/api/index?__path=/maquetas/landings.html" },
     { "source": "/maquetas/clientes.html", "destination": "/api/index?__path=/maquetas/clientes.html" },

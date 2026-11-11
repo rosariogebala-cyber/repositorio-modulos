@@ -26,6 +26,7 @@ from functools import partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
 
@@ -1249,12 +1250,23 @@ def ia_describe_images(data):
 
 # --- HTTP ----------------------------------------------------------------------
 
-NOT_FOUND_PAGE = (
-    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-    "<title>Página no encontrada</title><style>body{font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;"
-    "background:#f7f6f2;color:#0e1130}main{text-align:center;padding:24px}h1{font-size:28px;margin:0 0 8px}</style></head>"
-    "<body><main><h1>Esta página no existe</h1><p>Revisá el link o pedile uno nuevo a quien te lo&nbsp;compartió.</p></main></body></html>"
-)
+def sitemap_xml(origin):
+    with tx() as con:
+        rows = con.execute(
+            "SELECT c.slug AS cliente, l.slug AS landing, c.tipo_cliente, c.email "
+            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+            "WHERE l.html <> '' ORDER BY c.slug, l.slug"
+        ).fetchall()
+    paths = ["/"]
+    paths.extend("/l/{cliente}/{landing}/".format(**row) for row in rows if client_type(row) == "real")
+    entries = "".join("<url><loc>%s</loc></url>" % escape(origin + path) for path in paths)
+    return '<?xml version="1.0" encoding="UTF-8"?>' + (
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
+    )
+
+
+def not_found_page():
+    return Path(ROOT, "404.html").read_bytes()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -1339,6 +1351,22 @@ class Handler(SimpleHTTPRequestHandler):
     def serve_lanzate(self, method):
         """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
         path, query = self.route()
+        if path in ("/robots.txt", "/sitemap.xml") and method in ("GET", "HEAD"):
+            origin = self.origin()
+            if not origin:
+                self.send_json(400, {"error": "No se pudo identificar el dominio."})
+            elif path == "/robots.txt":
+                robots = "User-agent: *\nDisallow: /api/\nDisallow: /maquetas/\nDisallow: /data/\nSitemap: " + origin + "/sitemap.xml\n"
+                self.send_body(200, robots.encode("utf-8"), "text/plain; charset=utf-8")
+            else:
+                try:
+                    sitemap = sitemap_xml(origin)
+                except (ApiError, psycopg.Error):
+                    self.send_json(503, {"error": "El sitemap no está disponible temporalmente."})
+                else:
+                    self.send_body(200, sitemap.encode("utf-8"), "application/xml; charset=utf-8")
+            return True
+
         if path in PANEL_PAGES and method in ("GET", "HEAD"):
             if not self.authorized():
                 target = path + ("?" + urlencode(query, doseq=True) if query else "")
@@ -1361,12 +1389,12 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 html = landing_page(*page.groups(), origin=self.origin())
             except ApiError as err:
-                self.send_body(err.status, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                self.send_body(err.status, not_found_page(), "text/html; charset=utf-8")
                 return True
             if html:
                 self.send_public_landing(html)
             else:
-                self.send_body(404, NOT_FOUND_PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
             return True
         for pattern, name in ROUTES:
             match = pattern.match(path)
