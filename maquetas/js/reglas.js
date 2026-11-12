@@ -375,7 +375,7 @@
           var decorative = el.getAttribute("aria-hidden") === "true" || el.getAttribute("role") === "presentation";
           var namedControl = control && norm(control.getAttribute("aria-label") || control.textContent);
           if (alt === null || (!norm(alt) && !decorative && !namedControl)) {
-            add(alt === null ? "error" : "aviso", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Describí la foto en pocas palabras: ayuda a Google y a la accesibilidad.", el);
+            add("error", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Describí la foto en pocas palabras: ayuda a Google y a la accesibilidad.", el);
           } else if (rules.imagenes.altMax && norm(alt).length > rules.imagenes.altMax) {
             add("aviso", "imagenes", mi, "Texto alternativo de " + norm(alt).length + " caracteres, el máximo es " + rules.imagenes.altMax + ".", "«" + cut(alt) + "»", el);
           }
