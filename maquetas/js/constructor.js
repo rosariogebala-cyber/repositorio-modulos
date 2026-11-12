@@ -786,7 +786,7 @@
   function imageData(el) {
     if (el.tagName === "IMG") return { src: el.getAttribute("src") || "", alt: el.getAttribute("alt") || "" };
     var m = /url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(el.style.backgroundImage || "");
-    return { src: m ? m[1] : "" };
+    return { src: m ? m[1] : "", alt: el.getAttribute("data-lz-background-alt") || "" };
   }
 
   function setImage(el, data) {
@@ -799,7 +799,10 @@
         el.style.backgroundImage = 'url("' + data.src + '")';
       }
     }
-    if (el.tagName === "IMG" && data.alt != null) el.setAttribute("alt", data.alt);
+    if (data.alt != null) {
+      if (el.tagName === "IMG") el.setAttribute("alt", data.alt);
+      else if (el.closest(".nx-hero, .nx-hero-slide")) el.setAttribute("data-lz-background-alt", data.alt);
+    }
   }
 
   function moduleTemplate(it, preview, withTexts) {
@@ -1519,13 +1522,14 @@
     var data = imageData(el);
     var need = minLabel(role);
     var isImg = el.tagName === "IMG";
+    var canDescribe = isImg || !!el.closest(".nx-hero, .nx-hero-slide");
     var probe = new Image();
     var sizeId = "lbImgSize" + Date.now();
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\" role=\"status\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
-      (isImg ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Qué se ve (la leen Google y los lectores de pantalla)"></label>' +
-        (ai ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
+      (canDescribe ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Describí lo importante o dejalo vacío si es decorativa"></label>' +
+        (ai && isImg ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
       '<button type="button" class="is-save" data-img-save hidden></button>' +
       (el.closest("a[data-lb-l]") ? '<button type="button" class="is-ghost" data-img-link>Cambiar link</button>' : "") +

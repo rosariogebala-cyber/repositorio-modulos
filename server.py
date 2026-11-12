@@ -760,6 +760,13 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
                 previous.tail = separator + tail
             parent.remove(link)
 
+    for background in body.xpath('.//section[starts-with(@data-module, "hero")]//*[@data-lz-background-alt]'):
+        description = " ".join(background.get("data-lz-background-alt", "").split())
+        if description and not background.xpath('./p[@data-lz-background-description]'):
+            alternative = etree.Element("p", {"class": "visually-hidden", "data-lz-background-description": ""})
+            alternative.text = description
+            background.insert(0, alternative)
+
     ids = set(document.xpath("//@id"))
 
     def unique_id(base):
