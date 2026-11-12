@@ -1512,6 +1512,7 @@ button, input, textarea { font-family: inherit; }
 .hairline-col + .hairline-col { border-left: 1px solid var(--line); }
 
 @media (max-width: 767.98px) {
+  .hero-with-cards .nx-hero-slide { padding-bottom: 36px; }
   .hairline-col + .hairline-col { border-left: 0; border-top: 1px solid var(--line); padding-top: 18px; }
   .nx-hero-slide {
     align-items: flex-start;
