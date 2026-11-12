@@ -878,6 +878,17 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
         style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
+    for section in body.xpath('.//section[starts-with(@data-module, "navegacion-media")]'):
+        for node in section.xpath(".//*[@style]"):
+            cleaned = re.sub(r"background-image\s*:\s*[^;]+;?", "", node.get("style") or "", flags=re.I).strip(" ;")
+            if cleaned:
+                node.set("style", cleaned)
+            else:
+                node.attrib.pop("style", None)
+        for nav in section.xpath(".//nav[contains(concat(' ', normalize-space(@class), ' '), ' nx-nav ')]"):
+            classes = nav.get("class", "")
+            if "nx-nav-media" not in classes.split():
+                nav.set("class", (classes + " nx-nav-media").strip())
     for brand in body.xpath('.//section[starts-with(@data-module, "navegacion-media")]//a[contains(concat(" ", normalize-space(@class), " "), " nx-brand ")]'):
         images = brand.xpath(".//img")
         label = " ".join("".join(brand.itertext()).split())

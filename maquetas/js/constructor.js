@@ -1793,6 +1793,17 @@
     tpl.content.querySelectorAll(".nx").forEach(function (el) {
       if (!el.parentElement || !el.parentElement.closest(".nx")) el.setAttribute("data-width", it.width);
     });
+    if (it.id.indexOf("navegacion-media") === 0) {
+      tpl.content.querySelectorAll("nav.nx-nav").forEach(function (nav) {
+        nav.classList.add("nx-nav-media");
+        nav.style.setProperty("background-image", "none");
+        nav.style.setProperty("background-color", "#fff");
+      });
+      tpl.content.querySelectorAll(".nx-brand img, [style*='background-image']").forEach(function (el) {
+        if (el.tagName === "IMG") el.remove();
+        else el.style.setProperty("background-image", "none");
+      });
+    }
     var html = tpl.innerHTML;
     if (prefix) {
       html = html

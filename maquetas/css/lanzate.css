@@ -198,6 +198,21 @@ button, input, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--line);
 }
 
+#navegacion-media .nx-nav,
+#media .nx-nav,
+.nx-nav-media,
+[data-module^="navegacion-media"] .nx-nav {
+  background-color: #fff !important;
+  background-image: none !important;
+}
+
+#navegacion-media .nx-brand img,
+#media .nx-brand img,
+.nx-nav-media .nx-brand img,
+[data-module^="navegacion-media"] .nx-brand img {
+  display: none !important;
+}
+
 .nx-nav.sticky-under {
   position: sticky;
   top: 52px;
