@@ -473,6 +473,22 @@
     if (rules.imagenes.formatos.length) L.push("- Formatos: " + rules.imagenes.formatos.join(", ").toUpperCase() + ".");
     if (rules.imagenes.altObligatorio) L.push("- Toda imagen lleva texto alternativo (alt) de hasta " + rules.imagenes.altMax + " caracteres. Si muestra texto, transcribilo tal como aparece. Si es una foto, describila o usá «imagen».");
     if (Number(rules.imagenes.nitidez)) L.push("- Cada imagen mide al menos " + rules.imagenes.nitidez + "× el ancho con el que se muestra, para verse nítida.");
+    L.push(
+      "",
+      "REVISIÓN MANUAL ANTES DE PUBLICAR",
+      "- Revisá la landing a 390, 768 y 1280 px. Comprobá que no haya desborde horizontal, que el Hero con tarjetas tenga espacio inferior en móvil y que el footer mantenga juntos los bloques relacionados.",
+      "- Usá un solo H1, un main, un enlace para saltar al contenido y etiquetas en la navegación. Reservá los H2 para títulos de sección.",
+      "- Confirmá un contraste mínimo de 4,5:1 para el texto normal. Revisá los botones y los textos sobre fotos con sus colores efectivos.",
+      "- Comprobá objetivos táctiles de al menos 24 × 24 px, botones principales de 44 px de alto y campos de formulario con texto de al menos 16 px. Probá el foco en Safari de iPhone.",
+      "- Priorizá la primera foto del Hero y diferí las siguientes. Usá variantes responsivas cuando estén disponibles y medí la transferencia completa de la landing en móvil. El objetivo del informe es hasta 1,5 MB.",
+      "- Verificá los textos alternativos con la imagen a la vista. Si es una captura o una placa con texto, comprobá la transcripción.",
+      "- Publicá datos de contacto, horarios, precios y reseñas confirmados. Identificá las demos como tales y comprobá que tengan noindex. Revisá que los enlaces legales vayan a su destino.",
+      "- Revisá favicon, datos estructurados y consentimiento si se activa analítica. Confirmá el envío de los formularios en el entorno de pruebas.",
+      "",
+      "CONTENIDO GENERADO CON IA",
+      "- Usá solo datos confirmados del negocio. Evitá inventar precios, descuentos, horarios, fotos, testimonios, puntuaciones o certificaciones.",
+      "- Si falta información para una sección, omitila o usá una invitación a consultar. Revisá las sugerencias y los textos alternativos antes de publicar."
+    );
     return L.join("\n");
   }
 
