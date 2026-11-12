@@ -323,6 +323,35 @@
     </form>
   </dialog>
 
+  <dialog class="lb-dialog lb-palette" data-palette aria-labelledby="paletteTitle">
+    <div class="lb-dialog-head">
+      <div>
+        <h2 id="paletteTitle">Paleta</h2>
+        <p data-palette-note>Así se ven los títulos, los textos, los botones y el footer.</p>
+      </div>
+      <button class="lb-dialog-close" type="button" data-palette-close aria-label="Cerrar">×</button>
+    </div>
+    <div class="lb-palette-swatches" data-palette-swatches></div>
+    <div class="lb-palette-stage" data-palette-stage>
+      <div class="lb-palette-hero">
+        <p class="lb-palette-kicker">Tu rubro</p>
+        <h3>Un título con la paleta elegida</h3>
+        <p>El texto de apoyo y los botones usan el acento.</p>
+        <span class="lb-palette-btn">Reservar</span>
+      </div>
+      <div class="lb-palette-foot">
+        <strong>Footer</strong>
+        <span>Inicio</span>
+        <span>Servicios</span>
+        <span>Contacto</span>
+      </div>
+    </div>
+    <div class="lb-module-colors-actions">
+      <button class="btn-nx-outline" type="button" data-palette-close>Cerrar</button>
+      <button class="btn-nx" type="button" data-palette-apply>Usar esta paleta</button>
+    </div>
+  </dialog>
+
   <dialog class="lb-dialog" data-module-colors aria-labelledby="moduleColorsTitle">
     <form method="dialog">
       <div class="lb-dialog-head">

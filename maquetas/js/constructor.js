@@ -824,6 +824,14 @@
     }).join("");
   }
 
+  function mix(hex, other, weight) {
+    function ch(color, shift) { return parseInt(color.slice(1), 16) >> shift & 255; }
+    return "#" + [16, 8, 0].map(function (shift) {
+      var v = Math.round(ch(hex, shift) * weight + ch(other, shift) * (1 - weight));
+      return ("0" + Math.max(0, Math.min(255, v)).toString(16)).slice(-2);
+    }).join("");
+  }
+
   function clientStyle(c) {
     if (!c) return "";
     var vars = [];
@@ -1326,6 +1334,10 @@
           image.alt = choice.image[1];
           image.loading = "lazy";
           image.decoding = "async";
+          image.addEventListener("error", function () {
+            cover.classList.add("is-empty");
+            image.remove();
+          });
           var heading = document.createElement("h3");
           heading.textContent = choice.name;
           var details = document.createElement("p");
@@ -1443,6 +1455,30 @@
     update();
   }
 
+  function openPalette(style) {
+    var dialog = document.querySelector("[data-palette]");
+    if (!dialog) { applySuggestedStyle(style); return; }
+    dialog.querySelector("h2").textContent = style.name;
+    var names = ["Títulos", "Textos", "Acento"];
+    dialog.querySelector("[data-palette-swatches]").innerHTML = [style.title, style.text, style.accent].map(function (color, index) {
+      return '<div><i style="background:' + color + '"></i><b>' + names[index] + '</b><span>' + color + '</span></div>';
+    }).join("");
+    var stage = dialog.querySelector("[data-palette-stage]");
+    stage.style.setProperty("--p-title", style.title);
+    stage.style.setProperty("--p-text", style.text);
+    stage.style.setProperty("--p-accent", style.accent);
+    stage.style.setProperty("--p-paper", mix(style.accent, "#f7f4ef", 0.22));
+    stage.style.setProperty("--p-dark", shade(style.accent, -0.55));
+    dialog.querySelector("[data-palette-apply]").onclick = function () {
+      applySuggestedStyle(style);
+      dialog.close();
+    };
+    dialog.querySelectorAll("[data-palette-close]").forEach(function (button) {
+      button.onclick = function () { dialog.close(); };
+    });
+    dialog.showModal();
+  }
+
   function renderStyleSuggestions() {
     var list = document.querySelector("[data-style-options]");
     var select = document.querySelector("[data-lb-typography]");
@@ -1491,9 +1527,8 @@
         [style.title, style.text, style.accent].map(function (color) {
           return '<i style="background:' + color + '"></i>';
         }).join("") + '</span>';
-      button.onclick = function () {
-        applySuggestedStyle(style);
-      };
+      button.setAttribute("aria-label", "Ver la paleta " + style.name);
+      button.onclick = function () { openPalette(style); };
       list.appendChild(button);
     });
   }
@@ -1533,7 +1568,9 @@
       ".landing-page .nx :is(h1, h2, h3, .nx-display) { font-family:" + fonts[0] + "; }" : "";
     if (!colors.acento) return typography;
     return typography + ":root { --ink: " + colors.titulos + "; --muted: " + colors.parrafos + "; --lz-label: " + colors.etiquetas +
-      "; --green: " + colors.acento + "; --green-deep: " + shade(colors.acento, -0.28) + "; --lz-icon: " + colors.iconos + "; }" +
+      "; --green: " + colors.acento + "; --green-deep: " + shade(colors.acento, -0.28) + "; --lz-icon: " + colors.iconos +
+      "; --dark: " + shade(colors.acento, -0.55) + "; --sage: " + mix(colors.acento, "#ffffff", 0.16) +
+      "; --paper: " + mix(colors.acento, "#f7f4ef", 0.22) + "; }" +
       ".landing-page { color: var(--ink); }" +
       ".landing-page :is(p, li, blockquote, figcaption, dd) { color: var(--muted); }" +
       ".landing-page :is(.nx-kicker, .plan-kicker, .badge, .k) { color: var(--lz-label); }" +

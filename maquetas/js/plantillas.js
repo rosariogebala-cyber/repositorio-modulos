@@ -1,7 +1,7 @@
 /* Plantillas por rubro. Cada una combina otra navegación, portada, footer y otras variantes de módulos.
    Los textos, las fotos y los datos son ejemplos editables. */
 (function () {
-  var P = "../Proyectos/portal-studio/img/";
+  var P = "img/plantillas/bienestar/";
   var V = "img/rubros/viajes/";
   var I = "img/rubros/inmobiliaria/";
 
