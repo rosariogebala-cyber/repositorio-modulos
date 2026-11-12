@@ -938,7 +938,84 @@
     };
   }
 
-  function openCategoryGallery(initialCategory) {
+  var templateStart = document.querySelector("[data-template-start]");
+  var landingEditor = document.querySelector("[data-landing-editor]");
+
+  function showLandingEditor(focus) {
+    templateStart.hidden = true;
+    landingEditor.hidden = false;
+    if (focus) {
+      nameInput.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
+    requestAnimationFrame(fitPreview);
+  }
+
+  function setupTemplateStart() {
+    var filter = templateStart.querySelector("[data-template-filter]");
+    var sections = templateStart.querySelector("[data-template-sections]");
+    var status = templateStart.querySelector("[data-template-status]");
+    var myTemplate = templateStart.querySelector("[data-my-template]");
+
+    LANDING_CATEGORIES.forEach(function (category) {
+      filter.add(new Option(category.name, category.id));
+    });
+
+    function renderSections() {
+      var count = 0;
+      sections.replaceChildren();
+      LANDING_CATEGORIES.forEach(function (category) {
+        if (filter.value && filter.value !== category.id) return;
+        var section = document.createElement("section");
+        section.className = "lb-template-section";
+        var title = document.createElement("h2");
+        title.textContent = category.name;
+        var grid = document.createElement("div");
+        grid.className = "lb-template-grid";
+        categoryTemplates(category).forEach(function (choice, index) {
+          var hero = byId[choice.hero];
+          if (!hero) return;
+          var style = LANDING_STYLES.find(function (entry) { return entry.name === category.palettes[0]; });
+          var card = document.createElement("article");
+          card.className = "lb-template-card";
+          var cover = document.createElement("div");
+          cover.className = "lb-template-cover";
+          cover.style.setProperty("--template-accent", style.accent);
+          var image = document.createElement("img");
+          image.src = hero.thumb;
+          image.alt = "Imagen de ejemplo de la portada " + choice.name;
+          image.loading = "lazy";
+          image.decoding = "async";
+          var heading = document.createElement("h3");
+          heading.textContent = choice.name;
+          var details = document.createElement("p");
+          details.textContent = (choice.modules.length + 3) + " módulos";
+          var action = document.createElement("button");
+          action.type = "button";
+          action.className = "lb-template-card-action";
+          action.textContent = "Ver vista previa";
+          action.setAttribute("aria-label", "Ver vista previa de " + choice.name + ", " + category.name);
+          action.onclick = function () { openCategoryGallery(category, index); };
+          cover.append(image);
+          card.append(cover, heading, details, action);
+          grid.append(card);
+          count++;
+        });
+        if (grid.children.length) {
+          section.append(title, grid);
+          sections.append(section);
+        }
+      });
+      status.textContent = count ? count + " plantillas disponibles" : "No se pudieron cargar las plantillas.";
+    }
+
+    myTemplate.onclick = function () { showLandingEditor(true); };
+    myTemplate.disabled = false;
+    filter.onchange = renderSections;
+    renderSections();
+  }
+
+  function openCategoryGallery(initialCategory, initialChoice) {
     var dialog = document.querySelector("[data-template-gallery]");
     var categorySelect = dialog.querySelector("[data-template-category]");
     var choiceSelect = dialog.querySelector("[data-template-choice]");
@@ -975,11 +1052,11 @@
       preview.srcdoc = markup;
     }
 
-    function renderChoices() {
+    function renderChoices(selectedIndex) {
       category = LANDING_CATEGORIES.find(function (entry) { return entry.id === categorySelect.value; });
       choiceSelect.replaceChildren();
       categoryTemplates(category).forEach(function (choice, index) {
-        choiceSelect.add(new Option(choice.name, String(index), index === 1, index === 1));
+        choiceSelect.add(new Option(choice.name, String(index), index === selectedIndex, index === selectedIndex));
       });
       renderTemplatePreview();
     }
@@ -987,21 +1064,23 @@
     categorySelect.replaceChildren();
     LANDING_CATEGORIES.forEach(function (entry) { categorySelect.add(new Option(entry.name, entry.id)); });
     categorySelect.value = (initialCategory || LANDING_CATEGORIES[0]).id;
-    categorySelect.onchange = renderChoices;
+    categorySelect.onchange = function () { renderChoices(1); };
     choiceSelect.onchange = renderTemplatePreview;
     deviceSelect.onchange = function () { preview.classList.toggle("is-mobile", deviceSelect.value === "mobile"); };
     dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
     use.onclick = function () {
       if (!items) return;
-      if (state.items.length && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
+      if ((state.items.length || (state.landingId && !templateStart.hidden)) && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
+      if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
       state.items = items;
       state.ignorados = [];
       applySuggestedStyle(style);
       showTab("order");
       dialog.close();
+      if (landingEditor.hidden) showLandingEditor(true);
       say("Plantilla aplicada. Personalizá los textos, las fotos y los datos antes de guardar.", "ok");
     };
-    renderChoices();
+    renderChoices(initialChoice == null ? 1 : initialChoice);
     dialog.showModal();
   }
 
@@ -3786,6 +3865,7 @@
     var clienteId = Number(params.get("cliente"));
     if (params.toString()) history.replaceState(null, "", location.pathname);
     if (landingId) {
+      showLandingEditor(false);
       return api("GET", "/api/landings/" + landingId).then(function (lp) {
         loadLanding(lp);
         say("Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");
@@ -3834,9 +3914,11 @@
   Promise.all([loadLibrary(), loadClients()]).then(function () {
     renderClients();
     start();
+    setupTemplateStart();
     renderSaved();
     loadAi();
   }).catch(function () {
+    templateStart.querySelector("[data-template-status]").textContent = "No se pudieron cargar las plantillas. Volvé a cargar la página para reintentar.";
     picker.innerHTML = '<p class="lb-empty">No se pudieron cargar los módulos. Abrí esta página desde el servidor local (http://), no como archivo.</p>';
   });
 })();

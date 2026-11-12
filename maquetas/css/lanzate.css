@@ -3684,3 +3684,79 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 @media (max-width: 520px) {
   .lb-template-filters { grid-template-columns: 1fr; }
 }
+
+.lb-main[hidden],
+.lb-template-start[hidden] { display: none; }
+
+.lb-template-start {
+  width: min(1280px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 68px) 0 56px;
+}
+
+.lb-template-start-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.lb-template-start-head h1 {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin: 0 0 8px;
+}
+
+.lb-template-start-head p { margin: 0; }
+.lb-template-filter { max-width: 340px; }
+.lb-template-start [data-template-status] { margin: 12px 0 24px; font-size: .875rem; }
+.lb-template-section + .lb-template-section { margin-top: 32px; }
+.lb-template-section h2 { font-size: 1.35rem; margin-bottom: 12px; }
+
+.lb-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 18px;
+}
+
+.lb-template-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e4e1ec;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(29, 22, 62, .06);
+}
+
+.lb-template-cover {
+  aspect-ratio: 16 / 9;
+  padding: 12px;
+  background: color-mix(in srgb, var(--template-accent) 16%, white);
+  border-bottom: 3px solid var(--template-accent);
+}
+
+.lb-template-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  object-position: top;
+}
+
+.lb-template-card h3 { margin: 14px 16px 4px; font-size: 1rem; }
+.lb-template-card p { margin: 0 16px 12px; font-size: .875rem; }
+.lb-template-card-action {
+  margin: auto 16px 16px;
+  min-height: 44px;
+  border: 1px solid #5940dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #4d34c6;
+  font-weight: 600;
+}
+.lb-template-card-action:hover { background: #f3efff; }
+.lb-template-card-action:focus-visible { outline: 2px solid #4d34c6; outline-offset: 2px; }

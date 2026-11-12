@@ -25,7 +25,25 @@
     </nav>
   </header>
 
-  <main class="lb-main">
+  <main class="lb-template-start" data-template-start>
+    <header class="lb-template-start-head">
+      <div>
+        <h1>Crear landing</h1>
+        <p>Elegí una plantilla por rubro y mirá cómo queda antes de personalizarla.</p>
+      </div>
+      <button class="btn-nx" type="button" data-my-template disabled>Mi plantilla</button>
+    </header>
+    <div class="lb-template-filter">
+      <label class="lb-label" for="lbTemplateFilter">Rubro</label>
+      <select class="lb-input" id="lbTemplateFilter" data-template-filter>
+        <option value="">Todos los rubros</option>
+      </select>
+    </div>
+    <p role="status" data-template-status>Cargando plantillas…</p>
+    <div data-template-sections></div>
+  </main>
+
+  <main class="lb-main" data-landing-editor hidden>
     <aside class="lb-side" aria-label="Configuración de la landing">
       <section class="lb-card lb-step" data-lb-step="1">
         <div class="lb-step-head">
