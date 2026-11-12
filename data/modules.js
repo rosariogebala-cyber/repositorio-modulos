@@ -46,7 +46,7 @@ window.LANZATE_MODULES = [
     "nombre": "Hero",
     "categoria": "estructura",
     "numero": 2,
-    "descripcion": "Portadas con imagen completa y texto superpuesto.",
+    "descripcion": "Portadas con imagen completa, dividida, centrada o en mosaico.",
     "variantes": [
       {
         "nombre": "Simple",
@@ -65,6 +65,24 @@ window.LANZATE_MODULES = [
         "imagen": "assets/modulos/hero-full-imagen/compleja.png",
         "ancho": 800,
         "alto": 333
+      },
+      {
+        "nombre": "Dividida",
+        "imagen": "assets/modulos/hero-full-imagen/dividida.png",
+        "ancho": 800,
+        "alto": 356
+      },
+      {
+        "nombre": "Centrada",
+        "imagen": "assets/modulos/hero-full-imagen/centrada.png",
+        "ancho": 800,
+        "alto": 389
+      },
+      {
+        "nombre": "Mosaico",
+        "imagen": "assets/modulos/hero-full-imagen/mosaico.png",
+        "ancho": 800,
+        "alto": 380
       }
     ]
   },
@@ -443,6 +461,105 @@ window.LANZATE_MODULES = [
         "imagen": "assets/modulos/reserva-turno/compleja.png",
         "ancho": 800,
         "alto": 651
+      }
+    ]
+  },
+  {
+    "id": "lista-precios",
+    "nombre": "Lista de precios",
+    "categoria": "negocio",
+    "numero": "LP",
+    "descripcion": "Precios de servicios o carta, en lista simple o con foto.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/lista-precios/simple.png",
+        "ancho": 800,
+        "alto": 302
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/lista-precios/media.png",
+        "ancho": 800,
+        "alto": 443
+      }
+    ]
+  },
+  {
+    "id": "cifras",
+    "nombre": "Cifras",
+    "categoria": "confianza",
+    "numero": "CF",
+    "descripcion": "Números que respaldan al negocio, en banda o con foto.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/cifras/simple.png",
+        "ancho": 800,
+        "alto": 199
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/cifras/media.png",
+        "ancho": 800,
+        "alto": 293
+      }
+    ]
+  },
+  {
+    "id": "llamado",
+    "nombre": "Llamado a la acción",
+    "categoria": "negocio",
+    "numero": "LL",
+    "descripcion": "Banda de cierre que invita a escribir o reservar.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/llamado/simple.png",
+        "ancho": 800,
+        "alto": 195
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/llamado/media.png",
+        "ancho": 800,
+        "alto": 266
+      }
+    ]
+  },
+  {
+    "id": "marcas",
+    "nombre": "Marcas",
+    "categoria": "confianza",
+    "numero": "MA",
+    "descripcion": "Clientes, marcas u obras sociales con las que trabajás.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/marcas/simple.png",
+        "ancho": 800,
+        "alto": 139
+      }
+    ]
+  },
+  {
+    "id": "agenda",
+    "nombre": "Agenda",
+    "categoria": "informacion",
+    "numero": "AG",
+    "descripcion": "Próximas fechas, eventos o talleres.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/agenda/simple.png",
+        "ancho": 800,
+        "alto": 329
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/agenda/media.png",
+        "ancho": 800,
+        "alto": 361
       }
     ]
   },

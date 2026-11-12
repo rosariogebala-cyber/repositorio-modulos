@@ -1095,7 +1095,7 @@
       });
     }
 
-    root.querySelectorAll("a.btn-nx, a.split-link").forEach(function (link) {
+    root.querySelectorAll("a.btn-nx, a.split-link, a.btn-nx-light:not([href*='wa.me'])").forEach(function (link) {
       if (link.closest(".bk-done, [data-book-done]")) return;
       var inCard = templateCards(root).some(function (h3) { return h3.parentElement.contains(link) && h3.parentElement !== root; });
       templateLink(link, inCard ? "Consultar" : spec.action || ctx.action, ctx.target);
@@ -1118,6 +1118,10 @@
     }
     root.querySelectorAll(".carousel-control-prev, .carousel-control-next, .carousel-indicators").forEach(function (el) { el.remove(); });
     setImage(slide, { src: choice.image[0], alt: choice.image[1] });
+    root.querySelectorAll("img").forEach(function (img, index) {
+      var photo = templateCycle(ctx.photos, index + 1);
+      if (photo) setImage(img, { src: photo[0], alt: photo[1] });
+    });
     var heading = root.querySelector(".nx-display");
     var h1 = document.createElement("h1");
     h1.className = heading.className;
@@ -1136,7 +1140,14 @@
     root.querySelectorAll(".nx-pill, .nx-hero-card").forEach(function (card, index) {
       var parts = (templateCycle(highlights, index) || "").split("|");
       if (!parts[0]) return;
-      if (card.classList.contains("nx-pill")) { templateText(card, parts[0]); return; }
+      if (card.classList.contains("nx-pill")) {
+        templateText(card, parts[0]);
+        var pillIcon = card.querySelector(".bi");
+        var pillName = templateCycle(choice.icons, index);
+        if (pillIcon && pillName) pillIcon.className = "bi bi-" + pillName;
+        else if (pillIcon) pillIcon.remove();
+        return;
+      }
       card.querySelector("h3").textContent = parts[0];
       card.querySelector("p").textContent = parts[1] || choice.lead;
       var icon = card.querySelector(".bi");

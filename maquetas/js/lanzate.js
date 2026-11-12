@@ -713,11 +713,17 @@
       "preguntas-frecuentes": "preguntas",
       "donde-nos-encontramos": "ubicacion",
       "reserva-turno": "turnos",
+      "lista-precios": "precios",
+      "cifras": "cifras",
+      "llamado": "llamado",
+      "marcas": "marcas",
+      "agenda": "agenda",
       "footer": "contacto"
     };
     var CONTACT = ["footer", "donde-nos-encontramos", "reserva-turno"];
     var LINK_RULES = [
       [/^(inicio|home)$|volver arriba/, ["navegacion"]],
+      [/fechas|eventos|cartelera|programacion|proximas/, ["agenda"]],
       [/reserv|turno|agend/, ["reserva-turno"]],
       [/contact|escrib|hablemos|consult|presupuesto|tasa|cotiz|whatsapp|@/, CONTACT],
       [/pregunta|faq|dudas/, ["preguntas-frecuentes"]],
@@ -726,7 +732,7 @@
       [/resena|testimonio|opinion/, ["resenas-google", "casos-exito"]],
       [/caso|proyecto|trabajos|portfolio/, ["casos-exito", "galeria-imagenes", "productos"]],
       [/profesional|profesor|docente|barbero|equipo|staff/, ["equipo"]],
-      [/precio|plan|tarifa|membresia|club/, ["planes", "servicios-productos", "productos"]],
+      [/precio|plan|tarifa|membresia|club|carta|menu/, ["lista-precios", "planes", "servicios-productos", "productos"]],
       [/destino|galeria|foto/, ["galeria-imagenes", "carrusel-imagenes", "productos"]],
       [/promo|paquete|escapada|luna de miel|oferta|producto|propiedad|comprar|alquil|emprendimiento|catalogo|tienda|coleccion/, ["productos", "carrusel-imagenes", "planes", "servicios-productos"]],
       [/servicio|tratamiento|curso|corte/, ["servicios-productos", "planes", "productos"]],
