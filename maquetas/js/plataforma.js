@@ -16,6 +16,17 @@
     location.href = "login.html?volver=" + encodeURIComponent(location.pathname + location.search);
   }
 
+  var panelPage = /\/(?:constructor|landings|clientes|cliente|consultas|reglas)\.html$/.test(location.pathname);
+  if (panelPage) {
+    document.documentElement.hidden = true;
+    fetch("/api/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) {
+      return r.json();
+    }).then(function (s) {
+      if (!s.ok) toLogin();
+      else document.documentElement.hidden = false;
+    }).catch(function () { toLogin(); });
+  }
+
   function esc(text) {
     return String(text == null ? "" : text).replace(/[&<>"]/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
