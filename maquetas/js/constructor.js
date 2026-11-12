@@ -798,12 +798,35 @@
   };
 
   var LANDING_STYLES = [
-    { name: "Cálida", font: "editorial", title: "#442b35", text: "#58454c", accent: "#873f5c",
+    { name: "Cálida", group: "calidas", font: "editorial", title: "#442b35", text: "#58454c", accent: "#873f5c",
       sector: /est[eé]tica|belleza|pilates|bienestar|spa|salud/i },
-    { name: "Profesional", font: "moderna", title: "#192b4a", text: "#404d64", accent: "#23517b",
+    { name: "Profesional", group: "frias", font: "moderna", title: "#192b4a", text: "#404d64", accent: "#23517b",
       sector: /inmobil|propiedad|servicio|tecnolog|consultor|idioma/i },
-    { name: "Natural", font: "clasica", title: "#26392c", text: "#45574c", accent: "#25634a",
-      sector: /viaje|turismo|gastron|jard[ií]n|natural/i }
+    { name: "Natural", group: "naturales", font: "clasica", title: "#26392c", text: "#45574c", accent: "#25634a",
+      sector: /viaje|turismo|gastron|jard[ií]n|natural/i },
+    { name: "Terracota", group: "calidas", font: "editorial", title: "#42291e", text: "#69463a", accent: "#93442e",
+      sector: /arquitect|interior|cer[aá]mic|artesan/i },
+    { name: "Café tostado", group: "calidas", font: "clasica", title: "#37251e", text: "#614a3c", accent: "#744531",
+      sector: /caf[eé]|panader|pasteler/i },
+    { name: "Canela", group: "calidas", font: "editorial", title: "#442916", text: "#634831", accent: "#8a4a1c" },
+    { name: "Oliva", group: "naturales", font: "clasica", title: "#303424", text: "#50553b", accent: "#526032" },
+    { name: "Bosque", group: "naturales", font: "editorial", title: "#172c23", text: "#385347", accent: "#28563d" },
+    { name: "Eucalipto", group: "naturales", font: "moderna", title: "#203635", text: "#3e5756", accent: "#33645b" },
+    { name: "Lavanda", group: "pastel", font: "editorial", title: "#322649", text: "#534769", accent: "#684a8f" },
+    { name: "Rosa empolvado", group: "pastel", font: "clasica", title: "#462b38", text: "#634555", accent: "#8c4b69" },
+    { name: "Celeste humo", group: "pastel", font: "moderna", title: "#233950", text: "#415b70", accent: "#365d81" },
+    { name: "Menta", group: "pastel", font: "moderna", title: "#1e3932", text: "#39574e", accent: "#27705d" },
+    { name: "Marino", group: "frias", font: "clasica", title: "#18283b", text: "#40536a", accent: "#29496f" },
+    { name: "Petróleo", group: "frias", font: "moderna", title: "#1b353d", text: "#37555e", accent: "#176274" },
+    { name: "Índigo", group: "frias", font: "moderna", title: "#24254c", text: "#454a6b", accent: "#41478e" },
+    { name: "Frambuesa", group: "intensas", font: "editorial", title: "#452035", text: "#64374f", accent: "#a12860" },
+    { name: "Berenjena", group: "intensas", font: "clasica", title: "#33213c", text: "#563e5f", accent: "#67397d" },
+    { name: "Azul eléctrico", group: "intensas", font: "moderna", title: "#172655", text: "#334779", accent: "#2049bd" },
+    { name: "Coral", group: "intensas", font: "moderna", title: "#492723", text: "#6d443d", accent: "#a53b36" },
+    { name: "Arena", group: "neutras", font: "editorial", title: "#362d24", text: "#5d5245", accent: "#70553c" },
+    { name: "Grafito", group: "neutras", font: "moderna", title: "#25282b", text: "#494e54", accent: "#4b555f" },
+    { name: "Piedra", group: "neutras", font: "clasica", title: "#303334", text: "#525b5c", accent: "#4f6664" },
+    { name: "Topo", group: "neutras", font: "editorial", title: "#392f30", text: "#5f5052", accent: "#71595d" }
   ];
 
   function applySuggestedStyle(style) {
@@ -827,7 +850,17 @@
     var client = currentClient();
     var sector = client && client.rubro;
     var recommended = sector && LANDING_STYLES.find(function (style) { return style.sector.test(sector); });
-    var styles = recommended ? [recommended].concat(LANDING_STYLES.filter(function (style) { return style !== recommended; })) : LANDING_STYLES;
+    var filter = document.querySelector("[data-style-filter]");
+    if (filter) filter.onchange = renderStyleSuggestions;
+    var group = filter ? filter.value : "sugeridas";
+    var styles = LANDING_STYLES;
+    if (group === "sugeridas") {
+      var favorites = ["Cálida", "Profesional", "Natural", "Lavanda", "Coral", "Arena"];
+      styles = LANDING_STYLES.filter(function (style) { return favorites.includes(style.name) && style !== recommended; });
+      if (recommended) styles.unshift(recommended);
+    } else if (group !== "todas") {
+      styles = LANDING_STYLES.filter(function (style) { return style.group === group; });
+    }
     document.querySelector("[data-style-hint]").textContent = recommended ?
       "Para " + sector + ", probá la paleta " + recommended.name.toLowerCase() + ". " : "";
     document.querySelector("[data-style-hint]").textContent +=
