@@ -1182,6 +1182,16 @@ IA_SYSTEM = (
 )
 
 
+IA_CONTENT_RULES = (
+    "Usá como hechos solo los datos confirmados de la ficha del cliente. "
+    "El objetivo de la landing y los ejemplos de los módulos orientan la redacción. "
+    "Los ejemplos no son evidencia del negocio. "
+    "No inventes precios, descuentos, reseñas, testimonios, puntuaciones, fotos, "
+    "nombres del equipo, certificaciones, horarios, direcciones ni resultados. "
+    "Si faltan datos para una afirmación, usá texto neutral o una invitación a consultar."
+)
+
+
 def ia_client_text(c):
     c = c or {}
     parts = ["Negocio: " + (c.get("nombre") or "sin nombre")]
@@ -1192,13 +1202,47 @@ def ia_client_text(c):
     return "\n".join(parts)
 
 
+def module_catalog():
+    path = Path(ROOT, "maquetas", "index.html")
+    document = html_dom.parse(str(path))
+    return {
+        module.get("id"): section.get("id")
+        for section in document.xpath("//section[@data-section and @id]")
+        for module in section.xpath(".//section[@id and contains(concat(' ', normalize-space(@class), ' '), ' mq-block ')]")
+    }
+
+
+def validate_module_suggestion(response, available, rules):
+    ids = response.get("modulos") if isinstance(response, dict) else None
+    if not isinstance(ids, list) or not ids or any(
+        not isinstance(module_id, str) or module_id not in available for module_id in ids
+    ):
+        raise ApiError(502, "La IA sugirió módulos fuera del catálogo. Probá de nuevo.")
+    groups = [available[module_id] for module_id in ids]
+    if len(groups) != len(set(groups)):
+        raise ApiError(502, "La IA sugirió más de una variante de la misma sección. Probá de nuevo.")
+    errors = structure_errors([{"id": module_id} for module_id in ids], rules)
+    if errors:
+        raise ApiError(502, "La propuesta de la IA no cumple las reglas: " + "; ".join(errors) + ".")
+    return ids
+
+
 def ia_suggest_modules(data):
-    catalog = data.get("catalogo") or []
+    requested_catalog = data.get("catalogo")
+    if not isinstance(requested_catalog, list):
+        raise ApiError(400, "No llegó la lista de módulos")
+    available = module_catalog()
+    catalog = [
+        item for item in requested_catalog
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] in available
+    ]
     if not catalog:
         raise ApiError(400, "No llegó la lista de módulos")
     prompt = (
         ia_client_text(data.get("cliente")) + "\n"
         + ("Objetivo de la landing: " + data["objetivo"] + "\n" if data.get("objetivo") else "")
+        + "\nReglas de contenido: " + IA_CONTENT_RULES
+        + "\nOmití módulos que requieran datos concretos ausentes, como precios, reseñas o fotos del negocio.\n"
         + "\nReglas de estructura:\n" + str(data.get("reglas") or "") + "\n\n"
         + "Módulos disponibles (id · sección · variante · descripción):\n"
         + "\n".join("%s · %s · %s · %s" % (m.get("id"), m.get("grupo"), m.get("variante"), m.get("nota", "")) for m in catalog)
@@ -1207,10 +1251,8 @@ def ia_suggest_modules(data):
         + '{"modulos": ["id", ...], "motivo": "una o dos frases que expliquen la elección"}'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {m.get("id") for m in catalog}
-    ids = [i for i in out.get("modulos") or [] if i in valid]
-    if not ids:
-        raise ApiError(502, "La IA no sugirió módulos válidos. Probá de nuevo.")
+    allowed = {item["id"]: available[item["id"]] for item in catalog}
+    ids = validate_module_suggestion(out, allowed, read_rules())
     return {"modulos": ids, "motivo": str(out.get("motivo") or "")}
 
 
@@ -1230,7 +1272,8 @@ def ia_write_texts(data):
         + "\nEstos son los textos de ejemplo de la landing. Reescribí cada uno para este negocio, "
         + "respetando el tipo de texto y SIEMPRE dentro del límite de caracteres indicado (contando espacios).\n"
         + "- Mantené igual los datos de contacto, el nombre del negocio, los ítems del menú que solo navegan y los textos legales.\n"
-        + "- Si un texto no aplica al rubro, adaptalo a algo equivalente y verosímil.\n"
+        + "- " + IA_CONTENT_RULES + "\n"
+        + "- Si un texto no aplica, reemplazalo por una descripción general sin agregar afirmaciones sobre el negocio.\n"
         + "- En títulos podés destacar de 1 a 3 palabras entre *asteriscos*.\n"
         + "- Sin comillas alrededor del texto.\n\n"
         + "\n".join(lines)
@@ -1251,7 +1294,7 @@ def ia_fit_texts(data):
         ia_client_text(data.get("cliente")) + "\n"
         + "\nEstos textos de la landing no cumplen el largo. Reescribí cada uno para que quede DENTRO del rango "
         + "de caracteres indicado (contando espacios): acortá los largos y completá los cortos.\n"
-        + "- Mantené el sentido, el tono y los datos (nombres, cifras, contacto) del texto original.\n"
+        + "- Mantené el sentido, el tono y los datos (nombres, cifras, contacto) del texto original. No agregues hechos nuevos al ajustar el largo.\n"
         + "- Si el original tiene palabras entre *asteriscos*, podés mantener ese destacado.\n"
         + "- Sin comillas alrededor del texto.\n\n"
         + "\n".join(lines)
