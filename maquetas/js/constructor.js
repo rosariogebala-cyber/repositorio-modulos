@@ -2750,6 +2750,9 @@
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
+    if (state.colores && contrastRatio("#ffffff", effectiveColors().acento) < 4.5) {
+      out.push({ key: "colors", text: "Ajustá el color de los botones para llegar a 4.5:1" });
+    }
     if (rules && rules.general.bloquear && state.items.length && qaReport && qaView.errors) {
       out.push({ key: "qa", text: "Corregí " + (qaView.errors === 1 ? "1 error" : qaView.errors + " errores") + " de calidad" });
     }
@@ -2913,6 +2916,10 @@
 
   function goTo(key) {
     if (key === "client" || key === "name") { openAssign(); return; }
+    if (key === "colors") {
+      document.querySelector('[data-hex="acento"]').focus();
+      return;
+    }
     if (key === "qa") { qaBox.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     showTab("add");
     search.scrollIntoView({ behavior: "smooth", block: "center" });
