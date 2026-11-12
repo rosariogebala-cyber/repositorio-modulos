@@ -802,6 +802,9 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         "/maquetas/img/hero-media-full.jpg": 800,
         "/maquetas/img/hero-compleja-full.jpg": 800,
         "/maquetas/img/gal-living.jpg": 752,
+        "/maquetas/img/rubros/viajes/hero-1.jpg": 1280,
+        "/maquetas/img/rubros/viajes/hero-2.jpg": 1280,
+        "/maquetas/img/rubros/viajes/hero-3.jpg": 1280,
     }
     slides = body.xpath(
         './/section[starts-with(@data-module, "hero")]'
