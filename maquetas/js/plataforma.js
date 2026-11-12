@@ -358,7 +358,7 @@
   /* Página: Clientes */
   function openPortal(id, msg) {
     api("POST", "/api/clientes/" + id + "/entrar", {}).then(function (out) {
-      window.open(out.sitio, "_blank", "noopener");
+      location.assign(out.sitio);
     }).catch(function (err) { if (msg) say(msg, err.message, "warn"); });
   }
 
@@ -396,11 +396,9 @@
           (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
           "</ul>" +
           '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + "</span>" +
-          '<span class="pf-client-actions"><button class="lb-act" type="button" data-act="edit"><i class="bi bi-pencil"></i> Editar</button>' +
-          '<button class="lb-act" type="button" data-act="portal"><i class="bi bi-box-arrow-up-right"></i> Portal</button>' +
+          '<span class="pf-client-actions"><button class="btn-nx btn-sm" type="button" data-act="portal">Abrir portal</button>' +
           '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
         art.querySelector('[data-act="portal"]').addEventListener("click", function () { openPortal(c.id, msg); });
-        art.querySelector('[data-act="edit"]').addEventListener("click", function () { edit(c); });
         grid.appendChild(art);
       });
       empty.hidden = list.length > 0;
@@ -411,14 +409,6 @@
     function load() {
       return api("GET", "/api/clientes").then(function (list) { clients = list; render(); })
         .catch(function (err) { say(msg, err.message, "warn"); });
-    }
-
-    function edit(c) {
-      clientForm(c).then(function (saved) {
-        if (!saved) return;
-        say(msg, saved.deleted ? "Se eliminó «" + saved.nombre + "»." : "Se guardaron los cambios de «" + saved.nombre + "».", "ok");
-        load();
-      });
     }
 
     document.querySelector("[data-pf-new-client]").addEventListener("click", function () {
