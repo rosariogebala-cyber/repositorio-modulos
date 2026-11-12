@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal del cliente · Lanzate</title>
+  <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/maquetas/css/lanzate.css" rel="stylesheet">
+</head>
+<body class="lib-page pf-page">
+  <header class="lib-header">
+    <a class="lib-brand" href="" data-brand><span class="lib-brand-mark" aria-hidden="true">L</span><span data-brand-name>Sitio</span></a>
+    <a class="pt-wa" data-wa href="https://wa.me/5491166035111" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp</a>
+  </header>
+  <main class="pf-main" data-portal>
+    <p class="pf-empty">Cargando…</p>
+  </main>
+  <script>
+    (function () {
+      var root = document.querySelector("[data-portal]");
+      var brand = document.querySelector("[data-brand]");
+      var brandName = document.querySelector("[data-brand-name]");
+      var sitio = (location.pathname.match(/^\/sitio\/([a-z0-9-]+)\/?$/) || [])[1] || "";
+      function setBrand(nombre) {
+        brandName.textContent = nombre || "Sitio";
+        brand.href = sitio ? "/sitio/" + sitio + "/" : "/maquetas/portal.html";
+        if (nombre) document.title = nombre;
+      }
+      function esc(s) {
+        return String(s || "").replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      }
+      function api(method, path, body) {
+        return fetch(path, {
+          method: method,
+          credentials: "same-origin",
+          headers: body ? { "Content-Type": "application/json" } : {},
+          body: body ? JSON.stringify(body) : undefined
+        }).then(function (r) {
+          return r.json().then(function (data) {
+            if (!r.ok) throw new Error(data.error || "No se pudo completar la acción.");
+            return data;
+          });
+        });
+      }
+      function loginForm(note) {
+        root.innerHTML =
+          '<h1 class="pf-title">' + esc(brandName.textContent) + "</h1>" +
+          '<p class="pt-plan">Entrá a tu sitio.</p>' +
+          (note ? '<p class="lb-msg ok">' + esc(note) + "</p>" : "") +
+          '<form class="pt-login" data-login><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
+          '<label>Contraseña <input name="clave" type="password" required autocomplete="current-password"></label>' +
+          '<label><input name="recordar" type="checkbox"> Recordar en este equipo</label>' +
+          '<button class="btn-nx" type="submit">Entrar</button></form>' +
+          '<form data-olvide hidden><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
+          '<button class="btn-nx" type="submit">Generar una contraseña nueva</button></form>' +
+          '<p><button type="button" data-show-olvide>Olvidé mi contraseña</button></p>' +
+          '<p data-msg role="status"></p>';
+        root.querySelector("[data-login]").addEventListener("submit", function (e) {
+          e.preventDefault();
+          api("POST", "/api/portal/login", {
+            usuario: e.target.usuario.value,
+            clave: e.target.clave.value,
+            recordar: e.target.recordar.checked,
+            sitio: sitio
+          }).then(function () {
+            if (!sitio) return api("GET", "/api/portal/sesion").then(function (s) { if (s.sitio) location.href = s.sitio; else home(); });
+            home();
+          }).catch(function (err) { root.querySelector("[data-msg]").textContent = err.message; });
+        });
+        root.querySelector("[data-show-olvide]").addEventListener("click", function () {
+          root.querySelector("[data-olvide]").hidden = false;
+        });
+        root.querySelector("[data-olvide]").addEventListener("submit", function (e) {
+          e.preventDefault();
+          api("POST", "/api/portal/olvide", { usuario: e.target.usuario.value, sitio: sitio }).then(function (out) {
+            root.querySelector("[data-msg]").textContent = "Contraseña nueva de " + out.usuario + ": " + out.clave;
+          }).catch(function (err) { root.querySelector("[data-msg]").textContent = err.message; });
+        });
+      }
+      var WA = "https://wa.me/5491166035111?text=";
+      function wa(text) { return WA + encodeURIComponent(text); }
+      function home() {
+        api("GET", "/api/portal/inicio").then(function (c) {
+          if (sitio && c.slug && c.slug !== sitio) { loginForm("Esta sesión es de otro sitio."); return; }
+          if (!sitio && c.sitio) { location.href = c.sitio; return; }
+          setBrand(c.nombre);
+          document.querySelector("[data-wa]").href = wa("Hola, soy " + c.nombre + ". Quiero consultar por mi sitio.");
+          var plan = c.plan ? esc(c.plan) : "Sin plan";
+          var alta = c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—";
+          var vence = c.plan_vence ? esc(c.plan_vence.split("-").reverse().join("/")) : "Sin fecha";
+          var items = c.landings.map(function (lp) {
+            var cuando = lp.actualizado ? new Date(lp.actualizado).toLocaleDateString("es-AR") : "";
+            return '<li class="pt-card"><div><h2>' + esc(lp.nombre) + "</h2>" +
+              (cuando ? '<p class="pt-plan">Último cambio: ' + esc(cuando) + "</p>" : "") + "</div>" +
+              '<span class="pt-actions"><a class="btn-nx btn-sm" href="/maquetas/constructor.html?landing=' + lp.id + '&desde=sitio">Editar</a> ' +
+              '<a class="btn-nx-outline btn-sm" href="/vista/' + lp.id + '" target="_blank" rel="noopener">Ver</a></span></li>';
+          }).join("");
+          function fact(label, value) {
+            return value ? "<div><dt>" + label + "</dt><dd>" + esc(value) + "</dd></div>" : "";
+          }
+          root.innerHTML =
+            '<div class="pt-top"><div><p class="lb-kicker">' + esc(c.rubro || "Tu sitio") + '</p><h1 class="pf-title">' + esc(c.nombre) + "</h1>" +
+            '<p class="pt-plan">Desde acá editás tus páginas y ves tu plan.</p></div></div>' +
+            '<div class="pt-grid"><section class="pt-panel"><h2>Páginas</h2>' +
+            (items ? '<ul class="pt-list">' + items + "</ul>" : "<p>Todavía no hay páginas. Pedile a Lanzate que publique la primera.</p>") +
+            "</section><aside><section class=\"pt-panel\"><h2>Tu plan</h2><dl class=\"pt-facts\">" +
+            "<div><dt>Plan</dt><dd>" + plan + "</dd></div>" +
+            "<div><dt>Vencimiento</dt><dd>" + vence + "</dd></div>" +
+            "<div><dt>Alta</dt><dd>" + esc(alta) + "</dd></div>" +
+            "<div><dt>Estado</dt><dd>" + esc(c.estado === "pausado" ? "Pausado" : "Activo") + "</dd></div>" +
+            fact("Contacto", c.contacto) + fact("Email", c.email) + fact("Teléfono", c.telefono) +
+            "</dl><div class=\"pt-help\">" +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero mejorar mi plan.") + '" target="_blank" rel="noopener">Quiero un upgrade <i class="bi bi-arrow-up-right"></i></a>' +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero dar de baja mi sitio.") + '" target="_blank" rel="noopener">Dar de baja el sitio <i class="bi bi-arrow-up-right"></i></a>' +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Tengo una consulta sobre mi sitio.") + '" target="_blank" rel="noopener">Otra consulta <i class="bi bi-whatsapp"></i></a>' +
+            "</div></section></aside></div>" +
+            '<section class="pt-access"><h2>Acceso</h2>' +
+            "<p>Usuario: " + esc(c.usuario || "—") + "</p>" +
+            "<p>Contraseña: " + esc(c.clave || "Generá una para verla.") + "</p>" +
+            '<p><button class="btn-nx-outline btn-sm" type="button" data-clave>Generar contraseña</button> ' +
+            '<button class="btn-nx-outline btn-sm" type="button" data-salir>Salir</button></p></section>';
+          root.querySelector("[data-clave]").addEventListener("click", function () {
+            api("POST", "/api/portal/clave", {}).then(home).catch(function (err) {
+              root.insertAdjacentHTML("beforeend", "<p>" + esc(err.message) + "</p>");
+            });
+          });
+          root.querySelector("[data-salir]").addEventListener("click", function () {
+            api("POST", "/api/portal/logout", {}).then(function () { loginForm("Sesión cerrada."); });
+          });
+        }).catch(function () { loginForm(); });
+      }
+      var ready = sitio ? api("GET", "/api/portal/sitio/" + sitio).then(function (site) { setBrand(site.nombre); }).catch(function () { root.innerHTML = "<p>Este sitio no existe.</p>"; return Promise.reject(); }) : Promise.resolve();
+      ready.then(function () {
+        return api("GET", "/api/portal/sesion");
+      }).then(function (s) {
+        if (s.ok) home(); else loginForm();
+      }).catch(function (err) { if (err) loginForm(); });
+    }());
+  </script>
+</body>
+</html>

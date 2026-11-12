@@ -886,6 +886,18 @@
     animBlocks.forEach(function (b) { animIo.observe(b); });
   }
 
+  if (document.body.classList.contains("lib-page") && window.LanzateReglas && window.LanzateReglas.contrast) {
+    document.querySelectorAll(".mq-block").forEach(function (block) {
+      var found = window.LanzateReglas.contrast(block, window);
+      if (!found.length) return;
+      var note = document.createElement("p");
+      note.className = "mq-contrast";
+      note.textContent = found[0].text + " " + found[0].detail;
+      var caption = block.querySelector(".mq-caption");
+      if (caption) caption.after(note);
+    });
+  }
+
   if (document.body.classList.contains("lib-page") && window.matchMedia("(max-width: 700px)").matches) {
     var sections = [].slice.call(document.querySelectorAll(".lib-section"));
     function openSection() {

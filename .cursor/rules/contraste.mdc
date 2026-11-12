@@ -1,0 +1,14 @@
+---
+description: Avisar cuando el texto no contrasta con el fondo
+alwaysApply: true
+---
+
+# Contraste de color
+
+El texto tiene que contrastar con el fondo que tiene detrás. Si no alcanza, se avisa. No se esconde.
+
+- Texto normal: mínimo 4.5:1.
+- Título grande (24 px, o 19 px en negrita): mínimo 3:1.
+- El aviso aparece en la maqueta, en la vista previa de la plantilla y en el control de calidad de la landing.
+- El aviso dice el texto medido, el valor actual y el mínimo. No bloquea el guardado por sí solo.
+- No avisar un texto que está sobre una foto si el fondo sólido de atrás no es el que se ve.

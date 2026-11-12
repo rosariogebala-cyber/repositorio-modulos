@@ -22,8 +22,14 @@
     fetch("/api/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) {
       return r.json();
     }).then(function (s) {
-      if (!s.ok) toLogin();
-      else document.documentElement.hidden = false;
+      if (s.ok) { document.documentElement.hidden = false; return null; }
+      if (!/\/constructor\.html$/.test(location.pathname)) { toLogin(); return null; }
+      return fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) {
+        return r.json();
+      }).then(function (p) {
+        if (p.ok) { window.LanzatePortal = true; document.dispatchEvent(new Event("lz-portal")); document.documentElement.hidden = false; }
+        else location.href = p.sitio || "/maquetas/portal.html";
+      });
     }).catch(function () { toLogin(); });
   }
 
@@ -40,7 +46,7 @@
       opts.body = typeof body === "string" ? body : JSON.stringify(body);
     }
     return fetch(url, opts).then(function (r) {
-      if (r.status === 401 && !/\/api\/login$/.test(url)) toLogin();
+      if (r.status === 401 && !/\/api\/login$/.test(url) && !/\/constructor\.html$/.test(location.pathname)) toLogin();
       if (r.status === 413) throw new Error("La landing pesa demasiado para guardarla. Usá menos fotos o más livianas.");
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) throw new Error(data.error || "No se pudo completar la acción.");
@@ -350,6 +356,12 @@
   }
 
   /* Página: Clientes */
+  function openPortal(id, msg) {
+    api("POST", "/api/clientes/" + id + "/entrar", {}).then(function (out) {
+      window.open(out.sitio, "_blank", "noopener");
+    }).catch(function (err) { if (msg) say(msg, err.message, "warn"); });
+  }
+
   function pageClientes() {
     var grid = document.querySelector("[data-pf-clients]");
     var empty = document.querySelector("[data-pf-empty]");
@@ -385,7 +397,9 @@
           "</ul>" +
           '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + "</span>" +
           '<span class="pf-client-actions"><button class="lb-act" type="button" data-act="edit"><i class="bi bi-pencil"></i> Editar</button>' +
+          '<button class="lb-act" type="button" data-act="portal"><i class="bi bi-box-arrow-up-right"></i> Portal</button>' +
           '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
+        art.querySelector('[data-act="portal"]').addEventListener("click", function () { openPortal(c.id, msg); });
         art.querySelector('[data-act="edit"]').addEventListener("click", function () { edit(c); });
         grid.appendChild(art);
       });
@@ -467,7 +481,43 @@
         field("folder2", "Carpeta", esc(c.carpeta)) +
         field("graph-up", "Medición", [c.ga4 ? "Analytics " + esc(c.ga4) : "", c.gtm ? "Tag Manager " + esc(c.gtm) : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean).join(" · ")) +
         "</dl>" +
-        (c.notas ? '<div class="pf-notes"><strong>Notas internas</strong><p>' + esc(c.notas) + "</p></div>" : "");
+        (c.notas ? '<div class="pf-notes"><strong>Notas internas</strong><p>' + esc(c.notas) + "</p></div>" : "") +
+        '<section class="pf-admin"><h2>Administración</h2>' +
+        '<p class="pf-admin-line">Alta: ' + (c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—") + "</p>" +
+        '<form class="pf-admin-form" data-pf-plan>' +
+        '<label>Plan <select name="plan"><option value="">Sin plan</option><option>Base</option><option>Pro</option></select></label>' +
+        '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
+        '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
+        '<h2>Acceso al portal</h2>' +
+        '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-entrar>Entrar al portal</button></p>' +
+        '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
+        '<p class="pf-admin-line">' + (c.portal_usuario ? "Usuario: " + esc(c.portal_usuario) : "Todavía no tiene usuario.") +
+        (c.clave ? " · Contraseña: " + esc(c.clave) : (c.portal_usuario ? " · La contraseña anterior no se puede leer. Generá una nueva." : "")) + "</p>" +
+        '<form class="pf-admin-form" data-pf-acceso>' +
+        '<label>Usuario <input name="usuario" required minlength="3" maxlength="40" value="' + esc(c.portal_usuario || "") + '" autocomplete="off"></label>' +
+        '<button class="btn-nx btn-sm" type="submit">Generar contraseña</button></form>' +
+        '<p class="pf-admin-clave" data-pf-clave hidden></p></section>';
+      var planForm = profile.querySelector("[data-pf-plan]");
+      planForm.elements.plan.value = c.plan || "";
+      planForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        api("PUT", "/api/clientes/" + c.id + "/plan", {
+          plan: planForm.elements.plan.value,
+          plan_vence: planForm.elements.plan_vence.value
+        }).then(function () { say(msg, "Se guardó el plan.", "ok"); load(); })
+          .catch(function (err) { say(msg, err.message, "warn"); });
+      });
+      profile.querySelector("[data-pf-entrar]").addEventListener("click", function () { openPortal(c.id, msg); });
+      profile.querySelector("[data-pf-acceso]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var usuario = e.target.elements.usuario.value.trim();
+        api("POST", "/api/clientes/" + c.id + "/acceso", { usuario: usuario }).then(function (out) {
+          var box = profile.querySelector("[data-pf-clave]");
+          box.hidden = false;
+          box.textContent = "Contraseña de " + out.usuario + ": " + out.clave;
+          say(msg, "Listo el acceso al portal.", "ok");
+        }).catch(function (err) { say(msg, err.message, "warn"); });
+      });
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
         clientForm(c).then(function (saved) {
           if (!saved) return;

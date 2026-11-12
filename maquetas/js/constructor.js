@@ -1408,6 +1408,12 @@
       } finally {
         state = current;
       }
+      preview.onload = function () {
+        var doc = preview.contentDocument;
+        if (!doc || !window.LanzateReglas || !window.LanzateReglas.contrast) return;
+        var found = window.LanzateReglas.contrast(doc.body, preview.contentWindow);
+        if (found.length) modules.textContent += " · " + found[0].text + " " + found[0].detail;
+      };
       preview.srcdoc = markup;
     }
 
@@ -1693,13 +1699,15 @@
       for (var p = el.parentElement; p; p = p.parentElement) { if (set.has(p) && ownText(p)) return false; }
       return ownText(el) || !all.some(function (o) { return o !== el && el.contains(o); });
     });
-    /* Van al final para no correr las posiciones de los textos ya guardados */
-    Array.prototype.forEach.call(root.querySelectorAll(EDIT_EXTRA), function (el) {
-      if (/\S/.test(el.textContent) && !nodes.some(function (n) { return n.contains(el) || el.contains(n); })) nodes.push(el);
+    /* El resto va al final para no correr los textos ya guardados: precios, ítems, celdas y cualquier texto suelto. */
+    Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+      if (!ownText(el)) return;
+      if (el.closest(".nx-brand, .lp-tools, script, style, svg, select, option, .visually-hidden")) return;
+      if (nodes.some(function (n) { return n === el || n.contains(el) || el.contains(n); })) return;
+      nodes.push(el);
     });
     return nodes;
   }
-  var EDIT_EXTRA = ".nx-phone strong, .nx-phone span";
 
   /* Imágenes editables: cada módulo guarda en it.imagenes { src, alt } por posición */
   var IMG_SEL = "img, [style*='background-image']";
@@ -2001,6 +2009,8 @@
         if (e.target.closest("[data-lb-link]")) { selectLink(editing.el.closest("a[data-lb-l]")); return; }
         if (e.target.closest("[data-lb-hide]")) { hideMenuItem(editing.el.closest(".nav-link[data-lb-l]")); return; }
         if (e.target.closest("[data-lb-cat-remove]")) { removeCategory(editing.el.closest("[data-filter]")); return; }
+        if (e.target.closest("[data-lb-rep-dup]")) { repeatAction(editing.el, "dup"); return; }
+        if (e.target.closest("[data-lb-rep-del]")) { repeatAction(editing.el, "remove"); return; }
         if (e.target.closest("[data-lb-prod]")) {
           var img = productOf(editing.el).querySelector("[data-lb-i]");
           endEdit();
@@ -2030,7 +2040,8 @@
       '<span class="' + tone + '">' + len + (role && role.max ? " / " + role.max : "") + " caracteres</span>" +
       (editing.el.closest("a[data-lb-l]") ? '<button type="button" data-lb-link>Cambiar link</button>' : "") +
       (editing.el.closest(".nav-link[data-lb-l]") ? '<button type="button" data-lb-hide>Quitar del menú</button>' : "") +
-      (productOf(editing.el) && productOf(editing.el).querySelector("[data-lb-i]") ? '<button type="button" data-lb-prod>Producto</button>' : "") +
+      (repeatInfo(editing.el) ? '<button type="button" data-lb-rep-dup>Agregar ' + repeatInfo(editing.el).label + '</button><button type="button" data-lb-rep-del>Quitar</button>' : "") +
+      (!clientMode() && productOf(editing.el) && productOf(editing.el).querySelector("[data-lb-i]") ? '<button type="button" data-lb-prod>Producto</button>' : "") +
       (isCategoryTab(editing.el) ? '<button type="button" data-lb-cat-remove>Quitar categoría</button>' : "") +
       (changed ? '<button type="button" data-lb-revert>Volver al original</button>' : "");
     var scale = frame.getBoundingClientRect().width / frame.offsetWidth || 1;
@@ -2300,6 +2311,68 @@
 
   /* Productos: duplicar, quitar y elegir categorías. Cambian la estructura del módulo:
      el HTML queda en it.html y las ediciones por posición se reacomodan. */
+  function moduleIdOf(el) {
+    var section = el.closest("section.mq-block");
+    return section ? section.getAttribute("data-module") || "" : "";
+  }
+
+  function repeatKind(id) {
+    if (id.indexOf("productos-") === 0) return "producto";
+    if (id.indexOf("galeria-imagenes-") === 0) return "imagen";
+    if (id.indexOf("carrusel-imagenes-") === 0) return "imagen";
+    if (id.indexOf("agenda-") === 0) return "fecha";
+    return "";
+  }
+
+  function repeatList(root, id) {
+    if (id.indexOf("productos-") === 0) return productsIn(root);
+    if (id.indexOf("agenda-") === 0) {
+      return Array.prototype.filter.call(root.querySelectorAll(".ev-row, .ev-card"), function (el) {
+        return !el.closest(".ev-card") || el.classList.contains("ev-card");
+      }).map(function (el) {
+        return el.classList.contains("ev-card") && el.parentElement && /\bcol-/.test(el.parentElement.className) ? el.parentElement : el;
+      }).filter(function (el, i, list) { return list.indexOf(el) === i; });
+    }
+    if (root.querySelector(".carousel-item")) return Array.prototype.slice.call(root.querySelectorAll(".carousel-item"));
+    return Array.prototype.slice.call(root.querySelectorAll(".gal-card, .bento-tile, [data-item]"));
+  }
+
+  function repeatInfo(el) {
+    var id = moduleIdOf(el);
+    var label = repeatKind(id);
+    if (!label) return null;
+    var section = el.closest("section.mq-block");
+    var list = repeatList(section, id);
+    var unit = null;
+    list.forEach(function (item) { if (!unit && item.contains(el)) unit = item; });
+    if (!unit) return null;
+    return { id: id, label: label, index: list.indexOf(unit), unit: unit };
+  }
+
+  function syncSlides(carousel) {
+    var items = carousel.querySelectorAll(".carousel-item");
+    var indicators = carousel.querySelector(".carousel-indicators");
+    if (!indicators) return;
+    var buttons = Array.prototype.slice.call(indicators.querySelectorAll("button"));
+    var sample = buttons[0];
+    while (buttons.length < items.length && sample) {
+      var add = sample.cloneNode(true);
+      add.classList.remove("active");
+      indicators.appendChild(add);
+      buttons.push(add);
+    }
+    while (buttons.length > items.length) indicators.removeChild(buttons.pop());
+    Array.prototype.forEach.call(items, function (item, i) {
+      var on = item.classList.contains("active");
+      if (buttons[i]) {
+        buttons[i].classList.toggle("active", on);
+        buttons[i].setAttribute("aria-label", String(i + 1));
+        buttons[i].setAttribute("data-bs-slide-to", String(i));
+      }
+    });
+    if (items.length && !carousel.querySelector(".carousel-item.active")) items[0].classList.add("active");
+  }
+
   function productOf(el) {
     var item = el.closest("[data-item]");
     if (item) return item;
@@ -2360,6 +2433,37 @@
     Object.keys(next).forEach(function (k) { if (next[k]) it[k] = next[k]; else delete it[k]; });
     if (pick >= 0) pendingSelect = { module: index, key: String(pick) };
     return true;
+  }
+
+  function repeatAction(el, act) {
+    var info = repeatInfo(el);
+    if (!info) return;
+    var label = info.label;
+    endEdit();
+    closeImage();
+    var done = restructure(moduleIndex(el), function (root) {
+      var list = repeatList(root, info.id);
+      var target = list[info.index];
+      if (!target) return false;
+      if (act === "dup") {
+        var copy = target.cloneNode(true);
+        copy.classList.remove("active");
+        target.after(copy);
+        var carousel = copy.closest(".carousel");
+        if (carousel) syncSlides(carousel);
+      } else if (act === "remove") {
+        if (list.length < 2) return false;
+        var carousel = target.closest(".carousel");
+        target.remove();
+        if (carousel) syncSlides(carousel);
+      }
+    });
+    if (!done) {
+      if (act === "remove") say("Tiene que quedar al menos una " + label + ".", "warn");
+      return;
+    }
+    update();
+    say(act === "dup" ? "Agregaste una " + label + ". Cambiale el texto y la foto." : "Quitaste una " + label + ".", "ok");
   }
 
   function productAction(el, act, value) {
@@ -2470,6 +2574,8 @@
         else if (e.target.closest("[data-img-close]")) closeImage();
         else if (e.target.closest("[data-img-ai]")) { var target = imgSel.el; withAi(function () { describeOne(target, false); }); }
         else if (e.target.closest("[data-img-link]")) selectLink(imgSel.el.closest("a[data-lb-l]"));
+        else if (e.target.closest("[data-rep-dup]")) repeatAction(imgSel.el, "dup");
+        else if (e.target.closest("[data-rep-del]")) repeatAction(imgSel.el, "remove");
         else if (e.target.closest("[data-prod-dup]")) productAction(imgSel.el, "dup");
         else if (e.target.closest("[data-prod-remove]")) productAction(imgSel.el, "remove");
         else if (e.target.closest("[data-prod-cat]")) productAction(imgSel.el, "cat", e.target.closest("[data-prod-cat]").getAttribute("data-prod-cat"));
@@ -2518,7 +2624,8 @@
       '<button type="button" class="is-save" data-img-save hidden></button>' +
       (el.closest("a[data-lb-l]") ? '<button type="button" class="is-ghost" data-img-link>Cambiar link</button>' : "") +
       (changed ? '<button type="button" class="is-ghost" data-img-revert>Volver a la original</button>' : "") + "</div>" +
-      productTipHtml(el);
+      (clientMode() ? "" : productTipHtml(el)) +
+      (repeatInfo(el) ? '<div class="lb-img-row"><button type="button" class="is-ghost" data-rep-dup>Agregar ' + repeatInfo(el).label + '</button><button type="button" class="is-ghost" data-rep-del>Quitar</button></div>' : "");
     renderImgSave();
     probe.onload = function () {
       var span = tip.querySelector("#" + sizeId);
@@ -3787,7 +3894,7 @@
 
     modeHint.className = "lb-hint lb-mode";
     modeHint.textContent = client
-      ? "Se publica en /l/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "")
+      ? (window.LanzatePortal ? "Se publica en el sitio de " + client.nombre + "." : "Se publica en /l/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : ""))
       : "Cada landing se publica con el nombre de su cliente.";
   }
 
@@ -3860,6 +3967,7 @@
     nameInput.value = state.name;
     renderDesc(true);
     clientSelect.value = String(state.clienteId);
+    paintClientBrand();
     update();
   }
 
@@ -3883,7 +3991,7 @@
       });
       savedCount.textContent = list.length;
       savedEmpty.hidden = list.length > 0;
-      if (state.landingId && !list.some(function (lp) { return lp.id === state.landingId; })) {
+      if (!openedFromUrl && state.landingId && !list.some(function (lp) { return lp.id === state.landingId; })) {
         state.landingId = null;
         savedSnapshot = null;
         renderMode();
@@ -4001,6 +4109,7 @@
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
     var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    if (clientMode()) body.modo = "sitio";
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -4287,12 +4396,15 @@
     return last;
   }
 
+  var openedFromUrl = false;
+
   function start() {
     var params = new URLSearchParams(location.search);
     var landingId = Number(params.get("landing"));
     var clienteId = Number(params.get("cliente"));
-    if (params.toString()) history.replaceState(null, "", location.pathname);
+    if (params.toString() && !landingId) history.replaceState(null, "", location.pathname);
     if (landingId) {
+      openedFromUrl = true;
       showLandingEditor(false);
       return api("GET", "/api/landings/" + landingId).then(function (lp) {
         loadLanding(lp);
@@ -4339,8 +4451,45 @@
     });
   }
 
+  function paintClientBrand() {
+    if (!clientMode()) return;
+    var client = currentClient();
+    var brand = document.querySelector(".lib-brand");
+    if (!client || !brand) return;
+    var mark = brand.querySelector(".lib-brand-mark");
+    if (client.logo_url && client.logo_modo !== "texto") {
+      mark.innerHTML = '<img alt="" src="' + client.logo_url + '">';
+      mark.style.background = "transparent";
+    }
+    brand.lastChild.textContent = client.nombre || "Empresa";
+    brand.removeAttribute("href");
+  }
+
+  function clientMode() {
+    return window.LanzatePortal || new URLSearchParams(location.search).get("desde") === "sitio";
+  }
+
+  function applyClientEditor() {
+    if (!clientMode()) return;
+    document.documentElement.classList.add("is-client");
+    document.title = "Editar landing";
+    var back = document.querySelector("[data-lb-back]");
+    fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
+      if (back && s.sitio) back.href = s.sitio;
+    });
+    paintClientBrand();
+    if (!new URLSearchParams(location.search).get("landing") && !state.landingId) {
+      fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
+        location.href = s.sitio || "/maquetas/portal.html";
+      });
+    }
+  }
+
+  document.addEventListener("lz-portal", function () { applyClientEditor(); renderMode(); });
+
   Promise.all([loadLibrary(), loadClients()]).then(function () {
     renderClients();
+    applyClientEditor();
     start();
     setupTemplateStart();
     renderSaved();

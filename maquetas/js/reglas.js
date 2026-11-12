@@ -425,7 +425,102 @@
       });
     }
 
+    contrastIssues(doc, win).forEach(function (issue) {
+      add("aviso", "textos", issue.module, issue.text, issue.detail, issue.el);
+    });
+
     return Promise.all(imageJobs).then(function () { return report(issues); });
+  }
+
+  function channel(value) {
+    value = value / 255;
+    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  }
+
+  function paint(color) {
+    var parts = String(color || "").match(/[\d.]+/g);
+    if (!parts || parts.length < 3) return null;
+    var rgb = parts.slice(0, 3).map(Number);
+    return {
+      a: parts.length > 3 ? Number(parts[3]) : 1,
+      L: 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2])
+    };
+  }
+
+  function contrastRatio(fore, back) {
+    var a = paint(fore);
+    var b = paint(back);
+    if (!a || !b) return null;
+    var hi = Math.max(a.L, b.L);
+    var lo = Math.min(a.L, b.L);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  function solidBackground(el, view) {
+    var node = el;
+    while (node) {
+      var color = paint(view.getComputedStyle(node).backgroundColor);
+      if (color && color.a > 0.85) return view.getComputedStyle(node).backgroundColor;
+      node = node.parentElement;
+    }
+    return "rgb(255, 255, 255)";
+  }
+
+  function onPhoto(el, view) {
+    var node = el;
+    while (node) {
+      var image = view.getComputedStyle(node).backgroundImage;
+      if (image && image !== "none") return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function contrastIssues(root, win) {
+    if (!root || !root.querySelectorAll) return [];
+    var view = win || root.ownerDocument.defaultView;
+    var doc = root.ownerDocument;
+    var blocks = [].slice.call(doc.querySelectorAll("body > section.mq-block"));
+    var seen = {};
+    var grouped = {};
+    root.querySelectorAll("h1, h2, h3, p, li, a, button, label, small").forEach(function (el) {
+      if (el.closest(".visually-hidden, [hidden], .lp-tools")) return;
+      var style = view.getComputedStyle(el);
+      if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) return;
+      var box = el.getBoundingClientRect();
+      if (box.width < 2 || box.height < 2) return;
+      var text = (el.innerText || "").replace(/\s+/g, " ").trim();
+      if (!text || (el.children.length && text.length > 80)) return;
+      var own = paint(style.backgroundColor);
+      if (onPhoto(el, view) && (!own || own.a < 0.85)) return;
+      var back = solidBackground(el, view);
+      var ratio = contrastRatio(style.color, back);
+      if (ratio == null) return;
+      var size = parseFloat(style.fontSize) || 16;
+      var large = size >= 24 || (Number(style.fontWeight) >= 700 && size >= 18.66);
+      var minimum = large ? 3 : 4.5;
+      if (ratio >= minimum) return;
+      var block = el.closest("section.mq-block");
+      var module = blocks.indexOf(block);
+      if (module < 0) module = null;
+      var key = (module == null ? "page" : module) + "|" + style.color + "|" + back;
+      if (seen[key]) return;
+      seen[key] = true;
+      var bucket = module == null ? "page" : String(module);
+      if (!grouped[bucket]) grouped[bucket] = { module: module, el: el, samples: [] };
+      if (grouped[bucket].samples.length < 3) {
+        grouped[bucket].samples.push("«" + text.slice(0, 42) + "» queda en " + ratio.toFixed(1) + ":1. El mínimo es " + minimum + ":1.");
+      }
+    });
+    return Object.keys(grouped).map(function (key) {
+      var item = grouped[key];
+      return {
+        module: item.module,
+        el: item.el,
+        text: "Hay texto con poco contraste sobre el fondo.",
+        detail: item.samples.join(" ")
+      };
+    });
   }
 
   function report(issues) {
@@ -515,6 +610,7 @@
     load: load,
     save: save,
     check: check,
+    contrast: contrastIssues,
     textRole: textRole,
     imageRole: imageRole,
     norm: norm,

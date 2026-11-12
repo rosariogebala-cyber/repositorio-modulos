@@ -18,6 +18,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import shutil
 import sys
 import time
@@ -96,6 +97,8 @@ MAX_BODY = 40 * 1024 * 1024
 MAX_LOGO = 2 * 1024 * 1024
 SESSION_DAYS = 30
 COOKIE = "lz_sesion"
+PORTAL_COOKIE = "lz_portal"
+PLANES = ("", "Base", "Pro")
 
 CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "direccion", "horario",
                  "instagram", "facebook", "linkedin", "logo_modo", "color_primario", "color_secundario", "notas", "estado",
@@ -122,7 +125,17 @@ ROUTES = [
     (re.compile(r"^/api/login$"), "login"),
     (re.compile(r"^/api/logout$"), "logout"),
     (re.compile(r"^/api/clientes$"), "clientes"),
+    (re.compile(r"^/api/clientes/(\d+)/entrar$"), "portal-entrar"),
+    (re.compile(r"^/api/clientes/(\d+)/acceso$"), "acceso"),
+    (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
+    (re.compile(r"^/api/portal/login$"), "portal-login"),
+    (re.compile(r"^/api/portal/sesion$"), "portal-sesion"),
+    (re.compile(r"^/api/portal/sitio/([a-z0-9-]+)$"), "portal-sitio"),
+    (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
+    (re.compile(r"^/api/portal/clave$"), "portal-clave"),
+    (re.compile(r"^/api/portal/logout$"), "portal-logout"),
+    (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
     (re.compile(r"^/api/clientes/(\d+)/logo$"), "logo"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
@@ -135,12 +148,14 @@ ROUTES = [
     (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva", "portal-login", "portal-sesion", "portal-sitio", "portal-olvide", "portal-logout")
 PANEL_PAGES = {
     "/maquetas/" + name + ".html"
     for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
 }
 LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
+VISTA_PAGE = re.compile(r"^/vista/(\d+)/?$")
+SITIO_PAGE = re.compile(r"^/sitio/([a-z0-9-]+)/?$")
 
 
 class ApiError(Exception):
@@ -208,6 +223,10 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT ''
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ga4 TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_usuario TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan_vence TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS animacion TEXT NOT NULL DEFAULT '';
@@ -308,6 +327,175 @@ def session_secret():
     return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
 
 
+def seal_portal_password(password):
+    raw = password.encode()
+    stream = hashlib.sha256(b"clave:" + session_secret()).digest()
+    mixed = bytes(b ^ stream[i % len(stream)] for i, b in enumerate(raw))
+    return "v1:" + mixed.hex()
+
+
+def open_portal_password(stored):
+    if not stored or not str(stored).startswith("v1:"):
+        return ""
+    raw = bytes.fromhex(stored[3:])
+    stream = hashlib.sha256(b"clave:" + session_secret()).digest()
+    return bytes(b ^ stream[i % len(stream)] for i, b in enumerate(raw)).decode()
+
+
+def check_portal_password(stored, password):
+    if str(stored).startswith("v1:"):
+        return hmac.compare_digest(open_portal_password(stored), str(password or ""))
+    try:
+        salt, digest = stored.split("$", 1)
+    except ValueError:
+        return False
+    test = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120000).hex()
+    return hmac.compare_digest(test, digest)
+
+
+def portal_token(client_id, days):
+    expires = str(int(time.time()) + days * 86400)
+    payload = "%s.%s" % (client_id, expires)
+    sig = hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
+    return payload + "." + sig
+
+
+def portal_client_id(value):
+    try:
+        client_id, expires, sig = value.split(".", 2)
+        payload = client_id + "." + expires
+        good = hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(sig, good) and int(expires) > time.time():
+            return int(client_id)
+    except (ValueError, AttributeError):
+        return None
+    return None
+
+
+def set_portal_access(client_id, usuario):
+    usuario = re.sub(r"\s+", "", str(usuario or "")).lower()
+    if not re.fullmatch(r"[a-z0-9._-]{3,40}", usuario):
+        raise ApiError(400, "El usuario del portal usa letras, números, punto o guion, de 3 a 40 caracteres.")
+    clave = secrets.token_urlsafe(9)
+    with tx() as con:
+        get_client_row(con, client_id)
+        taken = con.execute(
+            "SELECT id FROM clientes WHERE lower(portal_usuario) = %s AND id <> %s",
+            (usuario, client_id),
+        ).fetchone()
+        if taken:
+            raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
+        con.execute(
+            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, actualizado = %s WHERE id = %s",
+            (usuario, seal_portal_password(clave), now_ms(), client_id),
+        )
+    record_audit("portal", "acceso " + usuario)
+    return {"usuario": usuario, "clave": clave}
+
+
+def set_client_plan(client_id, data):
+    plan = str(data.get("plan") or "")
+    if plan not in PLANES:
+        raise ApiError(400, "Elegí un plan: Base o Pro.")
+    vence = str(data.get("plan_vence") or "").strip()
+    if vence and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vence):
+        raise ApiError(400, "La fecha de vencimiento tiene que ser AAAA-MM-DD.")
+    with tx() as con:
+        row = get_client_row(con, client_id)
+        con.execute(
+            "UPDATE clientes SET plan = %s, plan_vence = %s, actualizado = %s WHERE id = %s",
+            (plan, vence, now_ms(), client_id),
+        )
+        updated = client_dict(get_client_row(con, client_id), None)
+    record_audit("plan", row["nombre"] + " " + (plan or "sin plan"))
+    return updated
+
+
+def portal_login(usuario, clave, sitio=""):
+    usuario = str(usuario or "").strip().lower()
+    sitio = str(sitio or "").strip()
+    with tx() as con:
+        row = con.execute(
+            "SELECT id, slug, portal_clave FROM clientes WHERE lower(portal_usuario) = %s",
+            (usuario,),
+        ).fetchone()
+    if not row or not row["portal_clave"] or not check_portal_password(row["portal_clave"], str(clave or "")):
+        raise ApiError(401, "El usuario o la contraseña no son correctos.")
+    if sitio and row["slug"] != sitio:
+        raise ApiError(401, "Esta cuenta no corresponde a este sitio.")
+    return row["id"]
+
+
+def portal_site(slug):
+    with tx() as con:
+        row = con.execute("SELECT nombre, slug FROM clientes WHERE slug = %s", (slug,)).fetchone()
+    if not row:
+        raise ApiError(404, "Este sitio no existe.")
+    return {"nombre": row["nombre"], "sitio": "/sitio/%s/" % row["slug"]}
+
+
+def hide_public_path(item):
+    """El portal no muestra /l/cliente/landing/: con eso se pueden probar otras páginas."""
+    item = dict(item)
+    item["url"] = "/vista/%d" % item["id"]
+    item["path"] = item.get("nombre") or ""
+    item.pop("slug", None)
+    item.pop("cliente_slug", None)
+    return item
+
+
+def portal_home(client_id):
+    with tx() as con:
+        row = get_client_row(con, client_id)
+        landings = con.execute(
+            LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC",
+            (client_id,),
+        ).fetchall()
+    return {
+        "slug": row["slug"],
+        "sitio": "/sitio/%s/" % row["slug"],
+        "nombre": row["nombre"],
+        "rubro": row.get("rubro") or "",
+        "contacto": row.get("contacto") or "",
+        "email": row.get("email") or "",
+        "telefono": row.get("telefono") or "",
+        "estado": row.get("estado") or "",
+        "creado": row.get("creado") or 0,
+        "plan": row.get("plan") or "",
+        "plan_vence": row.get("plan_vence") or "",
+        "usuario": row.get("portal_usuario") or "",
+        "clave": open_portal_password(row.get("portal_clave") or ""),
+        "landings": [hide_public_path(landing_dict(item)) for item in landings],
+    }
+
+
+def renew_portal_password(client_id):
+    clave = secrets.token_urlsafe(9)
+    with tx() as con:
+        row = get_client_row(con, client_id)
+        usuario = (row.get("portal_usuario") or "").strip()
+        if not usuario:
+            raise ApiError(400, "Este cliente todavía no tiene usuario de portal.")
+        con.execute(
+            "UPDATE clientes SET portal_clave = %s, actualizado = %s WHERE id = %s",
+            (seal_portal_password(clave), now_ms(), client_id),
+        )
+    record_audit("portal", "clave nueva " + usuario)
+    return {"usuario": usuario, "clave": clave}
+
+
+def recover_portal_password(usuario, sitio=""):
+    usuario = str(usuario or "").strip().lower()
+    with tx() as con:
+        row = con.execute(
+            "SELECT id, slug FROM clientes WHERE lower(portal_usuario) = %s",
+            (usuario,),
+        ).fetchone()
+    if not row or (sitio and row["slug"] != sitio):
+        raise ApiError(404, "No hay un acceso con ese usuario en este sitio.")
+    return renew_portal_password(row["id"])
+
+
 def make_session():
     expires = str(int(time.time()) + SESSION_DAYS * 86400)
     sig = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
@@ -352,7 +540,8 @@ def client_logo(client_id):
 
 
 def client_dict(row, count=None):
-    data = {k: row[k] for k in row.keys() if k not in ("n", "logo")}
+    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave")}
+    data["tiene_portal"] = bool((row.get("portal_usuario") or "").strip())
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row["id"], row["logo"], row["actualizado"])
     data["carpeta"] = "/l/" + row["slug"] + "/"
@@ -477,6 +666,7 @@ def get_client(client_id):
         row = get_client_row(con, client_id)
         landings = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         data = client_dict(row, len(landings))
+        data["clave"] = open_portal_password(row.get("portal_clave") or "")
         data["lista"] = [landing_dict(l) for l in landings]
         return data
 
@@ -697,6 +887,46 @@ def image_metadata_errors(html, rules):
     return errors
 
 
+def limit_client_edit(previous, data):
+    """El cliente cambia textos, fotos y links. No módulos, nombre, cliente ni colores."""
+    if not previous:
+        raise ApiError(403, "Desde el sitio solo se edita una landing que ya existe.")
+    data["cliente_id"] = previous["cliente_id"]
+    data["nombre"] = previous["nombre"]
+    data["estilo"] = previous["estilo"] or ""
+    data["ignorados"] = previous["ignorados"] or []
+    data["descripcion"] = previous["descripcion"] or ""
+    data["animacion"] = previous["animacion"] or ""
+    old = previous["items"] or []
+    new = data.get("items") or []
+    if len(old) != len(new) or any((a or {}).get("id") != (b or {}).get("id") for a, b in zip(old, new)):
+        raise ApiError(403, "Desde el sitio no se cambian los módulos.")
+    merged = []
+    repeatable = ("productos-", "galeria-imagenes-", "carrusel-imagenes-", "agenda-")
+    for saved, incoming in zip(old, new):
+        item = dict(saved)
+        incoming = incoming if isinstance(incoming, dict) else {}
+        module_id = str(saved.get("id") or "")
+        can_repeat = module_id.startswith(repeatable)
+        html = incoming.get("html")
+        if can_repeat and isinstance(html, str) and html.strip():
+            if re.search(r"<\s*script", html, re.I):
+                raise ApiError(400, "No se puede guardar ese contenido.")
+            item["html"] = html
+            for key in ("textos", "imagenes", "links"):
+                if key in incoming:
+                    item[key] = incoming[key]
+                elif key in item:
+                    del item[key]
+        else:
+            for key in ("textos", "imagenes", "links"):
+                if key in incoming:
+                    item[key] = incoming[key]
+        merged.append(item)
+    data["items"] = merged
+    return data
+
+
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
@@ -864,9 +1094,11 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     }
     travel_path = "/maquetas/img/rubros/viajes/"
     for image in body.xpath('.//img[starts-with(@src, "/maquetas/img/rubros/viajes/") and not(@srcset)]'):
-        source = image.get("src").removeprefix(travel_path)
-        if source.endswith(".jpg") and source.removesuffix(".jpg") in travel_images:
-            image.set("src", travel_path + source.removesuffix(".jpg") + ".webp")
+        source = image.get("src")
+        if source.startswith(travel_path):
+            source = source[len(travel_path):]
+        if source.endswith(".jpg") and source[:-4] in travel_images:
+            image.set("src", travel_path + source[:-4] + ".webp")
 
     # La paleta guardada por el constructor tiene precedencia sobre la del cliente.
     accent = next((
@@ -951,7 +1183,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
             continue
         source = match[1].strip()
         width = hero_variants.get(source)
-        base = source.removesuffix(".jpg")
+        base = source[:-4] if source.endswith(".jpg") else source
         description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split()) or "imagen"
         attrs = {
             "class": "lz-hero-photo",
@@ -1689,7 +1921,7 @@ class Handler(SimpleHTTPRequestHandler):
     def send_public_landing(self, html):
         body = html.encode("utf-8")
         etag = '"' + hashlib.sha256(body).hexdigest() + '"'
-        validators = {value.strip().removeprefix("W/") for value in self.headers.get("If-None-Match", "").split(",")}
+        validators = {value.strip()[2:] if value.strip().startswith("W/") else value.strip() for value in self.headers.get("If-None-Match", "").split(",")}
         self.cache_control = "public, max-age=60, stale-while-revalidate=300"
         try:
             if etag in validators or "*" in validators:
@@ -1725,9 +1957,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return value
         return ""
 
-    def session_cookie(self, value, max_age):
+    def session_cookie(self, value, max_age, name=COOKIE):
         secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
-        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
+        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (name, value, max_age, secure)
 
     def origin(self):
         host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip()
@@ -1765,6 +1997,11 @@ class Handler(SimpleHTTPRequestHandler):
             return True
 
         if path in PANEL_PAGES and method in ("GET", "HEAD"):
+            portal = portal_client_id(self.cookie(PORTAL_COOKIE))
+            if path == "/maquetas/constructor.html" and portal and not self.authorized():
+                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
+                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
+                return True
             if not self.authorized():
                 target = path + ("?" + urlencode(query, doseq=True) if query else "")
                 self.send_response(303)
@@ -1780,6 +2017,30 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(200, read_rules())
             else:
                 self.send_json(401, {"error": "Ingresá a Lanzate para consultar las reglas."})
+            return True
+        sitio = SITIO_PAGE.match(path)
+        if sitio and method in ("GET", "HEAD"):
+            with open(os.path.join(ROOT, "maquetas", "portal.html"), "rb") as page_file:
+                self.send_body(200, page_file.read(), "text/html; charset=utf-8")
+            return True
+        vista = VISTA_PAGE.match(path)
+        if vista and method in ("GET", "HEAD"):
+            portal = portal_client_id(self.cookie(PORTAL_COOKIE))
+            landing_id = int(vista.group(1))
+            html = None
+            if portal:
+                with tx() as con:
+                    row = con.execute(
+                        "SELECT c.slug AS cliente_slug, l.slug FROM landings l JOIN clientes c ON c.id = l.cliente_id "
+                        "WHERE l.id = %s AND l.cliente_id = %s",
+                        (landing_id, portal),
+                    ).fetchone()
+                if row:
+                    html = landing_page(row["cliente_slug"], row["slug"], origin=self.origin())
+            if html:
+                self.send_public_landing(html)
+            else:
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
             return True
         page = LANDING_PAGE.match(path)
         if page and method in ("GET", "HEAD"):
@@ -1802,9 +2063,15 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(404, {"error": "Ruta inexistente"})
                 return True
             return False
-        ident = int(match.group(1)) if match.groups() else None
+        token = match.group(1) if match.groups() else ""
+        ident = int(token) if str(token).isdigit() else None
         try:
-            if name not in PUBLIC_ROUTES and not self.authorized():
+            portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
+            portal_editor = portal_id and (
+                name in ("portal-inicio", "portal-clave", "landings", "landing")
+                or (method == "GET" and name in ("clientes", "reglas", "ia"))
+            )
+            if name not in PUBLIC_ROUTES and not self.authorized() and not portal_editor:
                 raise ApiError(401, "Ingresá la clave para usar la plataforma.")
             if name == "preview":
                 shot = landing_preview(ident)
@@ -1822,6 +2089,7 @@ class Handler(SimpleHTTPRequestHandler):
                 finally:
                     self.cache_control = "no-store"
                 return True
+            self.route_token = token
             result = self.dispatch(method, name, ident, query)
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
@@ -1833,6 +2101,46 @@ class Handler(SimpleHTTPRequestHandler):
         return True
 
     def dispatch(self, method, name, ident, query):
+        portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
+        if name == "portal-login" and method == "POST":
+            data = self.read_json()
+            client_id = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio"))
+            days = 30 if data.get("recordar") else 1
+            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client_id, days), days * 86400, PORTAL_COOKIE)),)
+            return {"ok": True}
+        if name == "portal-sitio" and method == "GET":
+            return portal_site(self.route_token)
+        if name == "portal-sesion" and method == "GET":
+            sitio = ""
+            if portal_id:
+                with tx() as con:
+                    sitio = "/sitio/%s/" % get_client_row(con, portal_id)["slug"]
+            return {"ok": bool(portal_id), "cliente": portal_id or 0, "sitio": sitio}
+        if name == "portal-logout" and method == "POST":
+            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0, PORTAL_COOKIE)),)
+            return {"ok": True}
+        if name == "portal-olvide" and method == "POST":
+            data = self.read_json()
+            return recover_portal_password(data.get("usuario"), data.get("sitio"))
+        if name == "portal-clave" and method == "POST":
+            if not portal_id:
+                raise ApiError(401, "Ingresá al portal del cliente.")
+            return renew_portal_password(portal_id)
+        if name == "portal-inicio" and method == "GET":
+            if not portal_id:
+                raise ApiError(401, "Ingresá al portal del cliente.")
+            return portal_home(portal_id)
+        if name == "portal-entrar" and method == "POST":
+            with tx() as con:
+                get_client_row(con, ident)
+            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(ident, 1), 86400, PORTAL_COOKIE)),)
+            with tx() as con:
+                slug = get_client_row(con, ident)["slug"]
+            return {"ok": True, "sitio": "/sitio/%s/" % slug}
+        if name == "acceso" and method == "POST":
+            return set_portal_access(ident, self.read_json().get("usuario"))
+        if name == "plan" and method == "PUT":
+            return set_client_plan(ident, self.read_json())
         if name == "sesion" and method == "GET":
             return {"ok": self.authorized(), "requiere": login_required()}
         if name == "login" and method == "POST":
@@ -1852,6 +2160,12 @@ class Handler(SimpleHTTPRequestHandler):
             return {"ok": True}
         if name == "clientes":
             if method == "GET":
+                if portal_id and not self.authorized():
+                    with tx() as con:
+                        data = client_dict(get_client_row(con, portal_id), None)
+                    data.pop("slug", None)
+                    data["carpeta"] = ""
+                    return [data]
                 return list_clients()
             if method == "POST":
                 return create_client(self.read_json())
@@ -1866,15 +2180,39 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "landings":
             if method == "GET":
                 client = (query.get("cliente") or [""])[0]
-                return list_landings(int(client) if client.isdigit() else None)
+                if portal_id and not self.authorized():
+                    client = str(portal_id)
+                rows = list_landings(int(client) if client.isdigit() else None)
+                if portal_id and not self.authorized():
+                    rows = [hide_public_path(item) for item in rows]
+                return rows
             if method == "POST":
-                return save_landing(self.read_json())
+                if portal_id and not self.authorized():
+                    raise ApiError(403, "Desde el sitio no se crean landings.")
+                saved = save_landing(self.read_json())
+                return saved
         if name == "landing":
+            if portal_id and not self.authorized():
+                with tx() as con:
+                    owned = get_landing_row(con, ident)
+                if owned["cliente_id"] != portal_id:
+                    raise ApiError(403, "Esta landing es de otro cliente.")
             if method == "GET":
-                return get_landing(ident)
+                data = get_landing(ident)
+                if portal_id and not self.authorized():
+                    data = hide_public_path(data)
+                return data
             if method == "PUT":
-                return save_landing(self.read_json(), ident)
+                data = self.read_json()
+                if data.get("modo") == "sitio" or (portal_id and not self.authorized()):
+                    with tx() as con:
+                        previous = get_landing_row(con, ident)
+                    data = limit_client_edit(previous, data)
+                saved = save_landing(data, ident)
+                return hide_public_path(saved) if portal_id and not self.authorized() else saved
             if method == "DELETE":
+                if portal_id and not self.authorized():
+                    raise ApiError(403, "El portal no elimina landings. Pedilo a Lanzate.")
                 delete_landing(ident)
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
