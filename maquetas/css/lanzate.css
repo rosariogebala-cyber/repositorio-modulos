@@ -3623,3 +3623,26 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-style-option { display: inline-flex; gap: 8px; }
 .lb-style-swatches { display: inline-flex; gap: 3px; }
 .lb-style-swatches i { width: 10px; height: 10px; border-radius: 50%; }
+
+.builder-page :is(.lb-color-controls, .lb-module-color-row) input[type="color"] {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.builder-page :is(.lb-color-controls, .lb-module-color-row) input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.builder-page :is(.lb-color-controls, .lb-module-color-row) input[type="color"]::-webkit-color-swatch {
+  border: 1px solid #d6d9ea;
+  border-radius: 50%;
+}
+.builder-page :is(.lb-color-controls, .lb-module-color-row) input[type="color"]::-moz-color-swatch {
+  border: 1px solid #d6d9ea;
+  border-radius: 50%;
+}

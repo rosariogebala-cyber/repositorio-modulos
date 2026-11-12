@@ -408,6 +408,24 @@
     return { bad: bad, text: worst.name + " sobre este fondo: " + value + ":1. " + (bad ? "Hace falta 4.5:1." : "Llega a 4.5:1.") };
   }
 
+  var COMMON_MODULE_COLORS = {
+    fondo: ["Fondo de sección", ".nx", "background-color", "#f7f4ef"],
+    titulo: ["Títulos", "h1, h2, h3, h4, .nx-display, .nx-display .em", "color", "#17352c"],
+    texto: ["Textos", "p, li, dd, blockquote, figcaption", "color", "#5f6f68"],
+    etiqueta: ["Etiquetas", ".nx-kicker, .plan-kicker, .badge, .k", "color", "#17352c"],
+    enlace: ["Enlaces", "a:not(.btn-nx, .btn-nx-light, .btn-nx-outline, .nx-wa)", "color", "#1b5e42"],
+    boton: ["Fondo del botón principal", ".btn-nx, .nx-wa", "background-color", "#1b5e42"],
+    botonTexto: ["Texto del botón principal", ".btn-nx, .btn-nx .bi, .nx-wa, .nx-wa .bi", "color", "#ffffff"],
+    secundario: ["Fondo del botón secundario", ".btn-nx-outline, .btn-nx-light", "background-color", "#ffffff"],
+    secundarioTexto: ["Texto del botón secundario", ".btn-nx-outline, .btn-nx-light, .btn-nx-outline .bi, .btn-nx-light .bi", "color", "#17352c"],
+    secundarioBorde: ["Borde del botón secundario", ".btn-nx-outline, .btn-nx-light", "border-color", "#17352c"],
+    tarjeta: ["Fondo de tarjetas", ".nx-hero-card, .ben-card, .prod-card, .prod-card-xl, .plan-card, .quote-card, .person-card, .svc-card", "background-color", "#ffffff"],
+    tarjetaTexto: ["Texto de tarjetas", ":is(.nx-hero-card, .ben-card, .prod-card, .prod-card-xl, .plan-card, .quote-card, .person-card, .svc-card) :is(h2, h3, h4, p, li)", "color", "#17352c"],
+    campo: ["Fondo de campos", "input:not([type=hidden], [type=radio], [type=checkbox]), select, textarea", "background-color", "#ffffff"],
+    campoTexto: ["Texto de campos", "input:not([type=hidden], [type=radio], [type=checkbox]), select, textarea", "color", "#17352c"],
+    icono: ["Íconos", ".bi:not(.btn-nx *, .btn-nx-outline *, .btn-nx-light *, .nx-wa *)", "color", "#1b5e42"]
+  };
+
   var MODULE_COLOR_FIELDS = {
     hero: {
       titulo: ["Título", ".nx-display, .nx-display .em", "color", "#17352c"],
@@ -430,9 +448,9 @@
   var moduleColorHistory = new WeakMap();
 
   function moduleColorFields(item) {
-    if (item.id === "hero-full-imagen-compleja") return MODULE_COLOR_FIELDS.hero;
-    if (item.id.indexOf("footer-") === 0) return MODULE_COLOR_FIELDS.footer;
-    return null;
+    if (item.id === "hero-full-imagen-compleja") return Object.assign({}, COMMON_MODULE_COLORS, MODULE_COLOR_FIELDS.hero);
+    if (item.id.indexOf("footer-") === 0) return Object.assign({}, COMMON_MODULE_COLORS, MODULE_COLOR_FIELDS.footer);
+    return COMMON_MODULE_COLORS;
   }
 
   function paintModuleColors(root, item) {
@@ -443,7 +461,10 @@
       if (!color) return;
       var field = fields[key];
       root.querySelectorAll(field[1]).forEach(function (element) {
-        if (field[2] === "background-color") element.style.setProperty("background-image", "none", "important");
+        if (field[1] === ".nx" && element.parentElement && element.parentElement.closest(".nx")) return;
+        if (key === "fondo" && element.classList.contains("nx-footer-dark")) {
+          element.style.setProperty("background-image", "none", "important");
+        }
         element.style.setProperty(field[2], color, "important");
       });
     });
@@ -458,7 +479,10 @@
     moduleColorHistory.set(item, history);
     var undo = form.querySelector("[data-module-color-undo]");
     var redo = form.querySelector("[data-module-color-redo]");
-    var current = Object.assign({}, item.coloresModulo);
+    function savedColors() {
+      return Object.assign(item.fondo ? { fondo: item.fondo } : {}, item.coloresModulo);
+    }
+    var current = savedColors();
     var preview = frameDoc();
     var section = preview && preview.querySelectorAll("body > section.mq-block")[state.items.indexOf(item)];
 
@@ -489,6 +513,7 @@
       list.innerHTML = "";
       Object.keys(fields).forEach(function (key) {
         var field = fields[key];
+        if (key !== "fondo" && section && !section.querySelector(field[1])) return;
         var row = document.createElement("div");
         row.className = "lb-module-color-row";
         row.innerHTML = '<span>' + field[0] + '</span>' +
@@ -520,16 +545,24 @@
       updateContrast();
     }
 
-    function apply(colors) {
-      if (Object.keys(colors).length) item.coloresModulo = Object.assign({}, colors);
+    function apply(colors, legacyBackground) {
+      var overrides = Object.assign({}, colors);
+      if (legacyBackground && overrides.fondo === legacyBackground) {
+        item.fondo = legacyBackground;
+        delete overrides.fondo;
+      } else {
+        delete item.fondo;
+      }
+      if (Object.keys(overrides).length) item.coloresModulo = overrides;
       else delete item.coloresModulo;
       update();
     }
 
     function move(from, to) {
       if (!from.length) return;
-      to.push(Object.assign({}, item.coloresModulo));
-      apply(from.pop());
+      to.push({ colors: savedColors(), legacyBackground: item.fondo });
+      var change = from.pop();
+      apply(change.colors, change.legacyBackground);
       moduleColorDialog.close("history");
     }
 
@@ -538,11 +571,11 @@
     form.querySelector("[data-module-color-reset]").onclick = function () { current = {}; render(); };
     form.onsubmit = function (event) {
       if (!event.submitter || event.submitter.value !== "apply") return;
-      var previous = Object.assign({}, item.coloresModulo);
+      var previous = savedColors();
       if (JSON.stringify(previous) === JSON.stringify(current)) return;
-      history.undo.push(previous);
+      history.undo.push({ colors: previous, legacyBackground: item.fondo });
       history.redo.length = 0;
-      apply(current);
+      apply(current, item.fondo);
     };
     moduleColorDialog.querySelector("h2").textContent = "Colores de " + byId[item.id].group;
     render();
@@ -628,7 +661,7 @@
     return '\n    <div class="lp-tools" role="group" aria-label="Módulo ' + escapeHtml(m.group) + '">' +
       "<span>" + (pin ? '<i class="bi bi-pin-angle"></i> ' : "") + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
       (it.ocultos ? btn("restore", "bi-plus-lg", "Agregar ítem al menú", false, "Ítem al menú") : "") +
-      (moduleColorFields(it) ? btn("colors", "bi-palette", "Editar colores de", false, "Editar colores") : "") +
+      btn("colors", "bi-palette", "Editar colores de", false, "Editar colores") +
       btn("up", "bi-arrow-up", "Subir", !canMove(i, -1)) +
       btn("down", "bi-arrow-down", "Bajar", !canMove(i, 1)) +
       btn("dup", "bi-copy", "Duplicar", !!pin) +
@@ -773,6 +806,27 @@
       sector: /viaje|turismo|gastron|jard[ií]n|natural/i }
   ];
 
+  var LANDING_COLOR_KEYS = ["titulos", "parrafos", "etiquetas", "acento", "iconos", "nav", "hero"];
+
+  function manualLandingColors(colors) {
+    if (!colors) return [];
+    if (Array.isArray(colors.coloresManuales)) {
+      return LANDING_COLOR_KEYS.filter(function (key) { return colors.coloresManuales.includes(key); });
+    }
+    return LANDING_COLOR_KEYS.filter(function (key) { return normalizeHex(colors[key]); });
+  }
+
+  function suggestedLandingColors(style, previous) {
+    var manual = manualLandingColors(previous);
+    var colors = {
+      titulos: style.title, parrafos: style.text, etiquetas: style.accent,
+      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font,
+      coloresManuales: manual
+    };
+    manual.forEach(function (key) { colors[key] = previous[key]; });
+    return colors;
+  }
+
   function renderStyleSuggestions() {
     var list = document.querySelector("[data-style-options]");
     var select = document.querySelector("[data-lb-typography]");
@@ -795,10 +849,7 @@
           return '<i style="background:' + color + '"></i>';
         }).join("") + '</span>';
       button.onclick = function () {
-        state.colores = {
-          titulos: style.title, parrafos: style.text, etiquetas: style.accent,
-          acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font
-        };
+        state.colores = suggestedLandingColors(style, state.colores);
         refreshLandingStyle();
       };
       list.appendChild(button);
@@ -3436,6 +3487,7 @@
     if (!hex) return;
     var next = effectiveColors();
     next[key] = hex;
+    next.coloresManuales = Array.from(new Set(manualLandingColors(state.colores).concat(key)));
     state.colores = next;
     paintLandingColors();
     renderColors();
