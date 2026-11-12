@@ -41,7 +41,10 @@ TEMPLATES = os.path.join(ROOT, "Templates")
 
 
 def ensure_client_folder(client_slug):
-    os.makedirs(os.path.join(TEMPLATES, client_slug), exist_ok=True)
+    try:
+        os.makedirs(os.path.join(TEMPLATES, client_slug), exist_ok=True)
+    except OSError as err:
+        print("No se pudo crear la carpeta del cliente: %s" % err, file=sys.stderr)
 
 
 def write_landing_folder(client_slug, landing_slug, html, previous=None):
