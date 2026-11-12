@@ -275,6 +275,26 @@
     </form>
   </dialog>
 
+  <dialog class="lb-dialog" data-module-colors aria-labelledby="moduleColorsTitle">
+    <form method="dialog">
+      <div class="lb-dialog-head">
+        <div>
+          <h2 id="moduleColorsTitle">Editar colores</h2>
+          <p>Los cambios se aplican a este módulo.</p>
+        </div>
+      </div>
+      <div class="lb-module-colors-list" data-module-color-fields></div>
+      <p class="lb-hint" data-module-color-contrast role="status"></p>
+      <div class="lb-module-colors-actions">
+        <button class="lb-link" type="button" data-module-color-reset>Restaurar colores</button>
+        <button class="lb-link" type="button" data-module-color-undo>Deshacer</button>
+        <button class="lb-link" type="button" data-module-color-redo>Rehacer</button>
+        <button class="btn-nx-outline" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn-nx" value="apply">Aplicar</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="js/plataforma.js"></script>
   <script src="js/reglas.js"></script>
   <script src="js/constructor.js"></script>

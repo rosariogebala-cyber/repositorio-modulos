@@ -262,6 +262,7 @@
     var it = state.items[i];
     if (!it) return;
     var name = byId[it.id].group;
+    if (act === "colors") { editModuleColors(it); return; }
     if (act === "restore") { showMenuItem(i); return; }
     if (act === "up" || act === "down") {
       var dir = act === "up" ? -1 : 1;
@@ -407,6 +408,147 @@
     return { bad: bad, text: worst.name + " sobre este fondo: " + value + ":1. " + (bad ? "Hace falta 4.5:1." : "Llega a 4.5:1.") };
   }
 
+  var MODULE_COLOR_FIELDS = {
+    hero: {
+      titulo: ["Título", ".nx-display, .nx-display .em", "color", "#17352c"],
+      texto: ["Texto", ".nx-lead", "color", "#5f6f68"],
+      boton: ["Fondo del botón", ".btn-nx", "background-color", "#1b5e42"],
+      botonTexto: ["Texto del botón", ".btn-nx, .btn-nx .bi", "color", "#ffffff"],
+      tarjeta: ["Fondo de tarjetas", ".nx-hero-card", "background-color", "#ffffff"],
+      tarjetaTexto: ["Texto de tarjetas", ".nx-hero-card h3, .nx-hero-card p", "color", "#17352c"],
+      icono: ["Íconos de tarjetas", ".nx-hero-card .bi", "color", "#1b5e42"]
+    },
+    footer: {
+      fondo: ["Fondo", "footer.nx, .nx-footer-dark, .foot-main", "background-color", "#f7f4ef"],
+      texto: ["Texto", ".nx-footer :is(p, small, strong, .nx-footer-label):not(.foot-cta *)", "color", "#17352c"],
+      enlace: ["Enlaces", ".nx-footer a:not(.btn-nx, .btn-nx-outline, .btn-nx-light, .nx-socials *)", "color", "#17352c"],
+      icono: ["Íconos de redes", ".nx-footer .nx-socials .bi", "color", "#17352c"]
+    }
+  };
+
+  var moduleColorDialog = document.querySelector("[data-module-colors]");
+  var moduleColorHistory = new WeakMap();
+
+  function moduleColorFields(item) {
+    if (item.id === "hero-full-imagen-compleja") return MODULE_COLOR_FIELDS.hero;
+    if (item.id.indexOf("footer-") === 0) return MODULE_COLOR_FIELDS.footer;
+    return null;
+  }
+
+  function paintModuleColors(root, item) {
+    var fields = moduleColorFields(item);
+    if (!fields || !item.coloresModulo) return;
+    Object.keys(fields).forEach(function (key) {
+      var color = normalizeHex(item.coloresModulo[key]);
+      if (!color) return;
+      var field = fields[key];
+      root.querySelectorAll(field[1]).forEach(function (element) {
+        if (field[2] === "background-color") element.style.setProperty("background-image", "none", "important");
+        element.style.setProperty(field[2], color, "important");
+      });
+    });
+  }
+
+  function editModuleColors(item) {
+    var fields = moduleColorFields(item);
+    if (!moduleColorDialog || !fields) return;
+    var form = moduleColorDialog.querySelector("form");
+    var list = form.querySelector("[data-module-color-fields]");
+    var history = moduleColorHistory.get(item) || { undo: [], redo: [] };
+    moduleColorHistory.set(item, history);
+    var undo = form.querySelector("[data-module-color-undo]");
+    var redo = form.querySelector("[data-module-color-redo]");
+    var current = Object.assign({}, item.coloresModulo);
+    var preview = frameDoc();
+    var section = preview && preview.querySelectorAll("body > section.mq-block")[state.items.indexOf(item)];
+
+    function inheritedColor(field) {
+      var node = section && section.querySelector(field[1]);
+      if (!node) return field[3];
+      var value = preview.defaultView.getComputedStyle(node).getPropertyValue(field[2]);
+      var rgb = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(value);
+      return rgb ? "#" + rgb.slice(1).map(function (channel) {
+        return Number(channel).toString(16).padStart(2, "0");
+      }).join("") : field[3];
+    }
+
+    var inherited = {};
+    Object.keys(fields).forEach(function (key) {
+      inherited[key] = current[key] ? fields[key][3] : inheritedColor(fields[key]);
+    });
+
+    function updateContrast() {
+      var status = form.querySelector("[data-module-color-contrast]");
+      status.textContent = "";
+      if (!fields.boton || !(current.boton || current.botonTexto)) return;
+      var ratio = contrastRatio(current.boton || inherited.boton, current.botonTexto || inherited.botonTexto);
+      if (ratio < 4.5) status.textContent = "El botón necesita más contraste. Actual " + ratio.toFixed(2) + ":1. Mínimo 4.5:1.";
+    }
+
+    function render() {
+      list.innerHTML = "";
+      Object.keys(fields).forEach(function (key) {
+        var field = fields[key];
+        var row = document.createElement("div");
+        row.className = "lb-module-color-row";
+        row.innerHTML = '<span>' + field[0] + '</span>' +
+          '<input type="color" aria-label="' + field[0] + '">' +
+          '<input class="lb-input lb-hex" type="text" maxlength="7" aria-label="HEX de ' + field[0] + '">' +
+          '<button class="lb-link" type="button">Usar original</button>';
+        var picker = row.querySelector('input[type="color"]');
+        var hex = row.querySelector('input[type="text"]');
+        var reset = row.querySelector("button");
+        picker.value = hex.value = current[key] || inherited[key];
+        reset.disabled = !current[key];
+        function change(value) {
+          current[key] = value;
+          picker.value = value;
+          reset.disabled = false;
+          updateContrast();
+        }
+        picker.oninput = function () { change(picker.value); hex.value = picker.value; };
+        hex.oninput = function () {
+          var value = normalizeHex(hex.value);
+          hex.setCustomValidity(value ? "" : "Ingresá un color HEX válido, por ejemplo #1b5e42.");
+          if (value) change(value);
+        };
+        reset.onclick = function () { delete current[key]; render(); };
+        list.appendChild(row);
+      });
+      undo.disabled = !history.undo.length;
+      redo.disabled = !history.redo.length;
+      updateContrast();
+    }
+
+    function apply(colors) {
+      if (Object.keys(colors).length) item.coloresModulo = Object.assign({}, colors);
+      else delete item.coloresModulo;
+      update();
+    }
+
+    function move(from, to) {
+      if (!from.length) return;
+      to.push(Object.assign({}, item.coloresModulo));
+      apply(from.pop());
+      moduleColorDialog.close("history");
+    }
+
+    undo.onclick = function () { move(history.undo, history.redo); };
+    redo.onclick = function () { move(history.redo, history.undo); };
+    form.querySelector("[data-module-color-reset]").onclick = function () { current = {}; render(); };
+    form.onsubmit = function (event) {
+      if (!event.submitter || event.submitter.value !== "apply") return;
+      var previous = Object.assign({}, item.coloresModulo);
+      if (JSON.stringify(previous) === JSON.stringify(current)) return;
+      history.undo.push(previous);
+      history.redo.length = 0;
+      apply(current);
+    };
+    moduleColorDialog.querySelector("h2").textContent = "Colores de " + byId[item.id].group;
+    render();
+    moduleColorDialog.showModal();
+  }
+
   function paintFondoNodes(root, color) {
     if (!root || !root.querySelectorAll) return;
     root.querySelectorAll(".nx").forEach(function (el) {
@@ -486,6 +628,7 @@
     return '\n    <div class="lp-tools" role="group" aria-label="Módulo ' + escapeHtml(m.group) + '">' +
       "<span>" + (pin ? '<i class="bi bi-pin-angle"></i> ' : "") + String(i + 1).padStart(2, "0") + " · " + escapeHtml(m.group) + "</span>" +
       (it.ocultos ? btn("restore", "bi-plus-lg", "Agregar ítem al menú", false, "Ítem al menú") : "") +
+      (moduleColorFields(it) ? btn("colors", "bi-palette", "Editar colores de", false, "Editar colores") : "") +
       btn("up", "bi-arrow-up", "Subir", !canMove(i, -1)) +
       btn("down", "bi-arrow-down", "Bajar", !canMove(i, 1)) +
       btn("dup", "bi-copy", "Duplicar", !!pin) +
@@ -828,6 +971,7 @@
       }
       if (preview) el.setAttribute("data-lb-i", k);
     });
+    paintModuleColors(tpl.content, it);
     var hrefs = withTexts && it.links || {};
     Object.keys(hrefs).forEach(function (k) {
       tpl.content.querySelectorAll('[data-lb-l="' + k + '"]').forEach(function (el) { setHref(el, hrefs[k]); });
@@ -2855,6 +2999,15 @@
         if (it.links) item.links = it.links;
         if (it.ocultos) item.ocultos = it.ocultos;
         if (it.menuAjustado) item.menuAjustado = true;
+        var fields = moduleColorFields(item);
+        if (fields && it.coloresModulo) {
+          var colors = {};
+          Object.keys(fields).forEach(function (key) {
+            var color = normalizeHex(it.coloresModulo[key]);
+            if (color) colors[key] = color;
+          });
+          if (Object.keys(colors).length) item.coloresModulo = colors;
+        }
         if (/^#[0-9a-f]{6}$/i.test(it.fondo || "")) item.fondo = it.fondo;
         return item;
       }),
