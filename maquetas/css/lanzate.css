@@ -193,7 +193,8 @@ button, input, textarea { font-family: inherit; }
 
 /* Nav */
 .nx-nav {
-  background: #fff;
+  background-color: #fff;
+  background-image: none;
   border-bottom: 1px solid var(--line);
 }
 
@@ -352,16 +353,6 @@ button, input, textarea { font-family: inherit; }
   --nav-r: 0px;
   position: relative;
   overflow-x: clip;
-  padding: 18px 0 28px;
-  background: #14241f;
-}
-.nav-dark-wrap::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("../../assets/modulos/navegacion/compleja.png") center / cover;
-  filter: blur(10px);
-  clip-path: inset(0 round var(--nav-r));
 }
 .nav-dark-wrap::after {
   content: "";

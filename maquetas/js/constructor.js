@@ -802,6 +802,9 @@
     var mode = logoMode(c);
     if (logo && mode !== "texto") {
       root.querySelectorAll(".nx-brand").forEach(function (el) {
+        var module = el.closest("[data-module], #navegacion-media, #media");
+        var moduleId = module ? (module.getAttribute("data-module") || module.id) : "";
+        if (moduleId === "navegacion-media" || moduleId === "media") return;
         var name = el.textContent.replace(/\s+/g, " ").trim() || c.nombre;
         el.classList.toggle("has-name", mode === "imagen-texto");
         el.innerHTML = mode === "imagen-texto"
