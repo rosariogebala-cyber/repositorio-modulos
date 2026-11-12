@@ -3603,6 +3603,20 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   }
 }
 
+.lb-dialog[data-module-colors] {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto auto auto 16px;
+}
+.lb-dialog[data-module-colors]::backdrop { background: rgba(15, 19, 50, 0.12); }
+@media (max-width: 991.98px) {
+  .lb-dialog[data-module-colors] {
+    width: calc(100vw - 16px);
+    max-height: 55dvh;
+    margin: auto auto 8px;
+  }
+}
+
 .lb-module-colors-list { display: grid; gap: 10px; }
 .lb-module-color-row {
   display: grid;

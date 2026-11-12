@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista de precios · Maquetas Lanzate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+  <link href="css/lanzate.css" rel="stylesheet">
+</head>
+<body class="mq">
+  <header class="mq-top">
+    <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
+    <nav class="mq-links">
+      <a href="#simple">Simple</a><a href="#media">Media</a>
+      <a href="../assets/modulos/lista-precios/simple.png" target="_blank" rel="noopener">Ver PNG</a>
+    </nav>
+  </header>
+
+  <section class="mq-block" id="simple">
+    <div class="mq-caption"><span>Simple</span><span>Dos columnas</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container">
+        <p class="nx-kicker text-center">Precios</p>
+        <h2 class="nx-display text-center">Elegí lo que necesitás</h2>
+        <div class="price-list mt-5">
+          <div class="price-item"><h3>Plan inicial</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$45.000</p><p>Una página con la información esencial de tu negocio.</p></div>
+          <div class="price-item"><h3>Plan completo</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$90.000</p><p>Varias secciones, galería y formulario de contacto.</p></div>
+          <div class="price-item"><h3>Tienda online</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$140.000</p><p>Catálogo con fotos, precios y pedidos por WhatsApp.</p></div>
+          <div class="price-item"><h3>Mantenimiento</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$15.000</p><p>Cambios de textos y fotos todos los meses.</p></div>
+          <div class="price-item"><h3>Fotos de producto</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$30.000</p><p>Sesión corta para mostrar tus productos.</p></div>
+          <div class="price-item"><h3>Textos a medida</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$25.000</p><p>Redacción pensada para quien te busca.</p></div>
+        </div>
+        <p class="nx-note text-center">Precios de ejemplo. Consultá por combinaciones.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="mq-block" id="media">
+    <div class="mq-caption"><span>Media</span><span>Foto y lista</span></div>
+    <div class="mq-frame"><div class="nx nx-pad">
+      <div class="container">
+        <div class="row g-5 align-items-center">
+          <div class="col-lg-5 order-lg-2">
+            <div class="nx-frame price-photo"><img src="img/servicio-web.jpg" alt="Persona trabajando en una computadora portátil"></div>
+          </div>
+          <div class="col-lg-7 order-lg-1">
+            <p class="nx-kicker">Tarifas</p>
+            <h2 class="nx-display">Precios claros, <span class="em">sin sorpresas</span></h2>
+            <p class="nx-lead">Todo lo que incluye cada opción, antes de empezar.</p>
+            <div class="price-list is-single mt-4">
+              <div class="price-item"><h3>Plan inicial</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$45.000</p><p>Una página con la información esencial.</p></div>
+              <div class="price-item"><h3>Plan completo</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$90.000</p><p>Varias secciones y formulario de contacto.</p></div>
+              <div class="price-item"><h3>Tienda online</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$140.000</p><p>Catálogo con pedidos por WhatsApp.</p></div>
+              <div class="price-item"><h3>Mantenimiento</h3><span class="price-dots" aria-hidden="true"></span><p class="prod-price">$15.000</p><p>Cambios de textos y fotos cada mes.</p></div>
+            </div>
+            <a class="btn-nx mt-4" href="mailto:hola@example.com">Pedí tu presupuesto <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="js/lanzate.js"></script>
+</body>
+</html>

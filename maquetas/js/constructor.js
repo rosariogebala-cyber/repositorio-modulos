@@ -461,17 +461,18 @@
     return state.colores && state.colores.rolesModulo || {};
   }
 
-  function paintModuleColors(root, item) {
+  function paintModuleColors(root, item, sharedColors, ownColors, touched) {
     var fields = moduleColorFields(item);
-    var shared = Object.assign({}, sharedModuleColors());
-    if (item.fondo) delete shared.fondo;
-    var colors = Object.assign(shared, item.coloresModulo);
+    var shared = Object.assign({}, sharedColors || sharedModuleColors());
+    if (item.fondo && !ownColors) delete shared.fondo;
+    var colors = Object.assign(shared, ownColors || item.coloresModulo);
     Object.keys(fields).forEach(function (key) {
       var color = normalizeHex(colors[key]);
       if (!color) return;
       var field = fields[key];
       root.querySelectorAll(field[1]).forEach(function (element) {
         if (field[1] === ".nx" && element.parentElement && element.parentElement.closest(".nx")) return;
+        if (touched && !touched.has(element)) touched.set(element, element.getAttribute("style"));
         if (key === "fondo" && element.classList.contains("nx-footer-dark")) {
           element.style.setProperty("background-image", "none", "important");
         }
@@ -512,6 +513,24 @@
       inherited[key] = current[key] ? fields[key][3] : inheritedColor(fields[key]);
     });
 
+    var touched = new Map();
+    function restoreLive() {
+      touched.forEach(function (style, element) {
+        if (style == null) element.removeAttribute("style");
+        else element.setAttribute("style", style);
+      });
+      touched.clear();
+    }
+    function paintLive() {
+      if (!preview || frameDoc() !== preview) return;
+      restoreLive();
+      var sections = preview.querySelectorAll("body > section.mq-block");
+      state.items.forEach(function (other, index) {
+        if (!sections[index]) return;
+        paintModuleColors(sections[index], other, shared, other === item ? current : null, touched);
+      });
+    }
+
     function updateContrast() {
       var status = form.querySelector("[data-module-color-contrast]");
       status.textContent = "";
@@ -542,6 +561,7 @@
           else shared[key] = value;
           picker.value = value;
           updateContrast();
+          paintLive();
         }
         picker.oninput = function () { change(picker.value); hex.value = picker.value; };
         hex.oninput = function () {
@@ -555,12 +575,14 @@
           picker.value = hex.value = current[key] || shared[key] || inherited[key];
           hex.setCustomValidity("");
           updateContrast();
+          paintLive();
         };
         list.appendChild(row);
       });
       undo.disabled = !history.undo.length;
       redo.disabled = !history.redo.length;
       updateContrast();
+      paintLive();
     }
 
     function apply(colors, legacyBackground, landingColors) {
@@ -608,9 +630,18 @@
       history.redo.length = 0;
       apply(current, item.fondo, landingColors);
     };
+    moduleColorDialog.onclose = function () {
+      if (moduleColorDialog.returnValue !== "apply" && moduleColorDialog.returnValue !== "history") restoreLive();
+    };
     moduleColorDialog.querySelector("h2").textContent = "Colores de " + byId[item.id].group;
     render();
+    moduleColorDialog.returnValue = "";
     moduleColorDialog.showModal();
+    if (section) {
+      var narrow = window.matchMedia("(max-width: 991.98px)").matches;
+      section.scrollIntoView({ block: narrow ? "start" : "center" });
+      if (narrow) window.scrollBy(0, -(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lib-header")) || 0) - 8);
+    }
   }
 
   function paintFondoNodes(root, color) {
