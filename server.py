@@ -742,6 +742,36 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
 
     fill_image_alts(body)
 
+    travel_images = {
+        'asesora',
+        'cat-aventura',
+        'cat-bienestar',
+        'cat-ciudades',
+        'cat-gastronomia',
+        'cat-historia',
+        'cat-naturaleza',
+        'cat-playa',
+        'cat-romance',
+        'dest-bariloche',
+        'dest-cancun',
+        'dest-rio',
+        'gal-1',
+        'gal-2',
+        'gal-3',
+        'promo-feature',
+        'promo-floripa',
+        'promo-madrid',
+        'promo-miami',
+        'promo-puntacana',
+        'promo-salta',
+        'promo-ushuaia',
+    }
+    travel_path = "/maquetas/img/rubros/viajes/"
+    for image in body.xpath('.//img[starts-with(@src, "/maquetas/img/rubros/viajes/") and not(@srcset)]'):
+        source = image.get("src").removeprefix(travel_path)
+        if source.endswith(".jpg") and source.removesuffix(".jpg") in travel_images:
+            image.set("src", travel_path + source.removesuffix(".jpg") + ".webp")
+
     # La paleta guardada por el constructor tiene precedencia sobre la del cliente.
     accent = next((
         match[1]
