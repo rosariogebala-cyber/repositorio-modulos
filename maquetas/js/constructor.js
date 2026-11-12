@@ -1825,6 +1825,10 @@
 
   function buildDocument(opts) {
     var prefix = opts.prefix || "";
+    var assets = opts.base || prefix;
+    var bootstrapCss = opts.base ? assets + "vendor/bootstrap/bootstrap.min.css" : BOOTSTRAP_CSS;
+    var iconsCss = opts.base ? assets + "vendor/bootstrap-icons/bootstrap-icons.min.css" : ICONS_CSS;
+    var bootstrapJs = opts.base ? assets + "vendor/bootstrap/bootstrap.bundle.min.js" : BOOTSTRAP_JS;
     var head = [
       "<!DOCTYPE html>",
       '<html lang="es">',
@@ -1833,10 +1837,10 @@
       '  <meta name="viewport" content="width=device-width, initial-scale=1">',
       "  <title>" + escapeHtml(state.name || "Landing") + "</title>",
       opts.base ? '  <base href="' + opts.base + '">' : "",
-      '  <link href="' + prefix + FONTS + '" rel="stylesheet">',
-      '  <link href="' + BOOTSTRAP_CSS + '" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">',
-      '  <link href="' + ICONS_CSS + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
-      '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',
+      '  <link href="' + assets + FONTS + '" rel="stylesheet">',
+      '  <link href="' + bootstrapCss + '" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">',
+      '  <link href="' + iconsCss + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
+      '  <link href="' + assets + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
       state.colores ? "  <style>" + colorStyle(state.colores) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
@@ -1845,8 +1849,8 @@
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = opts.staticPreview ? [] : [
-      '  <script src="' + BOOTSTRAP_JS + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
-      '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
+      '  <script src="' + bootstrapJs + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
+      '  <script src="' + assets + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
       tail.push("  <script>document.addEventListener('click',function(e){var t=e.target.closest('.lp-tools [data-act]');if(t){parent.postMessage({lbAct:{index:+t.getAttribute('data-index'),act:t.getAttribute('data-act')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
