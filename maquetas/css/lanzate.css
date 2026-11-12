@@ -3505,3 +3505,19 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 #contenido-maquetas { scroll-margin-top: var(--lib-offset, 160px); }
 
 .landing-page > main { scroll-margin-top: var(--nx-nav-h, 0px); }
+
+.nx-hero-slide > .lz-hero-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center right;
+  z-index: -1;
+}
+
+.nx-hero[data-width="full"] .lz-hero-photo { object-position: center; }
+
+@media (max-width: 767.98px) {
+  .nx-hero-slide > .lz-hero-photo { object-position: center; }
+}
