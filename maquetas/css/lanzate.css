@@ -3559,3 +3559,28 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 :is(.builder-page, .pf-page) :is(.lb-hint, .pf-help) {
   font-size: var(--fs-body);
 }
+
+@media (max-width: 767.98px) {
+  .nx-footer .container:is(.py-4, .py-5) {
+    padding-block: 24px !important; /* Bootstrap spacing utilities use !important. */
+  }
+
+  .nx-footer .row.g-4,
+  .nx-footer .foot-main .row {
+    --bs-gutter-y: 16px;
+  }
+
+  .nx-footer .nx-footer-label { margin-bottom: 4px; }
+  .nx-footer .foot-links { margin-bottom: 0; }
+  .nx-footer .foot-links li { margin-block: 0; }
+  .nx-footer .nx-rule { margin-block: 12px; }
+  .nx-footer .foot-cta .container { gap: 16px; padding-block: 24px; }
+  .nx-footer .foot-cta p { margin-top: 8px; }
+  .nx-footer .foot-form input { min-height: var(--ctl-h-lg); font-size: var(--fs-field); }
+  .nx-footer .foot-form-note:empty { display: none; }
+  .nx-footer .foot-main { padding-block: 24px 16px; }
+  .nx-footer .foot-rating { margin-top: 8px; }
+  .nx-footer .foot-contact { padding: 12px; }
+  .nx-footer .foot-bottom { gap: 8px 12px; margin-top: 16px; padding-top: 8px; }
+  .nx-footer .foot-bottom nav { gap: 0 12px; }
+}
