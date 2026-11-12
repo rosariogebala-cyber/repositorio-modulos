@@ -563,8 +563,6 @@ def structure_errors(items, rules):
         return []
     estructura = rules.get("estructura") or {}
     groups = [str(it.get("id") or "").rsplit("-", 1)[0] for it in items if isinstance(it, dict)]
-    if not groups:
-        return []
     flow = [g for g in groups if g != "whatsapp"]
     active = {r.get("id"): r for r in estructura.get("reglas") or [] if r.get("activo") and r.get("nivel") == "error"}
     try:
@@ -585,6 +583,18 @@ def structure_errors(items, rules):
             errors.append("la portada tiene que ir justo después de la Navegación")
     if "fin-footer" in active and "footer" in flow and flow[-1] != "footer":
         errors.append("el Footer tiene que ir al final")
+    if "whatsapp" in active and "whatsapp" not in groups:
+        errors.append("falta el botón de WhatsApp")
+    if "sin-repetidos" in active:
+        for group in dict.fromkeys(groups):
+            if groups.count(group) > 1:
+                errors.append("la sección «%s» está repetida" % names.get(group, group))
+    minimum = active.get("min-modulos", {}).get("valor")
+    maximum = active.get("max-modulos", {}).get("valor")
+    if isinstance(minimum, (int, float)) and len(flow) < minimum:
+        errors.append("se necesitan al menos %s secciones" % minimum)
+    if isinstance(maximum, (int, float)) and len(flow) > maximum:
+        errors.append("se permiten como máximo %s secciones" % maximum)
     return errors
 
 
