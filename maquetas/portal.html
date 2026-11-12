@@ -82,6 +82,56 @@
       }
       var WA = "https://wa.me/5491166035111?text=";
       function wa(text) { return WA + encodeURIComponent(text); }
+      function showActivity(pages) {
+        var panel = root.querySelector("[data-activity]");
+        if (!pages.length) {
+          panel.insertAdjacentHTML("beforeend", "<p>Cuando tengas una página, vas a poder ver su actividad acá.</p>");
+          return;
+        }
+        panel.insertAdjacentHTML("beforeend",
+          '<div class="pt-activity-filters"><label for="pt-activity-site">Sitio</label>' +
+          '<select class="lb-input" id="pt-activity-site">' + pages.map(function (page) {
+            return '<option value="' + Number(page.id) + '">' + esc(page.nombre) + "</option>";
+          }).join("") + '</select><label for="pt-activity-period">Período</label>' +
+          '<select class="lb-input" id="pt-activity-period"><option value="7">Últimos 7 días</option>' +
+          '<option value="30" selected>Últimos 30 días</option></select></div>' +
+          '<p class="pt-activity-status" role="status"></p><div data-activity-results></div>');
+        var page = panel.querySelector("#pt-activity-site");
+        var period = panel.querySelector("#pt-activity-period");
+        var status = panel.querySelector("[role=status]");
+        var results = panel.querySelector("[data-activity-results]");
+        var request = 0;
+        function loadActivity() {
+          var current = ++request;
+          results.replaceChildren();
+          status.textContent = "Cargando actividad…";
+          api("GET", "/api/portal/actividad/" + page.value + "?dias=" + period.value).then(function (data) {
+            if (current !== request) return;
+            status.textContent = "Actividad de " + page.selectedOptions[0].textContent;
+            var metrics = [
+              ["Consultas recibidas", Number(data.consultas), "Formularios de contacto"],
+              ["Solicitudes de turno", Number(data.turnos), "Pedidos desde la landing"],
+              ["Visitas", "—", "Medición pendiente"],
+              ["Clics en WhatsApp", "—", "Medición pendiente"]
+            ];
+            results.innerHTML = '<dl class="pt-metrics">' + metrics.map(function (metric) {
+              return "<div><dt>" + metric[0] + "</dt><dd><strong>" + metric[1] + "</strong><small>" + metric[2] + "</small></dd></div>";
+            }).join("") + "</dl><h3>Últimas entradas</h3>" +
+            (data.entradas.length ? '<ul class="pt-inbox">' + data.entradas.map(function (item) {
+              return '<li><details><summary><strong>' + (item.tipo === "turno" ? "Solicitud de turno" : "Consulta") +
+                "</strong><span>" + esc(new Date(item.creado).toLocaleString("es-AR")) + "</span></summary><dl>" +
+                Object.entries(item.datos || {}).map(function (entry) {
+                  return "<div><dt>" + esc(entry[0]) + "</dt><dd>" + esc(entry[1]) + "</dd></div>";
+                }).join("") + "</dl></details></li>";
+            }).join("") + "</ul>" : "<p>Todavía no hay consultas ni solicitudes de turno en este período.</p>");
+          }).catch(function (err) {
+            if (current === request) status.textContent = err.message;
+          });
+        }
+        page.addEventListener("change", loadActivity);
+        period.addEventListener("change", loadActivity);
+        loadActivity();
+      }
       function home() {
         api("GET", "/api/portal/inicio").then(function (c) {
           if (sitio && c.slug && c.slug !== sitio) { loginForm("Esta sesión es de otro sitio."); return; }
@@ -104,6 +154,7 @@
           root.innerHTML =
             '<div class="pt-top"><div><p class="lb-kicker">' + esc(c.rubro || "Tu sitio") + '</p><h1 class="pf-title">' + esc(c.nombre) + "</h1>" +
             '<p class="pt-plan">Desde acá editás tus páginas y ves tu plan.</p></div></div>' +
+            '<section class="pt-panel pt-activity" data-activity aria-labelledby="pt-activity-title"><h2 id="pt-activity-title">Actividad del sitio</h2></section>' +
             '<div class="pt-grid"><section class="pt-panel"><h2>Páginas</h2>' +
             (items ? '<ul class="pt-list">' + items + "</ul>" : "<p>Todavía no hay páginas. Pedile a Lanzate que publique la primera.</p>") +
             "</section><aside><section class=\"pt-panel\"><h2>Tu plan</h2><dl class=\"pt-facts\">" +
@@ -122,6 +173,7 @@
             "<p>Contraseña: " + esc(c.clave || "Generá una para verla.") + "</p>" +
             '<p><button class="btn-nx-outline btn-sm" type="button" data-clave>Generar contraseña</button> ' +
             '<button class="btn-nx-outline btn-sm" type="button" data-salir>Salir</button></p></section>';
+          showActivity(c.landings);
           root.querySelector("[data-clave]").addEventListener("click", function () {
             api("POST", "/api/portal/clave", {}).then(home).catch(function (err) {
               root.insertAdjacentHTML("beforeend", "<p>" + esc(err.message) + "</p>");

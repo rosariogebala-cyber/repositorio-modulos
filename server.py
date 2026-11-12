@@ -136,6 +136,7 @@ ROUTES = [
     (re.compile(r"^/api/portal/clave$"), "portal-clave"),
     (re.compile(r"^/api/portal/logout$"), "portal-logout"),
     (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
+    (re.compile(r"^/api/portal/actividad/(\d+)$"), "portal-actividad"),
     (re.compile(r"^/api/clientes/(\d+)/logo$"), "logo"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
@@ -467,6 +468,28 @@ def portal_home(client_id):
         "clave": open_portal_password(row.get("portal_clave") or ""),
         "landings": [hide_public_path(landing_dict(item)) for item in landings],
     }
+
+
+def portal_activity(client_id, landing_id, days):
+    since = now_ms() - days * 86400000
+    with tx() as con:
+        if not con.execute("SELECT 1 FROM landings WHERE id = %s AND cliente_id = %s",
+                           (landing_id, client_id)).fetchone():
+            raise ApiError(404, "No encontramos ese sitio en tu portal.")
+        summary = con.execute(
+            "SELECT COUNT(*) FILTER (WHERE q.tipo <> 'turno') AS consultas, "
+            "COUNT(*) FILTER (WHERE q.tipo = 'turno') AS turnos "
+            "FROM consultas q JOIN landings l ON l.id = q.landing_id "
+            "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s",
+            (landing_id, client_id, since),
+        ).fetchone()
+        latest = con.execute(
+            "SELECT q.tipo, q.datos, q.creado FROM consultas q JOIN landings l ON l.id = q.landing_id "
+            "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s "
+            "ORDER BY q.creado DESC, q.id DESC LIMIT 20",
+            (landing_id, client_id, since),
+        ).fetchall()
+    return {"consultas": summary["consultas"], "turnos": summary["turnos"], "entradas": latest}
 
 
 def renew_portal_password(client_id):
@@ -2099,7 +2122,7 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
             portal_editor = portal_id and (
-                name in ("portal-inicio", "portal-clave", "landings", "landing")
+                name in ("portal-inicio", "portal-actividad", "portal-clave", "landings", "landing")
                 or (method == "GET" and name in ("clientes", "reglas", "ia"))
             )
             if name not in PUBLIC_ROUTES and not self.authorized() and not portal_editor:
@@ -2161,6 +2184,13 @@ class Handler(SimpleHTTPRequestHandler):
             if not portal_id:
                 raise ApiError(401, "Ingresá al portal del cliente.")
             return portal_home(portal_id)
+        if name == "portal-actividad" and method == "GET":
+            if not portal_id:
+                raise ApiError(401, "Ingresá al portal del cliente.")
+            period = (query.get("dias") or ["30"])[0]
+            if period not in ("7", "30"):
+                raise ApiError(400, "Elegí un período de 7 o 30 días.")
+            return portal_activity(portal_id, ident, int(period))
         if name == "portal-entrar" and method == "POST":
             with tx() as con:
                 get_client_row(con, ident)
