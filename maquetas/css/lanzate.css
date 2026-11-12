@@ -3670,3 +3670,6 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   gap: 6px;
   font-size: 12px;
 }
+
+.lb-style-template { margin-top: 10px; }
+.lb-style-template .lb-hint { margin-bottom: 6px; }

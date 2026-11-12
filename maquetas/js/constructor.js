@@ -857,8 +857,57 @@
     { name: "Arena", group: "neutras", font: "editorial", title: "#362d24", text: "#5d5245", accent: "#70553c" },
     { name: "Grafito", group: "neutras", font: "moderna", title: "#25282b", text: "#494e54", accent: "#4b555f" },
     { name: "Piedra", group: "neutras", font: "clasica", title: "#303334", text: "#525b5c", accent: "#4f6664" },
-    { name: "Topo", group: "neutras", font: "editorial", title: "#392f30", text: "#5f5052", accent: "#71595d" }
+    { name: "Topo", group: "neutras", font: "editorial", title: "#392f30", text: "#5f5052", accent: "#71595d" },
+    { name: "Ciruela suave", group: "pastel", font: "editorial", title: "#38293c", text: "#59465c", accent: "#794d73" },
+    { name: "Salvia", group: "naturales", font: "moderna", title: "#243932", text: "#41584e", accent: "#38644e" },
+    { name: "Azul clínico", group: "frias", font: "moderna", title: "#193342", text: "#415963", accent: "#136375" },
+    { name: "Vino y cacao", group: "calidas", font: "editorial", title: "#3d2625", text: "#624646", accent: "#803641" },
+    { name: "Litoral", group: "frias", font: "moderna", title: "#203740", text: "#465a63", accent: "#156175" },
+    { name: "Pizarra", group: "neutras", font: "clasica", title: "#283238", text: "#4b5459", accent: "#425e66" },
+    { name: "Azul tinta", group: "frias", font: "moderna", title: "#202747", text: "#464d6a", accent: "#444c86" },
+    { name: "Cobre", group: "calidas", font: "clasica", title: "#3d2d28", text: "#644c44", accent: "#8a462e" }
   ];
+
+  var LANDING_CATEGORIES = [
+    { id: "belleza", name: "Belleza y estética", match: /belleza|est[eé]tica|barber|peluquer|spa/i,
+      palettes: ["Ciruela suave", "Cálida", "Rosa empolvado"],
+      modules: ["servicios-productos-media", "galeria-imagenes-media", "reserva-turno-media", "donde-nos-encontramos-simple"] },
+    { id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas/i,
+      palettes: ["Salvia", "Natural", "Lavanda"],
+      modules: ["servicios-productos-media", "equipo-simple", "reserva-turno-media", "preguntas-frecuentes-simple"] },
+    { id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio/i,
+      palettes: ["Azul clínico", "Menta", "Celeste humo"],
+      modules: ["servicios-productos-media", "equipo-media", "reserva-turno-media", "donde-nos-encontramos-media"] },
+    { id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]/i,
+      palettes: ["Vino y cacao", "Terracota", "Café tostado"],
+      modules: ["productos-media", "galeria-imagenes-media", "donde-nos-encontramos-media"] },
+    { id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs/i,
+      palettes: ["Litoral", "Petróleo", "Coral"],
+      modules: ["productos-compleja", "galeria-imagenes-media", "preguntas-frecuentes-simple"] },
+    { id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|arquitect/i,
+      palettes: ["Pizarra", "Profesional", "Arena"],
+      modules: ["beneficios-media", "galeria-imagenes-compleja", "donde-nos-encontramos-media"] },
+    { id: "educacion", name: "Educación e idiomas", match: /educaci[oó]n|idioma|academia|escuela|curso/i,
+      palettes: ["Azul tinta", "Índigo", "Celeste humo"],
+      modules: ["servicios-productos-media", "equipo-media", "preguntas-frecuentes-simple"] },
+    { id: "servicios", name: "Servicios profesionales", match: /servicio|consultor|tecnolog|empresa|estudio/i,
+      palettes: ["Cobre", "Grafito", "Profesional"],
+      modules: ["servicios-productos-media", "proceso-media", "casos-exito-simple", "preguntas-frecuentes-simple"] }
+  ];
+
+  function loadCategoryTemplate(category) {
+    var ids = ["navegacion-simple", "hero-full-imagen-media"].concat(category.modules, "footer-cierre");
+    if (ids.some(function (id) { return !byId[id]; })) {
+      say("No se pudo cargar la plantilla. Esperá a que termine de cargar el catálogo.", "warn");
+      return;
+    }
+    if (state.items.length && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
+    state.items = ids.map(function (id) { return menuDefault({ id: id, width: "full" }); });
+    state.ignorados = [];
+    applySuggestedStyle(LANDING_STYLES.find(function (style) { return style.name === category.palettes[0]; }));
+    showTab("order");
+    say("Plantilla de «" + category.name + "» aplicada. Revisá los textos, fotos y datos antes de guardar.", "ok");
+  }
 
   function applySuggestedStyle(style) {
     state.colores = {
@@ -880,22 +929,41 @@
     select.value = state.colores && state.colores.tipografia || "";
     var client = currentClient();
     var sector = client && client.rubro;
-    var recommended = sector && LANDING_STYLES.find(function (style) { return style.sector.test(sector); });
+    var recommendedCategory = sector && LANDING_CATEGORIES.find(function (category) { return category.match.test(sector); });
+    var recommended = sector && LANDING_STYLES.find(function (style) { return style.sector && style.sector.test(sector); });
     var filter = document.querySelector("[data-style-filter]");
+    var options = document.querySelector("[data-style-categories]");
+    if (options && !options.children.length) {
+      LANDING_CATEGORIES.forEach(function (category) {
+        options.appendChild(new Option(category.name, "rubro-" + category.id));
+      });
+    }
     if (filter) filter.onchange = renderStyleSuggestions;
     var group = filter ? filter.value : "sugeridas";
+    var category = group === "sugeridas" ? recommendedCategory :
+      LANDING_CATEGORIES.find(function (entry) { return group === "rubro-" + entry.id; });
+    var template = document.querySelector("[data-style-template]");
+    template.hidden = !category;
+    if (category) {
+      template.querySelector("[data-style-template-sections]").textContent = "Plantilla de " + category.name +
+        " con portada, " + category.modules.map(function (id) { return byId[id] ? byId[id].group : id; }).join(", ") + " y footer.";
+      template.querySelector("[data-apply-style-template]").onclick = function () { loadCategoryTemplate(category); };
+    }
     var styles = LANDING_STYLES;
-    if (group === "sugeridas") {
+    if (category) {
+      styles = category.palettes.map(function (name) { return LANDING_STYLES.find(function (style) { return style.name === name; }); });
+      recommended = styles[0];
+    } else if (group === "sugeridas") {
       var favorites = ["Cálida", "Profesional", "Natural", "Lavanda", "Coral", "Arena"];
       styles = LANDING_STYLES.filter(function (style) { return favorites.includes(style.name) && style !== recommended; });
       if (recommended) styles.unshift(recommended);
     } else if (group !== "todas") {
       styles = LANDING_STYLES.filter(function (style) { return style.group === group; });
     }
-    document.querySelector("[data-style-hint]").textContent = recommended ?
-      "Para " + sector + ", probá la paleta " + recommended.name.toLowerCase() + ". " : "";
-    document.querySelector("[data-style-hint]").textContent +=
-      "Elegir un estilo reemplaza la paleta y los colores personalizados de todas las secciones.";
+    var hint = recommended && (category || group === "sugeridas") ?
+      "Para " + (category ? category.name : sector) + ", probá la paleta " + recommended.name.toLowerCase() + ". " : "";
+    document.querySelector("[data-style-hint]").textContent =
+      hint + "Elegir un estilo reemplaza la paleta y los colores personalizados de todas las secciones.";
     list.innerHTML = "";
     styles.forEach(function (style) {
       var button = document.createElement("button");
