@@ -760,6 +760,40 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
                 previous.tail = separator + tail
             parent.remove(link)
 
+    hero_variants = {
+        "/maquetas/img/hero-simple-full.jpg": 800,
+        "/maquetas/img/hero-media-full.jpg": 800,
+        "/maquetas/img/hero-compleja-full.jpg": 800,
+        "/maquetas/img/gal-living.jpg": 752,
+    }
+    slides = body.xpath(
+        './/section[starts-with(@data-module, "hero")]'
+        '//*[contains(concat(" ", normalize-space(@class), " "), " nx-hero-slide ")]'
+    )
+    for index, slide in enumerate(slides):
+        style = slide.get("style", "")
+        match = re.search(r"""(?:^|;)\s*background-image\s*:\s*url\(\s*['"]?([^'"()]+)['"]?\s*\)\s*(?=;|$)""", style)
+        if match is None:
+            continue
+        source = match[1].strip()
+        width = hero_variants.get(source)
+        if width is None:
+            continue
+        base = source.removesuffix(".jpg")
+        description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split())
+        photo = etree.Element("img", {
+            "class": "lz-hero-photo",
+            "src": source,
+            "srcset": f"{base}-480.webp 480w, {base}-{width}.webp {width}w",
+            "sizes": "100vw",
+            "alt": description,
+            "loading": "eager" if index == 0 else "lazy",
+            "fetchpriority": "high" if index == 0 else "low",
+        })
+        slide.set("style", style[:match.start()] + style[match.end():].lstrip(";") if match.start() == 0
+                  else style[:match.start()] + style[match.end():])
+        slide.insert(0, photo)
+
     for background in body.xpath('.//section[starts-with(@data-module, "hero")]//*[@data-lz-background-alt]'):
         description = " ".join(background.get("data-lz-background-alt", "").split())
         if description and not background.xpath('./p[@data-lz-background-description]'):
