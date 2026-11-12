@@ -1182,6 +1182,16 @@ IA_SYSTEM = (
 )
 
 
+IA_CONTENT_RULES = (
+    "Usá como hechos solo los datos confirmados de la ficha del cliente. "
+    "El objetivo de la landing y los ejemplos de los módulos orientan la redacción. "
+    "Los ejemplos no son evidencia del negocio. "
+    "No inventes precios, descuentos, reseñas, testimonios, puntuaciones, fotos, "
+    "nombres del equipo, certificaciones, horarios, direcciones ni resultados. "
+    "Si faltan datos para una afirmación, usá texto neutral o una invitación a consultar."
+)
+
+
 def ia_client_text(c):
     c = c or {}
     parts = ["Negocio: " + (c.get("nombre") or "sin nombre")]
@@ -1231,6 +1241,8 @@ def ia_suggest_modules(data):
     prompt = (
         ia_client_text(data.get("cliente")) + "\n"
         + ("Objetivo de la landing: " + data["objetivo"] + "\n" if data.get("objetivo") else "")
+        + "\nReglas de contenido: " + IA_CONTENT_RULES
+        + "\nOmití módulos que requieran datos concretos ausentes, como precios, reseñas o fotos del negocio.\n"
         + "\nReglas de estructura:\n" + str(data.get("reglas") or "") + "\n\n"
         + "Módulos disponibles (id · sección · variante · descripción):\n"
         + "\n".join("%s · %s · %s · %s" % (m.get("id"), m.get("grupo"), m.get("variante"), m.get("nota", "")) for m in catalog)
@@ -1260,7 +1272,8 @@ def ia_write_texts(data):
         + "\nEstos son los textos de ejemplo de la landing. Reescribí cada uno para este negocio, "
         + "respetando el tipo de texto y SIEMPRE dentro del límite de caracteres indicado (contando espacios).\n"
         + "- Mantené igual los datos de contacto, el nombre del negocio, los ítems del menú que solo navegan y los textos legales.\n"
-        + "- Si un texto no aplica al rubro, adaptalo a algo equivalente y verosímil.\n"
+        + "- " + IA_CONTENT_RULES + "\n"
+        + "- Si un texto no aplica, reemplazalo por una descripción general sin agregar afirmaciones sobre el negocio.\n"
         + "- En títulos podés destacar de 1 a 3 palabras entre *asteriscos*.\n"
         + "- Sin comillas alrededor del texto.\n\n"
         + "\n".join(lines)
@@ -1281,7 +1294,7 @@ def ia_fit_texts(data):
         ia_client_text(data.get("cliente")) + "\n"
         + "\nEstos textos de la landing no cumplen el largo. Reescribí cada uno para que quede DENTRO del rango "
         + "de caracteres indicado (contando espacios): acortá los largos y completá los cortos.\n"
-        + "- Mantené el sentido, el tono y los datos (nombres, cifras, contacto) del texto original.\n"
+        + "- Mantené el sentido, el tono y los datos (nombres, cifras, contacto) del texto original. No agregues hechos nuevos al ajustar el largo.\n"
         + "- Si el original tiene palabras entre *asteriscos*, podés mantener ese destacado.\n"
         + "- Sin comillas alrededor del texto.\n\n"
         + "\n".join(lines)
