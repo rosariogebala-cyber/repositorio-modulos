@@ -1,197 +1,512 @@
-/* Las fotos, los textos y los módulos son ejemplos editables de cada rubro. */
-window.LanzatePlantillas = [
-  {
-    id: "belleza", name: "Belleza y moda", match: /belleza|est[eé]tica|barber|peluquer|spa|moda/i,
-    templates: [
-      { name: "Estudio de estética", style: "Ciruela suave", hero: "compleja", image: ["img/rubros/estetica/hero.jpg", "Profesional realizando un tratamiento facial"],
-        title: "Tu piel, en buenas manos", lead: "Tratamientos faciales y corporales con un plan adaptado a tu piel.", action: "Reservá tu turno", target: "booking",
-        sections: [
-          ["services", "Tratamientos", ["Higiene facial|Limpieza y cuidado según tu tipo de piel.", "Hidratación|Una sesión para pieles que necesitan recuperar confort.", "Masaje facial|Maniobras suaves para aflojar la tensión."], ["droplet", "moisture", "heart"]],
-          ["split", "Una atención pensada para vos", "En la primera visita conversamos sobre tus hábitos y el cuidado que buscás.", ["img/rubros/estetica/pro-1.jpg", "Imagen del espacio de estética"]],
-          ["booking", "Reservá tu tratamiento", ["Higiene facial", "Hidratación", "Masaje facial"]]
-        ] },
-      { name: "Barbería de barrio", style: "Grafito", hero: "media", image: ["img/rubros/barberia/hero-1.jpg", "Interior de una barbería"],
-        title: "Cortes que van con vos", lead: "Cortes clásicos, fades y barba con cita previa.", action: "Elegí tu horario", target: "booking",
-        sections: [
-          ["benefits", "Un buen corte empieza con una charla", ["Corte clásico|Definimos largo y textura con vos.", "Fade|Degradado trabajado según tu estilo.", "Barba|Perfilado y terminación.", "Corte y barba|Dos servicios en un mismo turno."], ["scissors", "stars", "person", "calendar-check"]],
-          ["gallery", "Conocé la barbería", [
-            ["img/rubros/barberia/hero-1.jpg", "Interior de la barbería", "El espacio"],
-            ["img/rubros/barberia/hero-2.jpg", "Escena de barbería", "El oficio"],
-            ["img/rubros/barberia/hero-3.jpg", "Detalle de barbería", "Los detalles"]]],
-          ["booking", "Agendá tu corte", ["Corte clásico", "Fade", "Barba", "Corte y barba"]]
-        ] }
-    ]
-  },
-  {
-    id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas/i,
-    templates: [
-      { name: "Pilates Reformer", style: "Salvia", hero: "media", image: ["../Proyectos/portal-studio/img/pilates.jpg", "Clase de pilates con reformer"],
-        title: "Movimiento que se adapta a vos", lead: "Clases de Reformer en grupos chicos, con acompañamiento desde la primera sesión.", action: "Reservá una clase", target: "booking",
-        sections: [
-          ["split", "Entrená en grupos chicos", "Empezamos por conocer cómo te movés y adaptamos los ejercicios a tu nivel.", ["../Proyectos/portal-studio/img/espacio.jpg", "Interior de un estudio de movimiento"]],
-          ["booking", "Elegí tu clase de pilates", ["Primera clase", "Reformer inicial", "Reformer intermedio"]]
-        ] },
-      { name: "Estudio de yoga", style: "Lavanda", hero: "simple", image: ["../Proyectos/portal-studio/img/yoga.jpg", "Práctica de yoga sobre colchoneta"],
-        title: "Encontrá tu ritmo en la práctica", lead: "Yoga suave, movilidad y respiración para volver al cuerpo.", action: "Conocé las clases",
-        sections: [
-          ["services", "Clases y prácticas", ["Yoga suave|Secuencias tranquilas para empezar.", "Movilidad|Ejercicios guiados para ganar amplitud.", "Respiración|Práctica pausada para cerrar el día."], ["moon", "activity", "wind"]],
-          ["faq", "Antes de tu primera clase", ["¿Necesito experiencia?|Podés empezar en el grupo inicial.", "¿Qué llevo?|Ropa cómoda, agua y tu colchoneta si ya tenés."]]
-        ] }
-    ]
-  },
-  {
-    id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio/i,
-    templates: [
-      { name: "Consultorio odontológico", style: "Azul clínico", hero: "media", image: ["img/plantillas/odontologia.webp", "Profesional en un consultorio odontológico"],
-        title: "Cuidá tu sonrisa desde el primer control", lead: "Consultas programadas para prevención, higiene y evaluación odontológica.", action: "Solicitá un turno", target: "booking",
-        sections: [["services", "Motivos de consulta", ["Control|Revisión y orientación sobre próximos pasos.", "Higiene|Limpieza profesional con indicaciones de cuidado.", "Evaluación|Una visita para conversar sobre tus necesidades."], ["clipboard2-check", "droplet", "chat-dots"]],
-          ["faq", "Prepará tu visita", ["¿Qué llevo al primer turno?|Traé tu documentación y estudios previos si los tenés.", "¿Puedo reprogramar?|Contactá al consultorio para consultar disponibilidad."]],
-          ["booking", "Solicitá tu turno", ["Control", "Higiene", "Evaluación"]]] }
-    ]
-  },
-  {
-    id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]/i,
-    templates: [
-      { name: "Bistró de temporada", style: "Vino y cacao", hero: "compleja", image: ["img/plantillas/bistro.webp", "Plato de pasta servido en una mesa oscura"],
-        title: "Una mesa para disfrutar sin apuro", lead: "Cocina de estación, pastas caseras y una carta que cambia con el mercado.", action: "Reservá una mesa", target: "booking",
-        sections: [["services", "De la cocina a la mesa", ["Entradas|Verduras de estación para compartir.", "Pastas frescas|Preparaciones hechas en la casa.", "Postres|Clásicos con ingredientes de temporada."], ["basket", "fire", "cup-hot"]],
-          ["booking", "Reservá una mesa", ["Almuerzo", "Cena", "Mesa grupal"]]] },
-      { name: "Café de especialidad", style: "Café tostado", hero: "simple", image: ["img/plantillas/cafe.webp", "Café y pastelería en una mesa luminosa"],
-        title: "Buen café, hecho con tiempo", lead: "Espresso, filtrados y pastelería para disfrutar acá o llevar.", action: "Mirá la carta",
-        sections: [["services", "La carta del café", ["Espresso|Clásicos de barra y opciones con leche.", "Filtrados|Preguntá por el origen del día.", "Pastelería|Productos de horno para acompañar."], ["cup-hot", "droplet", "cake2"]],
-          ["faq", "Antes de venir", ["¿Preparan café para llevar?|Sí, consultá en la barra.", "¿Hay opciones sin lácteos?|Preguntanos por las bebidas vegetales disponibles."]]] }
-    ]
-  },
-  {
-    id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs/i,
-    templates: [
-      { name: "Escapadas a la Patagonia", style: "Litoral", hero: "compleja", image: ["img/rubros/viajes/dest-bariloche.webp", "Paisaje patagónico en Bariloche"],
-        title: "Unos días al sur cambian el ritmo", lead: "Armá tu viaje entre lagos, senderos y pueblos de montaña.", action: "Explorá los destinos",
-        sections: [["products", "Elegí tu escapada", ["Bariloche|Lagos y circuitos de montaña", "Ushuaia|Bosque y costa austral", "Ruta de naturaleza|Paisajes para recorrer al aire libre"],
-          [["img/rubros/viajes/dest-bariloche.webp", "Paisaje de Bariloche"], ["img/rubros/viajes/promo-ushuaia.webp", "Paisaje austral de Ushuaia"], ["img/rubros/viajes/cat-naturaleza.webp", "Paisaje natural al aire libre"]]],
-          ["process", "Cómo armamos tu itinerario", ["Elegí fechas|Contanos cuándo podés viajar.", "Definí el recorrido|Buscamos actividades según tu ritmo.", "Revisá la propuesta|Te detallamos traslados, alojamiento y excursiones."], ["calendar", "map", "check-circle"]]] },
-      { name: "Vacaciones en el Caribe", style: "Petróleo", hero: "media", image: ["img/rubros/viajes/dest-cancun.webp", "Playa en Cancún"],
-        title: "Tu próxima pausa queda frente al mar", lead: "Compará destinos del Caribe y encontrá una opción para tu forma de viajar.", action: "Compará destinos",
-        sections: [["products", "Destinos de playa", ["Cancún|Playas y excursiones", "Punta Cana|Descanso frente al mar", "Costa y aventura|Actividades al aire libre"],
-          [["img/rubros/viajes/dest-cancun.webp", "Playa en Cancún"], ["img/rubros/viajes/promo-puntacana.webp", "Playa en Punta Cana"], ["img/rubros/viajes/cat-aventura.webp", "Escenario para turismo aventura"]]],
-          ["faq", "Antes de viajar", ["¿Qué incluye cada paquete?|Los servicios se detallan en la cotización.", "¿Puedo viajar con chicos?|Podés pedir opciones de alojamiento para familias."]]] }
-    ]
-  },
-  {
-    id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|arquitect/i,
-    templates: [
-      { name: "Propiedades para visitar", style: "Pizarra", hero: "media", image: ["img/rubros/inmobiliaria/hero-1.jpg", "Interior de una propiedad"],
-        title: "Encontrá un lugar para tu próxima etapa", lead: "Explorá propiedades y elegí cuáles querés conocer en persona.", action: "Ver propiedades",
-        sections: [["products", "Propiedades destacadas", ["Departamento|Ambientes luminosos", "Casa|Espacio para disfrutar en familia", "Unidad moderna|Distribución funcional"],
-          [["img/rubros/inmobiliaria/prop-1.jpg", "Primera propiedad del catálogo"], ["img/rubros/inmobiliaria/prop-2.jpg", "Segunda propiedad del catálogo"], ["img/rubros/inmobiliaria/prop-3.jpg", "Tercera propiedad del catálogo"]]],
-          ["booking", "Coordiná una visita", ["Departamento", "Casa", "Unidad moderna"]]] },
-      { name: "Tasaciones inmobiliarias", style: "Arena", hero: "simple", image: ["img/rubros/inmobiliaria/hero-4.jpg", "Propiedad residencial"],
-        title: "Conocé el valor de tu propiedad", lead: "Una tasación para tomar decisiones con referencias claras del mercado.", action: "Conocé el proceso",
-        sections: [["process", "De la consulta al informe", ["Reunimos datos|Revisamos ubicación, superficie y estado.", "Comparamos|Buscamos referencias de propiedades similares.", "Presentamos|Te entregamos un rango con sus fundamentos."], ["clipboard", "bar-chart", "file-text"]],
-          ["faq", "Consultas sobre tasaciones", ["¿Qué documentación sirve?|Planos, superficie y datos del inmueble.", "¿Se visita la propiedad?|Coordinamos una visita si el alcance lo requiere."]]] }
-    ]
-  },
-  {
-    id: "educacion", name: "Educación y libros", match: /educaci[oó]n|idioma|academia|escuela|curso|libro/i,
-    templates: [
-      { name: "Academia de idiomas", style: "Índigo", hero: "media", image: ["img/rubros/idiomas/hero.jpg", "Clase de idiomas"],
-        title: "Hablá otro idioma con más confianza", lead: "Cursos por nivel, práctica de conversación y grupos reducidos.", action: "Ver cursos",
-        sections: [["services", "Modalidades de cursada", ["Inicial|Empezá por situaciones cotidianas.", "Conversación|Practicá con temas de tu interés.", "Individual|Trabajá objetivos concretos a tu ritmo."], ["chat", "people", "person-video"]],
-          ["process", "Encontrá tu nivel", ["Contanos tu objetivo|Trabajo, viaje o interés personal.", "Evaluá tu punto de partida|Hacemos una breve actividad de nivel.", "Elegí tu grupo|Buscamos una modalidad y horario que te sirvan."], ["flag", "journal-check", "calendar"]]] },
-      { name: "Taller de lectura", style: "Azul tinta", hero: "simple", image: ["img/plantillas/lectura.webp", "Libros y cuadernos en una mesa de lectura"],
-        title: "Leamos juntos, una historia a la vez", lead: "Encuentros para descubrir autores, intercambiar miradas y recuperar el tiempo de lectura.", action: "Ver próximos encuentros", target: "booking",
-        sections: [["services", "Formas de participar", ["Club mensual|Una obra para leer y comentar en grupo.", "Lectura guiada|Fragmentos y contexto en cada encuentro.", "Encuentro abierto|Una primera charla para conocer la dinámica."], ["book", "bookmark", "people"]],
-          ["booking", "Elegí un encuentro", ["Club mensual", "Lectura guiada", "Encuentro abierto"]]] }
-    ]
-  },
-  {
-    id: "servicios", name: "Negocios y servicios", match: /servicio|consultor|empresa|estudio/i,
-    templates: [
-      { name: "Consultoría para pymes", style: "Profesional", hero: "compleja", image: ["img/equipo-grupo.jpg", "Equipo de trabajo en una reunión"],
-        title: "Ordená tus procesos para crecer", lead: "Diagnóstico, prioridades y un plan de trabajo para el próximo paso de tu empresa.", action: "Conocé la propuesta",
-        sections: [["services", "Áreas de trabajo", ["Operaciones|Revisamos tareas y responsabilidades.", "Gestión|Armamos indicadores para seguir avances.", "Planificación|Priorizamos lo que más impacto puede tener."], ["diagram-3", "graph-up", "flag"]],
-          ["process", "Así trabajamos", ["Diagnóstico|Escuchamos al equipo y revisamos datos.", "Propuesta|Acordamos prioridades y entregables.", "Seguimiento|Medimos avances y ajustamos el plan."], ["search", "list-check", "graph-up"]]] },
-      { name: "Estudio creativo", style: "Cobre", hero: "media", image: ["img/servicio-web.jpg", "Espacio de trabajo creativo"],
-        title: "Una identidad que se reconoce", lead: "Diseño de marca y piezas digitales para negocios con una historia propia.", action: "Ver servicios",
-        sections: [["benefits", "Diseño para cada etapa", ["Identidad|Sistema visual y pautas de uso.", "Campañas|Piezas adaptadas a cada formato.", "Dirección de arte|Criterios visuales para fotos y contenido.", "Implementación|Archivos listos para el equipo."], ["palette", "megaphone", "image", "folder"]],
-          ["faq", "Antes de empezar", ["¿Qué necesitan para cotizar?|Un objetivo y una idea de las piezas que necesitás.", "¿Entregan archivos editables?|Acordamos los formatos al definir el alcance."]]] }
-    ]
-  },
-  {
-    id: "mascotas", name: "Animales y mascotas", match: /mascota|veterin|animal/i,
-    templates: [{ name: "Veterinaria de barrio", style: "Menta", hero: "media", image: ["img/plantillas/mascotas.webp", "Veterinaria examinando a un perro"],
-      title: "Cuidado cercano para tu mascota", lead: "Consultas programadas, controles y orientación para cada etapa.", action: "Pedí un turno", target: "booking",
-      sections: [["services", "Servicios veterinarios", ["Control|Evaluación general y seguimiento.", "Vacunación|Revisión del esquema según edad y antecedentes.", "Orientación|Consultas sobre alimentación y cuidado cotidiano."], ["clipboard2-pulse", "shield-check", "heart"]],
-        ["booking", "Solicitá un turno", ["Control", "Vacunación", "Orientación"]]] }]
-  },
-  {
-    id: "automotor", name: "Autos y motos", match: /auto|moto|mec[aá]nic/i,
-    templates: [{ name: "Taller mecánico", style: "Grafito", hero: "compleja", image: ["img/plantillas/automotor.webp", "Mecánico trabajando en un automóvil"],
-      title: "Tu auto, listo para volver al camino", lead: "Diagnóstico y mantenimiento con presupuesto antes de intervenir.", action: "Agendá una revisión", target: "booking",
-      sections: [["services", "Servicios de taller", ["Service|Aceite, filtros y revisión preventiva.", "Frenos|Inspección de discos, pastillas y líquido.", "Diagnóstico|Revisión según los síntomas del vehículo."], ["tools", "disc", "speedometer"]],
-        ["booking", "Agendá una revisión", ["Service", "Frenos", "Diagnóstico"]]] }]
-  },
-  {
-    id: "fotografia", name: "Diseño y fotografía", match: /fot[oó]graf|dise[nñ]o/i,
-    templates: [{ name: "Fotografía de estudio", style: "Topo", hero: "simple", image: ["img/plantillas/fotografia.webp", "Fotógrafa trabajando en un estudio luminoso"],
-      title: "Fotos para contar lo que hacés", lead: "Retratos profesionales, productos y campañas con dirección de arte.", action: "Ver tipos de sesión",
-      sections: [["services", "Sesiones disponibles", ["Retratos|Imágenes para perfiles y equipos.", "Producto|Fotografía para catálogo y campañas.", "Editorial|Producción pensada para una historia visual."], ["person-bounding-box", "box-seam", "camera"]],
-        ["process", "De la idea a la entrega", ["Brief|Definimos objetivo y referencias.", "Sesión|Trabajamos luz, encuadre y dirección.", "Selección|Elegís las tomas para edición final."], ["clipboard", "camera", "images"]]] }]
-  },
-  {
-    id: "cultura", name: "Arte y cultura", match: /galer[ií]a|museo|arte|cultura/i,
-    templates: [{ name: "Galería de arte", style: "Berenjena", hero: "media", image: ["img/plantillas/cultura.webp", "Visitante frente a obras en una galería"],
-      title: "El arte se encuentra en persona", lead: "Exposiciones, recorridos y conversaciones para descubrir nuevas miradas.", action: "Ver la programación",
-      sections: [["services", "Programación de la galería", ["Muestra actual|Obras de la temporada en sala.", "Visita guiada|Recorrido con contexto sobre las piezas.", "Encuentro con artistas|Conversaciones sobre procesos de trabajo."], ["image", "signpost", "chat"]],
-        ["faq", "Organizá tu visita", ["¿Hay visitas en grupo?|Consultá fechas para grupos y escuelas.", "¿Puedo sacar fotos?|La sala indica las condiciones de cada muestra."]]] }]
-  },
-  {
-    id: "electronica", name: "Electrónica", match: /electr[oó]nica|audio|accesorios/i,
-    templates: [{ name: "Audio y accesorios", style: "Azul eléctrico", hero: "compleja", image: ["img/plantillas/electronica.webp", "Auriculares y accesorios electrónicos sobre un escritorio"],
-      title: "Equipá tu día con lo que realmente usás", lead: "Audio y accesorios elegidos para trabajar, estudiar y escuchar música.", action: "Ver categorías",
-      sections: [["benefits", "Qué podés encontrar", ["Auriculares|Alternativas para oficina y uso diario.", "Parlantes|Opciones compactas para llevar.", "Cables|Conexiones para distintos equipos.", "Asesoramiento|Consultá compatibilidad antes de elegir."], ["headphones", "speaker", "usb-symbol", "chat-dots"]],
-        ["faq", "Consultas de compra", ["¿Cómo verifico la compatibilidad?|Mandanos el modelo de tu dispositivo.", "¿Puedo retirar mi pedido?|Consultá opciones de retiro y envío."]]] }]
-  },
-  {
-    id: "hogar", name: "Hogar y familia", match: /hogar|familia|electric|mantenimiento/i,
-    templates: [{ name: "Electricidad para el hogar", style: "Canela", hero: "media", image: ["img/plantillas/hogar.webp", "Electricista trabajando en una vivienda"],
-      title: "Instalaciones eléctricas para tu casa", lead: "Revisión, diagnóstico y reparaciones coordinadas con presupuesto previo.", action: "Ver servicios",
-      sections: [["services", "Trabajos a domicilio", ["Iluminación|Instalación y renovación de luminarias.", "Tableros|Revisión y actualización según el estado de la instalación.", "Diagnóstico|Evaluamos la falla y te explicamos las opciones."], ["lightbulb", "lightning", "search"]],
-        ["process", "Cómo coordinamos la visita", ["Consultá|Contanos el trabajo y en qué zona estás.", "Agendá|Acordamos una franja para evaluar el trabajo.", "Revisá el presupuesto|Definimos el alcance antes de comenzar."], ["chat", "calendar", "clipboard-check"]]] }]
-  },
-  {
-    id: "regalos", name: "Regalos y flores", match: /regalo|flor|fiesta/i,
-    templates: [{ name: "Florería de estación", style: "Frambuesa", hero: "simple", image: ["img/plantillas/regalos.webp", "Florista preparando un ramo de flores"],
-      title: "Flores para decirlo a tu manera", lead: "Ramos por encargo, arreglos para eventos y regalos con dedicatoria.", action: "Ver opciones",
-      sections: [["services", "Arreglos y encargos", ["Ramos|Combinaciones con flores disponibles de estación.", "Eventos|Arreglos para mesas y celebraciones.", "Regalos|Ramos con tarjeta y coordinación de entrega."], ["flower1", "calendar-event", "gift"]],
-        ["faq", "Cómo hacer tu pedido", ["¿Puedo elegir los colores?|Sí, según la disponibilidad de la semana.", "¿Con cuánto tiempo encargo?|Consultá disponibilidad para la fecha que necesitás."]]] }]
-  },
-  {
-    id: "comunidad", name: "Sociedad y comunidad", match: /comunidad|fundaci[oó]n|ong|social/i,
-    templates: [{ name: "Red de voluntariado", style: "Eucalipto", hero: "media", image: ["img/plantillas/comunidad.webp", "Personas voluntarias clasificando donaciones"],
-      title: "Sumá tiempo a una causa cercana", lead: "Conectamos personas y organizaciones para sostener acciones en el barrio.", action: "Cómo participar",
-      sections: [["process", "Cómo sumarte", ["Elegí una actividad|Encontrá una tarea según tus intereses.", "Coordiná tu primera jornada|Acordamos el horario y lo que necesitás llevar.", "Participá con el equipo|Te acompañamos para conocer la dinámica."], ["heart", "calendar", "people"]],
-        ["faq", "Preguntas de voluntariado", ["¿Necesito experiencia?|Cada actividad indica qué preparación requiere.", "¿Puedo participar en familia?|Consultá las edades admitidas para cada jornada."]]] }]
-  },
-  {
-    id: "tecnologia", name: "Computación e internet", match: /tecnolog|software|internet|sistemas/i,
-    templates: [{ name: "Software para equipos", style: "Azul eléctrico", hero: "compleja", image: ["img/plantillas/tecnologia.webp", "Desarrollador trabajando frente a una computadora"],
-      title: "Organizá el trabajo en un solo lugar", lead: "Una plataforma para centralizar tareas, responsables y avances del equipo.", action: "Conocé las funciones",
-      sections: [["benefits", "Funciones para el día a día", ["Tableros|Ordená pendientes por etapa.", "Responsables|Asigná tareas y fechas.", "Reportes|Revisá el avance semanal.", "Permisos|Definí qué puede ver cada rol."], ["kanban", "person-check", "bar-chart", "shield-lock"]],
-        ["process", "Así empezás", ["Creá un espacio|Configurá tu primer proyecto.", "Invitá al equipo|Definí accesos y responsables.", "Seguí avances|Revisá el tablero con el equipo."], ["plus-square", "people", "graph-up"]]] }]
-  },
-  {
-    id: "deportes", name: "Deportes y aire libre", match: /deporte|aire libre|trekking|running/i,
-    templates: [{ name: "Club de trekking", style: "Bosque", hero: "simple", image: ["img/rubros/viajes/cat-aventura.webp", "Paisaje para actividades de aventura"],
-      title: "La próxima caminata empieza acá", lead: "Salidas guiadas para conocer senderos y compartir el recorrido.", action: "Ver niveles",
-      sections: [["services", "Salidas por nivel", ["Inicial|Recorrido corto con paradas programadas.", "Intermedio|Caminata con desnivel y mayor distancia.", "Jornada completa|Circuito largo con requisitos de preparación."], ["signpost", "geo-alt", "map"]],
-        ["booking", "Anotate a una salida", ["Inicial", "Intermedio", "Jornada completa"]]] }]
-  },
-  {
-    id: "entretenimiento", name: "Entretenimiento y vida nocturna", match: /entretenimiento|m[uú]sica|evento|juego|nocturn/i,
-    templates: [{ name: "Ciclo de música en vivo", style: "Berenjena", hero: "compleja", image: ["img/plantillas/entretenimiento.webp", "Escenario de un concierto con luces azules y violetas"],
-      title: "Una noche para escuchar en vivo", lead: "Artistas emergentes, sesiones acústicas y fechas para agendar.", action: "Ver programación",
-      sections: [["services", "Programación del ciclo", ["Acústicos|Formatos íntimos con público cerca.", "Bandas invitadas|Nuevas propuestas en el escenario.", "Sesiones especiales|Encuentros con cruces de géneros."], ["music-note", "soundwave", "stars"]],
-        ["faq", "Antes del show", ["¿A qué hora abren las puertas?|El horario se informa en cada fecha.", "¿Cómo reservo mi lugar?|Consultá el canal de reservas del evento."]]] }]
-  }
-];
+/* Plantillas por rubro. Cada una combina otra navegación, portada, footer y otras variantes de módulos.
+   Los textos, las fotos y los datos son ejemplos editables. */
+(function () {
+  var P = "../Proyectos/portal-studio/img/";
+  var V = "img/rubros/viajes/";
+  var I = "img/rubros/inmobiliaria/";
+
+  window.LanzatePlantillas = [
+    {
+      id: "belleza", name: "Belleza y moda", match: /belleza|est[eé]tica|barber|peluquer|spa|moda|u[nñ]as/i,
+      templates: [
+        { name: "Estudio de estética", style: "Ciruela suave", font: "editorial", nav: "simple", hero: "compleja", footer: "media",
+          image: ["img/rubros/estetica/hero.jpg", "Profesional realizando un tratamiento facial"],
+          photos: [["img/rubros/estetica/hero.jpg", "Tratamiento facial en el estudio"], ["img/rubros/estetica/pro-1.jpg", "Cabina de tratamientos del estudio"], ["img/rubros/estetica/pro-2.jpg", "Detalle de un tratamiento de cuidado de la piel"], ["img/rubros/estetica/pro-3.jpg", "Productos de cuidado facial"]],
+          title: "Tu piel, *en buenas manos*", lead: "Tratamientos faciales y corporales con un plan adaptado a tu piel.", action: "Reservá tu turno", target: "reserva-turno",
+          highlights: ["Diagnóstico de piel|Empezamos por conocer tu tipo de piel.", "Productos profesionales|Elegidos según cada tratamiento.", "Seguimiento|Ajustamos el plan en cada visita."], icons: ["search-heart", "droplet", "calendar-heart"],
+          people: ["Mariana G.", "Lucía R.", "Paula S."], quotes: ["Salí con la piel renovada y un plan claro para cuidarla en casa.", "Me explicaron cada paso del tratamiento. Volví al mes siguiente.", "Un lugar tranquilo, puntual y con mucha calidez."],
+          closing: "Tu próximo tratamiento empieza con una consulta",
+          sections: [
+            { m: "servicios-productos-media", nav: "Tratamientos", title: "Tratamientos para cada momento", items: ["Higiene facial|Limpieza profunda según tu tipo de piel.", "Hidratación intensiva|Para pieles que necesitan recuperar confort.", "Masaje descontracturante|Maniobras suaves para aflojar la tensión."], bullets: ["Diagnóstico previo", "Extracción y limpieza", "Máscara calmante", "Sérum hidratante", "Máscara de colágeno", "Masaje facial", "Aceites esenciales", "Piedras calientes", "45 minutos de pausa"], lead: "¿No sabés cuál elegir? Te ayudamos en la primera consulta." },
+            { m: "quienes-somos-media", nav: "El estudio", title: "Un espacio pensado *para tu pausa*", items: ["Cuidamos cada detalle|Te recibimos con tiempo, escuchamos qué buscás y armamos un plan que se adapte a tu rutina.", "Escucha|Cada piel tiene su historia.", "Constancia|Resultados que se sostienen.", "Calidez|Un trato cercano en cada visita."], lead: "En la primera visita conversamos sobre tus hábitos y el cuidado que buscás.", body: ["Después definimos juntas la frecuencia y los productos para continuar en casa."] },
+            { m: "equipo-media", nav: "Equipo", title: "Las manos detrás de cada tratamiento", items: ["|Diagnóstico de piel y protocolos faciales.|Cosmetología", "|Masajes y tratamientos corporales.|Corporales", "|Atención, turnos y seguimiento.|Recepción"] },
+            { m: "resenas-google-simple", title: "Lo que cuentan quienes ya vinieron" },
+            { m: "reserva-turno-compleja", nav: "Turnos", title: "Reservá tu tratamiento", services: ["Higiene facial", "Hidratación intensiva", "Masaje descontracturante", "Consulta de diagnóstico"] },
+            { m: "preguntas-frecuentes-media", title: "Antes de tu primera visita", items: ["¿Tengo que ir con la cara lavada?|No hace falta, empezamos cada sesión con una limpieza suave.", "¿Cuánto dura un tratamiento?|Entre 45 y 90 minutos, según lo que elijas.", "¿Puedo reprogramar?|Sí, avisanos con 24 horas de anticipación.", "¿Cómo pago?|Efectivo, transferencia o tarjeta en el estudio."] }
+          ] },
+        { name: "Barbería de barrio", style: "Grafito", font: "moderna", nav: "compleja", hero: "media", footer: "compleja", tint: "impar",
+          image: ["img/rubros/barberia/hero-1.jpg", "Interior de una barbería"],
+          photos: [["img/rubros/barberia/hero-1.jpg", "Sillones de la barbería"], ["img/rubros/barberia/hero-2.jpg", "Barbero trabajando un corte"], ["img/rubros/barberia/hero-3.jpg", "Herramientas de barbería sobre la mesada"]],
+          title: "Cortes que *van con vos*", lead: "Cortes clásicos, fades y barba con cita previa, en el barrio de siempre.", action: "Elegí tu horario", target: "reserva-turno",
+          highlights: ["Sin esperas", "Barba con toalla caliente", "Productos de la casa"],
+          people: ["Nico P.", "Fede A.", "Juan M."], quotes: ["El mejor fade que me hicieron. Me explicaron cómo mantenerlo.", "Puntuales, buena música y un trato de diez.", "Voy hace dos años y siempre salgo conforme."], orgs: ["Cliente habitual", "Primer corte", "Cliente habitual"],
+          closing: "Tu próximo corte, a un clic",
+          sections: [
+            { m: "galeria-imagenes-simple", nav: "La barbería", title: "Pasá a conocer la barbería" },
+            { m: "servicios-productos-simple", nav: "Servicios", title: "Elegí tu servicio", kicker: "Servicios", items: ["Corte clásico|Tijera y máquina, con lavado incluido.", "Fade|Degradado trabajado según tu estilo.", "Corte y barba|Los dos servicios en un mismo turno."] },
+            { m: "equipo-simple", title: "Los barberos", items: ["|Fades y cortes modernos", "|Barba y afeitado clásico", "|Cortes para chicos y adultos"] },
+            { m: "casos-exito-simple", title: "Clientes que vuelven" },
+            { m: "reserva-turno-media", nav: "Turnos", title: "Agendá tu corte *en un minuto*", lead: "Mirá los horarios libres de la semana y elegí el que mejor te quede." },
+            { m: "donde-nos-encontramos-media", title: "Estamos a la vuelta" }
+          ] }
+      ]
+    },
+    {
+      id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas|entrenamiento/i,
+      templates: [
+        { name: "Pilates Reformer", style: "Salvia", font: "moderna", nav: "simple", hero: "media", footer: "compleja",
+          image: [P + "pilates.jpg", "Clase de pilates con reformer"],
+          photos: [[P + "espacio.jpg", "Interior del estudio de pilates"], [P + "clase.jpg", "Clase grupal en el estudio"], [P + "funcional.jpg", "Entrenamiento funcional"], [P + "mat.jpg", "Clase de pilates mat"], [P + "estiramiento.jpg", "Estiramiento guiado"], [P + "pilates.jpg", "Reformer en uso"]],
+          title: "Movimiento que *se adapta a vos*", lead: "Clases de Reformer en grupos chicos, con acompañamiento desde la primera sesión.", action: "Reservá una clase", target: "reserva-turno",
+          highlights: ["Grupos de 6 personas", "Todos los niveles", "Primera clase guiada"],
+          people: ["Carla V.", "Inés M.", "Rocío B."], quotes: ["Llegué con dolor de espalda y hoy entreno tres veces por semana.", "Las clases son chicas y te corrigen todo el tiempo.", "Se nota la formación de las profes. Muy recomendable."],
+          closing: "Tu primera clase te está esperando",
+          sections: [
+            { m: "imagen-texto-media", nav: "El estudio", title: "Entrená *en grupos chicos*", kicker: "Por qué elegirnos", lead: "Empezamos por conocer cómo te movés y adaptamos cada ejercicio a tu nivel.", bullets: ["Máximo seis personas por clase", "Profes con formación certificada", "Reformers nuevos y regulables"] },
+            { m: "proceso-media", nav: "Cómo empezar", title: "Tu primera clase, paso a paso", items: ["Reservá|Elegí día y horario desde la web.", "Contanos|Hablamos de lesiones y objetivos.", "Probá|Hacés una clase guiada de 50 minutos.", "Elegí tu plan|Seguís con la frecuencia que te sirva."] },
+            { m: "galeria-imagenes-media", nav: "Clases", title: "Así son las clases", items: ["Reformer|Máquina|Reformer", "Mat|Suelo|Mat", "Funcional|Fuerza|Funcional", "Estiramiento|Movilidad|Movilidad", "El espacio|Estudio|Estudio", "En grupo|Clase|Reformer"] },
+            { m: "resenas-google-media", title: "Lo que dicen nuestras alumnas" },
+            { m: "reserva-turno-simple", nav: "Reservas", title: "Elegí tu clase", services: ["Primera clase", "Reformer inicial", "Reformer intermedio", "Mat"] }
+          ] },
+        { name: "Estudio de yoga", style: "Lavanda", font: "editorial", nav: "compleja", hero: "simple", footer: "media",
+          image: [P + "yoga.jpg", "Práctica de yoga sobre colchoneta"],
+          photos: [[P + "yoga.jpg", "Práctica de yoga"], [P + "estiramiento.jpg", "Postura de estiramiento"], [P + "espacio.jpg", "Sala de práctica luminosa"], [P + "mat.jpg", "Colchonetas listas para la clase"]],
+          title: "Encontrá tu ritmo *en la práctica*", lead: "Yoga suave, movilidad y respiración para volver al cuerpo.", action: "Conocé las clases", target: "beneficios",
+          closing: "Volvé a tu respiración",
+          sections: [
+            { m: "quienes-somos-simple", nav: "Nosotras", title: "Un lugar para bajar un cambio", kicker: "Quiénes somos", lead: "Abrimos el estudio para quienes buscan una práctica amable, sin exigencias ni comparaciones.", body: ["Cada clase combina movimiento, respiración y un cierre de relajación.", "Práctica consciente. Grupos reducidos."] },
+            { m: "beneficios-media", nav: "Clases", title: "Prácticas para cada día", items: ["Yoga suave|Secuencias tranquilas para empezar o retomar.", "Vinyasa|Movimiento fluido coordinado con la respiración.", "Respiración|Técnicas para soltar la tensión del día.", "Meditación|Encuentros guiados de 30 minutos."] },
+            { m: "video-destacado-simple", title: "Mirá cómo es una clase", images: [[P + "estiramiento.jpg", "Fotograma de una clase de yoga"]] },
+            { m: "equipo-compleja", title: "Quienes guían la práctica", items: ["Acompañamos tu proceso|Profes con años de práctica y formación en yoga terapéutico.", "|Hatha y yoga suave", "|Vinyasa y movilidad", "|Meditación y respiración"] },
+            { m: "preguntas-frecuentes-compleja", title: "Preguntas antes de empezar", filters: ["Primera clase", "Clases", "Pagos"], items: ["¿Necesito experiencia?|No. El grupo inicial está pensado para empezar de cero.", "¿Qué llevo?|Ropa cómoda y agua. Tenemos colchonetas.", "¿Puedo ir embarazada?|Sí, avisanos y adaptamos la práctica.", "¿Cuánto dura una clase?|Una hora con relajación final.", "¿Hay clases de prueba?|Sí, la primera clase es abierta.", "¿Cómo pago?|Por clase suelta o abono mensual."] },
+            { m: "donde-nos-encontramos-simple", title: "Vení a practicar", items: ["Visitanos", "Horarios", "Clase de prueba|Escribinos y te guardamos un lugar."] }
+          ] },
+        { name: "Gimnasio funcional", style: "Coral", font: "moderna", nav: "media", hero: "compleja", footer: "simple", tint: "impar",
+          image: [P + "funcional.jpg", "Entrenamiento funcional en grupo"],
+          photos: [[P + "funcional.jpg", "Entrenamiento funcional"], [P + "clase.jpg", "Clase grupal de alta intensidad"], [P + "hero.jpg", "Sala de entrenamiento"]],
+          title: "Entrená fuerte, *entrená bien*", lead: "Clases funcionales de 45 minutos con coach en cada turno.", action: "Probá una clase gratis", target: "proceso",
+          highlights: ["Coach en cada clase|Corrección de técnica todo el tiempo.", "Turnos cada hora|De 7 a 22, de lunes a sábado.", "Plan a medida|Medimos tu progreso cada mes."], icons: ["person-arms-up", "clock", "graph-up-arrow"],
+          people: ["Martín G.", "Sole P.", "Agus R.", "Lean F."], quotes: ["En tres meses mejoré la fuerza y la postura. Los coaches están en todo.", "Buen ambiente y clases que se pasan volando.", "Me adaptaron los ejercicios por una lesión de rodilla.", "El mejor horario para entrenar antes del trabajo."], orgs: ["Funcional", "Fuerza", "Movilidad", "Funcional"],
+          closing: "Tu primera clase va por nuestra cuenta",
+          sections: [
+            { m: "beneficios-simple", nav: "Por qué", title: "Más que un gimnasio, *un equipo*", kicker: "Beneficios", items: ["Clases cortas|45 minutos que rinden.", "Grupos reducidos|Hasta 12 personas por turno.", "Seguimiento|Evaluación física mensual.", "Comunidad|Entrenar acompañado motiva."], icons: ["stopwatch", "people", "clipboard-data", "heart-pulse"] },
+            { m: "proceso-simple", nav: "Empezar", title: "Empezá esta semana", items: ["Agendá|Elegí tu clase de prueba.", "Evaluamos|Medimos fuerza y movilidad.", "Entrenás|Arrancás con tu plan."] },
+            { m: "equipo-media", title: "Los coaches", items: ["|Fuerza y acondicionamiento.|Head coach", "|Movilidad y prevención de lesiones.|Kinesiología", "|Clases grupales de alta intensidad.|Coach"] },
+            { m: "casos-exito-media", nav: "Historias", title: "Historias del box" },
+            { m: "preguntas-frecuentes-simple", title: "Dudas frecuentes", items: ["¿Necesito estar en forma?|No, adaptamos cada ejercicio a tu nivel.", "¿Qué planes hay?|Dos, tres o cinco veces por semana.", "¿Hay vestuarios?|Sí, con duchas y lockers.", "¿Puedo congelar el abono?|Sí, por viaje o lesión."] }
+          ] }
+      ]
+    },
+    {
+      id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio|psic[oó]log|nutrici/i,
+      templates: [
+        { name: "Consultorio odontológico", style: "Azul clínico", font: "moderna", nav: "media", hero: "media", footer: "compleja",
+          image: ["img/plantillas/odontologia.webp", "Profesional en un consultorio odontológico"],
+          photos: [["img/plantillas/odontologia.webp", "Consultorio odontológico equipado"], ["img/lugar.jpg", "Sala de espera luminosa"]],
+          title: "Cuidá tu sonrisa *desde el primer control*", lead: "Consultas programadas para prevención, higiene y evaluación odontológica.", action: "Solicitá un turno", target: "reserva-turno",
+          highlights: ["Obras sociales", "Turnos en el día", "Atención a chicos"],
+          people: ["Gabriela S.", "Hernán T.", "Micaela D."], quotes: ["Le tenía miedo al dentista y me atendieron con mucha paciencia.", "Explican todo antes de empezar y cumplen con los horarios.", "Llevé a mis hijos y salieron contentos."],
+          closing: "Tu próximo control, sin demoras",
+          sections: [
+            { m: "servicios-productos-simple", nav: "Servicios", title: "Motivos de consulta", kicker: "Especialidades", items: ["Control y limpieza|Revisión general e higiene profesional.", "Ortodoncia|Evaluación y seguimiento de brackets y alineadores.", "Implantes|Planificación con estudios previos."] },
+            { m: "proceso-compleja", nav: "Tu visita", title: "Así es tu primera consulta", items: ["Paso a paso|Cada etapa tiene un objetivo claro y te explicamos las opciones.", "Recepción|Datos y obra social.", "Revisión|Examen y radiografía si hace falta.", "Diagnóstico|Te contamos qué vimos.", "Plan|Presupuesto y próximos turnos."] },
+            { m: "equipo-simple", title: "Profesionales del consultorio", items: ["|Odontología general", "|Ortodoncia", "|Odontopediatría"] },
+            { m: "resenas-google-compleja", title: "Pacientes que confían en nosotros", filters: ["Atención", "Puntualidad", "Chicos"] },
+            { m: "reserva-turno-simple", nav: "Turnos", title: "Solicitá tu turno", services: ["Control y limpieza", "Ortodoncia", "Implantes", "Urgencia"] },
+            { m: "donde-nos-encontramos-compleja", title: "Cómo llegar al consultorio", items: ["Un consultorio cerca tuyo|Planta baja con acceso para sillas de ruedas.", "Transporte público|Colectivos y subte a pocas cuadras.", "Si venís en auto|Estacionamiento medido sobre la avenida."] }
+          ] },
+        { name: "Espacio de psicología", style: "Celeste humo", font: "clasica", nav: "simple", hero: "simple", footer: "media", tint: "impar",
+          image: ["img/quienes-media.jpg", "Dos personas conversando en un consultorio"],
+          photos: [["img/quienes-compleja.jpg", "Profesional conversando con una paciente"], ["img/lugar.jpg", "Entrada luminosa del consultorio"]],
+          title: "Un espacio para *hablar con tiempo*", lead: "Terapia individual y de pareja, presencial y online.", action: "Pedí una primera entrevista", target: "reserva-turno",
+          closing: "Dar el primer paso también es cuidarte",
+          sections: [
+            { m: "quienes-somos-compleja", nav: "Enfoque", title: "Acompañamos procesos, *a tu ritmo*", lead: "Somos un equipo de psicólogas con orientación cognitiva y sistémica.", items: ["Cómo trabajamos|Encuentros semanales con objetivos que revisamos juntas.", "Qué podés esperar|Escucha, confidencialidad y herramientas para tu día a día."] },
+            { m: "beneficios-media", nav: "Terapias", title: "Modalidades de atención", items: ["Terapia individual|Ansiedad, duelos, cambios y vínculos.", "Terapia de pareja|Comunicación y acuerdos.", "Adolescentes|Un espacio propio con su profesional.", "Online|Sesiones por videollamada desde donde estés."] },
+            { m: "proceso-media", title: "Cómo empezar", items: ["Escribinos|Contanos brevemente qué te pasa.", "Entrevista inicial|Una charla para conocernos.", "Definimos el encuadre|Frecuencia, modalidad y honorarios.", "Empezamos|Sesiones de 50 minutos."] },
+            { m: "preguntas-frecuentes-media", title: "Preguntas frecuentes", items: ["¿Atienden por obra social?|Trabajamos con reintegros. Te damos la factura.", "¿La terapia online funciona igual?|Sí, con la misma confidencialidad.", "¿Cuánto dura un tratamiento?|Depende de cada proceso. Lo revisamos juntas.", "¿Qué pasa si falto?|Avisá con 24 horas y reprogramamos."] },
+            { m: "reserva-turno-media", nav: "Turnos", title: "Pedí tu *primera entrevista*", lead: "Elegí un horario disponible y te confirmamos por mail." }
+          ] }
+      ]
+    },
+    {
+      id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]|comida/i,
+      templates: [
+        { name: "Bistró de temporada", style: "Vino y cacao", font: "editorial", nav: "compleja", hero: "compleja", footer: "compleja",
+          image: ["img/plantillas/bistro.webp", "Plato de pasta servido en una mesa oscura"],
+          photos: [[V + "cat-gastronomia.webp", "Cocina abierta con platos de estación"], ["img/plantillas/bistro.webp", "Pasta casera servida en la mesa"]],
+          title: "Una mesa para disfrutar *sin apuro*", lead: "Cocina de estación, pastas caseras y una carta que cambia con el mercado.", action: "Reservá una mesa", target: "reserva-turno",
+          highlights: ["Carta de estación|Productos frescos del mercado.", "Pastas caseras|Hechas cada mañana.", "Vinos de autor|Bodegas chicas del país."], icons: ["basket", "fire", "cup-straw"],
+          people: ["Lorena B.", "Andrés C.", "Vicky M."], quotes: ["Los ravioles de calabaza son de otro planeta. Volvimos a la semana.", "Atención cálida y una carta de vinos muy bien elegida.", "Ideal para una cena tranquila de a dos."],
+          closing: "Te guardamos una mesa",
+          sections: [
+            { m: "imagen-texto-simple", nav: "La cocina", title: "Cocinamos con lo que trae *la estación*", kicker: "Nuestra cocina", lead: "Cada semana armamos la carta con productores de la zona. Lo que no está fresco, no entra a la cocina." },
+            { m: "servicios-productos-media", nav: "Carta", title: "Menús para cada ocasión", items: ["Almuerzo ejecutivo|Entrada, principal y bebida.", "Cena de estación|Carta completa y recomendaciones.", "Menú degustación|Seis pasos con maridaje."], bullets: ["De lunes a viernes", "Plato del día", "Café incluido", "Entradas para compartir", "Pastas y carnes", "Postres de la casa", "Seis pasos", "Vinos seleccionados", "Con reserva previa"], lead: "¿Tenés alguna restricción? Avisanos al reservar." },
+            { m: "resenas-google-media", title: "Lo que dicen de la mesa" },
+            { m: "donde-nos-encontramos-compleja", title: "Vení a cenar", items: ["Un rincón para quedarse|Salón íntimo y patio en verano.", "Transporte público|A dos cuadras de la avenida.", "Si venís en auto|Estacionamiento en la esquina."] },
+            { m: "reserva-turno-media", nav: "Reservas", title: "Reservá tu mesa *en un minuto*", lead: "Elegí día y horario. Te confirmamos por mail." }
+          ] },
+        { name: "Café de especialidad", style: "Café tostado", font: "clasica", nav: "simple", hero: "media", footer: "media", tint: "impar",
+          image: ["img/plantillas/cafe.webp", "Café y pastelería en una mesa luminosa"],
+          photos: [["img/plantillas/cafe.webp", "Café y pastelería del día"], ["img/beneficio-foto.jpg", "Taza de café junto a una planta"]],
+          title: "Buen café, *hecho con tiempo*", lead: "Espresso, filtrados y pastelería para disfrutar acá o llevar.", action: "Mirá la carta", target: "servicios-productos",
+          highlights: ["Tostado propio", "Pastelería del día", "Wifi y enchufes"],
+          closing: "Te esperamos con el café listo",
+          sections: [
+            { m: "beneficios-compleja", nav: "El café", title: "Lo que nos hace distintos", items: ["Granos de origen|Compramos directo a fincas.", "Tostado semanal|Siempre fresco.", "Baristas formados|Cada taza, a punto.", "Para llevar|Vasos compostables."], icons: ["globe-americas", "fire", "cup-hot", "bag"] },
+            { m: "servicios-productos-simple", nav: "Carta", title: "La carta del café", kicker: "Carta", items: ["Espresso y con leche|Clásicos de barra con leche entera o vegetal.", "Filtrados|Preguntá por el origen del día.", "Pastelería|Medialunas, budines y tortas caseras."] },
+            { m: "quienes-somos-simple", title: "Una esquina para *quedarse*", kicker: "Nuestra historia", lead: "Abrimos en 2019 con una máquina, dos mesas y muchas ganas de servir buen café.", body: ["Hoy seguimos tostando cada semana y horneando todo en el local.", "Café de verdad. Gente de barrio."] },
+            { m: "preguntas-frecuentes-simple", title: "Antes de venir", items: ["¿Tienen opciones sin TACC?|Sí, preguntá por la pastelería del día.", "¿Puedo ir a trabajar?|Claro, hay wifi y enchufes.", "¿Venden café en grano?|Sí, en bolsas de 250 g y 1 kg.", "¿Aceptan mascotas?|Sí, en las mesas de la vereda."] },
+            { m: "donde-nos-encontramos-simple", title: "Pasá por el café", items: ["Visitanos", "Horarios", "Pedidos para llevar|Escribinos y te lo dejamos listo."] }
+          ] }
+      ]
+    },
+    {
+      id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs|agencia/i,
+      templates: [
+        { name: "Escapadas a la Patagonia", style: "Litoral", font: "moderna", nav: "media", hero: "compleja", footer: "compleja",
+          image: [V + "dest-bariloche.webp", "Paisaje patagónico en Bariloche"],
+          photos: [[V + "cat-naturaleza.webp", "Bosque y lago patagónico"], [V + "promo-ushuaia.webp", "Canal Beagle en Ushuaia"], [V + "dest-bariloche.webp", "Lago Nahuel Huapi"], [V + "cat-aventura.webp", "Sendero de montaña"], [V + "promo-salta.webp", "Cerros de colores"], [V + "gal-1.webp", "Viajeros frente a un paisaje"], [V + "gal-2.webp", "Mirador al atardecer"], [V + "gal-3.webp", "Ruta escénica"], [V + "cat-historia.webp", "Pueblo de montaña"]],
+          title: "Unos días al sur *cambian el ritmo*", lead: "Armá tu viaje entre lagos, senderos y pueblos de montaña.", action: "Explorá los destinos", target: "productos",
+          highlights: ["Itinerarios a medida|Según tus fechas y tu ritmo.", "Traslados incluidos|Del aeropuerto al alojamiento.", "Asistencia 24 h|Te acompañamos todo el viaje."], icons: ["map", "bus-front", "headset"],
+          people: ["Flor y Diego", "Julieta K.", "Familia Rossi"], quotes: ["Todo salió como lo planeamos. Las excursiones, impecables.", "Nos armaron un recorrido perfecto para ir con chicos.", "Volvimos con ganas de repetir el viaje el año que viene."], orgs: ["Bariloche", "Ushuaia", "El Calafate"],
+          closing: "Tu próxima escapada empieza acá",
+          sections: [
+            { m: "productos-media", nav: "Destinos", title: "Elegí tu escapada", filters: ["Lagos", "Montaña", "Costa"], items: ["Bariloche", "El Chaltén", "Ushuaia"], images: [[V + "dest-bariloche.webp", "Lago en Bariloche"], [V + "cat-aventura.webp", "Senderos de El Chaltén"], [V + "promo-ushuaia.webp", "Bahía de Ushuaia"]] },
+            { m: "proceso-compleja", nav: "Cómo viajar", title: "Cómo armamos tu itinerario", items: ["Tu viaje, sin vueltas|Nos ocupamos de reservas, traslados y excursiones.", "Fechas|Contanos cuándo podés viajar.", "Recorrido|Elegimos actividades según tu ritmo.", "Propuesta|Te mandamos el detalle con precios.", "Viaje|Te acompañamos antes y durante."] },
+            { m: "galeria-imagenes-compleja", nav: "Galería", title: "Paisajes que te esperan", items: ["Lago Nahuel Huapi", "Canal Beagle", "Bosque de arrayanes", "Cerro Torre", "Quebrada de colores", "Mirador del Chaltén", "Atardecer en el lago", "Ruta de los Siete Lagos", "Pueblo de montaña"], kicker: "Galería", filters: ["Lagos", "Montaña", "Pueblos"], lead: "Fotos de nuestros viajeros en la última temporada." },
+            { m: "casos-exito-media", title: "Viajeros que volvieron felices" },
+            { m: "preguntas-frecuentes-media", title: "Antes de viajar", items: ["¿Qué incluye cada paquete?|Alojamiento, traslados y las excursiones que elijas.", "¿Cuál es la mejor época?|De noviembre a marzo para trekking, de julio a septiembre para nieve.", "¿Puedo pagar en cuotas?|Sí, con tarjeta de crédito.", "¿Necesito seguro de viaje?|Lo recomendamos y lo podemos sumar."] }
+          ] },
+        { name: "Vacaciones en el Caribe", style: "Petróleo", font: "editorial", nav: "compleja", hero: "simple", footer: "media", tint: "impar",
+          image: [V + "dest-cancun.webp", "Playa en Cancún"],
+          photos: [[V + "cat-playa.webp", "Playa de arena blanca"], [V + "promo-puntacana.webp", "Palmeras en Punta Cana"], [V + "dest-cancun.webp", "Mar turquesa en Cancún"], [V + "promo-miami.webp", "Costa de Miami"], [V + "promo-floripa.webp", "Playa de Florianópolis"], [V + "cat-romance.webp", "Atardecer frente al mar"]],
+          title: "Tu próxima pausa *queda frente al mar*", lead: "Compará destinos del Caribe y encontrá una opción para tu forma de viajar.", action: "Compará destinos", target: "productos",
+          people: ["Caro y Mati", "Sergio L.", "Ana P."], quotes: ["El all inclusive que nos recomendaron fue perfecto para la luna de miel.", "Respondieron cada consulta, incluso estando allá.", "Precios claros y sin sorpresas."],
+          closing: "El mar te está esperando",
+          sections: [
+            { m: "galeria-imagenes-media", nav: "Playas", title: "Playas para todos los gustos", items: ["Arena blanca|Riviera Maya|Relax", "Punta Cana|República Dominicana|All inclusive", "Mar turquesa|Cancún|Relax", "Miami|Estados Unidos|Ciudad", "Florianópolis|Brasil|Familia", "Atardeceres|Luna de miel|Pareja"] },
+            { m: "productos-simple", nav: "Destinos", title: "Destinos destacados", items: ["Cancún||7 noches · all inclusive|Desde USD 1.450", "Punta Cana||7 noches · frente al mar|Desde USD 1.320", "Riviera Maya||10 noches · hotel boutique|Desde USD 1.980"], images: [[V + "dest-cancun.webp", "Playa en Cancún"], [V + "promo-puntacana.webp", "Hotel en Punta Cana"], [V + "cat-playa.webp", "Playa de la Riviera Maya"]] },
+            { m: "beneficios-media", title: "Qué incluye tu viaje", items: ["Vuelos|Con equipaje y asientos juntos.", "Alojamiento|Hoteles elegidos por nuestro equipo.", "Traslados|Aeropuerto, hotel y excursiones.", "Asistencia|Seguro médico y contacto 24 h."] },
+            { m: "resenas-google-compleja", title: "Lo que cuentan nuestros viajeros", filters: ["Atención", "Hoteles", "Precios"] },
+            { m: "equipo-media", title: "Tus asesoras de viaje", items: ["|Especialista en Caribe y luna de miel.|Caribe", "|Viajes en familia y grupos.|Familias", "|Cruceros y paquetes combinados.|Cruceros"] },
+            { m: "donde-nos-encontramos-media", title: "Pasá por la agencia" }
+          ] }
+      ]
+    },
+    {
+      id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|alquiler|arquitect/i,
+      templates: [
+        { name: "Propiedades para visitar", style: "Pizarra", font: "clasica", nav: "media", hero: "simple", footer: "compleja",
+          image: [I + "hero-1.jpg", "Interior luminoso de una propiedad"],
+          photos: [[I + "hero-2.jpg", "Living con ventanales"], [I + "hero-3.jpg", "Cocina integrada"], [I + "hero-4.jpg", "Frente de casa con jardín"], ["img/galx-main.jpg", "Living abierto al jardín"], ["img/galx-th2.jpg", "Cocina con isla de madera"], ["img/galx-th3.jpg", "Dormitorio en tonos claros"], ["img/galx-living.jpg", "Ambientes integrados"], ["img/galx-ideas.jpg", "Escritorio junto a la ventana"], ["img/galx-pausa.jpg", "Rincón de lectura"]],
+          title: "Encontrá un lugar *para tu próxima etapa*", lead: "Explorá propiedades y elegí cuáles querés conocer en persona.", action: "Ver propiedades", target: "productos",
+          closing: "Coordinemos tu próxima visita",
+          sections: [
+            { m: "productos-media", nav: "Propiedades", title: "Propiedades destacadas", filters: ["Venta", "Alquiler", "Temporario"], items: ["Depto. 3 ambientes", "Casa con jardín", "Monoambiente a estrenar"], images: [[I + "prop-1.jpg", "Departamento de tres ambientes"], [I + "prop-2.jpg", "Casa con jardín"], [I + "prop-3.jpg", "Monoambiente a estrenar"]] },
+            { m: "galeria-imagenes-compleja", nav: "Galería", title: "Ambientes que se sienten *hogar*", items: ["Living con ventanales", "Cocina integrada", "Dormitorio principal", "Ambientes amplios", "Escritorio con luz natural", "Rincón de lectura", "Vista al verde", "Detalles en madera", "Living al jardín"], kicker: "Galería", filters: ["Livings", "Cocinas", "Dormitorios"], lead: "Fotos reales de propiedades disponibles este mes." },
+            { m: "proceso-media", title: "Cómo coordinar una visita", items: ["Elegí|Marcá las propiedades que te interesan.", "Agendá|Proponé día y horario.", "Visitá|Te acompaña un asesor.", "Ofertá|Te ayudamos con la reserva."] },
+            { m: "equipo-compleja", title: "Asesores que conocen el barrio", items: ["Te acompañamos en cada paso|Asesores matriculados con experiencia en la zona.", "|Ventas", "|Alquileres", "|Tasaciones"] },
+            { m: "reserva-turno-simple", nav: "Visitas", title: "Coordiná una visita", services: ["Depto. 3 ambientes", "Casa con jardín", "Monoambiente a estrenar"] }
+          ] },
+        { name: "Tasaciones inmobiliarias", style: "Arena", font: "editorial", nav: "simple", hero: "compleja", footer: "media", tint: "impar",
+          image: [I + "hero-4.jpg", "Propiedad residencial"],
+          photos: [[I + "hero-2.jpg", "Interior de una propiedad tasada"], [I + "hero-3.jpg", "Ambiente amplio"]],
+          title: "Conocé el valor *de tu propiedad*", lead: "Una tasación para tomar decisiones con referencias claras del mercado.", action: "Pedí tu tasación", target: "proceso",
+          highlights: ["Informe escrito|Con comparables de la zona.", "En 72 horas|Desde la visita.", "Sin compromiso|Decidís después."], icons: ["file-earmark-text", "clock-history", "hand-thumbs-up"],
+          people: ["Raúl M.", "Silvia T.", "Pedro A."], quotes: ["El informe fue claro y vendimos en el rango que nos dijeron.", "Vinieron en el día y me explicaron todo con números.", "Profesionales y muy atentos."],
+          closing: "Sabé cuánto vale antes de decidir",
+          sections: [
+            { m: "quienes-somos-media", nav: "Nosotros", title: "Tasamos con *datos reales*", items: ["Más de 20 años en la zona|Conocemos cada barrio, sus precios y cómo se mueve el mercado.", "Rigor|Comparables verificados.", "Claridad|Un informe que se entiende.", "Cercanía|Te explicamos cada número."], lead: "Combinamos la visita a la propiedad con un análisis de ventas recientes.", body: ["Así llegás a un precio que el mercado acepta."] },
+            { m: "proceso-simple", nav: "Proceso", title: "De la consulta al informe", items: ["Reunimos datos|Ubicación, superficie y estado.", "Comparamos|Ventas recientes en la zona.", "Presentamos|Un rango con sus fundamentos."] },
+            { m: "beneficios-simple", title: "Por qué tasar con nosotros", kicker: "Beneficios", items: ["Precio justo|Ni muy alto ni muy bajo.", "Rapidez|Informe en 72 horas.", "Respaldo|Firmado por martillero.", "Sin costo|Si vendés con nosotros."], icons: ["scales", "lightning", "patch-check", "piggy-bank"] },
+            { m: "resenas-google-simple", title: "Propietarios que confiaron" },
+            { m: "preguntas-frecuentes-media", title: "Consultas sobre tasaciones", items: ["¿Qué documentación sirve?|Escritura, planos y expensas.", "¿Se visita la propiedad?|Sí, la visita es parte de la tasación.", "¿Cuánto cuesta?|Es sin cargo si nos elegís para vender.", "¿Sirve para sucesiones?|Sí, emitimos informes formales."] }
+          ] }
+      ]
+    },
+    {
+      id: "educacion", name: "Educación y libros", match: /educaci[oó]n|idioma|academia|escuela|curso|libro|clases/i,
+      templates: [
+        { name: "Academia de idiomas", style: "Índigo", font: "moderna", nav: "compleja", hero: "media", footer: "compleja",
+          image: ["img/rubros/idiomas/hero.jpg", "Clase de idiomas"],
+          photos: [["img/rubros/idiomas/hero.jpg", "Estudiantes en clase"], ["img/rubros/idiomas/prof-1.jpg", "Profesora explicando en el pizarrón"]],
+          title: "Hablá otro idioma *con confianza*", lead: "Cursos por nivel, práctica de conversación y grupos reducidos.", action: "Hacé el test de nivel", target: "servicios-productos",
+          highlights: ["Inglés", "Portugués", "Italiano"],
+          people: ["Lucas F.", "Belén R.", "Ignacio V."], quotes: ["En un año pasé de no animarme a hablar a dar presentaciones en inglés.", "Los grupos son chicos y se practica mucho.", "Me preparé para el First y aprobé con buena nota."], orgs: ["Inglés B2", "Portugués", "Examen First"],
+          closing: "Tu próximo idioma empieza con un test",
+          sections: [
+            { m: "servicios-productos-media", nav: "Cursos", title: "Modalidades de cursada", items: ["Grupal|Hasta 8 estudiantes por nivel.", "Conversación|Práctica oral con temas de interés.", "Individual|Objetivos a tu ritmo."], bullets: ["Dos clases por semana", "Material incluido", "Certificado por nivel", "Una vez por semana", "Debates y juegos", "Profes nativos", "Horario flexible", "Preparación de exámenes", "Online o presencial"], lead: "¿No sabés tu nivel? Hacé el test gratis." },
+            { m: "equipo-media", title: "Profes que enseñan *con pasión*", items: ["|Inglés para adultos y empresas.|Inglés", "|Portugués desde cero.|Portugués", "|Preparación de exámenes internacionales.|Exámenes"] },
+            { m: "beneficios-compleja", title: "Por qué estudiar con nosotros", items: ["Grupos chicos|Más tiempo para hablar.", "Test de nivel|Empezás donde corresponde.", "Certificados|Validan tu progreso.", "Online|Clases en vivo desde tu casa."], icons: ["people", "clipboard-check", "award", "laptop"] },
+            { m: "casos-exito-simple", title: "Estudiantes que se animaron" },
+            { m: "preguntas-frecuentes-compleja", title: "Antes de inscribirte", filters: ["Cursos", "Niveles", "Pagos"], items: ["¿Cuándo empiezan los cursos?|En marzo y agosto, con ingresos mensuales.", "¿Cuánto dura cada nivel?|Un cuatrimestre.", "¿Cómo sé mi nivel?|Con un test online de 20 minutos.", "¿Puedo cambiar de grupo?|Sí, según disponibilidad.", "¿Hay descuentos?|Para hermanos y pagos anuales.", "¿Entregan factura?|Sí, A o B."] }
+          ] },
+        { name: "Taller de lectura", style: "Azul tinta", font: "editorial", nav: "simple", hero: "simple", footer: "simple",
+          image: ["img/plantillas/lectura.webp", "Libros y cuadernos en una mesa de lectura"],
+          title: "Leamos juntos, *una historia a la vez*", people: ["Silvia R.", "Martín A.", "Inés C."], quotes: ["Volví a leer después de años. Las charlas son lo mejor de la semana.", "Descubrí autores que nunca hubiera elegido sola.", "Un grupo cálido, con lecturas muy bien elegidas."], lead: "Encuentros para descubrir autores, intercambiar miradas y recuperar el tiempo de lectura.", action: "Ver próximos encuentros", target: "reserva-turno",
+          closing: "Guardate un lugar en la mesa",
+          sections: [
+            { m: "quienes-somos-simple", nav: "El taller", title: "Un taller para *leer acompañados*", kicker: "Sobre el taller", lead: "Nos juntamos cada quince días alrededor de un libro. No hace falta saber de literatura, solo tener ganas de leer.", body: ["Cada encuentro tiene una guía de lectura y una charla abierta.", "Lecturas compartidas. Charlas sin apuro."] },
+            { m: "servicios-productos-simple", nav: "Propuestas", title: "Formas de participar", kicker: "Propuestas", items: ["Club mensual|Una novela para leer y comentar en grupo.", "Lectura guiada|Fragmentos y contexto en cada encuentro.", "Escritura|Ejercicios a partir de lo leído."] },
+            { m: "proceso-simple", title: "Cómo funciona", items: ["Elegimos|Votamos el libro del mes.", "Leemos|Con una guía de preguntas.", "Charlamos|Un encuentro de dos horas."] },
+            { m: "resenas-google-media", title: "Lo que dicen quienes participan" },
+            { m: "reserva-turno-simple", nav: "Encuentros", title: "Elegí un encuentro", services: ["Club mensual", "Lectura guiada", "Escritura", "Encuentro abierto"] }
+          ] }
+      ]
+    },
+    {
+      id: "servicios", name: "Negocios y servicios", match: /servicio|consultor|empresa|estudio|contador|abogad/i,
+      templates: [
+        { name: "Consultoría para pymes", style: "Profesional", font: "moderna", nav: "media", hero: "compleja", footer: "compleja",
+          image: ["img/equipo-grupo.jpg", "Equipo de trabajo en una reunión"],
+          photos: [["img/quienes-media.jpg", "Reunión de diagnóstico"], ["img/quienes-compleja.jpg", "Consultores revisando indicadores"], ["img/equipo-grupo.jpg", "Equipo de trabajo"]],
+          title: "Ordená tus procesos *para crecer*", lead: "Diagnóstico, prioridades y un plan de trabajo para el próximo paso de tu empresa.", action: "Agendá un diagnóstico", target: "proceso",
+          highlights: ["Diagnóstico inicial|Entendemos cómo funciona hoy tu empresa.", "Plan de acción|Prioridades claras y medibles.", "Seguimiento mensual|Revisamos avances con tu equipo."], icons: ["search", "list-check", "graph-up-arrow"],
+          people: ["Gustavo P.", "Natalia E.", "Ramiro S."], quotes: ["Ordenamos compras y stock. Hoy sabemos dónde está cada peso.", "Nos ayudaron a armar tableros que usamos todas las semanas.", "Un equipo que escucha y baja las ideas a tareas concretas."], orgs: ["Distribuidora", "Fábrica de muebles", "Cadena de cafés", "Estudio contable"],
+          closing: "Conversemos sobre tu empresa",
+          sections: [
+            { m: "servicios-productos-simple", nav: "Servicios", title: "Áreas de trabajo", kicker: "Servicios", items: ["Operaciones|Procesos, tareas y responsables.", "Finanzas|Costos, precios e indicadores.", "Equipos|Roles, reuniones y comunicación."] },
+            { m: "imagen-texto-media", title: "Consultoría *que se implementa*", kicker: "Nuestro enfoque", lead: "No dejamos un informe en un cajón. Trabajamos con tu equipo hasta que los cambios funcionan solos.", bullets: ["Diagnóstico en dos semanas", "Tableros de control simples", "Acompañamiento en la implementación"] },
+            { m: "proceso-compleja", nav: "Proceso", title: "Así trabajamos", items: ["Un método probado|Más de 80 pymes acompañadas en los últimos años.", "Diagnóstico|Escuchamos y revisamos datos.", "Prioridades|Elegimos qué resolver primero.", "Implementación|Trabajamos con tu equipo.", "Seguimiento|Medimos y ajustamos."] },
+            { m: "casos-exito-media", nav: "Casos", title: "Empresas que crecieron con orden" },
+            { m: "preguntas-frecuentes-simple", title: "Preguntas frecuentes", items: ["¿Para qué tamaño de empresa trabajan?|Pymes de 5 a 200 personas.", "¿Cuánto dura un proyecto?|Entre tres y seis meses.", "¿Trabajan de forma remota?|Sí, combinamos visitas y reuniones online.", "¿Cómo se cotiza?|Por proyecto, después del diagnóstico."] }
+          ] },
+        { name: "Estudio creativo", style: "Cobre", font: "editorial", nav: "compleja", hero: "media", footer: "media", tint: "impar",
+          image: ["img/servicio-web.jpg", "Espacio de trabajo creativo"],
+          photos: [["img/prod-set.jpg", "Packaging diseñado para una marca de cerámica"], ["img/beneficio-foto.jpg", "Dirección de arte para fotografía de producto"], ["img/servicio-web.jpg", "Piezas digitales en pantalla"], ["img/quienes-compleja.jpg", "Equipo revisando bocetos"], ["img/prod-feature.jpg", "Fotografía de producto"], ["img/lugar.jpg", "Identidad aplicada en un local"]],
+          title: "Una identidad *que se reconoce*", lead: "Diseño de marca y piezas digitales para negocios con una historia propia.", action: "Contanos tu proyecto", target: "galeria-imagenes",
+          highlights: ["Identidad", "Packaging", "Redes"],
+          people: ["Tienda Barro", "Café Norte", "Estudio Luz"], quotes: ["Entendieron la marca mejor que nosotros. El packaging se vende solo.", "Ordenaron nuestra comunicación en redes con un sistema simple.", "Cumplieron cada fecha y el resultado superó lo que imaginábamos."],
+          closing: "Hagamos que tu marca se recuerde",
+          sections: [
+            { m: "galeria-imagenes-media", nav: "Proyectos", title: "Proyectos recientes", items: ["Tienda Barro|Packaging|Packaging", "Café Norte|Fotografía|Fotografía", "Estudio Luz|Digital|Digital", "Sabores Caseros|Identidad|Identidad", "Colección Rituales|Fotografía|Fotografía", "Local Palermo|Espacios|Identidad"] },
+            { m: "beneficios-compleja", nav: "Servicios", title: "Diseño para cada etapa", items: ["Identidad|Logo, paleta y pautas de uso.", "Packaging|Envases que cuentan quién sos.", "Dirección de arte|Criterios para fotos y contenido.", "Redes|Plantillas listas para tu equipo."], icons: ["vector-pen", "box-seam", "camera", "phone"] },
+            { m: "proceso-media", title: "Cómo trabajamos", items: ["Brief|Conocemos tu marca y tus objetivos.", "Exploración|Propuestas y referencias.", "Diseño|Desarrollamos la opción elegida.", "Entrega|Archivos y guía de uso."] },
+            { m: "equipo-simple", title: "El estudio", items: ["|Dirección creativa", "|Diseño y packaging", "|Producción"] },
+            { m: "resenas-google-compleja", title: "Marcas que trabajaron con nosotros", filters: ["Identidad", "Packaging", "Redes"] }
+          ] }
+      ]
+    },
+    {
+      id: "mascotas", name: "Animales y mascotas", match: /mascota|veterin|animal|perro|gato/i,
+      templates: [
+        { name: "Veterinaria de barrio", style: "Menta", font: "moderna", nav: "simple", hero: "media", footer: "compleja",
+          image: ["img/plantillas/mascotas.webp", "Veterinaria examinando a un perro"],
+          title: "Cuidado cercano *para tu mascota*", lead: "Consultas programadas, controles y orientación para cada etapa.", action: "Pedí un turno", target: "reserva-turno",
+          highlights: ["Perros y gatos", "Urgencias", "Peluquería"],
+          closing: "Tu mascota en buenas manos",
+          sections: [
+            { m: "servicios-productos-media", nav: "Servicios", title: "Servicios veterinarios", items: ["Consulta clínica|Evaluación general y seguimiento.", "Vacunación|Esquema según edad y antecedentes.", "Peluquería|Baño y corte con turno."], bullets: ["Control anual", "Análisis", "Receta digital", "Cachorros", "Antirrábica", "Libreta sanitaria", "Baño", "Corte de uñas", "Productos hipoalergénicos"], lead: "Atendemos perros, gatos y animales pequeños." },
+            { m: "equipo-simple", title: "El equipo de la veterinaria", items: ["|Clínica de pequeños animales", "|Cirugía", "|Peluquería canina"] },
+            { m: "beneficios-simple", title: "Por qué elegirnos", kicker: "Beneficios", items: ["Turnos rápidos|En el día para urgencias.", "Historia clínica|Todo registrado.", "Trato amable|Sin estrés para tu mascota.", "Pet shop|Alimento y accesorios."], icons: ["lightning", "file-medical", "heart", "bag-heart"] },
+            { m: "preguntas-frecuentes-media", title: "Preguntas frecuentes", items: ["¿Atienden urgencias?|Sí, en horario de atención y con guardia telefónica.", "¿Cada cuánto hay que vacunar?|Te armamos el calendario en la primera consulta.", "¿Hacen visitas a domicilio?|Sí, coordinando con anticipación.", "¿Qué llevo al primer turno?|La libreta sanitaria si la tenés."] },
+            { m: "reserva-turno-compleja", nav: "Turnos", title: "Solicitá un turno", services: ["Consulta clínica", "Vacunación", "Peluquería", "Control de cachorro"] },
+            { m: "donde-nos-encontramos-simple", title: "Visitanos", items: ["Dirección", "Horarios", "Urgencias|Llamanos y te orientamos."] }
+          ] }
+      ]
+    },
+    {
+      id: "automotor", name: "Autos y motos", match: /auto|moto|mec[aá]nic|taller|neum[aá]tic/i,
+      templates: [
+        { name: "Taller mecánico", style: "Grafito", font: "moderna", nav: "media", hero: "compleja", footer: "simple",
+          image: ["img/plantillas/automotor.webp", "Mecánico trabajando en un automóvil"],
+          photos: [["img/plantillas/automotor.webp", "Taller con un auto en el elevador"]],
+          title: "Tu auto, listo *para volver al camino*", lead: "Diagnóstico y mantenimiento con presupuesto antes de intervenir.", action: "Agendá una revisión", target: "reserva-turno",
+          highlights: ["Presupuesto previo|No tocamos nada sin tu aprobación.", "Repuestos garantizados|Originales o de primera marca.", "Entrega en el día|En services y frenos."], icons: ["receipt", "shield-check", "clock"],
+          people: ["Jorge P.", "Daniela F.", "Esteban R."], quotes: ["Me explicaron la falla con fotos y el presupuesto fue el acordado.", "Service rápido y a buen precio. Ya es mi taller de confianza.", "Me resolvieron un ruido que otros talleres no encontraban."],
+          closing: "Tu auto en manos de confianza",
+          sections: [
+            { m: "servicios-productos-simple", nav: "Servicios", title: "Servicios de taller", kicker: "Servicios", items: ["Service|Aceite, filtros y revisión preventiva.", "Frenos|Discos, pastillas y líquido.", "Diagnóstico|Escaneo computarizado de fallas."] },
+            { m: "proceso-media", title: "Cómo trabajamos", items: ["Recibimos|Escuchamos qué le pasa al auto.", "Diagnosticamos|Revisión y escaneo.", "Presupuestamos|Te mandamos el detalle por WhatsApp.", "Entregamos|Con el informe del trabajo."] },
+            { m: "resenas-google-simple", title: "Clientes que vuelven" },
+            { m: "preguntas-frecuentes-simple", title: "Preguntas frecuentes", items: ["¿Trabajan con todas las marcas?|Sí, nacionales e importadas.", "¿Tienen garantía?|Seis meses en mano de obra.", "¿Puedo esperar el auto?|En services, sí. Tenemos sala de espera.", "¿Aceptan tarjetas?|Débito, crédito y transferencia."] },
+            { m: "reserva-turno-media", nav: "Turnos", title: "Agendá tu turno *en el taller*", lead: "Elegí el día y dejá el auto a primera hora." },
+            { m: "donde-nos-encontramos-compleja", title: "Dónde está el taller", items: ["Fácil de encontrar|Sobre la avenida, con portón amplio.", "Transporte público|Colectivos a media cuadra.", "Si venís en auto|Dejalo en el taller y te acercamos."] }
+          ] }
+      ]
+    },
+    {
+      id: "fotografia", name: "Diseño y fotografía", match: /fot[oó]graf|dise[nñ]o|video|audiovisual/i,
+      templates: [
+        { name: "Fotografía de estudio", style: "Topo", font: "clasica", nav: "compleja", hero: "simple", footer: "compleja",
+          image: ["img/plantillas/fotografia.webp", "Fotógrafa trabajando en un estudio luminoso"],
+          photos: [["img/prod-feature.jpg", "Fotografía de producto sobre piedra"], ["img/galx-main.jpg", "Fotografía de interiores"], ["img/quienes-compleja.jpg", "Retrato de equipo"], ["img/prod-set.jpg", "Bodegón de cerámica"], ["img/galx-calidez.jpg", "Interior cálido"], ["img/beneficio-foto.jpg", "Naturaleza muerta"], ["img/galx-th3.jpg", "Dormitorio para catálogo"], ["img/plantillas/fotografia.webp", "Sesión en el estudio"], ["img/galx-pausa.jpg", "Detalle de producto textil"]],
+          title: "Fotos para contar *lo que hacés*", lead: "Retratos profesionales, productos y campañas con dirección de arte.", action: "Ver portfolio", target: "galeria-imagenes",
+          people: ["Marina C.", "Bruno S.", "Clara D."], quotes: ["Las fotos de producto duplicaron las consultas en la tienda.", "Me sentí cómoda en la sesión de retratos desde el primer minuto.", "Entregaron en tiempo y con una edición impecable."],
+          closing: "Hagamos tu próxima sesión",
+          sections: [
+            { m: "galeria-imagenes-compleja", nav: "Portfolio", title: "Portfolio", items: ["Colección Rituales", "Casa del bosque", "Equipo Norte", "Bodegón en piedra", "Hotel Sereno", "Naturaleza muerta", "Catálogo textil", "Sesión de estudio", "Detalle de producto"], kicker: "Trabajos", filters: ["Producto", "Interiores", "Retratos"], lead: "Una selección de sesiones de los últimos meses." },
+            { m: "servicios-productos-media", nav: "Sesiones", title: "Sesiones disponibles", items: ["Retratos|Perfiles profesionales y equipos.", "Producto|Catálogo, tienda online y campañas.", "Interiores|Arquitectura, hoteles y alquileres."], bullets: ["Una hora de sesión", "Diez fotos editadas", "Fondo a elección", "Fondo blanco", "Ambientación", "Entrega en 5 días", "Luz natural", "Recorrido completo", "Fotos en alta"], lead: "¿Necesitás algo distinto? Armamos una propuesta." },
+            { m: "proceso-simple", title: "De la idea a la entrega", items: ["Brief|Objetivo y referencias.", "Sesión|Luz, encuadre y dirección.", "Entrega|Selección y edición final."] },
+            { m: "casos-exito-simple", title: "Clientes que confiaron" },
+            { m: "preguntas-frecuentes-compleja", title: "Preguntas frecuentes", filters: ["Sesiones", "Entregas", "Pagos"], items: ["¿Dónde son las sesiones?|En el estudio o en tu espacio.", "¿Puedo llevar mi ropa?|Sí, te sugerimos cambios y colores.", "¿Cuándo recibo las fotos?|Entre cinco y diez días hábiles.", "¿En qué formato entregan?|JPG en alta y versión para redes.", "¿Cómo se reserva?|Con una seña del 30 %.", "¿Puedo reprogramar?|Con 48 horas de aviso."] }
+          ] }
+      ]
+    },
+    {
+      id: "cultura", name: "Arte y cultura", match: /galer[ií]a|museo|arte|cultura|teatro/i,
+      templates: [
+        { name: "Galería de arte", style: "Berenjena", font: "editorial", nav: "simple", hero: "media", footer: "media", tint: "impar",
+          image: ["img/plantillas/cultura.webp", "Visitante frente a obras en una galería"],
+          photos: [["img/plantillas/cultura.webp", "Sala de exposición"], ["img/galx-ideas.jpg", "Obra sobre papel junto a la ventana"], ["img/galx-th1.jpg", "Instalación con plantas"]],
+          title: "El arte *se encuentra en persona*", lead: "Exposiciones, recorridos y conversaciones para descubrir nuevas miradas.", action: "Ver la programación", target: "quienes-somos",
+          highlights: ["Entrada libre", "Visitas guiadas", "Charlas con artistas"],
+          people: ["Elena V.", "Tomás H.", "Grupo escolar"], quotes: ["La visita guiada cambió mi forma de mirar las obras.", "Un espacio cuidado, con muestras que invitan a volver.", "Llevamos a los chicos y salieron llenos de preguntas."],
+          closing: "Te esperamos en sala",
+          sections: [
+            { m: "video-destacado-simple", nav: "Muestra", title: "Recorré la muestra actual", images: [["img/plantillas/cultura.webp", "Fotograma del recorrido por la muestra"]] },
+            { m: "galeria-imagenes-simple", title: "Obras en sala" },
+            { m: "quienes-somos-compleja", nav: "La galería", title: "Un espacio para *artistas emergentes*", lead: "Desde 2015 mostramos el trabajo de artistas que están empezando a exponer.", items: ["Qué buscamos|Obras que abran preguntas y dialoguen con el barrio.", "Cómo participar|Convocatoria abierta dos veces por año."] },
+            { m: "resenas-google-media", title: "Lo que dicen nuestros visitantes" },
+            { m: "donde-nos-encontramos-media", title: "Visitá la galería" }
+          ] }
+      ]
+    },
+    {
+      id: "electronica", name: "Electrónica", match: /electr[oó]nica|audio|accesorios|celular|gadget/i,
+      templates: [
+        { name: "Audio y accesorios", style: "Azul eléctrico", font: "moderna", nav: "media", hero: "compleja", footer: "compleja",
+          image: ["img/plantillas/electronica.webp", "Auriculares y accesorios electrónicos sobre un escritorio"],
+          title: "Equipá tu día *con lo que usás*", lead: "Audio y accesorios elegidos para trabajar, estudiar y escuchar música.", action: "Ver categorías", target: "servicios-productos",
+          highlights: ["Envío en 24 h|En CABA y GBA.", "Garantía oficial|12 meses en todos los productos.", "Asesoramiento|Te ayudamos a elegir."], icons: ["truck", "shield-check", "chat-dots"],
+          people: ["Fran L.", "Mica O.", "Seba T."], quotes: ["Me asesoraron por WhatsApp y los auriculares son justo lo que buscaba.", "Llegó al otro día, bien embalado.", "Buenos precios y atención rápida cuando tuve una duda."],
+          closing: "Encontrá tu próximo equipo",
+          sections: [
+            { m: "beneficios-media", nav: "Ventajas", title: "Comprá con tranquilidad", items: ["Productos originales|Importadores oficiales.", "Cuotas sin interés|Con todas las tarjetas.", "Cambios simples|30 días para cambiar.", "Retiro en local|Sin costo de envío."] },
+            { m: "servicios-productos-media", nav: "Categorías", title: "Qué podés encontrar", items: ["Auriculares|Para oficina, deporte y gaming.", "Parlantes|Portátiles y para el hogar.", "Accesorios|Cables, cargadores y soportes."], bullets: ["Con cancelación de ruido", "Inalámbricos", "Con micrófono", "Bluetooth", "Resistentes al agua", "Con batería larga", "USB-C", "Carga rápida", "Soportes de escritorio"], lead: "¿Buscás algo puntual? Consultanos." },
+            { m: "resenas-google-compleja", title: "Lo que dicen nuestros clientes", filters: ["Envíos", "Atención", "Productos"] },
+            { m: "preguntas-frecuentes-media", title: "Consultas de compra", items: ["¿Cómo verifico la compatibilidad?|Mandanos el modelo de tu dispositivo.", "¿Hacen factura A?|Sí, pedila al comprar.", "¿Cuánto tarda el envío?|24 a 72 horas según la zona.", "¿Puedo retirar mi pedido?|Sí, en el local con tu número de orden."] },
+            { m: "donde-nos-encontramos-simple", title: "Retirá en el local", items: ["Local", "Horarios", "Retiros|Te avisamos cuando tu pedido esté listo."] }
+          ] }
+      ]
+    },
+    {
+      id: "hogar", name: "Hogar y familia", match: /hogar|familia|electric|mantenimiento|decoraci|interior/i,
+      templates: [
+        { name: "Electricidad para el hogar", style: "Canela", font: "clasica", nav: "compleja", hero: "media", footer: "simple",
+          image: ["img/plantillas/hogar.webp", "Electricista trabajando en una vivienda"],
+          photos: [["img/plantillas/hogar.webp", "Revisión de un tablero eléctrico"]],
+          title: "Instalaciones eléctricas *para tu casa*", lead: "Revisión, diagnóstico y reparaciones coordinadas con presupuesto previo.", action: "Pedí presupuesto", target: "proceso",
+          highlights: ["Matriculados", "Urgencias 24 h", "Garantía escrita"],
+          people: ["Mónica R.", "Carlos D.", "Laura P."], quotes: ["Vinieron el mismo día por un corte y lo resolvieron rápido.", "Me cambiaron el tablero completo y dejaron todo limpio.", "Presupuesto claro y trabajo prolijo."],
+          closing: "Una instalación segura empieza con una revisión",
+          sections: [
+            { m: "servicios-productos-simple", nav: "Servicios", title: "Trabajos a domicilio", kicker: "Servicios", items: ["Iluminación|Instalación y renovación de luminarias.", "Tableros|Actualización con disyuntor y térmicas.", "Diagnóstico|Buscamos la falla y te explicamos opciones."] },
+            { m: "beneficios-compleja", title: "Trabajos seguros y prolijos", items: ["Matrícula vigente|Electricistas habilitados.", "Materiales certificados|Normas IRAM.", "Limpieza|Dejamos todo como estaba.", "Garantía|Seis meses por escrito."], icons: ["patch-check", "plug", "stars", "shield-check"] },
+            { m: "proceso-compleja", nav: "Cómo trabajamos", title: "Cómo coordinamos la visita", items: ["Sin sorpresas|Antes de empezar sabés qué se hace y cuánto cuesta.", "Consultá|Contanos el problema.", "Agendá|Elegí una franja horaria.", "Presupuesto|Lo aprobás antes de empezar.", "Trabajo|Con garantía escrita."] },
+            { m: "resenas-google-simple", title: "Vecinos que nos recomiendan" },
+            { m: "preguntas-frecuentes-simple", title: "Preguntas frecuentes", items: ["¿Cobran la visita?|Se descuenta si hacemos el trabajo.", "¿Atienden urgencias?|Sí, las 24 horas.", "¿Emiten certificados?|Sí, para consorcios y aseguradoras.", "¿En qué zonas trabajan?|CABA y zona norte."] }
+          ] },
+        { name: "Decoración de interiores", style: "Terracota", font: "editorial", nav: "simple", hero: "simple", footer: "compleja", tint: "impar",
+          image: ["img/galx-main.jpg", "Living abierto con ventanales al jardín"],
+          photos: [["img/galx-calidez.jpg", "Rincón de estar con luz cálida"], ["img/galx-th2.jpg", "Cocina con isla de madera"], ["img/galx-th3.jpg", "Dormitorio en tonos claros"], ["img/galx-living.jpg", "Living y dormitorio integrados"], ["img/galx-ideas.jpg", "Escritorio junto a la ventana"], ["img/galx-pausa.jpg", "Sillón de lectura con manta"], ["img/galx-th4.jpg", "Sillón frente a un paisaje verde"], ["img/galx-th1.jpg", "Detalle de living con plantas"], ["img/galx-main.jpg", "Living abierto al jardín"]],
+          title: "Espacios que *se sienten tuyos*", lead: "Proyectos de interiorismo para casas y departamentos, de la idea a la obra terminada.", action: "Agendá una visita", target: "reserva-turno",
+          people: ["Familia Giménez", "Andrea L.", "Pablo y Juli"], quotes: ["Transformaron un departamento oscuro en el lugar donde más nos gusta estar.", "Respetaron el presupuesto y los tiempos de obra.", "Cada mueble tiene sentido. Es nuestra casa, pero mejor."], orgs: ["Departamento", "Casa", "Monoambiente"],
+          closing: "Tu casa puede sentirse distinta",
+          sections: [
+            { m: "galeria-imagenes-compleja", nav: "Proyectos", title: "Proyectos terminados", items: ["Casa en Belgrano", "Rincón de estar", "Cocina en roble", "Dormitorio sereno", "Loft en Palermo", "Escritorio en casa", "Rincón de lectura", "Vista al jardín", "Living con plantas"], kicker: "Galería", filters: ["Livings", "Cocinas", "Dormitorios"], lead: "Casas reales, pensadas con luz natural y materiales nobles." },
+            { m: "quienes-somos-media", nav: "Estudio", title: "Diseñamos *con vos*", items: ["Escuchamos cómo vivís|Cada proyecto empieza conociendo tus rutinas, tus objetos y lo que querés cambiar.", "Luz|Aprovechar cada ventana.", "Materiales|Nobles y duraderos.", "Orden|Lugar para cada cosa."], images: [["img/galx-calidez.jpg", "Living cálido diseñado por el estudio"]], lead: "Somos un estudio de interiorismo con foco en casas que se usan todos los días.", body: ["Te acompañamos desde el primer boceto hasta la última lámpara."] },
+            { m: "proceso-media", title: "De la idea a la obra", items: ["Visita|Conocemos el espacio.", "Propuesta|Planos, renders y presupuesto.", "Compras|Elegimos muebles y materiales.", "Obra|Coordinamos a cada gremio."] },
+            { m: "casos-exito-media", title: "Clientes en su nueva casa" },
+            { m: "reserva-turno-media", nav: "Visitas", title: "Agendá una *visita al espacio*", lead: "Elegí un horario y vamos a conocer tu casa." }
+          ] }
+      ]
+    },
+    {
+      id: "regalos", name: "Regalos y flores", match: /regalo|flor|fiesta|cer[aá]mic|deco/i,
+      templates: [
+        { name: "Florería de estación", style: "Frambuesa", font: "editorial", nav: "media", hero: "simple", footer: "media",
+          image: ["img/plantillas/regalos.webp", "Florista preparando un ramo de flores"],
+          photos: [["img/plantillas/regalos.webp", "Ramo de flores de estación"], ["img/galx-th1.jpg", "Arreglo floral en un living"]],
+          title: "Flores para decirlo *a tu manera*", lead: "Ramos por encargo, arreglos para eventos y regalos con dedicatoria.", action: "Encargá tu ramo", target: "servicios-productos",
+          closing: "Mandá flores hoy",
+          sections: [
+            { m: "servicios-productos-media", nav: "Arreglos", title: "Arreglos y encargos", items: ["Ramos|Flores de estación combinadas a mano.", "Eventos|Centros de mesa y ambientación.", "Regalos|Ramos con tarjeta y envío."], bullets: ["Tres tamaños", "Papel reciclado", "Tarjeta escrita a mano", "Casamientos", "Cumpleaños", "Empresas", "Envío en el día", "Chocolates", "Velas aromáticas"], lead: "¿Tenés una fecha especial? Reservá con anticipación." },
+            { m: "quienes-somos-simple", nav: "Nosotras", title: "Flores que *cuentan algo*", kicker: "Quiénes somos", lead: "Somos un taller floral de barrio. Compramos en el mercado cada mañana y armamos cada ramo a pedido.", body: ["Nada de plástico ni flores teñidas: solo lo que da la estación.", "Flores frescas. Envíos en el día."] },
+            { m: "beneficios-simple", title: "Por qué elegirnos", kicker: "Beneficios", items: ["Frescura|Flores compradas en el día.", "Envío|En moto, en dos horas.", "Dedicatoria|Escrita a mano.", "Seguimiento|Te avisamos cuando llega."], icons: ["flower1", "scooter", "pencil", "bell"] },
+            { m: "preguntas-frecuentes-compleja", title: "Cómo hacer tu pedido", filters: ["Pedidos", "Envíos", "Pagos"], items: ["¿Puedo elegir los colores?|Sí, según la disponibilidad de la semana.", "¿Con cuánto tiempo encargo?|Con 24 horas alcanza para ramos.", "¿Hacen envíos?|Sí, en el día en toda la ciudad.", "¿Cuánto cuesta el envío?|Depende de la zona.", "¿Cómo pago?|Transferencia, tarjeta o Mercado Pago.", "¿Entregan factura?|Sí, pedila al encargar."] },
+            { m: "donde-nos-encontramos-compleja", title: "Visitá el taller", images: [["img/plantillas/regalos.webp", "Taller floral"]], items: ["Un taller lleno de color|Pasá a elegir las flores en persona.", "Transporte público|A una cuadra del subte.", "Retiro en el local|Coordinamos el horario."] }
+          ] },
+        { name: "Tienda de cerámica", style: "Oliva", font: "clasica", nav: "compleja", hero: "compleja", footer: "compleja", tint: "impar",
+          image: ["img/prod-feature.jpg", "Taza, cuenco y florero sobre una bandeja de piedra"],
+          photos: [["img/prod-set.jpg", "Set de piezas de cerámica"], ["img/prod-taza.jpg", "Taza de cerámica clara"]],
+          title: "Piezas hechas a mano *para regalar*", lead: "Vajilla y objetos de cerámica de producción artesanal, con envío a todo el país.", action: "Ver la colección", target: "productos",
+          highlights: ["Hecho a mano|Cada pieza es única.", "Envío protegido|Embalaje que cuida tus piezas.", "Listo para regalar|Con caja y tarjeta."], icons: ["hand-index-thumb", "box-seam", "gift"],
+          people: ["Valen G.", "Martina S.", "Hugo B."], quotes: ["Regalé el set de tazas y fue un éxito. Llegó perfecto.", "Se nota el trabajo artesanal en cada pieza.", "Atención muy cálida y envío rápido."],
+          closing: "Regalá algo hecho a mano",
+          sections: [
+            { m: "productos-media", nav: "Colección", title: "Encontrá tu *próximo favorito*", filters: ["Vajilla", "Decoración", "Regalos"], items: ["Taza Serena", "Florero Aura", "Cuenco Tierra"], images: [["img/prod-taza-m.jpg", "Taza de dos tonos"], ["img/prod-florero-m.jpg", "Florero de dos tonos"], ["img/prod-cuenco-m.jpg", "Cuenco de dos tonos"]] },
+            { m: "imagen-texto-simple", nav: "El taller", title: "Del torno *a tu mesa*", kicker: "El taller", lead: "Cada pieza se modela, esmalta y hornea en nuestro taller. Por eso no hay dos iguales.", images: [["img/prod-set.jpg", "Piezas recién salidas del horno"]] },
+            { m: "beneficios-media", title: "Comprar en el taller", items: ["Producción local|Arcilla y esmaltes nacionales.", "Envíos a todo el país|Embalaje reforzado.", "Para regalar|Caja y tarjeta sin costo.", "Pedidos especiales|Sets para casamientos y empresas."] },
+            { m: "resenas-google-simple", title: "Lo que dicen quienes compraron" },
+            { m: "preguntas-frecuentes-media", title: "Antes de comprar", items: ["¿Las piezas van al lavavajillas?|Sí, y también al microondas.", "¿Hacen envíos?|A todo el país por correo.", "¿Puedo encargar un set?|Sí, con dos semanas de anticipación.", "¿Qué pasa si llega rota?|La reponemos sin costo."] }
+          ] }
+      ]
+    },
+    {
+      id: "comunidad", name: "Sociedad y comunidad", match: /comunidad|fundaci[oó]n|ong|social|voluntar/i,
+      templates: [
+        { name: "Red de voluntariado", style: "Eucalipto", font: "moderna", nav: "simple", hero: "compleja", footer: "compleja",
+          image: ["img/plantillas/comunidad.webp", "Personas voluntarias clasificando donaciones"],
+          photos: [["img/plantillas/comunidad.webp", "Jornada de voluntariado"], ["img/equipo-grupo.jpg", "Equipo de coordinación"]],
+          title: "Sumá tiempo *a una causa cercana*", lead: "Conectamos personas y organizaciones para sostener acciones en el barrio.", action: "Quiero sumarme", target: "proceso",
+          highlights: ["Jornadas de 3 horas|Elegís cuándo participar.", "Sin experiencia|Te acompañamos desde el primer día.", "Impacto local|Ayudás en tu barrio."], icons: ["clock", "hand-thumbs-up", "geo-alt"],
+          people: ["Camila R.", "Joaquín M.", "Rosa T."], quotes: ["Empecé una vez por mes y hoy coordino el ropero comunitario.", "Conocí gente increíble y siento que ayudo de verdad.", "Una organización seria, transparente y muy humana."], orgs: ["Voluntaria", "Voluntario", "Vecina"],
+          closing: "Tu tiempo puede cambiar algo",
+          sections: [
+            { m: "proceso-compleja", nav: "Sumate", title: "Cómo sumarte", items: ["Empezar es simple|Elegís una actividad y te acompañamos en la primera jornada.", "Elegí|Una tarea según tus intereses.", "Coordiná|Día y horario.", "Participá|Con el equipo.", "Seguí|Con la frecuencia que puedas."] },
+            { m: "quienes-somos-media", nav: "Nosotros", title: "Una red *de vecinos*", items: ["Desde 2012 en el barrio|Organizamos colectas, apoyo escolar y comedores con más de 300 voluntarios.", "Cercanía|Trabajamos donde vivimos.", "Transparencia|Rendimos cuentas.", "Constancia|Todas las semanas."], lead: "Nacimos como un grupo de vecinos que quería ayudar en el comedor de la parroquia.", body: ["Hoy articulamos con escuelas, clubes y centros de salud."] },
+            { m: "video-destacado-simple", title: "Una jornada con nosotros", images: [["img/plantillas/comunidad.webp", "Fotograma de una jornada solidaria"]] },
+            { m: "casos-exito-simple", title: "Historias de voluntarios" },
+            { m: "preguntas-frecuentes-simple", title: "Preguntas de voluntariado", items: ["¿Necesito experiencia?|No, cada actividad tiene una capacitación.", "¿Puedo participar en familia?|Sí, hay jornadas para todas las edades.", "¿Puedo donar?|Sí, ropa, alimentos o dinero.", "¿Entregan certificados?|Sí, de horas de voluntariado."] },
+            { m: "donde-nos-encontramos-media", title: "Dónde nos juntamos" }
+          ] }
+      ]
+    },
+    {
+      id: "tecnologia", name: "Computación e internet", match: /tecnolog|software|internet|sistemas|app|saas/i,
+      templates: [
+        { name: "Software para equipos", style: "Azul tinta", font: "moderna", nav: "media", hero: "media", footer: "compleja", tint: "impar",
+          image: ["img/plantillas/tecnologia.webp", "Desarrollador trabajando frente a una computadora"],
+          photos: [["img/plantillas/tecnologia.webp", "Tablero de tareas en pantalla"], ["img/servicio-web.jpg", "La plataforma en una notebook"], ["img/equipo-grupo.jpg", "Equipo usando la plataforma"]],
+          title: "Organizá el trabajo *en un solo lugar*", lead: "Una plataforma para centralizar tareas, responsables y avances del equipo.", action: "Probá gratis 14 días", target: "proceso",
+          highlights: ["Sin tarjeta", "En español", "Soporte humano"],
+          people: ["Agencia Prisma", "Logística Sur", "Estudio Norte"], quotes: ["Dejamos las planillas y ahora todos saben qué hacer cada día.", "La implementación fue en una tarde. El soporte responde rápido.", "Los reportes semanales nos ahorran una reunión entera."],
+          closing: "Empezá a ordenar tu equipo hoy",
+          sections: [
+            { m: "beneficios-compleja", nav: "Funciones", title: "Funciones para el día a día", items: ["Tableros|Ordená pendientes por etapa.", "Responsables|Asigná tareas y fechas.", "Reportes|Avance semanal automático.", "Permisos|Qué ve cada rol."], icons: ["kanban", "person-check", "bar-chart", "shield-lock"] },
+            { m: "video-destacado-media", nav: "Demos", title: "Mirá cómo funciona", items: ["Primeros pasos|Tutorial|Tutorial", "Tableros y tareas|Funciones|Funciones", "Reportes automáticos|Funciones|Reportes"] },
+            { m: "proceso-simple", nav: "Empezar", title: "Así empezás", items: ["Creá un espacio|Tu primer proyecto en minutos.", "Invitá al equipo|Accesos y responsables.", "Seguí avances|Tablero y reportes."] },
+            { m: "resenas-google-compleja", title: "Equipos que ya lo usan", filters: ["Soporte", "Facilidad", "Reportes"] },
+            { m: "preguntas-frecuentes-compleja", title: "Preguntas frecuentes", filters: ["Prueba", "Planes", "Seguridad"], items: ["¿La prueba es gratis?|Sí, 14 días sin tarjeta.", "¿Puedo importar mis planillas?|Sí, desde Excel o Google Sheets.", "¿Cuánto cuesta?|Desde USD 6 por usuario por mes.", "¿Hay descuento anual?|Sí, dos meses sin cargo.", "¿Dónde se guardan los datos?|En servidores con copias diarias.", "¿Puedo exportar todo?|Sí, cuando quieras."] }
+          ] }
+      ]
+    },
+    {
+      id: "deportes", name: "Deportes y aire libre", match: /deporte|aire libre|trekking|running|club|outdoor/i,
+      templates: [
+        { name: "Club de trekking", style: "Bosque", font: "editorial", nav: "compleja", hero: "simple", footer: "simple",
+          image: [V + "cat-aventura.webp", "Paisaje para actividades de aventura"],
+          photos: [[V + "cat-naturaleza.webp", "Sendero entre árboles"], [V + "dest-bariloche.webp", "Lago entre montañas"], [V + "promo-salta.webp", "Quebrada de colores"], [V + "promo-ushuaia.webp", "Montañas nevadas"], [V + "gal-2.webp", "Caminantes en un mirador"], [V + "cat-aventura.webp", "Cumbre al amanecer"]],
+          title: "La próxima caminata *empieza acá*", lead: "Salidas guiadas para conocer senderos y compartir el recorrido.", action: "Anotate a una salida", target: "reserva-turno",
+          closing: "Nos vemos en el sendero",
+          sections: [
+            { m: "galeria-imagenes-media", nav: "Salidas", title: "Senderos que recorrimos", items: ["Bosque de lengas|Sur|Bosque", "Lago escondido|Bariloche|Lagos", "Quebrada de colores|Norte|Montaña", "Glaciar Martial|Ushuaia|Montaña", "Mirador del valle|Córdoba|Valles", "Cumbre al amanecer|Mendoza|Montaña"] },
+            { m: "servicios-productos-simple", nav: "Niveles", title: "Salidas por nivel", kicker: "Niveles", items: ["Inicial|Recorridos cortos con paradas.", "Intermedio|Desnivel y mayor distancia.", "Avanzado|Jornada completa con requisitos."] },
+            { m: "equipo-simple", title: "Guías del club", items: ["|Guía de montaña certificada", "|Primeros auxilios en zonas agrestes", "|Coordinación de salidas"] },
+            { m: "preguntas-frecuentes-media", title: "Antes de salir", items: ["¿Qué equipo necesito?|Zapatillas de trekking, abrigo en capas y agua.", "¿Incluye traslado?|En las salidas fuera de la ciudad, sí.", "¿Qué pasa si llueve?|Reprogramamos sin costo.", "¿Hay seguro?|Sí, cada salida incluye seguro."] },
+            { m: "reserva-turno-media", nav: "Anotate", title: "Reservá tu lugar *en la próxima salida*", lead: "Elegí la fecha y te mandamos el detalle por mail." }
+          ] }
+      ]
+    },
+    {
+      id: "entretenimiento", name: "Entretenimiento y vida nocturna", match: /entretenimiento|m[uú]sica|evento|juego|nocturn|bar\b/i,
+      templates: [
+        { name: "Ciclo de música en vivo", style: "Berenjena", font: "moderna", nav: "media", hero: "compleja", footer: "compleja", tint: "impar",
+          image: ["img/plantillas/entretenimiento.webp", "Escenario de un concierto con luces azules y violetas"],
+          title: "Una noche para *escuchar en vivo*", lead: "Artistas emergentes, sesiones acústicas y fechas para agendar.", action: "Ver la agenda", target: "beneficios",
+          highlights: ["Viernes y sábados|Shows desde las 21 h.", "Barra y cocina|Abiertas toda la noche.", "Entradas anticipadas|Con descuento."], icons: ["calendar-event", "cup-straw", "ticket-perforated"],
+          people: ["Juli A.", "Manu D.", "Paz G."], quotes: ["El sonido es increíble y el lugar es muy íntimo.", "Descubrí bandas que hoy escucho todo el tiempo.", "Gran ambiente para ir con amigos un viernes."],
+          closing: "Agendá tu próxima noche",
+          sections: [
+            { m: "video-destacado-simple", nav: "En vivo", title: "Así se vive una noche", images: [["img/plantillas/entretenimiento.webp", "Fotograma de un show en vivo"]] },
+            { m: "beneficios-simple", nav: "Agenda", title: "Una agenda *para todos los gustos*", kicker: "Programación", items: ["Acústicos|Jueves de formato íntimo.", "Bandas|Viernes de rock y pop.", "Jazz|Sábados de improvisación.", "Jam abierta|Domingos para tocar."], icons: ["music-note", "soundwave", "mic", "people"] },
+            { m: "resenas-google-media", title: "Lo que dice el público" },
+            { m: "preguntas-frecuentes-simple", title: "Antes del show", items: ["¿A qué hora abren las puertas?|Una hora antes de cada show.", "¿Cómo reservo mesa?|Con la compra anticipada.", "¿Hay edad mínima?|Mayores de 18.", "¿Puedo tocar en el ciclo?|Mandanos tu material."] },
+            { m: "donde-nos-encontramos-compleja", title: "Dónde es el ciclo", images: [["img/plantillas/entretenimiento.webp", "Sala del ciclo de música"]], items: ["Una sala con historia|Capacidad para 150 personas.", "Transporte público|Subte y colectivos hasta tarde.", "Si venís en auto|Estacionamiento a una cuadra."] }
+          ] }
+      ]
+    }
+  ];
+})();

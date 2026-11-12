@@ -870,17 +870,6 @@
   ];
 
   var LANDING_CATEGORIES = window.LanzatePlantillas;
-  var TEMPLATE_MODULES = {
-    services: "servicios-productos-simple",
-    benefits: "beneficios-simple",
-    process: "proceso-simple",
-    products: "productos-simple",
-    split: "imagen-texto-simple",
-    gallery: "galeria-imagenes-media",
-    faq: "preguntas-frecuentes-simple",
-    booking: "reserva-turno-simple"
-  };
-
   function categoryTemplates(category) {
     return category.templates;
   }
@@ -905,65 +894,217 @@
     link.setAttribute("href", href);
   }
 
-  function templateSection(section, target, action) {
-    var kind = section[0];
-    var title = section[1];
-    var content = section[2];
-    var extras = section[3];
-    var id = TEMPLATE_MODULES[kind];
-    var tpl = templateMarkup(id);
-    var root = tpl.content;
-    root.querySelector("h2").textContent = title;
+  var TEMPLATE_PEOPLE = /(?:^|\/)(lucia|martin|sofia)\.jpg$/;
+  var TEMPLATE_NAMES = ["Lucía Fernández", "Martín López", "Sofía Díaz", "Laura M.", "Pablo R.", "Carolina S."];
+  var TEMPLATE_ORGS = /^(?:·\s*)?(Estudio de bienestar|Arquitectura|Alma Estudio|Forma Arquitectura|Tienda de diseño|Consultora|Bienestar|Diseño|Servicios)$/;
+  var TEMPLATE_AGENCY = /\bwebs?\b|sitio|tienda online|publicar|tipograf|dise[nñ]amos/i;
+  var TEMPLATE_PROSE_SKIP = ".nx-note, .nx-stars, .meta, .prod-price, .k, .role, .n, .big, .pager-count, .empty-filter, .bk-alt, .foot-form-note, .bk-slot-title, .speech";
 
-    if (kind === "split") {
-      root.querySelector(".nx-kicker").textContent = "Nuestro enfoque";
-      root.querySelector(".split-copy > p:not(.nx-kicker)").textContent = content;
-      setImage(root.querySelector("img"), { src: extras[0], alt: extras[1] });
-      templateLink(root.querySelector(".split-link"), action, target);
-    } else if (kind === "gallery") {
-      root.querySelectorAll(".gal-card").forEach(function (card, index) {
-        if (!content[index]) { card.remove(); return; }
-        var photo = content[index];
-        setImage(card.querySelector("img"), { src: photo[0], alt: photo[1] });
-        card.querySelector(".k").remove();
-        card.querySelector("h3").textContent = photo[2];
-      });
-    } else if (kind === "booking") {
-      var select = root.querySelector('select[name="servicio"]');
-      select.replaceChildren(new Option("Elegí una opción", ""));
-      content.forEach(function (label) { select.add(new Option(label, label)); });
-      root.querySelector(".bk-quick-copy .nx-lead").textContent = "Elegí una opción y completá tus datos para solicitar disponibilidad.";
-      root.querySelector("[data-book-done] p").innerHTML = "Solicitud de <b data-book-out=\"servicio\"></b> para el <b data-book-out=\"dia\"></b> a las <b data-book-out=\"horario\"></b>. Email indicado: <b data-book-out=\"email\"></b>.";
-    } else {
-      var cardSelector = {
-        services: ".svc-cols > div", benefits: ".row > div", process: ".step",
-        products: ".prod-card", faq: ".row > div"
-      }[kind];
-      root.querySelectorAll(cardSelector).forEach(function (card, index) {
-        if (!content[index]) { card.remove(); return; }
-        var parts = content[index].split("|");
-        card.querySelector("h3").textContent = parts[0];
-        if (kind === "products") {
-          card.querySelector(".meta").textContent = parts[1];
-          card.querySelector(".prod-price").remove();
-          card.querySelector("a").remove();
-          setImage(card.querySelector("img"), { src: extras[index][0], alt: extras[index][1] });
-        } else {
-          card.querySelector("p.text-secondary").textContent = parts[1];
-          if (extras) card.querySelector(".nx-ico .bi").className = "bi bi-" + extras[index];
-        }
-      });
-      if (kind === "products") root.querySelector(".nx-note").textContent = "Selección de ejemplo.";
-      if (kind === "services") {
-        var link = root.querySelector(".btn-nx");
-        if (target === "#" + slugify(byId[id].group)) link.remove();
-        else templateLink(link, action, target);
-      }
-    }
-    return { id: id, width: "full", html: tpl.innerHTML };
+  function templateText(el, text) {
+    if (!el || text == null) return;
+    var texts = Array.prototype.filter.call(el.childNodes, function (node) {
+      return node.nodeType === 3 && node.textContent.trim();
+    });
+    var inline = Array.prototype.some.call(el.children, function (child) {
+      return !child.matches(".bi, i, img, svg");
+    });
+    if (!texts.length || inline) { el.textContent = text; return; }
+    texts[0].textContent = (texts[0].previousSibling ? " " : "") + text;
+    texts.slice(1).forEach(function (node) { node.remove(); });
   }
 
-  function templateHero(choice, target) {
+  function templateHeading(el, title) {
+    if (!el || !title) return;
+    var parts = /^(.*?)\s*\*(.+)\*\s*$/.exec(title);
+    el.textContent = parts ? parts[1] + " " : title;
+    if (parts) {
+      var em = document.createElement("span");
+      em.className = "em";
+      em.textContent = parts[2];
+      el.appendChild(em);
+    }
+  }
+
+  function templateCycle(list, index) {
+    return list && list.length ? list[index % list.length] : null;
+  }
+
+  function templateCards(root) {
+    return Array.prototype.filter.call(root.querySelectorAll("h3"), function (h3) {
+      return !h3.closest(".nx-banner, .bk-done, .bk-summary, .faq-help, .bk-step, [data-book-done]");
+    });
+  }
+
+  function templateFilters(root, labels) {
+    var buttons = root.querySelectorAll("button[data-filter], button[data-topic]");
+    var renamed = {};
+    var index = 0;
+    buttons.forEach(function (button) {
+      var key = button.getAttribute("data-filter") || button.getAttribute("data-topic");
+      if (key === "todos" || key === "todas") return;
+      var label = labels && labels[index++];
+      if (!label) return;
+      renamed[button.textContent.trim().toLowerCase()] = label;
+      button.textContent = label;
+    });
+    root.querySelectorAll(".k, small, .nx-kicker, .role").forEach(function (el) {
+      var label = renamed[el.textContent.trim().toLowerCase()];
+      if (label) el.textContent = label;
+    });
+    root.querySelectorAll("[data-copy]").forEach(function (el) {
+      var label = renamed[el.getAttribute("data-copy").trim().toLowerCase()];
+      if (label) el.setAttribute("data-copy", label);
+    });
+    root.querySelectorAll(".empty-filter").forEach(function (el) { el.textContent = "Todavía no hay opciones en esta selección."; });
+  }
+
+  function templateTestimonials(root, ctx) {
+    var names = {};
+    var count = 0;
+    root.querySelectorAll("strong").forEach(function (el) {
+      var name = el.textContent.trim();
+      if (TEMPLATE_NAMES.indexOf(name) === -1) return;
+      if (!names[name]) names[name] = templateCycle(ctx.people, count++);
+      el.textContent = names[name];
+    });
+    var quote = 0;
+    root.querySelectorAll("p").forEach(function (el) {
+      if (el.matches(TEMPLATE_PROSE_SKIP) || el.closest(".nx-banner")) return;
+      var text = el.textContent.trim();
+      if (text.length < 20) return;
+      var next = templateCycle(ctx.quotes, quote++);
+      if (next) el.textContent = /^“/.test(text) ? "“" + next + "”" : next;
+    });
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var node;
+    var org = 0;
+    while ((node = walker.nextNode())) {
+      var text = node.textContent.trim();
+      if (!TEMPLATE_ORGS.test(text)) continue;
+      var label = templateCycle(ctx.orgs, org++) || "Cliente";
+      node.textContent = node.textContent.replace(text, /^·/.test(text) ? "· " + label : label);
+    }
+  }
+
+  function templateImages(root, images, ctx) {
+    var index = 0;
+    function next() {
+      return images ? templateCycle(images, index++) : templateCycle(ctx.photos, ctx.photoIndex++);
+    }
+    root.querySelectorAll("img").forEach(function (img) {
+      if (TEMPLATE_PEOPLE.test(img.getAttribute("src") || "")) return;
+      var photo = next();
+      if (!photo) return;
+      var decorative = img.getAttribute("alt") === "";
+      setImage(img, { src: photo[0], alt: photo[1] });
+      if (decorative) img.setAttribute("alt", "");
+    });
+    root.querySelectorAll(".nx-hero-slide").forEach(function (slide) {
+      var photo = next();
+      if (photo) setImage(slide, { src: photo[0], alt: photo[1] });
+    });
+  }
+
+  function templateModule(spec, ctx) {
+    var tpl = templateMarkup(spec.m);
+    var root = tpl.content;
+    var group = spec.m.replace(/-[^-]+$/, "");
+    var main = root.querySelector("h2");
+    templateHeading(main, spec.title);
+    var kicker = root.querySelector(".nx-kicker");
+    if (kicker && main && !/^\d+$/.test(kicker.textContent.trim()) &&
+      kicker.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      if (spec.kicker) kicker.textContent = spec.kicker;
+    }
+
+    var handled = new Set();
+    if (group === "casos-exito" || group === "resenas-google") {
+      templateTestimonials(root, ctx);
+    } else {
+      var accordion = root.querySelectorAll(".accordion-item");
+      accordion.forEach(function (item, index) {
+        var parts = (templateCycle(spec.items, index) || "").split("|");
+        if (!parts[0]) return;
+        templateText(item.querySelector(".accordion-button"), parts[0]);
+        templateText(item.querySelector(".accordion-body"), parts[1]);
+      });
+      templateCards(root).forEach(function (h3, index) {
+        if (accordion.length && h3.closest(".accordion-item")) return;
+        var parts = (templateCycle(spec.items, index) || "").split("|");
+        if (parts[0]) templateText(h3.querySelector("button") || h3, parts[0]);
+        var sibling = h3.nextElementSibling;
+        while (sibling && sibling.tagName !== "H3") {
+          if (sibling.tagName === "P" && !sibling.matches(TEMPLATE_PROSE_SKIP)) {
+            if (parts[1]) templateText(sibling, parts[1]);
+            handled.add(sibling);
+            break;
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        var card = h3.parentElement;
+        var label = card && card.querySelector(".meta, .k, .role");
+        if (label && parts[2]) templateText(label, parts[2]);
+        var price = card && card.querySelector(".prod-price");
+        if (price && parts[3]) templateText(price, parts[3]);
+        else if (price) price.remove();
+        var icon = card && card.querySelector(".bi");
+        var name = templateCycle(spec.icons, index);
+        if (icon && name && !icon.closest("a, button")) icon.className = "bi bi-" + name;
+      });
+    }
+
+    var body = [spec.lead].concat(spec.body || []).filter(Boolean);
+    var prose = 0;
+    root.querySelectorAll(".nx-lead, p").forEach(function (p) {
+      if (handled.has(p) || p.matches(TEMPLATE_PROSE_SKIP) || p.closest("form, li, .accordion, .nx-banner, .bk-done, [data-book-done], .bk-summary")) return;
+      if (group === "casos-exito" || group === "resenas-google") return;
+      if (p.closest("h3") || p.querySelector("a, button, strong") || p.matches(".nx-kicker")) return;
+      if (p.textContent.trim().length < 20) return;
+      var text = body[prose++];
+      if (text) templateText(p, text);
+      else if (TEMPLATE_AGENCY.test(p.textContent)) p.remove();
+    });
+
+    var bullets = spec.bullets || (spec.items || []).map(function (item) { return item.split("|")[0]; });
+    root.querySelectorAll("li").forEach(function (li, index) {
+      if (li.closest("nav, form, [class*='bk-'], .carousel-indicators") || li.querySelector("a, button, strong")) return;
+      var text = templateCycle(bullets, index);
+      if (text) templateText(li, text);
+    });
+
+    root.querySelectorAll(".bento-tile").forEach(function (tile, index) {
+      var title = (templateCycle(spec.items, index) || "").split("|")[0];
+      var caption = tile.querySelector(".bento-cap");
+      if (!title || !caption) return;
+      tile.setAttribute("data-title", title);
+      if (caption.lastChild && caption.lastChild.nodeType === 3) caption.lastChild.textContent = title;
+    });
+    root.querySelectorAll(".speech").forEach(function (el) { el.textContent = spec.speech || ctx.closing; });
+    if (spec.filters) templateFilters(root, spec.filters);
+    templateImages(root, spec.images, ctx);
+
+    var service = root.querySelector('select[name="servicio"]');
+    if (service && spec.services) {
+      service.replaceChildren(new Option("Elegí una opción", ""));
+      spec.services.forEach(function (label) { service.add(new Option(label, label)); });
+    }
+    var steps = root.querySelector(".bk-step");
+    if (steps && spec.services) {
+      steps.querySelectorAll("strong").forEach(function (el, index) {
+        if (spec.services[index]) el.textContent = spec.services[index];
+      });
+    }
+
+    root.querySelectorAll("a.btn-nx, a.split-link").forEach(function (link) {
+      if (link.closest(".bk-done, [data-book-done]")) return;
+      var inCard = templateCards(root).some(function (h3) { return h3.parentElement.contains(link) && h3.parentElement !== root; });
+      templateLink(link, inCard ? "Consultar" : spec.action || ctx.action, ctx.target);
+    });
+    root.querySelectorAll(".nx-banner h3").forEach(function (h3) { h3.textContent = ctx.closing; });
+    return { id: spec.m, width: "full", html: tpl.innerHTML };
+  }
+
+  function templateHero(choice, ctx) {
     var id = "hero-full-imagen-" + choice.hero;
     var tpl = templateMarkup(id);
     var root = tpl.content;
@@ -975,11 +1116,12 @@
       carousel.removeAttribute("id");
       carousel.removeAttribute("data-bs-ride");
     }
+    root.querySelectorAll(".carousel-control-prev, .carousel-control-next, .carousel-indicators").forEach(function (el) { el.remove(); });
     setImage(slide, { src: choice.image[0], alt: choice.image[1] });
     var heading = root.querySelector(".nx-display");
     var h1 = document.createElement("h1");
     h1.className = heading.className;
-    h1.textContent = choice.title;
+    templateHeading(h1, choice.title);
     heading.replaceWith(h1);
     root.querySelector(".nx-lead").textContent = choice.lead;
     var action = root.querySelector(".btn-nx");
@@ -988,68 +1130,111 @@
       action.className = "btn-nx mt-4";
       root.querySelector(".nx-lead").after(action);
     }
-    templateLink(action, choice.action, target);
+    templateLink(action, choice.action, ctx.target);
 
-    var featureSection = choice.sections.find(function (section) {
-      return ["services", "benefits", "process", "products", "booking"].includes(section[0]);
-    });
-    var features = featureSection[2];
+    var highlights = choice.highlights || [];
     root.querySelectorAll(".nx-pill, .nx-hero-card").forEach(function (card, index) {
-      var parts = features[index].split("|");
-      if (card.classList.contains("nx-pill")) card.textContent = parts[0];
-      else {
-        card.querySelector("h3").textContent = parts[0];
-        card.querySelector("p").textContent = parts[1] || choice.lead;
-        var icon = card.querySelector(".bi");
-        var icons = featureSection[3];
-        if (icons && typeof icons[index] === "string") icon.className = "bi bi-" + icons[index];
-        else icon.className = "bi bi-compass";
-      }
+      var parts = (templateCycle(highlights, index) || "").split("|");
+      if (!parts[0]) return;
+      if (card.classList.contains("nx-pill")) { templateText(card, parts[0]); return; }
+      card.querySelector("h3").textContent = parts[0];
+      card.querySelector("p").textContent = parts[1] || choice.lead;
+      var icon = card.querySelector(".bi");
+      var name = templateCycle(choice.icons, index);
+      if (icon && name) icon.className = "bi bi-" + name;
     });
     return { id: id, width: "full", html: tpl.innerHTML };
   }
 
+  function templateIds(choice) {
+    return ["navegacion-" + choice.nav, "hero-full-imagen-" + choice.hero]
+      .concat(choice.sections.map(function (section) { return section.m; }), "footer-" + choice.footer);
+  }
+
   function categoryTemplateItems(choice) {
-    var ids = ["navegacion-simple", "hero-full-imagen-" + choice.hero]
-      .concat(choice.sections.map(function (section) { return TEMPLATE_MODULES[section[0]]; }), "footer-simple");
+    var ids = templateIds(choice);
     if (ids.some(function (id) { return !byId[id]; })) return null;
-    var nav = templateMarkup(ids[0]);
-    var footer = templateMarkup("footer-simple");
-    var home = "#" + slugify(byId[ids[1]].group);
+    var anchor = function (id) { return "#" + slugify(byId[id].group); };
+    var home = anchor(ids[1]);
     var links = [["Inicio", home]].concat(choice.sections.map(function (section) {
-      return [section[1], "#" + slugify(byId[TEMPLATE_MODULES[section[0]]].group)];
+      return [section.nav || byId[section.m].group, anchor(section.m)];
     }));
-    var target = choice.target === "booking" ? "#" + slugify(byId[TEMPLATE_MODULES.booking].group) : links[1][1];
+    var targetSection = choice.sections.find(function (section) { return choice.target && section.m.indexOf(choice.target) === 0; }) || choice.sections[0];
+    var ctx = {
+      action: choice.action,
+      target: anchor(targetSection.m),
+      photos: choice.photos || [choice.image],
+      people: choice.people || ["Ana G.", "Diego R.", "Valeria P.", "Tomás L."],
+      quotes: choice.quotes || ["Muy buena atención de principio a fin.", "Cumplieron con todo lo que prometieron. Lo recomiendo.", "Se nota el cuidado en cada detalle. Volvería sin dudarlo."],
+      orgs: choice.orgs,
+      photoIndex: 1,
+      closing: choice.closing || "¿Te esperamos?"
+    };
+    var nav = templateMarkup(ids[0]);
+    var footer = templateMarkup(ids[ids.length - 1]);
     [nav, footer].forEach(function (tpl) {
-      var brand = tpl.content.querySelector(".nx-brand");
-      brand.setAttribute("data-template-brand", "");
-      templateLink(brand, choice.name, home);
-      tpl.content.querySelectorAll(".nav-link, footer nav a").forEach(function (link, index) {
-        if (links[index]) templateLink(link, links[index][0], links[index][1]);
-        else (link.closest("li") || link).remove();
+      tpl.content.querySelectorAll(".nx-brand").forEach(function (brand) {
+        brand.setAttribute("data-template-brand", "");
+        templateLink(brand, choice.name, home);
       });
     });
-    templateLink(nav.content.querySelector(".btn-nx"), choice.action, target);
-    footer.content.querySelector(".nx-brand + p").textContent = choice.lead;
-    footer.content.querySelector(".nx-socials").remove();
-    footer.content.querySelector(".small.text-secondary").remove();
+    var navOrder = [];
+    nav.content.querySelectorAll(".nav-link").forEach(function (link) {
+      var key = link.textContent.trim();
+      var index = navOrder.indexOf(key);
+      if (index === -1) index = navOrder.push(key) - 1;
+      if (links[index]) templateLink(link, links[index][0], links[index][1]);
+      else (link.closest("li") || link).remove();
+    });
+    nav.content.querySelectorAll(".btn-nx").forEach(function (button) { templateLink(button, choice.action, ctx.target); });
+
+    var footerLinks = Array.prototype.filter.call(footer.content.querySelectorAll("a"), function (link) {
+      var text = link.textContent.trim();
+      return !link.matches(".nx-brand, .btn-nx, .btn-nx-light") && !link.closest(".nx-socials") &&
+        !/^(Privacidad|Términos|Cookies|Volver arriba)$/.test(text) && !/@|^\+/.test(text);
+    });
+    footerLinks.forEach(function (link, index) {
+      if (links[index]) templateLink(link, links[index][0], links[index][1]);
+      else (link.closest("li") || link).remove();
+    });
+    var about = footer.content.querySelector(".nx-brand + p, .nx-brand ~ p.muted");
+    if (about) about.textContent = choice.lead;
+    footer.content.querySelectorAll("h2").forEach(function (h2) { templateHeading(h2, ctx.closing); });
+    footer.content.querySelectorAll(".btn-nx, .btn-nx-light").forEach(function (button) {
+      if (button.tagName === "A") templateLink(button, choice.action, ctx.target);
+    });
+    footer.content.querySelectorAll(".nx-socials, .small.text-secondary").forEach(function (el) { el.remove(); });
+    footer.content.querySelectorAll("span, p, small").forEach(function (el) {
+      var text = el.childElementCount ? "" : el.textContent;
+      var at = text.indexOf("Marca Ejemplo");
+      if (at === -1) return;
+      var brand = document.createElement("span");
+      brand.setAttribute("data-template-brand", "");
+      brand.textContent = choice.name;
+      el.replaceChildren(text.slice(0, at), brand, text.slice(at + "Marca Ejemplo".length));
+    });
+
     var accent = templateStyle(choice).accent;
     var tint = "#" + accent.slice(1).match(/../g).map(function (part) {
       return Math.round(255 * 0.91 + parseInt(part, 16) * 0.09).toString(16);
     }).join("");
+    var tinted = choice.tint || "par";
     var content = choice.sections.map(function (section, index) {
-      var item = templateSection(section, target, choice.action);
-      if (index % 2 === 0) item.fondo = tint;
+      var item = templateModule(section, ctx);
+      if ((tinted === "par" && index % 2 === 0) || (tinted === "impar" && index % 2 === 1)) item.fondo = tint;
       return item;
     });
-    return [menuDefault({ id: ids[0], width: "full", html: nav.innerHTML }), templateHero(choice, target)]
-      .concat(content, { id: "footer-simple", width: "full", html: footer.innerHTML, fondo: tint });
+    var last = { id: ids[ids.length - 1], width: "full", html: footer.innerHTML };
+    if (choice.footer === "simple") last.fondo = tint;
+    if (byId["whatsapp-simple"]) content.push({ id: "whatsapp-simple", width: "full" });
+    return [menuDefault({ id: ids[0], width: "full", html: nav.innerHTML }), templateHero(choice, ctx)]
+      .concat(content, last);
   }
 
-  function suggestedStyleColors(style) {
+  function suggestedStyleColors(style, font) {
     return {
       titulos: style.title, parrafos: style.text, etiquetas: style.accent,
-      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font
+      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: font || style.font
     };
   }
 
@@ -1102,7 +1287,7 @@
           var heading = document.createElement("h3");
           heading.textContent = choice.name;
           var details = document.createElement("p");
-          details.textContent = style.name + " · " + (choice.sections.length + 3) + " módulos";
+          details.textContent = style.name + " · " + (choice.sections.length + 4) + " módulos";
           var action = document.createElement("button");
           action.type = "button";
           action.className = "lb-template-card-action";
@@ -1141,9 +1326,10 @@
     var category;
     var items;
     var style;
+    var choice;
 
     function renderTemplatePreview() {
-      var choice = categoryTemplates(category)[Number(choiceSelect.value)];
+      choice = categoryTemplates(category)[Number(choiceSelect.value)];
       items = categoryTemplateItems(choice);
       style = templateStyle(choice);
       use.disabled = !items;
@@ -1158,7 +1344,7 @@
       try {
         state = {
           name: choice.name, clienteId: null, items: items, estilo: "",
-          colores: suggestedStyleColors(style)
+          colores: suggestedStyleColors(style, choice.font)
         };
         markup = buildDocument({ base: baseUrl(), staticPreview: true });
       } finally {
@@ -1194,7 +1380,7 @@
       if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
       state.items = items;
       state.ignorados = [];
-      state.colores = suggestedStyleColors(style);
+      state.colores = suggestedStyleColors(style, choice.font);
       update();
       showTab("order");
       dialog.close();
