@@ -3662,3 +3662,11 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 }
 .lb-style-swatches { display: flex; width: 100%; overflow: hidden; border-radius: 6px; }
 .lb-style-swatches i { flex: 1; height: 18px; border-radius: 0; }
+
+.lb-module-color-scope {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}

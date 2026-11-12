@@ -453,11 +453,21 @@
     return COMMON_MODULE_COLORS;
   }
 
+  var GLOBAL_COLOR_KEYS = {
+    titulo: "titulos", texto: "parrafos", etiqueta: "etiquetas", boton: "acento", icono: "iconos"
+  };
+
+  function sharedModuleColors() {
+    return state.colores && state.colores.rolesModulo || {};
+  }
+
   function paintModuleColors(root, item) {
     var fields = moduleColorFields(item);
-    if (!fields || !item.coloresModulo) return;
+    var shared = Object.assign({}, sharedModuleColors());
+    if (item.fondo) delete shared.fondo;
+    var colors = Object.assign(shared, item.coloresModulo);
     Object.keys(fields).forEach(function (key) {
-      var color = normalizeHex(item.coloresModulo[key]);
+      var color = normalizeHex(colors[key]);
       if (!color) return;
       var field = fields[key];
       root.querySelectorAll(field[1]).forEach(function (element) {
@@ -483,6 +493,7 @@
       return Object.assign(item.fondo ? { fondo: item.fondo } : {}, item.coloresModulo);
     }
     var current = savedColors();
+    var shared = Object.assign({}, sharedModuleColors());
     var preview = frameDoc();
     var section = preview && preview.querySelectorAll("body > section.mq-block")[state.items.indexOf(item)];
 
@@ -504,8 +515,8 @@
     function updateContrast() {
       var status = form.querySelector("[data-module-color-contrast]");
       status.textContent = "";
-      if (!fields.boton || !(current.boton || current.botonTexto)) return;
-      var ratio = contrastRatio(current.boton || inherited.boton, current.botonTexto || inherited.botonTexto);
+      if (!fields.boton || !(current.boton || current.botonTexto || shared.boton || shared.botonTexto)) return;
+      var ratio = contrastRatio(current.boton || shared.boton || inherited.boton, current.botonTexto || shared.botonTexto || inherited.botonTexto);
       if (ratio < 4.5) status.textContent = "El botón necesita más contraste. Actual " + ratio.toFixed(2) + ":1. Mínimo 4.5:1.";
     }
 
@@ -519,16 +530,17 @@
         row.innerHTML = '<span>' + field[0] + '</span>' +
           '<input type="color" aria-label="' + field[0] + '">' +
           '<input class="lb-input lb-hex" type="text" maxlength="7" aria-label="HEX de ' + field[0] + '">' +
-          '<button class="lb-link" type="button">Usar original</button>';
+          '<label class="lb-module-color-scope"><input type="checkbox"> Solo este módulo</label>';
         var picker = row.querySelector('input[type="color"]');
         var hex = row.querySelector('input[type="text"]');
-        var reset = row.querySelector("button");
-        picker.value = hex.value = current[key] || inherited[key];
-        reset.disabled = !current[key];
+        var local = row.querySelector('[type="checkbox"]');
+        local.setAttribute("aria-label", field[0] + " solo en este módulo");
+        local.checked = Boolean(current[key]);
+        picker.value = hex.value = current[key] || shared[key] || inherited[key];
         function change(value) {
-          current[key] = value;
+          if (local.checked) current[key] = value;
+          else shared[key] = value;
           picker.value = value;
-          reset.disabled = false;
           updateContrast();
         }
         picker.oninput = function () { change(picker.value); hex.value = picker.value; };
@@ -537,7 +549,13 @@
           hex.setCustomValidity(value ? "" : "Ingresá un color HEX válido, por ejemplo #1b5e42.");
           if (value) change(value);
         };
-        reset.onclick = function () { delete current[key]; render(); };
+        local.onchange = function () {
+          if (local.checked) current[key] = picker.value;
+          else delete current[key];
+          picker.value = hex.value = current[key] || shared[key] || inherited[key];
+          hex.setCustomValidity("");
+          updateContrast();
+        };
         list.appendChild(row);
       });
       undo.disabled = !history.undo.length;
@@ -545,7 +563,8 @@
       updateContrast();
     }
 
-    function apply(colors, legacyBackground) {
+    function apply(colors, legacyBackground, landingColors) {
+      state.colores = landingColors;
       var overrides = Object.assign({}, colors);
       if (legacyBackground && overrides.fondo === legacyBackground) {
         item.fondo = legacyBackground;
@@ -560,9 +579,9 @@
 
     function move(from, to) {
       if (!from.length) return;
-      to.push({ colors: savedColors(), legacyBackground: item.fondo });
+      to.push({ colors: savedColors(), legacyBackground: item.fondo, landingColors: state.colores });
       var change = from.pop();
-      apply(change.colors, change.legacyBackground);
+      apply(change.colors, change.legacyBackground, change.landingColors);
       moduleColorDialog.close("history");
     }
 
@@ -572,10 +591,22 @@
     form.onsubmit = function (event) {
       if (!event.submitter || event.submitter.value !== "apply") return;
       var previous = savedColors();
-      if (JSON.stringify(previous) === JSON.stringify(current)) return;
-      history.undo.push({ colors: previous, legacyBackground: item.fondo });
+      var globalChanged = JSON.stringify(sharedModuleColors()) !== JSON.stringify(shared);
+      if (!globalChanged && JSON.stringify(previous) === JSON.stringify(current)) return;
+      var landingColors = state.colores;
+      if (globalChanged) {
+        landingColors = effectiveColors();
+        landingColors.rolesModulo = shared;
+        Object.keys(GLOBAL_COLOR_KEYS).forEach(function (key) {
+          if (shared[key]) landingColors[GLOBAL_COLOR_KEYS[key]] = shared[key];
+        });
+        state.items.forEach(function (other) {
+          if (other !== item) moduleColorHistory.delete(other);
+        });
+      }
+      history.undo.push({ colors: previous, legacyBackground: item.fondo, landingColors: state.colores });
       history.redo.length = 0;
-      apply(current, item.fondo);
+      apply(current, item.fondo, landingColors);
     };
     moduleColorDialog.querySelector("h2").textContent = "Colores de " + byId[item.id].group;
     render();
@@ -928,7 +959,7 @@
 
   function contrastNotes(colors) {
     var pairs = [
-      ["Texto blanco del botón", "#ffffff", colors.acento, 4.5],
+      ["Texto del botón", sharedModuleColors().botonTexto || "#ffffff", colors.acento, 4.5],
       ["Íconos sobre fondo claro", colors.iconos, "#f7f4ef", 3]
     ];
     return pairs.map(function (pair) {
@@ -3030,7 +3061,7 @@
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
-    if (state.colores && state.colores.acento && contrastRatio("#ffffff", effectiveColors().acento) < 4.5) {
+    if (state.colores && state.colores.acento && contrastRatio(sharedModuleColors().botonTexto || "#ffffff", effectiveColors().acento) < 4.5) {
       out.push({ key: "colors", text: "Ajustá el color de los botones para llegar a 4.5:1" });
     }
     if (rules && rules.general.bloquear && state.items.length && qaReport && qaView.errors) {
@@ -3505,6 +3536,7 @@
     if (Object.hasOwn(LANDING_FONTS, typographySelect.value)) next.tipografia = typographySelect.value;
     else delete next.tipografia;
     state.colores = Object.keys(next).length ? next : null;
+    moduleColorHistory = new WeakMap();
     refreshLandingStyle();
   });
 
@@ -3513,8 +3545,15 @@
     if (!hex) return;
     var next = effectiveColors();
     next[key] = hex;
+    var role = Object.keys(GLOBAL_COLOR_KEYS).find(function (role) { return GLOBAL_COLOR_KEYS[role] === key; });
+    if (role && sharedModuleColors()[role]) {
+      next.rolesModulo = Object.assign({}, next.rolesModulo);
+      next.rolesModulo[role] = hex;
+    }
     state.colores = next;
-    paintLandingColors();
+    moduleColorHistory = new WeakMap();
+    if (role && next.rolesModulo && next.rolesModulo[role]) renderPreview();
+    else paintLandingColors();
     renderColors();
     renderMode();
     saveDraft();
@@ -3528,7 +3567,8 @@
   if (resetColors) resetColors.addEventListener("click", function () {
     var font = state.colores && state.colores.tipografia;
     state.colores = font ? { tipografia: font } : null;
-    refreshLandingStyle();
+    moduleColorHistory = new WeakMap();
+    update();
   });
   nameInput.addEventListener("input", function () {
     state.name = nameInput.value;
