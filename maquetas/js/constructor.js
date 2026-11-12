@@ -1796,7 +1796,50 @@
     });
   }
 
-  function moduleMarkup(it, prefix, i, preview) {
+  function syncFooterMenu(root, menuLinks) {
+    root.querySelectorAll(".nx-footer").forEach(function (footer) {
+      var menus = footer.querySelectorAll(".foot-links, nav[aria-label='Navegación del pie']");
+      if (!menus.length) return;
+      menus.forEach(function (menu, index) {
+        if (!index) {
+          var list = menu.matches("ul, ol");
+          menu.replaceChildren();
+          menu.hidden = !menuLinks.length;
+          var heading = menu.previousElementSibling;
+          if (heading && heading.classList.contains("nx-footer-label")) heading.hidden = menu.hidden;
+          menuLinks.forEach(function (source) {
+            var link = menu.ownerDocument.createElement("a");
+            link.textContent = source.textContent.trim();
+            link.setAttribute("href", source.getAttribute("href"));
+            ["target", "rel", "aria-label"].forEach(function (name) {
+              if (source.hasAttribute(name)) link.setAttribute(name, source.getAttribute(name));
+            });
+            if (list) {
+              var item = menu.ownerDocument.createElement("li");
+              item.appendChild(link);
+              menu.appendChild(item);
+            } else menu.appendChild(link);
+          });
+          return;
+        }
+        var label = menu.previousElementSibling;
+        if (label && label.classList.contains("nx-footer-label")) label.remove();
+        menu.remove();
+      });
+    });
+  }
+
+  function refreshFooterMenu() {
+    var doc = frameDoc();
+    if (!doc || !doc.querySelector("[data-module^='navegacion-'] nav.nx-nav")) return;
+    syncFooterMenu(doc, doc.querySelectorAll("[data-module^='navegacion-'] nav.nx-nav a.nav-link[href]"));
+    doc.querySelectorAll("[data-module^='footer-']").forEach(function (section) {
+      var item = state.items[moduleIndex(section)];
+      if (item) paintModuleColors(section, item);
+    });
+  }
+
+  function moduleMarkup(it, prefix, i, preview, menuLinks) {
     var tpl = moduleTemplate(it, preview, true).tpl;
     tpl.content.querySelectorAll(".nx").forEach(function (el) {
       if (!el.parentElement || !el.parentElement.closest(".nx")) el.setAttribute("data-width", it.width);
@@ -1811,6 +1854,10 @@
         if (el.tagName === "IMG") el.remove();
         else el.style.setProperty("background-image", "none");
       });
+    }
+    if (menuLinks && byId[it.id].groupId === "footer") {
+      syncFooterMenu(tpl.content, menuLinks);
+      paintModuleColors(tpl.content, it);
     }
     var html = tpl.innerHTML;
     if (prefix) {
@@ -1847,7 +1894,11 @@
       "</head>",
       '<body class="landing-page' + (opts.tools ? " has-tools" : "") + (opts.staticPreview ? " lz-static-preview" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
     ].filter(Boolean);
-    var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
+    var menus = state.items.filter(isMenu).flatMap(function (it) {
+      return Array.from(moduleTemplate(it, false, true).tpl.content.querySelectorAll("nav.nx-nav a.nav-link[href]"));
+    });
+    var menuLinks = state.items.some(isMenu) ? menus : null;
+    var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools, menuLinks); });
     var tail = opts.staticPreview ? [] : [
       '  <script src="' + bootstrapJs + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
       '  <script src="' + assets + 'js/lanzate.js"></' + "script>"
@@ -2072,6 +2123,7 @@
     renderMode();
     renderOrder();
     saveDraft();
+    if (isMenu(it)) refreshFooterMenu();
     scheduleQa(900);
   }
 
@@ -3045,6 +3097,7 @@
     }
     var revert = frameDoc().querySelector("#lbLinkTip [data-link-revert]");
     if (revert) revert.hidden = !(it.links && it.links[linkSel.key] != null);
+    if (isMenu(it)) refreshFooterMenu();
     renderMode();
     renderOrder();
     saveDraft();

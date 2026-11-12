@@ -1054,12 +1054,43 @@ def accessible_button_color(color):
             return "#%02x%02x%02x" % candidate
 
 
+def sync_landing_footer_menu(body):
+    def has_class(name):
+        return 'contains(concat(" ", normalize-space(@class), " "), " %s ")' % name
+
+    navs = body.xpath('.//nav[%s]' % has_class("nx-nav"))
+    if not navs:
+        return
+    links = [link for nav in navs for link in nav.xpath('.//a[@href and %s]' % has_class("nav-link"))]
+    for footer in body.xpath('.//footer[%s]' % has_class("nx-footer")):
+        menus = footer.xpath('.//*[%s or (self::nav and @aria-label="Navegación del pie")]' % has_class("foot-links"))
+        for index, menu in enumerate(menus):
+            label = menu.getprevious()
+            if index or not links:
+                if label is not None and "nx-footer-label" in label.get("class", "").split():
+                    label.getparent().remove(label)
+                menu.getparent().remove(menu)
+                continue
+            menu.attrib.pop("hidden", None)
+            menu.text = None
+            existing_style = next((link.get("style") for link in menu.iter("a") if link.get("style")), None)
+            for child in list(menu):
+                menu.remove(child)
+            for source in links:
+                parent = etree.SubElement(menu, "li") if menu.tag in ("ul", "ol") else menu
+                attrs = {key: source.get(key) for key in ("href", "target", "rel", "aria-label") if key in source.attrib}
+                if existing_style:
+                    attrs["style"] = existing_style
+                etree.SubElement(parent, "a", **attrs).text = source.text_content().strip()
+
+
 def accessible_landing(markup, title, primary_color=None, legal_links=None):
     document = html_dom.document_fromstring(markup)
     body = document.find("body")
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
 
+    sync_landing_footer_menu(body)
     fill_image_alts(body)
     head = document.find("head")
     for link in document.xpath('.//link[contains(@href, "fonts.googleapis") or contains(@href, "fonts.gstatic")]'):
