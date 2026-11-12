@@ -1082,10 +1082,11 @@ def new_lead(data):
         raise ApiError(400, "La consulta está vacía")
     tipo = "turno" if data.get("tipo") == "turno" else "contacto"
     origen = str(data.get("origen") or "")[:300]
-    stamp = now_ms()
     with tx() as con:
-        if not con.execute("SELECT 1 FROM landings WHERE id = %s", (landing_id,)).fetchone():
+        # Serializa el conteo y la inserción de consultas por landing.
+        if not con.execute("SELECT 1 FROM landings WHERE id = %s FOR NO KEY UPDATE", (landing_id,)).fetchone():
             raise ApiError(404, "La landing no existe")
+        stamp = now_ms()
         recent = con.execute("SELECT COUNT(*) AS n FROM consultas WHERE landing_id = %s AND creado > %s",
                              (landing_id, stamp - 600000)).fetchone()["n"]
         if recent >= 30:
