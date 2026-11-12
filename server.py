@@ -603,6 +603,18 @@ def structure_errors(items, rules):
     return errors
 
 
+def image_metadata_errors(html, rules):
+    if not (rules.get("general") or {}).get("bloquear"):
+        return []
+    if not (rules.get("imagenes") or {}).get("altObligatorio"):
+        return []
+    document = html_dom.document_fromstring(html)
+    count = len(document.xpath("//img[normalize-space(@src) and not(@alt)]"))
+    if count:
+        return [f"{count} imagen(es) sin atributo alt. Describí la foto o indicá que es decorativa con alt vacío"]
+    return []
+
+
 def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
@@ -618,7 +630,8 @@ def save_landing(data, landing_id=None):
         raise ApiError(400, "Faltan el nombre o el HTML")
     if not isinstance(items, list):
         raise ApiError(400, "Los módulos no tienen el formato esperado")
-    errors = structure_errors(items, read_rules())
+    rules = read_rules()
+    errors = structure_errors(items, rules) + image_metadata_errors(html, rules)
     if errors:
         raise ApiError(400, "No se puede guardar: " + "; ".join(errors) + ".")
     ignorados = data.get("ignorados") or []
