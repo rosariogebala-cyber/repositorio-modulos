@@ -3674,15 +3674,43 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-style-template { margin-top: 10px; }
 .lb-style-template .lb-hint { margin-bottom: 6px; }
 
-.lb-template-gallery { width: min(1200px, calc(100vw - 24px)); max-height: 92vh; }
+.lb-template-gallery {
+  width: min(1200px, calc(100vw - 24px));
+  height: min(900px, calc(100dvh - 24px));
+  max-height: none;
+  overflow: hidden;
+}
+.lb-template-gallery[open] {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.lb-template-gallery .lb-dialog-head,
+.lb-template-gallery .lb-hint,
+.lb-template-gallery .lb-module-colors-actions { margin: 0; }
+.lb-template-gallery .lb-dialog-close { flex: 0 0 auto; font-size: 1.5rem; line-height: 1; }
 .lb-template-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.lb-template-filters label { display: grid; gap: 4px; font-size: 14px; }
-.lb-template-canvas { display: flex; justify-content: center; background: #f4f2ee; }
-.lb-template-canvas iframe { display: block; width: 100%; height: min(56vh, 640px); border: 0; background: #fff; }
+.lb-template-filters label { display: grid; gap: 4px; font-size: 14px; min-width: 0; }
+.lb-template-canvas { display: flex; justify-content: center; min-height: 0; background: #f4f2ee; }
+.lb-template-canvas iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .lb-template-canvas iframe.is-mobile { width: min(100%, 390px); }
 
+.lz-static-preview .lz-preview-menu { display: none; }
+.lz-static-preview .nx-display { overflow-wrap: anywhere; }
+.lz-static-preview [data-track]:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+
+@media (max-width: 991.98px) {
+  .lz-static-preview .lz-preview-menu { display: block; width: 100%; }
+  .lz-static-preview .lz-preview-menu summary { width: max-content; margin-left: auto; padding: 6px 0; }
+  .lz-static-preview .lz-preview-menu .navbar-nav { align-items: flex-start; }
+}
+
 @media (max-width: 520px) {
-  .lb-template-filters { grid-template-columns: 1fr; }
+  .lb-template-gallery { width: calc(100vw - 12px); height: calc(100dvh - 12px); padding: 12px; }
+  .lb-template-gallery .lb-dialog-head h2 { font-size: 1.25rem; }
+  .lb-template-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lb-template-filters label:last-child { grid-column: 1 / -1; }
+  .lb-template-gallery [data-template-use] { width: 100%; }
 }
 
 .lb-main[hidden],

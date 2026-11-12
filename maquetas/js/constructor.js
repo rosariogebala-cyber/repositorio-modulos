@@ -1181,7 +1181,12 @@
     categorySelect.value = (initialCategory || LANDING_CATEGORIES[0]).id;
     categorySelect.onchange = function () { renderChoices(0); };
     choiceSelect.onchange = renderTemplatePreview;
-    deviceSelect.onchange = function () { preview.classList.toggle("is-mobile", deviceSelect.value === "mobile"); };
+    function updateDevice() {
+      preview.classList.toggle("is-mobile", deviceSelect.value === "mobile");
+    }
+    deviceSelect.value = window.matchMedia("(max-width: 520px)").matches ? "mobile" : "desktop";
+    deviceSelect.onchange = updateDevice;
+    updateDevice();
     dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
     use.onclick = function () {
       if (!items) return;
@@ -1550,7 +1555,7 @@
       state.colores ? "  <style>" + colorStyle(state.colores) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
       "</head>",
-      '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
+      '<body class="landing-page' + (opts.tools ? " has-tools" : "") + (opts.staticPreview ? " lz-static-preview" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
     var tail = opts.staticPreview ? [] : [
@@ -1564,7 +1569,36 @@
       body = body.map(function (markup) {
         var template = document.createElement("template");
         template.innerHTML = markup;
-        template.content.querySelectorAll("a[href]").forEach(function (link) { link.removeAttribute("href"); });
+        var root = template.content;
+        root.querySelectorAll("a[href]").forEach(function (link) { link.removeAttribute("href"); });
+        var toggle = root.querySelector(".navbar-toggler");
+        if (toggle) {
+          var menu = document.createElement("details");
+          menu.className = "lz-preview-menu";
+          var summary = document.createElement("summary");
+          summary.textContent = "Menú";
+          var links = root.querySelector(".navbar-collapse").cloneNode(true);
+          links.removeAttribute("id");
+          links.classList.remove("collapse", "navbar-collapse");
+          menu.append(summary, links);
+          toggle.replaceWith(menu);
+        }
+        root.querySelectorAll("[data-scroller]").forEach(function (gallery) {
+          gallery.querySelectorAll("[data-dir]").forEach(function (button) { button.remove(); });
+          var track = gallery.querySelector("[data-track]");
+          if (track) {
+            track.tabIndex = 0;
+            track.setAttribute("aria-label", "Galería de imágenes");
+            track.setAttribute("role", "region");
+          }
+        });
+        root.querySelectorAll("form").forEach(function (form) {
+          form.setAttribute("inert", "");
+          var note = document.createElement("p");
+          note.className = "nx-note";
+          note.textContent = "Formulario de ejemplo";
+          form.after(note);
+        });
         return template.innerHTML;
       });
     }
