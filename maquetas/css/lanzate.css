@@ -3798,8 +3798,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 .lb-template-cover {
   aspect-ratio: 16 / 9;
-  padding: 12px;
-  background: color-mix(in srgb, var(--template-accent) 16%, white);
+  background: color-mix(in srgb, var(--template-accent) 16%, white) center / cover no-repeat;
   border-bottom: 3px solid var(--template-accent);
 }
 
@@ -3807,7 +3806,6 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 6px;
   object-fit: cover;
   object-position: center;
 }

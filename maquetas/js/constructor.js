@@ -1329,10 +1329,11 @@
           var cover = document.createElement("div");
           cover.className = "lb-template-cover";
           cover.style.setProperty("--template-accent", style.accent);
+          cover.style.backgroundImage = "url('" + choice.image[0].replace(/'/g, "%27") + "')";
           var image = document.createElement("img");
           image.src = choice.image[0];
           image.alt = choice.image[1];
-          image.loading = "lazy";
+          image.loading = "eager";
           image.decoding = "async";
           image.addEventListener("error", function () {
             cover.classList.add("is-empty");
