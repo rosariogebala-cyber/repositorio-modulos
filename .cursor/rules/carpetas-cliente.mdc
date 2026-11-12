@@ -1,0 +1,22 @@
+---
+description: Cada cliente nuevo se guarda en su carpeta dentro de Templates
+alwaysApply: true
+---
+
+# Carpeta por cliente
+
+Al crear un cliente, crear su carpeta en el mismo momento. No dejar el alta solo en la base.
+
+Ruta, dentro de `Lanzate_modulos`:
+
+```text
+Templates/<slug-del-cliente>/
+Templates/<slug-del-cliente>/<slug-de-la-landing>/index.html
+```
+
+- El slug del cliente es el de la base, no el nombre visible.
+- Al guardar o duplicar una landing, escribir `index.html` en la carpeta de esa landing y crear la carpeta del cliente si no existe.
+- Si cambia el slug de la landing, mover la carpeta y borrar la anterior.
+- Al borrar la landing, borrar su carpeta. Al borrar el cliente, borrar `Templates/<slug-del-cliente>/`.
+- Un cliente sin landings queda con la carpeta vacía (`.gitkeep` si hace falta que se vea).
+- No guardar estas carpetas fuera del proyecto ni bajo `Proyectos/portal-studio`.

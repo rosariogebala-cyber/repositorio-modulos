@@ -2,7 +2,7 @@
   "use strict";
 
   var DRAFT = "lanzate-landing-draft";
-  var FONTS = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap";
+  var FONTS = "css/fonts.css";
   var BOOTSTRAP_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css";
   var ICONS_CSS = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css";
   var BOOTSTRAP_JS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js";
@@ -1811,9 +1811,7 @@
       '  <meta name="viewport" content="width=device-width, initial-scale=1">',
       "  <title>" + escapeHtml(state.name || "Landing") + "</title>",
       opts.base ? '  <base href="' + opts.base + '">' : "",
-      '  <link rel="preconnect" href="https://fonts.googleapis.com">',
-      '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-      '  <link href="' + FONTS + '" rel="stylesheet">',
+      '  <link href="' + prefix + FONTS + '" rel="stylesheet">',
       '  <link href="' + BOOTSTRAP_CSS + '" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + ICONS_CSS + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + prefix + 'css/lanzate.css" rel="stylesheet">',

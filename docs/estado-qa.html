@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Lanzate — Estado de los hallazgos de QA</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  body { font: 11px/1.4 "Manrope", system-ui, sans-serif; color: #17352c; margin: 0; }
+  h1 { font-size: 22px; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; }
+  h2 { font-size: 15px; margin: 18px 0 8px; text-wrap: balance; }
+  p { margin: 0 0 8px; text-wrap: pretty; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 8px; }
+  th, td { border-bottom: 1px solid #d7e3dc; text-align: left; vertical-align: top; padding: 6px 6px; }
+  th { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: #5f6f68; }
+  td.id { white-space: nowrap; font-weight: 700; width: 72px; }
+  td.st { white-space: nowrap; width: 78px; font-weight: 700; }
+  .ok { color: #17623f; }
+  .mid { color: #8a4600; }
+  .no { color: #9b2c2c; }
+  .note { color: #5f6f68; font-size: 10px; }
+</style>
+</head>
+<body>
+<h1>Estado de los hallazgos de QA</h1>
+<p>Revisión del PDF «Lanzate — Hallazgos de QA» contra el código de <strong>DigitalExpress/proyectos/Lanzate_modulos</strong> al 12 de noviembre de 2026. El estado mira el código local. Varios cambios todavía no están publicados en lanzate-mu.vercel.app.</p>
+<p class="note">Resuelto: el criterio del PDF está en el código. A medias: hay una parte hecha y falta lo que dice el comentario. Falta: no está el criterio de cierre.</p>
+
+<h2>Cliente — landings publicadas</h2>
+<table>
+<tr><th>Ítem</th><th>Estado</th><th>Comentario</th></tr>
+<tr><td class="id">C-UX-01</td><td class="st mid">A medias</td><td>Al servir, el botón principal se oscurece hasta 4.5:1 contra blanco. Falta medirlo en las landings publicadas y bloquear la publicación si otro texto queda por debajo.</td></tr>
+<tr><td class="id">C-UX-02</td><td class="st ok">Resuelto</td><td>Los botones principal, secundario y claro usan alto mínimo de 44 px. Falta la medición en 390 px sobre las siete landings.</td></tr>
+<tr><td class="id">C-UX-03</td><td class="st mid">A medias</td><td>Hay tokens y, en la landing, cuerpo a 14 px y etiquetas a 12 px. Falta sacar los tamaños sueltos de cada módulo y confirmar el inventario.</td></tr>
+<tr><td class="id">C-UX-04</td><td class="st mid">A medias</td><td>Al servir, un h2 con clase de kicker, ceja o h6 pasa a párrafo. Falta que ningún h2 chico quede fuera de esas clases.</td></tr>
+<tr><td class="id">C-UX-05</td><td class="st ok">Resuelto</td><td>Inputs, selects y áreas de texto de la landing quedan en 16 px. Falta la prueba en un iPhone real.</td></tr>
+<tr><td class="id">C-UX-06</td><td class="st ok">Resuelto</td><td>Los puntos del carrusel tienen área de toque de 24 px y el punto visual queda adentro.</td></tr>
+<tr><td class="id">C-UX-07</td><td class="st ok">Resuelto</td><td>El margen lateral usa el token --nx-gutter, 24 px en celular.</td></tr>
+<tr><td class="id">C-FE-01</td><td class="st mid">A medias</td><td>Al servir se agregan h1, main, salto al contenido y aria-label en la navegación. Falta la pasada con axe.</td></tr>
+<tr><td class="id">C-FE-02</td><td class="st mid">A medias</td><td>La portada pasa a img con alt y prioridad de carga. Falta srcset en las fotos que no tienen variante WebP medida.</td></tr>
+<tr><td class="id">C-FE-03</td><td class="st mid">A medias</td><td>El pie parte palabras largas y no deja que una columna empuje el ancho. Falta el test automático en 360, 390, 768 y 1280.</td></tr>
+<tr><td class="id">C-FE-04</td><td class="st ok">Resuelto</td><td>Enlaces del pie y redes tienen alto mínimo de 44 px. Falta volver a medir las landings ya publicadas.</td></tr>
+<tr><td class="id">C-FE-05</td><td class="st mid">A medias</td><td>Si el cliente no tiene URL propia, Privacidad y Términos abren /privacidad y /terminos. Falta un documento legal por cliente.</td></tr>
+<tr><td class="id">C-FE-06</td><td class="st ok">Resuelto</td><td>El campo oculto es un señuelo anti-spam: queda fuera del teclado y de los lectores de pantalla.</td></tr>
+<tr><td class="id">C-FE-07</td><td class="st mid">A medias</td><td>Bootstrap e iconos llevan integrity. Fraunces y Manrope se sirven desde el proyecto. El panel sigue pidiendo fuentes a Google.</td></tr>
+<tr><td class="id">C-BE-01</td><td class="st ok">Resuelto</td><td>Hay HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy y Permissions-Policy. Falta la nota de securityheaders.com sobre producción.</td></tr>
+<tr><td class="id">C-BE-02</td><td class="st ok">Resuelto</td><td>robots.txt y sitemap.xml los genera el servidor, y el 404 de landing tiene página. Falta confirmar el 200 en producción.</td></tr>
+<tr><td class="id">C-BE-03</td><td class="st mid">A medias</td><td>Las imágenes pueden cachearse. El HTML del panel sigue en no-store. Falta caché en el borde con HIT y TTFB menor a 100 ms.</td></tr>
+<tr><td class="id">C-BE-04</td><td class="st no">Falta</td><td>No hay tope de peso ni generación de WebP y AVIF para cada foto subida. Falta que ninguna landing supere 1,5 MB en móvil.</td></tr>
+<tr><td class="id">C-BE-05</td><td class="st mid">A medias</td><td>Hay señuelo y límite por landing y por IP. Falta la prueba de punta a punta y el aviso al dueño del negocio.</td></tr>
+<tr><td class="id">C-BE-06</td><td class="st no">Falta</td><td>No se restringió Access-Control-Allow-Origin de los archivos estáticos.</td></tr>
+<tr><td class="id">C-CT-01</td><td class="st no">Falta</td><td>No hay pipeline que recorte, recomprima y rechace una foto fuera de la regla del módulo.</td></tr>
+<tr><td class="id">C-CT-02</td><td class="st mid">A medias</td><td>Al servir, un alt vacío pasa a «imagen». Con reglas en bloquear, no se guarda una imagen sin alt. Falta alt descriptivo, no el genérico.</td></tr>
+<tr><td class="id">C-CT-03</td><td class="st mid">A medias</td><td>El cliente puede ser demo o real, y un real no se publica con datos de ejemplo. Falta limpiar los registros que ya tienen example.com.</td></tr>
+<tr><td class="id">C-CT-04</td><td class="st ok">Resuelto</td><td>Hay favicon, JSON-LD LocalBusiness y aviso de cookies si hay analítica. Falta el Rich Results Test.</td></tr>
+</table>
+
+<h2>Empresa — panel</h2>
+<table>
+<tr><th>Ítem</th><th>Estado</th><th>Comentario</th></tr>
+<tr><td class="id">P-UX-01</td><td class="st mid">A medias</td><td>Hay tokens de alto y varios controles del panel llegan a 44 px. Falta unificar las 13 alturas medidas.</td></tr>
+<tr><td class="id">P-UX-02</td><td class="st no">Falta</td><td>La biblioteca y Crear landing siguen con textos de 9 a 11 px. Falta mínimo de 12 px en etiquetas y 14 px en texto.</td></tr>
+<tr><td class="id">P-UX-03</td><td class="st no">Falta</td><td>Maquetas sigue siendo una página larga. Falta paginación o vista colapsada por debajo de 15.000 px en celular.</td></tr>
+<tr><td class="id">P-UX-04</td><td class="st mid">A medias</td><td>El constructor avisa la calidad de la imagen. Falta el semáforo verde, amarillo y rojo en cada foto, atado a la regla.</td></tr>
+<tr><td class="id">P-FE-01</td><td class="st mid">A medias</td><td>Existen tokens de tipo y de alto. Falta reemplazar los font-size y alturas literales del CSS del panel.</td></tr>
+<tr><td class="id">P-FE-02</td><td class="st no">Falta</td><td>La página de maquetas no tiene un h1 propio de pantalla y conserva cientos de objetivos chicos.</td></tr>
+<tr><td class="id">P-FE-03</td><td class="st no">Falta</td><td>No hay informe de login medido en 390, 768 y 1280.</td></tr>
+<tr><td class="id">P-BE-01</td><td class="st mid">A medias</td><td>Hay usuario, clave y una tabla de auditoría de ingresos y cambios. Falta un usuario por persona, roles y SSO.</td></tr>
+<tr><td class="id">P-BE-02</td><td class="st mid">A medias</td><td>El listado ya no manda el logo en base64; el logo se pide aparte. Falta almacenamiento externo y paginación.</td></tr>
+<tr><td class="id">P-BE-03</td><td class="st no">Falta</td><td>Cada landing sigue guardando el HTML completo. Un cambio de la hoja base no se propaga solo.</td></tr>
+<tr><td class="id">P-BE-04</td><td class="st ok">Resuelto</td><td>El panel exige sesión. En Vercel los HTML del panel no se publican como archivos sueltos.</td></tr>
+<tr><td class="id">P-CT-01</td><td class="st mid">A medias</td><td>Si las reglas están en bloquear, un error de estructura o de imagen impide guardar. Falta dejarlas en bloquear en la base y la excepción de un revisor.</td></tr>
+<tr><td class="id">P-CT-02</td><td class="st ok">Resuelto</td><td>Teléfono internacional, sitio, email y horario se validan al guardar. Los datos viejos siguen hasta que se edite el cliente.</td></tr>
+<tr><td class="id">P-CT-03</td><td class="st ok">Resuelto</td><td>El cliente tiene tipo demo o real y el listado puede distinguirlo.</td></tr>
+</table>
+
+<h2>Agente — IA y automatización</h2>
+<table>
+<tr><th>Ítem</th><th>Estado</th><th>Comentario</th></tr>
+<tr><td class="id">A-FE-01</td><td class="st mid">A medias</td><td>El servidor pide el largo y puede reescribir textos fuera de rango. Falta cortar o rechazar en el servidor si el modelo se pasa igual.</td></tr>
+<tr><td class="id">A-BE-01</td><td class="st mid">A medias</td><td>La llamada puede ir al servidor con la clave en el entorno. Falta cuota, registro de uso y confirmar configurada:true en producción.</td></tr>
+<tr><td class="id">A-BE-02</td><td class="st no">Falta</td><td>No hay Places, mail de propuesta, cobro, dominio ni estados del lead.</td></tr>
+<tr><td class="id">A-BE-03</td><td class="st mid">A medias</td><td>Guardar una landing y aceptar módulos de la IA pasan por las reglas del servidor. Falta el estado «revisado» y devolver el borrador al agente.</td></tr>
+<tr><td class="id">A-BE-04</td><td class="st ok">Resuelto</td><td>Ids inventados, repetidos o de la misma sección se rechazan contra el catálogo.</td></tr>
+<tr><td class="id">A-CT-01</td><td class="st mid">A medias</td><td>La consigna dice no inventar precios, reseñas ni contacto, y omitir un módulo si falta el dato. Falta una lista aplicada como regla bloqueante.</td></tr>
+<tr><td class="id">A-CT-02</td><td class="st no">Falta</td><td>No hay toma de fotos de Google ni recorte validado por módulo.</td></tr>
+</table>
+
+<h2>Por cliente</h2>
+<p>Jimena Vidal se bajó de publicación y se quitó el parche que solo existía para esa landing. El resto son datos guardados o el mismo arreglo de plataforma, que se aplica al servir.</p>
+<table>
+<tr><th>Ítem</th><th>Estado</th><th>Comentario</th></tr>
+<tr><td class="id">J-01</td><td class="st ok">Resuelto</td><td>La landing de Jimena no está publicada. Las 12 imágenes en 404 ya no se sirven.</td></tr>
+<tr><td class="id">J-02</td><td class="st ok">Resuelto</td><td>El hero fuera de pantalla era de esa landing. Ya no está en línea.</td></tr>
+<tr><td class="id">J-03</td><td class="st ok">Resuelto</td><td>El contraste del CTA era de esa landing. El arreglo general de botones queda para el resto.</td></tr>
+<tr><td class="id">J-04</td><td class="st ok">Resuelto</td><td>Las promos vencidas y el texto «No tengo idea» estaban en esa landing despublicada.</td></tr>
+<tr><td class="id">J-05</td><td class="st ok">Resuelto</td><td>Sin página publicada no quedan el h1 faltante ni los enlaces chicos de Jimena.</td></tr>
+<tr><td class="id">J-06</td><td class="st ok">Resuelto</td><td>El padding de 12 px era de esa landing.</td></tr>
+<tr><td class="id">E-01</td><td class="st no">Falta</td><td>Teléfono, sitio, dirección, horario y email de Alma Estética siguen como dato guardado. La validación nueva frena un guardado nuevo, no limpia el viejo.</td></tr>
+<tr><td class="id">E-02</td><td class="st mid">A medias</td><td>El alt vacío se completa al servir. Falta cambiar las fotos de 480×480 por 1920×1080.</td></tr>
+<tr><td class="id">E-03</td><td class="st mid">A medias</td><td>Mismo arreglo que C-FE-03. Falta medirlo en Estética a 390 px.</td></tr>
+<tr><td class="id">E-04</td><td class="st mid">A medias</td><td>Mismo arreglo que C-UX-01 sobre el rosa #b4627a. Falta la medición.</td></tr>
+<tr><td class="id">E-05</td><td class="st no">Falta</td><td>El formulario de 51 campos no se redujo.</td></tr>
+<tr><td class="id">B-01</td><td class="st no">Falta</td><td>El teléfono largo y barberia@example.com siguen en el cliente hasta editarlos.</td></tr>
+<tr><td class="id">B-02</td><td class="st mid">A medias</td><td>Mismo arreglo que C-UX-01 sobre #b0703a. Falta la medición.</td></tr>
+<tr><td class="id">B-03</td><td class="st ok">Resuelto</td><td>Los campos quedan en 16 px con C-UX-05.</td></tr>
+<tr><td class="id">B-04</td><td class="st no">Falta</td><td>El formulario de 23 campos no se acortó ni se probó el envío.</td></tr>
+<tr><td class="id">B-05</td><td class="st no">Falta</td><td>Las tres fotos no se pasaron a WebP ni a 1920×1080.</td></tr>
+<tr><td class="id">I-01</td><td class="st mid">A medias</td><td>El listado ya no arrastra el logo. Falta sacarlo de la base y guardarlo como archivo.</td></tr>
+<tr><td class="id">I-02</td><td class="st no">Falta</td><td>babel@example.com sigue hasta reemplazarlo.</td></tr>
+<tr><td class="id">I-03</td><td class="st ok">Resuelto</td><td>Las redes del pie usan el alto de C-FE-04.</td></tr>
+<tr><td class="id">I-04</td><td class="st no">Falta</td><td>Las fotos de 600×800 y 1280×720 no se reemplazaron.</td></tr>
+<tr><td class="id">I-05</td><td class="st ok">Resuelto</td><td>El botón secundario usa el alto de C-UX-02.</td></tr>
+<tr><td class="id">U-01</td><td class="st no">Falta</td><td>hola@example.com sigue hasta reemplazarlo.</td></tr>
+<tr><td class="id">U-02</td><td class="st no">Falta</td><td>El peso de 1,3 MB no se recomprimió.</td></tr>
+<tr><td class="id">U-03</td><td class="st no">Falta</td><td>Las fotos de 800×800 y 1280×720 no cumplen la regla de portada.</td></tr>
+<tr><td class="id">U-04</td><td class="st ok">Resuelto</td><td>Los enlaces del pie usan el alto de C-FE-04.</td></tr>
+<tr><td class="id">U-05</td><td class="st mid">A medias</td><td>El título de sección usa la escala de C-UX-03. Falta confirmar 32 px a 390 px en esta landing.</td></tr>
+<tr><td class="id">R-01</td><td class="st no">Falta</td><td>La landing de viajes sigue pesada. No hay tope ni recompresión.</td></tr>
+<tr><td class="id">R-02</td><td class="st mid">A medias</td><td>Mismo arreglo que C-UX-01 sobre #0b7a9a. Falta la medición.</td></tr>
+<tr><td class="id">R-03</td><td class="st no">Falta</td><td>El email personal sigue publicado hasta que el cliente confirme otro.</td></tr>
+<tr><td class="id">R-04</td><td class="st mid">A medias</td><td>Los enlaces usan C-FE-04. Falta revisar las etiquetas de los dos formularios.</td></tr>
+<tr><td class="id">R-05</td><td class="st mid">A medias</td><td>Mismo caso que U-05: la escala está, la medición de esta landing no.</td></tr>
+<tr><td class="id">S-01</td><td class="st no">Falta</td><td>Estudio Aurora sigue sin landings y con aurora@example.com. Falta completar o archivar.</td></tr>
+</table>
+
+<h2>Lo que el PDF no llegó a probar</h2>
+<table>
+<tr><th>Prueba</th><th>Estado</th><th>Comentario</th></tr>
+<tr><td class="id">Formulario</td><td class="st mid">A medias</td><td>Hay señuelo y límite. Falta el envío real documentado.</td></tr>
+<tr><td class="id">Login</td><td class="st no">Falta</td><td>No hay medición en tres anchos.</td></tr>
+<tr><td class="id">Dispositivos</td><td class="st no">Falta</td><td>No hay prueba en iPhone, Android ni lector de pantalla.</td></tr>
+<tr><td class="id">IA adversaria</td><td class="st mid">A medias</td><td>El servidor rechaza ids malos. Falta la prueba escrita con respuestas inventadas.</td></tr>
+<tr><td class="id">Places y cobro</td><td class="st no">Falta</td><td>Esos pasos no existen.</td></tr>
+<tr><td class="id">Campos ocultos</td><td class="st ok">Resuelto</td><td>Quedó confirmado que son el señuelo anti-spam.</td></tr>
+</table>
+</body>
+</html>

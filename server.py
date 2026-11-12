@@ -18,6 +18,7 @@ import hmac
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import unicodedata
@@ -36,6 +37,38 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES = os.path.join(ROOT, "Templates")
+
+
+def ensure_client_folder(client_slug):
+    os.makedirs(os.path.join(TEMPLATES, client_slug), exist_ok=True)
+
+
+def write_landing_folder(client_slug, landing_slug, html, previous=None):
+    """Templates/<cliente>/<landing>/index.html junto al proyecto."""
+    try:
+        if previous and previous != (client_slug, landing_slug):
+            old = os.path.join(TEMPLATES, previous[0], previous[1])
+            if os.path.isdir(old):
+                shutil.rmtree(old)
+        folder = os.path.join(TEMPLATES, client_slug, landing_slug)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "index.html"), "w", encoding="utf-8") as fh:
+            fh.write(html)
+    except OSError as err:
+        print("No se pudo escribir la carpeta de la landing: %s" % err, file=sys.stderr)
+
+
+def remove_landing_folder(client_slug, landing_slug):
+    folder = os.path.join(TEMPLATES, client_slug, landing_slug)
+    if os.path.isdir(folder):
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def remove_client_folder(client_slug):
+    folder = os.path.join(TEMPLATES, client_slug)
+    if os.path.isdir(folder):
+        shutil.rmtree(folder, ignore_errors=True)
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".lanzate")
 LOCAL_ENV = os.path.join(CONFIG_DIR, "lanzate.env")
 REGLAS_JSON = os.path.join(ROOT, "data", "reglas.json")
@@ -93,6 +126,7 @@ ROUTES = [
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
     (re.compile(r"^/api/landings/(\d+)/preview$"), "preview"),
     (re.compile(r"^/api/reglas$"), "reglas"),
+    (re.compile(r"^/api/auditoria$"), "auditoria"),
     (re.compile(r"^/api/ia$"), "ia"),
     (re.compile(r"^/api/consultas$"), "consultas"),
     (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
@@ -174,6 +208,13 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS animacion TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS auditoria (
+  id BIGSERIAL PRIMARY KEY,
+  usuario TEXT NOT NULL,
+  accion TEXT NOT NULL,
+  detalle TEXT NOT NULL DEFAULT '',
+  creado BIGINT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS consultas (
   id BIGSERIAL PRIMARY KEY,
   landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
@@ -181,9 +222,16 @@ CREATE TABLE IF NOT EXISTS consultas (
   datos JSONB NOT NULL DEFAULT '{}',
   origen TEXT NOT NULL DEFAULT '',
   leida BOOLEAN NOT NULL DEFAULT FALSE,
+  creado BIGINT NOT NULL,
+  ip TEXT NOT NULL DEFAULT ''
+);
+ALTER TABLE consultas ADD COLUMN IF NOT EXISTS ip TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS consultas_landing ON consultas (landing_id, creado DESC);
+CREATE TABLE IF NOT EXISTS uso_ia (
+  id BIGSERIAL PRIMARY KEY,
+  usuario TEXT NOT NULL,
   creado BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS consultas_landing ON consultas (landing_id, creado DESC);
 ALTER TABLE consultas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
@@ -233,6 +281,7 @@ def save_rules(data):
             "INSERT INTO ajustes (clave, valor) VALUES ('reglas', %s) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor",
             (Jsonb(data),),
         )
+    record_audit("reglas", "actualización")
     return data
 
 
@@ -440,7 +489,10 @@ def create_client(data):
             "INSERT INTO clientes (%s) VALUES (%s) RETURNING id" % (", ".join(cols), ", ".join(["%s"] * len(cols))),
             list(values.values()),
         ).fetchone()["id"]
-        return client_dict(get_client_row(con, new_id), 0)
+        created = client_dict(get_client_row(con, new_id), 0)
+    ensure_client_folder(created["slug"])
+    record_audit("cliente", "alta " + created["nombre"])
+    return created
 
 
 def update_client(client_id, data):
@@ -457,7 +509,9 @@ def update_client(client_id, data):
             list(values.values()) + [client_id],
         )
         count = con.execute("SELECT COUNT(*) AS n FROM landings WHERE cliente_id = %s", (client_id,)).fetchone()["n"]
-        return client_dict(get_client_row(con, client_id), count)
+        updated = client_dict(get_client_row(con, client_id), count)
+    record_audit("cliente", "edición " + updated["nombre"])
+    return updated
 
 
 def delete_client(client_id):
@@ -468,7 +522,11 @@ def delete_client(client_id):
             raise ApiError(409, "«%s» tiene %d landing%s. Eliminalas o pasalas a otro cliente antes de borrarlo."
                            % (row["nombre"], count, "" if count == 1 else "s"))
         con.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-        return row["nombre"]
+        nombre = row["nombre"]
+        slug = row["slug"]
+    remove_client_folder(slug)
+    record_audit("cliente", "baja " + nombre)
+    return nombre
 
 
 # --- Landings ----------------------------------------------------------------
@@ -612,13 +670,28 @@ def structure_errors(items, rules):
 def image_metadata_errors(html, rules):
     if not (rules.get("general") or {}).get("bloquear"):
         return []
-    if not (rules.get("imagenes") or {}).get("altObligatorio"):
-        return []
     document = html_dom.document_fromstring(html)
     count = len(document.xpath("//img[normalize-space(@src) and not(normalize-space(@alt))]"))
+    errors = []
     if count:
-        return [f"{count} imagen(es) sin texto alternativo. Describí la imagen, transcribí su texto o escribí «imagen»"]
-    return []
+        errors.append(f"{count} imagen(es) sin texto alternativo. Describí la imagen, transcribí su texto o escribí «imagen»")
+    heavy = 0
+    total = 0
+    for src in document.xpath("//img/@src"):
+        if not src.startswith(("/maquetas/", "/assets/")):
+            continue
+        try:
+            size = os.path.getsize(os.path.join(ROOT, src.lstrip("/").split("?", 1)[0]))
+        except OSError:
+            continue
+        total += size
+        if size > 350 * 1024:
+            heavy += 1
+    if heavy:
+        errors.append("%d imagen(es) pesan más de 350 KB. Comprimilas antes de publicar." % heavy)
+    if total > 1500 * 1024:
+        errors.append("Las imágenes de la landing superan 1,5 MB. Sacá o comprimí fotos.")
+    return errors
 
 
 def save_landing(data, landing_id=None):
@@ -665,6 +738,10 @@ def save_landing(data, landing_id=None):
                 raise ApiError(400, "Reemplazá el dato de ejemplo «%s» antes de publicar." % placeholder.group())
         stamp = now_ms()
         values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
+        previous_path = None
+        if landing_id:
+            previous = get_landing_row(con, landing_id)
+            previous_path = (previous["cliente_slug"], previous["slug"])
         if landing_id:
             con.execute(
                 "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, html = %s, "
@@ -677,7 +754,10 @@ def save_landing(data, landing_id=None):
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 values + (stamp,),
             ).fetchone()["id"]
-        return landing_dict(get_landing_row(con, landing_id))
+        saved = landing_dict(get_landing_row(con, landing_id))
+    write_landing_folder(saved["cliente_slug"], saved["slug"], html, previous_path)
+    record_audit("landing", saved["nombre"])
+    return saved
 
 
 def duplicate_landing(landing_id):
@@ -699,14 +779,21 @@ def duplicate_landing(landing_id):
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), row["descripcion"], row["animacion"], html, row["portada"], row["preview"], stamp, stamp),
         ).fetchone()["id"]
-        return landing_dict(get_landing_row(con, new_id))
+        copied = landing_dict(get_landing_row(con, new_id))
+    write_landing_folder(copied["cliente_slug"], copied["slug"], html)
+    record_audit("landing", "copia " + copied["nombre"])
+    return copied
 
 
 def delete_landing(landing_id):
     with tx() as con:
         row = get_landing_row(con, landing_id)
         con.execute("DELETE FROM landings WHERE id = %s", (landing_id,))
-        return row["nombre"]
+        nombre = row["nombre"]
+        folder = (row["cliente_slug"], row["slug"])
+    remove_landing_folder(*folder)
+    record_audit("landing", "baja " + nombre)
+    return nombre
 
 
 def landing_preview(landing_id):
@@ -741,6 +828,12 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         return markup
 
     fill_image_alts(body)
+    head = document.find("head")
+    for link in document.xpath('.//link[contains(@href, "fonts.googleapis") or contains(@href, "fonts.gstatic")]'):
+        link.getparent().remove(link)
+    if head is not None and not document.xpath('.//link[contains(@href, "css/fonts.css")]'):
+        fonts = etree.Element("link", rel="stylesheet", href="/maquetas/css/fonts.css")
+        head.insert(0, fonts)
 
     travel_images = {
         'asesora',
@@ -782,11 +875,10 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
         style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
-    for label in body.xpath(
-        './/h2[contains(concat(" ", normalize-space(@class), " "), " nx-kicker ")'
-        ' or contains(concat(" ", normalize-space(@class), " "), " plan-kicker ")]'
-    ):
-        label.tag = "p"
+    for label in body.xpath(".//h2"):
+        classes = " " + " ".join(label.get("class", "").split()) + " "
+        if any(token in classes for token in (" kicker ", " eyebrow ", " overline ", " plan-kicker ", " h6 ")):
+            label.tag = "p"
     for trap in body.xpath('.//form//input[@name="web" and @aria-hidden="true"]'):
         trap.set("hidden", "")
         trap.set("tabindex", "-1")
@@ -812,20 +904,9 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         if not key:
             continue
         destination = legal_url((legal_links or {}).get(key, ""))
-        if destination:
-            link.set("href", destination)
-        else:
-            tail = re.sub(r"^\s*[·|]\s*", "", link.tail or "")
-            previous = link.getprevious()
-            parent = link.getparent()
-            if previous is None:
-                parent.text = (parent.text or "") + tail
-            else:
-                separator = previous.tail or ""
-                if link.getnext() is None:
-                    separator = re.sub(r"\s*[·|]\s*$", "", separator)
-                previous.tail = separator + tail
-            parent.remove(link)
+        link.set("href", destination or ("/privacidad" if key == "privacidad_url" else "/terminos"))
+        link.set("target", "_blank")
+        link.set("rel", "noopener")
 
     hero_variants = {
         "/maquetas/img/hero-simple-full.jpg": 800,
@@ -847,19 +928,19 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
             continue
         source = match[1].strip()
         width = hero_variants.get(source)
-        if width is None:
-            continue
         base = source.removesuffix(".jpg")
         description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split()) or "imagen"
-        photo = etree.Element("img", {
+        attrs = {
             "class": "lz-hero-photo",
             "src": source,
-            "srcset": f"{base}-480.webp 480w, {base}-{width}.webp {width}w",
-            "sizes": "100vw",
             "alt": description,
-            "loading": "eager" if index == 0 else "lazy",
-            "fetchpriority": "high" if index == 0 else "low",
-        })
+            "sizes": "100vw",
+        }
+        if width:
+            attrs["srcset"] = f"{base}-480.webp 480w, {base}-{width}.webp {width}w"
+        attrs["loading"] = "eager" if index == 0 else "lazy"
+        attrs["fetchpriority"] = "high" if index == 0 else "low"
+        photo = etree.Element("img", attrs)
         slide.set("style", style[:match.start()] + style[match.end():].lstrip(";") if match.start() == 0
                   else style[:match.start()] + style[match.end():])
         slide.insert(0, photo)
@@ -1115,7 +1196,35 @@ def add_tracking_consent(html, landing):
 
 # --- Consultas que llegan desde los formularios de las landings publicadas -----
 
-def new_lead(data):
+def record_audit(action, detail=""):
+    try:
+        with tx() as con:
+            con.execute(
+                "INSERT INTO auditoria (usuario, accion, detalle, creado) VALUES (%s, %s, %s, %s)",
+                (access_user(), action[:80], str(detail)[:300], now_ms()),
+            )
+    except psycopg.Error as err:
+        print("No se pudo registrar la auditoría: %s" % err, file=sys.stderr)
+
+
+def legal_page(kind):
+    title = "Privacidad" if kind == "privacidad" else "Términos"
+    body = (
+        "Esta página explica cómo se usan los datos que dejás en el formulario de contacto."
+        if kind == "privacidad" else
+        "El uso del sitio y de los servicios se acuerda directamente con el negocio que publica esta landing."
+    )
+    html = (
+        "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>%s · Lanzate</title></head><body style=\"font:16px/1.5 Inter,sans-serif;max-width:40rem;margin:48px auto;padding:0 16px\">"
+        "<h1>%s</h1><p>%s</p><p>Si el negocio tiene su propio documento, el enlace del pie de página abre ese documento.</p>"
+        "</body></html>"
+    ) % (title, title, body)
+    return html.encode("utf-8")
+
+
+def new_lead(data, ip=""):
     if str(data.get("web") or "").strip():
         return {"ok": True}
     try:
@@ -1145,8 +1254,15 @@ def new_lead(data):
                              (landing_id, stamp - 600000)).fetchone()["n"]
         if recent >= 30:
             raise ApiError(429, "Llegaron muchas consultas seguidas. Probá de nuevo en unos minutos.")
-        con.execute("INSERT INTO consultas (landing_id, tipo, datos, origen, creado) VALUES (%s, %s, %s, %s, %s)",
-                    (landing_id, tipo, Jsonb(clean), origen, stamp))
+        if ip:
+            by_ip = con.execute("SELECT COUNT(*) AS n FROM consultas WHERE ip = %s AND creado > %s",
+                                (ip, stamp - 600000)).fetchone()["n"]
+            if by_ip >= 8:
+                raise ApiError(429, "Llegaron muchas consultas desde esta conexión. Probá más tarde.")
+        con.execute(
+            "INSERT INTO consultas (landing_id, tipo, datos, origen, creado, ip) VALUES (%s, %s, %s, %s, %s, %s)",
+            (landing_id, tipo, Jsonb(clean), origen, stamp, ip[:64]),
+        )
     return {"ok": True}
 
 
@@ -1243,6 +1359,11 @@ def ia_call(system, prompt, images=None):
     cfg = ia_settings()
     if not cfg["clave"]:
         raise ApiError(400, "Configurá la IA: tocá «Configurar IA» y pegá la clave")
+    day = now_ms() - 86400000
+    with tx() as con:
+        used = con.execute("SELECT COUNT(*) AS n FROM uso_ia WHERE creado > %s", (day,)).fetchone()["n"]
+    if used >= 80:
+        raise ApiError(429, "Se alcanzó el cupo diario de la IA. Probá mañana.")
     if cfg["proveedor"] == "openai":
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": "Bearer " + cfg["clave"], "Content-Type": "application/json"}
@@ -1285,6 +1406,12 @@ def ia_call(system, prompt, images=None):
         return json.loads(text[start:end + 1])
     except ValueError:
         raise ApiError(502, "La IA no devolvió una respuesta válida. Probá de nuevo.")
+    record_audit("ia", cfg["proveedor"])
+    try:
+        with tx() as con:
+            con.execute("INSERT INTO uso_ia (usuario, creado) VALUES (%s, %s)", (access_user(), now_ms()))
+    except psycopg.Error as err:
+        print("No se pudo registrar el uso de IA: %s" % err, file=sys.stderr)
 
 
 IA_SYSTEM = (
@@ -1427,8 +1554,12 @@ def validate_ia_texts(slots, response):
         if slot_id not in limits or not isinstance(value, str):
             continue
         text = value.strip()
-        length = len(text.replace("*", ""))
         minimum, maximum = limits[slot_id]
+        if maximum:
+            visible = text.replace("*", "")
+            if len(visible) > maximum:
+                text = visible[:maximum].rstrip()
+        length = len(text.replace("*", ""))
         if text and length >= minimum and (not maximum or length <= maximum):
             result[slot_id] = text
     if result.keys() != limits.keys():
@@ -1536,7 +1667,7 @@ class Handler(SimpleHTTPRequestHandler):
         body = html.encode("utf-8")
         etag = '"' + hashlib.sha256(body).hexdigest() + '"'
         validators = {value.strip().removeprefix("W/") for value in self.headers.get("If-None-Match", "").split(",")}
-        self.cache_control = "public, no-cache"
+        self.cache_control = "public, max-age=60, stale-while-revalidate=300"
         try:
             if etag in validators or "*" in validators:
                 self.send_response(304)
@@ -1604,6 +1735,10 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_json(503, {"error": "El sitemap no está disponible temporalmente."})
                 else:
                     self.send_body(200, sitemap.encode("utf-8"), "application/xml; charset=utf-8")
+            return True
+
+        if path in ("/privacidad", "/terminos") and method in ("GET", "HEAD"):
+            self.send_body(200, legal_page(path.strip("/")), "text/html; charset=utf-8")
             return True
 
         if path in PANEL_PAGES and method in ("GET", "HEAD"):
@@ -1687,6 +1822,7 @@ class Handler(SimpleHTTPRequestHandler):
                 time.sleep(1)
                 raise ApiError(401, "El usuario o la contraseña no son correctos.")
             self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
+            record_audit("login", "ingreso")
             return {"ok": True}
         if name == "logout" and method == "POST":
             self.extra_headers = (("Set-Cookie", self.session_cookie("", 0)),)
@@ -1720,13 +1856,20 @@ class Handler(SimpleHTTPRequestHandler):
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
             return duplicate_landing(ident)
+        if name == "auditoria" and method == "GET":
+            with tx() as con:
+                rows = con.execute(
+                    "SELECT usuario, accion, detalle, creado FROM auditoria ORDER BY creado DESC LIMIT 100"
+                ).fetchall()
+            return [dict(row) for row in rows]
         if name == "reglas":
             if method == "GET":
                 return read_rules()
             if method == "PUT":
                 return save_rules(self.read_json())
         if name == "consulta-nueva" and method == "POST":
-            return new_lead(self.read_json())
+            forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+            return new_lead(self.read_json(), forwarded or (self.client_address[0] if self.client_address else ""))
         if name == "consultas" and method == "GET":
             return list_leads(query)
         if name == "consulta":

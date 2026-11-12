@@ -3527,11 +3527,11 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 
 /* La escala compartida se aplica también a las landings ya publicadas. */
-.landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden) {
-  font-size: max(var(--fs-body), 0.875em);
+.landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6) {
+  font-size: var(--fs-body);
 }
 
-.landing-page .nx :is(.nx-kicker, .plan-kicker) {
+.landing-page .nx :is(.nx-kicker, .plan-kicker, .k, .h6, small) {
   font-size: var(--fs-label);
 }
 
@@ -4068,4 +4068,11 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .ev-row { grid-template-columns: 72px minmax(0, 1fr); grid-template-areas: "date title" "date text" ". action"; row-gap: 10px; }
   .ev-row > a { justify-self: start; }
   .ev-row .ev-date { font-size: 1.35rem; }
+}
+
+.lib-page .mq-caption,
+.lib-page .lib-cats a,
+.lib-page .lib-variants a,
+:is(.builder-page, .pf-page) small {
+  font-size: 12px;
 }

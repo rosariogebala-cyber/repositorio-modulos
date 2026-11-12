@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QA Accesibilidad Portada Temporal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">
+  <link href="/maquetas/css/lanzate.css" rel="stylesheet">
+</head>
+<body class="landing-page" data-anim="suave">
+  <section class="mq-block" id="navegacion" data-module="navegacion-simple" data-width="full">
+    <div class="mq-frame">
+      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full" aria-label="Navegación de ejemplo simple">
+        <div class="container">
+          <a class="nx-brand is-lower" href="#navegacion-simple">Cliente de ejemplo</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navSimple" aria-controls="navSimple" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
+          <div class="collapse navbar-collapse" id="navSimple">
+            <ul class="navbar-nav mx-auto align-items-lg-center">
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Inicio</a></li>
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Servicios</a></li>
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Casos de éxito</a></li>
+              
+              
+            </ul>
+            <a class="btn-nx btn-sm" href="mailto:hola@example.com">Hablemos</a>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </section>
+  <section class="mq-block" id="hero" data-module="hero-full-imagen-media" data-width="full">
+    <div class="mq-frame">
+      <div id="heroMedia" class="carousel slide nx nx-hero" data-bs-ride="false" data-width="full">
+        <div class="carousel-indicators">
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Diapositiva 1"></button>
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="1" aria-label="Diapositiva 2"></button>
+          <button type="button" data-bs-target="#heroMedia" data-bs-slide-to="2" aria-label="Diapositiva 3"></button>
+        </div>
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <div class="nx-hero-slide" style="background-image:url('/maquetas/img/hero-media-full.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Hacer visible <span class="em">lo que hacés.</span></h2>
+                <p class="nx-lead">Tu web profesional, lista en menos tiempo.</p>
+                <div class="nx-pills">
+                  <span class="nx-pill"><i class="bi bi-lightning-charge"></i> Implementación ágil</span>
+                  <span class="nx-pill"><i class="bi bi-display"></i> Diseño profesional</span>
+                  <span class="nx-pill"><i class="bi bi-headset"></i> Acompañamiento continuo</span>
+                </div>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Hablemos ahora <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="nx-hero-slide" style="background-image:url('/maquetas/img/hero-simple-full.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Una web que <span class="em">se siente tuya.</span></h2>
+                <p class="nx-lead">Claridad para quien llega y calma para quien la administra.</p>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Hablemos ahora <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="nx-hero-slide" style="background-image:url('/maquetas/img/hero-compleja-full.jpg')">
+              <div class="container"><div class="col-lg-7">
+                <h2 class="nx-display">Seguimos cerca <span class="em">después de publicar.</span></h2>
+                <p class="nx-lead">Ajustes, contenido y una persona del otro lado.</p>
+                <a class="btn-nx mt-4" href="mailto:hola@example.com">Hablemos ahora <i class="bi bi-arrow-right"></i></a>
+              </div></div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroMedia" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Anterior</span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroMedia" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Siguiente</span></button>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" id="footer" data-module="footer-cierre" data-width="full">
+    <div class="mq-frame">
+      <footer class="nx nx-footer" data-width="full">
+        <div class="foot-cta">
+          <div class="container">
+            <div>
+              <p class="nx-kicker" style="color:#b9e2c9">Empecemos</p>
+              <h2>Tu próxima idea merece una web <span class="em">a la altura</span>.</h2>
+              <p>Contanos qué necesitás y te respondemos de lunes a viernes, de 9 a 18 h.</p>
+            </div>
+            <form data-demo-form="">
+              <label class="visually-hidden" for="cierre-email">Tu email</label>
+              <div class="foot-form">
+                <input id="cierre-email" type="email" name="email" placeholder="Tu email" autocomplete="email" required="">
+                <button class="btn-nx-light" type="submit">Quiero empezar <i class="bi bi-arrow-right"></i></button>
+              </div>
+              <p class="foot-form-note" data-form-msg="" aria-live="polite">Formulario de ejemplo, sin envío real.</p>
+            </form>
+          </div>
+        </div>
+        <div class="foot-main">
+          <div class="container">
+            <div class="row g-4 g-lg-5">
+              <div class="col-lg-4">
+                <a class="nx-brand" href="#footer-cierre">Cliente de ejemplo</a>
+                <p class="muted mt-2 mb-0" style="max-width:34ch">Hacemos visible lo que hacés, con una web clara y alguien del otro lado.</p>
+                <div class="foot-rating">
+                  <strong>4,9</strong>
+                  <div>
+                    <span class="nx-stars is-google" aria-hidden="true"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></span>
+                    <small>Google · 128 reseñas</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <p class="nx-footer-label">Servicios</p>
+                <ul class="foot-links">
+                  <li><a href="#footer-cierre">Web profesional</a></li>
+                  <li><a href="#footer-cierre">Tienda online</a></li>
+                  <li><a href="#footer-cierre">Soporte</a></li>
+                  <li><a href="#footer-cierre">Planes</a></li>
+                </ul>
+              </div>
+              <div class="col-6 col-md-4 col-lg-2">
+                <p class="nx-footer-label">Cliente de ejemplo</p>
+                <ul class="foot-links">
+                  <li><a href="#footer-cierre">Quiénes somos</a></li>
+                  <li><a href="#footer-cierre">Casos de éxito</a></li>
+                  <li><a href="#footer-cierre">Cómo trabajamos</a></li>
+                  <li><a href="#footer-cierre">Preguntas frecuentes</a></li>
+                </ul>
+              </div>
+              <div class="col-md-4 col-lg-4">
+                <p class="nx-footer-label">Contacto</p>
+                <div class="foot-contact">
+                  <img src="/maquetas/img/lucia.jpg" alt="">
+                  <div>
+                    <p><strong>Lucía te responde</strong></p>
+                    <p class="muted"><span class="foot-online" aria-hidden="true"></span>Lun a Vie 9 a 18 h</p>
+                  </div>
+                </div>
+                <p class="mt-3 mb-1"><a href="mailto:hola@example.com">hola@example.com</a></p>
+                <p class="mb-0 muted">+54 11 5555-0000 · Calle Ejemplo 123, Buenos Aires</p>
+              </div>
+            </div>
+            <div class="foot-bottom">
+              <span>© 2026 Cliente de ejemplo</span>
+              <nav aria-label="Legales">
+                <a href="#footer-cierre">Privacidad</a>
+                <a href="#footer-cierre">Términos</a>
+                <a href="#footer-cierre">Cookies</a>
+                <a href="#footer-cierre">Volver arriba <i class="bi bi-arrow-up"></i></a>
+              </nav>
+              <div class="nx-socials">
+                
+                
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="/maquetas/js/lanzate.js"></script>
+</body>
+</html>

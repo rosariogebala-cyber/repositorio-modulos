@@ -885,4 +885,21 @@
     }, { rootMargin: "0px 0px -8% 0px" });
     animBlocks.forEach(function (b) { animIo.observe(b); });
   }
+
+  if (document.body.classList.contains("lib-page") && window.matchMedia("(max-width: 700px)").matches) {
+    var sections = [].slice.call(document.querySelectorAll(".lib-section"));
+    function openSection() {
+      var hash = location.hash.slice(1);
+      var current = document.getElementById(hash);
+      var owner = current && current.closest(".lib-section");
+      if (!owner) owner = sections[0];
+      sections.forEach(function (section) {
+        section.querySelectorAll(".mq-frame").forEach(function (frame) {
+          frame.hidden = section !== owner;
+        });
+      });
+    }
+    openSection();
+    window.addEventListener("hashchange", openSection);
+  }
 })();

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Template estética</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,620;1,9..144,520&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">
+  <link href="/maquetas/css/lanzate.css" rel="stylesheet">
+  <style>:root { --ink: #030806; --muted: #000503; --lz-label: #000000; --green: #d5154f; --green-deep: #990f39; --lz-icon: #b4627a; }.landing-page { color: var(--ink); }.landing-page :is(p, li, blockquote, figcaption, dd) { color: var(--muted); }.landing-page :is(.nx-kicker, .plan-kicker, .badge, .k) { color: var(--lz-label); }.landing-page .bi { color: var(--lz-icon); }.landing-page :is(.btn-nx, .btn-nx-outline, .btn-nx-light) .bi { color: inherit; }</style>
+  <style>
+:root {
+  --ink: #3a2630; --green: #b4627a; --green-deep: #8e4660; --muted: #7b6870;
+  --line: #eedde2; --sage: #fbf2f4; --sage-2: #f6e7eb; --paper: #fcf6f4;
+  --cream: #f7ece8; --dark: #4b2d3b; --darker: #2b1922;
+  --shadow: 0 14px 40px rgba(58, 38, 48, 0.08);
+}
+.btn-nx-outline { border-color: #e3b3c1; }
+.btn-nx:hover { box-shadow: 0 10px 22px rgba(180, 98, 122, 0.22); }
+.plan-card .plan-badge { box-shadow: 0 6px 14px rgba(180, 98, 122, 0.25); }
+.plan-card.is-featured { box-shadow: 0 0 0 1.5px var(--green), 0 22px 44px rgba(58, 38, 48, 0.14); }
+.nx-stars { color: #d49aab; }
+.nav-dark-wrap { background: var(--darker); }
+.nav-dark-wrap::after { background: rgba(43, 25, 34, 0.74); }
+.nx-nav-dark { background: rgba(43, 25, 34, 0.72); }
+.nx-hero-slide { background-color: var(--paper); }
+.nx-hero .nx-hero-slide::before {
+  background: linear-gradient(90deg, rgba(252, 246, 244, 0.9) 0%, rgba(252, 246, 244, 0.66) 32%, rgba(252, 246, 244, 0.14) 56%, rgba(252, 246, 244, 0) 70%);
+}
+.nx-footer-dark, .nx-footer-dark a { color: #f7ece8; }
+.nx-footer-dark .muted { color: #d9bfc8; }
+.foot-cta {
+  background:
+    radial-gradient(60% 120% at 88% 0%, rgba(180, 98, 122, 0.5) 0%, transparent 60%),
+    radial-gradient(50% 110% at 6% 100%, rgba(242, 188, 203, 0.3) 0%, transparent 60%),
+    linear-gradient(115deg, var(--darker) 0%, var(--dark) 55%, var(--green-deep) 100%);
+}
+.foot-cta h2 .em { color: #f2bccb; }
+.foot-cta p, .foot-form input::placeholder, .foot-form-note { color: #d9bfc8; }
+.bk-steps .is-done button, .bk-pro:hover { border-color: #e3b3c1; }
+.bk-steps .is-done span { background: #f5dde4; }
+.bk-pro[aria-pressed="true"] { background: var(--sage); }
+@media (max-width: 767.98px) {
+  .nx-hero .nx-hero-slide::before {
+    background: linear-gradient(180deg, rgba(252, 246, 244, 0.95) 0%, rgba(252, 246, 244, 0.84) 36%, rgba(252, 246, 244, 0.32) 60%, rgba(252, 246, 244, 0) 80%);
+  }
+}
+  </style>
+</head>
+<body class="landing-page">
+  <section class="mq-block" id="navegacion" data-module="navegacion-simple" data-width="full">
+    <div class="mq-frame">
+      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full" style="background-color: rgb(174, 149, 107);">
+        <div class="container">
+          <a class="nx-brand is-lower" href="#navegacion-simple">alma estética</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navSimple" aria-controls="navSimple" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
+          <div class="collapse navbar-collapse" id="navSimple">
+            <ul class="navbar-nav mx-auto align-items-lg-center">
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Inicio</a></li>
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Tratamientos</a></li>
+              <li class="nav-item"><a class="nav-link" href="#navegacion-simple">Profesionales</a></li>
+              
+              
+            </ul>
+            <a class="btn-nx btn-sm" href="mailto:hola@example.com">Reservar turno</a>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </section>
+  <section class="mq-block" id="hero" data-module="hero-full-imagen-compleja" data-width="full">
+    <div class="mq-frame">
+      <div class="nx nx-hero hero-with-cards" data-width="full">
+        <div class="nx-hero-slide" style="background-image:url('/maquetas/img/rubros/estetica/hero.jpg')">
+          <div class="container position-relative">
+            <div class="col-lg-6 py-5">
+              <h2 class="nx-display">Tu piel, <span class="em">en buenas manos.</span></h2>
+              <p class="nx-lead">Tratamientos faciales y corporales personalizados, con profesionales matriculadas.</p>
+              <a class="btn-nx mt-4" href="mailto:hola@example.com">Reservá tu turno <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="nx-hero-cards">
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-search-heart"></i></span>
+                <div><h3>Diagnóstico a medida</h3><p>Evaluamos tu piel antes de cada tratamiento.</p></div>
+              </article>
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-stars"></i></span>
+                <div><h3>Aparatología certificada</h3><p>Equipos de última generación y protocolos seguros.</p></div>
+              </article>
+              <article class="nx-hero-card">
+                <span class="nx-ico"><i class="bi bi-heart-pulse"></i></span>
+                <div><h3>Seguimiento real</h3><p>Te acompañamos entre sesiones para cuidar los resultados.</p></div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="mq-block" id="servicios" data-module="servicios-productos-media" data-width="full">
+    <div class="mq-frame"><div class="nx nx-sage nx-pad svc-media" data-width="full">
+      <div class="container">
+        <h2 class="nx-display text-center">Tratamientos para cada necesidad</h2>
+        <div class="row g-3">
+          <div class="col-md-4"><article class="svc-card">
+            <span class="nx-ico"><i class="bi bi-droplet"></i></span>
+            <h3>Faciales</h3>
+            <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Limpieza profunda</li><li><i class="bi bi-check-circle-fill"></i> Hidratación con ácido hialurónico</li><li><i class="bi bi-check-circle-fill"></i> Peeling suave</li></ul>
+            <p>Para una piel luminosa y descansada.</p>
+            <a class="btn-nx-outline btn-sm mt-3" href="mailto:hola@example.com">Reservar</a>
+          </article></div>
+          <div class="col-md-4"><article class="svc-card">
+            <span class="nx-ico"><i class="bi bi-flower2"></i></span>
+            <h3>Corporales</h3>
+            <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Drenaje linfático</li><li><i class="bi bi-check-circle-fill"></i> Radiofrecuencia</li><li><i class="bi bi-check-circle-fill"></i> Masajes descontracturantes</li></ul>
+            <p>Para modelar y relajar el cuerpo.</p>
+            <a class="btn-nx btn-sm mt-3" href="mailto:hola@example.com">Reservar</a>
+          </article></div>
+          <div class="col-md-4"><article class="svc-card">
+            <span class="nx-ico"><i class="bi bi-magic"></i></span>
+            <h3>Depilación láser</h3>
+            <ul class="nx-checks"><li><i class="bi bi-check-circle-fill"></i> Láser soprano</li><li><i class="bi bi-check-circle-fill"></i> Todas las zonas</li><li><i class="bi bi-check-circle-fill"></i> Apto para todo tipo de piel</li></ul>
+            <p>Resultados visibles desde la primera sesión.</p>
+            <a class="btn-nx-outline btn-sm mt-3" href="mailto:hola@example.com">Reservar</a>
+          </article></div>
+        </div>
+        <p class="text-center mt-4 mb-0">¿No sabés por dónde empezar? Reservá una evaluación sin cargo.</p>
+      </div>
+    </div></div>
+  </section>
+  <section class="mq-block" id="reserva-tu-turno" data-module="reserva-turno-compleja" data-width="full">
+    <div class="mq-frame"><div class="nx nx-pad nx-paper" data-width="full">
+      <div class="container">
+        <div class="text-center mb-4 mb-lg-5">
+          <p class="nx-kicker">Reservas online</p>
+          <h2 class="nx-display">Reservá tu turno</h2>
+          <p class="nx-lead mx-auto">Cuatro pasos y listo. Ves el resumen y el precio antes de confirmar.</p>
+        </div>
+        <form class="bk-wizard" data-booking="" data-book-form="" data-book-requires="servicio,profesional,dia,horario">
+          <ol class="bk-steps" data-book-steps="">
+            <li><button type="button" data-book-goto="1"><span>1</span> Tratamiento</button></li>
+            <li><button type="button" data-book-goto="2"><span>2</span> Profesional</button></li>
+            <li><button type="button" data-book-goto="3"><span>3</span> Día y horario</button></li>
+            <li><button type="button" data-book-goto="4"><span>4</span> Tus datos</button></li>
+          </ol>
+          <div class="bk-wizard-grid">
+            <div class="bk-stage">
+              <div data-book-hide-on-done="">
+                <section class="bk-step" data-book-step="1" data-book-requires="servicio">
+                  <h3 class="bk-step-title">¿Qué tratamiento querés hacer?</h3>
+                  <div class="bk-services"><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:45 min|precio:$ 18.000"><span class="nx-ico"><i class="bi bi-droplet"></i></span><strong>Limpieza facial profunda</strong><small><i class="bi bi-clock"></i> 45 min</small><span class="bk-price">$ 18.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:30 min|precio:$ 12.000"><span class="nx-ico"><i class="bi bi-magic"></i></span><strong>Láser · zona chica</strong><small><i class="bi bi-clock"></i> 30 min</small><span class="bk-price">$ 12.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:90 min|precio:$ 32.000"><span class="nx-ico"><i class="bi bi-flower2"></i></span><strong>Drenaje linfático completo</strong><small><i class="bi bi-clock"></i> 90 min</small><span class="bk-price">$ 32.000</span></button><button class="bk-service" type="button" data-book-pick="servicio" data-book-set="duracion:30 min|precio:$ 10.000"><span class="nx-ico"><i class="bi bi-search-heart"></i></span><strong>Evaluación de piel</strong><small><i class="bi bi-clock"></i> 30 min</small><span class="bk-price">$ 10.000</span></button></div>
+                </section>
+                <section class="bk-step" data-book-step="2" data-book-requires="profesional" hidden="">
+                  <h3 class="bk-step-title">¿Con quién querés atenderte?</h3>
+                  <div class="bk-pros"><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Valeria Ríos"><img src="/maquetas/img/rubros/estetica/pro-1.jpg" alt=""><strong>Valeria Ríos</strong><small>Cosmiatra</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Tomás Herrera"><img src="/maquetas/img/rubros/estetica/pro-2.jpg" alt=""><strong>Tomás Herrera</strong><small>Cosmetólogo</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Claudia Méndez"><img src="/maquetas/img/rubros/estetica/pro-3.jpg" alt=""><strong>Claudia Méndez</strong><small>Dermatocosmiatra</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sin preferencia"><span class="bk-pro-any"><i class="bi bi-shuffle"></i></span><strong>Sin preferencia</strong><small>Primer turno libre</small></button></div>
+                </section>
+                <section class="bk-step" data-book-step="3" data-book-requires="dia,horario" hidden="">
+                  <h3 class="bk-step-title">Elegí día y horario</h3>
+                  <div class="row g-4">
+                    <div class="col-md-7"><div class="bk-cal" data-book-cal=""></div></div>
+                    <div class="col-md-5" data-book-slots="">
+                      <p class="bk-slot-title">Mañana</p><div class="bk-slots"><button class="bk-slot" type="button" data-book-pick="horario">09:00</button><button class="bk-slot" type="button" data-book-pick="horario">09:45</button><button class="bk-slot" type="button" data-book-pick="horario">10:30</button><button class="bk-slot" type="button" data-book-pick="horario">11:15</button></div><p class="bk-slot-title">Tarde</p><div class="bk-slots"><button class="bk-slot" type="button" data-book-pick="horario">14:00</button><button class="bk-slot" type="button" data-book-pick="horario">14:45</button><button class="bk-slot" type="button" data-book-pick="horario">15:30</button><button class="bk-slot" type="button" data-book-pick="horario">16:15</button><button class="bk-slot" type="button" data-book-pick="horario">17:00</button><button class="bk-slot" type="button" data-book-pick="horario">17:45</button></div>
+                    </div>
+                  </div>
+                </section>
+                <section class="bk-step" data-book-step="4" hidden="">
+                  <h3 class="bk-step-title">Completá tus datos</h3>
+                  <div class="row g-3">
+                    <label class="bk-field col-md-6"><span>Nombre y apellido</span><input class="bk-input" name="nombre" required="" autocomplete="name" placeholder="Ej: Ana Pérez" data-book-field="nombre"></label>
+                    <label class="bk-field col-md-6"><span>Teléfono</span><input class="bk-input" type="tel" name="telefono" required="" autocomplete="tel" placeholder="+54 11 5555-0000" data-book-field="telefono"></label>
+                    <label class="bk-field col-12"><span>Email</span><input class="bk-input" type="email" name="email" required="" autocomplete="email" placeholder="tu@email.com" data-book-field="email"></label>
+                    <label class="bk-field col-12"><span>¿Algo que debamos saber? <em>(opcional)</em></span><textarea class="bk-input" name="notas" rows="2" placeholder="Contanos si tenés alguna alergia o tratamiento previo"></textarea></label>
+                    <label class="bk-check col-12"><input type="checkbox" name="recordatorio" checked=""> Quiero un recordatorio por WhatsApp el día anterior</label>
+                  </div>
+                </section>
+                <p class="bk-msg" data-book-msg="" role="status"></p>
+                <div class="bk-nav">
+                  <button class="btn-nx-outline" type="button" data-book-prev=""><i class="bi bi-arrow-left"></i> Atrás</button>
+                  <button class="btn-nx" type="button" data-book-next="">Continuar <i class="bi bi-arrow-right"></i></button>
+                </div>
+              </div>
+              <div class="bk-done" data-book-done="" hidden="" role="status">
+                <span class="bk-done-ico"><i class="bi bi-check-lg"></i></span>
+                <h3>¡Listo, <span data-book-out="nombre"></span>!</h3>
+                <p>Tu turno de <b data-book-out="servicio"></b> con <b data-book-out="profesional"></b> quedó confirmado para el <b data-book-out="dia"></b> a las <b data-book-out="horario"></b>. Te mandamos los detalles a <b data-book-out="email"></b>.</p>
+                <div class="bk-done-actions">
+                  <button class="btn-nx" type="button" data-book-ics=""><i class="bi bi-calendar-plus"></i> Agregar al calendario</button>
+                  <button class="btn-nx-outline" type="button" data-book-reset="">Reservar otro turno</button>
+                </div>
+              </div>
+            </div>
+            <aside class="bk-summary" aria-label="Resumen de la reserva">
+              <h3>Tu reserva</h3>
+              <dl>
+                <div><dt><i class="bi bi-bag-heart"></i> Tratamiento</dt><dd data-book-out="servicio" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-person"></i> Profesional</dt><dd data-book-out="profesional" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-calendar3"></i> Día</dt><dd data-book-out="dia" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-clock"></i> Horario</dt><dd data-book-out="horario" data-empty="—"></dd></div>
+                <div><dt><i class="bi bi-hourglass-split"></i> Duración</dt><dd data-book-out="duracion" data-empty="—"></dd></div>
+              </dl>
+              <p class="bk-total"><span>Total</span><strong data-book-out="precio" data-empty="$ 0"></strong></p>
+              <p class="bk-policy"><i class="bi bi-shield-check"></i> Pagás en el lugar. Cancelás sin costo hasta 24 h antes.</p>
+            </aside>
+          </div>
+        </form>
+        <p class="nx-note text-center">Tratamientos, precios y profesionales de ejemplo.</p>
+      </div>
+    </div></div>
+  </section>
+  <section class="mq-block" id="footer" data-module="footer-media" data-width="full">
+    <div class="mq-frame">
+      <footer class="nx nx-footer nx-sage" data-width="full" style="background-color: rgb(255, 255, 255);">
+        <div class="container py-5">
+          <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+              <a class="nx-brand" href="#footer-media">Alma</a>
+              <p class="muted">Centro de estética en Belgrano. Tratamientos faciales, corporales y láser.</p>
+            </div>
+            <div class="col-6 col-lg-3">
+              <h2 class="h6">Explorá</h2>
+              <ul class="foot-links">
+                <li><a href="#footer-media">Inicio</a></li>
+                <li><a href="#footer-media">Tratamientos</a></li>
+                <li><a href="#footer-media">Profesionales</a></li>
+                <li><a href="#footer-media">Contacto</a></li>
+              </ul>
+            </div>
+            <div class="col-6 col-lg-3">
+              <h2 class="h6">Reservas</h2>
+              <p class="mb-2"><a href="mailto:hola@example.com">hola@example.com</a></p>
+              <a class="btn-nx btn-sm" href="mailto:hola@example.com">Reservar turno <i class="bi bi-arrow-right"></i></a>
+              <p class="nx-note">Datos de ejemplo.</p>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <h2 class="h6">Seguinos</h2>
+              <div class="nx-socials mb-2">
+                
+                <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok"><i class="bi bi-tiktok"></i></a>
+              </div>
+              <p class="muted mb-0">Tips de cuidado y promos del mes.</p>
+            </div>
+          </div>
+          <hr class="nx-rule">
+          <div class="d-flex flex-wrap justify-content-between gap-2 small">
+            <span>© 2026 Alma Estética</span>
+            <span><a href="#footer-media">Privacidad</a> · <a href="#footer-media">Términos</a></span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="/maquetas/js/lanzate.js"></script>
+</body>
+</html>

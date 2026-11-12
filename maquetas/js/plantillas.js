@@ -5,10 +5,10 @@
   var V = "img/rubros/viajes/";
   var I = "img/rubros/inmobiliaria/";
 
-  window.LanzatePlantillas = [
-    {
+window.LanzatePlantillas = [
+  {
       id: "belleza", name: "Belleza y moda", match: /belleza|est[eé]tica|barber|peluquer|spa|moda|u[nñ]as/i,
-      templates: [
+    templates: [
         { name: "Estudio de estética", style: "Ciruela suave", font: "editorial", nav: "simple", hero: "compleja", footer: "media",
           image: ["img/rubros/estetica/hero.jpg", "Profesional realizando un tratamiento facial"],
           photos: [["img/rubros/estetica/hero.jpg", "Tratamiento facial en el estudio"], ["img/rubros/estetica/pro-1.jpg", "Cabina de tratamientos del estudio"], ["img/rubros/estetica/pro-2.jpg", "Detalle de un tratamiento de cuidado de la piel"], ["img/rubros/estetica/pro-3.jpg", "Productos de cuidado facial"]],
@@ -16,7 +16,7 @@
           highlights: ["Diagnóstico de piel|Empezamos por conocer tu tipo de piel.", "Productos profesionales|Elegidos según cada tratamiento.", "Seguimiento|Ajustamos el plan en cada visita."], icons: ["search-heart", "droplet", "calendar-heart"],
           people: ["Mariana G.", "Lucía R.", "Paula S."], quotes: ["Salí con la piel renovada y un plan claro para cuidarla en casa.", "Me explicaron cada paso del tratamiento. Volví al mes siguiente.", "Un lugar tranquilo, puntual y con mucha calidez."],
           closing: "Tu próximo tratamiento empieza con una consulta",
-          sections: [
+        sections: [
             { m: "servicios-productos-media", nav: "Tratamientos", title: "Tratamientos para cada momento", items: ["Higiene facial|Limpieza profunda según tu tipo de piel.", "Hidratación intensiva|Para pieles que necesitan recuperar confort.", "Masaje descontracturante|Maniobras suaves para aflojar la tensión."], bullets: ["Diagnóstico previo", "Extracción y limpieza", "Máscara calmante", "Sérum hidratante", "Máscara de colágeno", "Masaje facial", "Aceites esenciales", "Piedras calientes", "45 minutos de pausa"], lead: "¿No sabés cuál elegir? Te ayudamos en la primera consulta." },
             { m: "quienes-somos-media", nav: "El estudio", title: "Un espacio pensado *para tu pausa*", items: ["Cuidamos cada detalle|Te recibimos con tiempo, escuchamos qué buscás y armamos un plan que se adapte a tu rutina.", "Escucha|Cada piel tiene su historia.", "Constancia|Resultados que se sostienen.", "Calidez|Un trato cercano en cada visita."], lead: "En la primera visita conversamos sobre tus hábitos y el cuidado que buscás.", body: ["Después definimos juntas la frecuencia y los productos para continuar en casa."] },
             { m: "equipo-media", nav: "Equipo", title: "Las manos detrás de cada tratamiento", items: ["|Diagnóstico de piel y protocolos faciales.|Cosmetología", "|Masajes y tratamientos corporales.|Corporales", "|Atención, turnos y seguimiento.|Recepción"] },
@@ -31,19 +31,19 @@
           highlights: ["Sin esperas", "Barba con toalla caliente", "Productos de la casa"],
           people: ["Nico P.", "Fede A.", "Juan M."], quotes: ["El mejor fade que me hicieron. Me explicaron cómo mantenerlo.", "Puntuales, buena música y un trato de diez.", "Voy hace dos años y siempre salgo conforme."], orgs: ["Cliente habitual", "Primer corte", "Cliente habitual"],
           closing: "Tu próximo corte, a un clic",
-          sections: [
+        sections: [
             { m: "galeria-imagenes-simple", nav: "La barbería", title: "Pasá a conocer la barbería" },
             { m: "lista-precios-simple", nav: "Precios", title: "Servicios y precios", kicker: "Precios", items: ["Corte clásico|Tijera y máquina, con lavado incluido.||$9.000", "Fade|Degradado trabajado según tu estilo.||$10.500", "Barba|Perfilado con toalla caliente.||$6.000", "Corte y barba|Los dos servicios en un turno.||$14.000", "Corte infantil|Para chicos hasta 12 años.||$7.500", "Color|Reflejos o cubrir canas.||$12.000"] },
             { m: "equipo-simple", title: "Los barberos", items: ["|Fades y cortes modernos", "|Barba y afeitado clásico", "|Cortes para chicos y adultos"] },
             { m: "casos-exito-simple", title: "Clientes que vuelven" },
             { m: "reserva-turno-media", nav: "Turnos", title: "Agendá tu corte *en un minuto*", lead: "Mirá los horarios libres de la semana y elegí el que mejor te quede." },
             { m: "donde-nos-encontramos-media", title: "Estamos a la vuelta" }
-          ] }
-      ]
-    },
-    {
+        ] }
+    ]
+  },
+  {
       id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas|entrenamiento/i,
-      templates: [
+    templates: [
         { name: "Pilates Reformer", style: "Salvia", font: "moderna", nav: "simple", hero: "media", footer: "compleja",
           image: [P + "pilates.jpg", "Clase de pilates con reformer"],
           photos: [[P + "espacio.jpg", "Interior del estudio de pilates"], [P + "clase.jpg", "Clase grupal en el estudio"], [P + "funcional.jpg", "Entrenamiento funcional"], [P + "mat.jpg", "Clase de pilates mat"], [P + "estiramiento.jpg", "Estiramiento guiado"], [P + "pilates.jpg", "Reformer en uso"]],
@@ -65,7 +65,7 @@
           title: "Encontrá tu ritmo *en la práctica*", lead: "Yoga suave, movilidad y respiración para volver al cuerpo.", action: "Conocé las clases", target: "beneficios",
           highlights: ["Grupos reducidos", "Primera clase abierta"],
           closing: "Volvé a tu respiración",
-          sections: [
+        sections: [
             { m: "quienes-somos-simple", nav: "Nosotras", title: "Un lugar para bajar un cambio", kicker: "Quiénes somos", lead: "Abrimos el estudio para quienes buscan una práctica amable, sin exigencias ni comparaciones.", body: ["Cada clase combina movimiento, respiración y un cierre de relajación.", "Práctica consciente. Grupos reducidos."] },
             { m: "beneficios-media", nav: "Clases", title: "Prácticas para cada día", items: ["Yoga suave|Secuencias tranquilas para empezar o retomar.", "Vinyasa|Movimiento fluido coordinado con la respiración.", "Respiración|Técnicas para soltar la tensión del día.", "Meditación|Encuentros guiados de 30 minutos."] },
             { m: "video-destacado-simple", title: "Mirá cómo es una clase", images: [[P + "estiramiento.jpg", "Fotograma de una clase de yoga"]] },
@@ -81,19 +81,19 @@
           highlights: ["Coach en cada clase|Corrección de técnica todo el tiempo.", "Turnos cada hora|De 7 a 22, de lunes a sábado.", "Plan a medida|Medimos tu progreso cada mes."], icons: ["person-arms-up", "clock", "graph-up-arrow"],
           people: ["Martín G.", "Sole P.", "Agus R.", "Lean F."], quotes: ["En tres meses mejoré la fuerza y la postura. Los coaches están en todo.", "Buen ambiente y clases que se pasan volando.", "Me adaptaron los ejercicios por una lesión de rodilla.", "El mejor horario para entrenar antes del trabajo."], orgs: ["Funcional", "Fuerza", "Movilidad", "Funcional"],
           closing: "Tu primera clase va por nuestra cuenta",
-          sections: [
+        sections: [
             { m: "beneficios-simple", nav: "Por qué", title: "Más que un gimnasio, *un equipo*", kicker: "Beneficios", items: ["Clases cortas|45 minutos que rinden.", "Grupos reducidos|Hasta 12 personas por turno.", "Seguimiento|Evaluación física mensual.", "Comunidad|Entrenar acompañado motiva."], icons: ["stopwatch", "people", "clipboard-data", "heart-pulse"] },
             { m: "cifras-media", nav: "El box", title: "Un box que *no para*", lead: "Más de 300 personas entrenan con nosotros cada semana.", items: ["+300|socios activos", "60|clases por semana", "15 h|de entrenamiento por día", "12|personas por turno"] },
             { m: "proceso-simple", nav: "Empezar", title: "Empezá esta semana", items: ["Agendá|Elegí tu clase de prueba.", "Evaluamos|Medimos fuerza y movilidad.", "Entrenás|Arrancás con tu plan."] },
             { m: "equipo-media", title: "Los coaches", items: ["|Fuerza y acondicionamiento.|Head coach", "|Movilidad y prevención de lesiones.|Kinesiología", "|Clases grupales de alta intensidad.|Coach"] },
             { m: "casos-exito-media", nav: "Historias", title: "Historias del box" },
             { m: "preguntas-frecuentes-simple", title: "Dudas frecuentes", items: ["¿Necesito estar en forma?|No, adaptamos cada ejercicio a tu nivel.", "¿Qué planes hay?|Dos, tres o cinco veces por semana.", "¿Hay vestuarios?|Sí, con duchas y lockers.", "¿Puedo congelar el abono?|Sí, por viaje o lesión."] }
-          ] }
-      ]
-    },
-    {
+        ] }
+    ]
+  },
+  {
       id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio|psic[oó]log|nutrici/i,
-      templates: [
+    templates: [
         { name: "Consultorio odontológico", style: "Azul clínico", font: "moderna", nav: "media", hero: "dividida", footer: "compleja",
           image: ["img/plantillas/odontologia.webp", "Profesional en un consultorio odontológico"],
           photos: [["img/plantillas/odontologia.webp", "Consultorio odontológico equipado"], ["img/lugar.jpg", "Sala de espera luminosa"]],
@@ -127,7 +127,7 @@
     },
     {
       id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]|comida/i,
-      templates: [
+    templates: [
         { name: "Bistró de temporada", style: "Vino y cacao", font: "editorial", nav: "compleja", hero: "centrada", footer: "compleja",
           image: ["img/plantillas/bistro.webp", "Plato de pasta servido en una mesa oscura"],
           photos: [[V + "cat-gastronomia.webp", "Cocina abierta con platos de estación"], ["img/plantillas/bistro.webp", "Pasta casera servida en la mesa"]],
@@ -159,7 +159,7 @@
     },
     {
       id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs|agencia/i,
-      templates: [
+    templates: [
         { name: "Escapadas a la Patagonia", style: "Litoral", font: "moderna", nav: "media", hero: "marco", footer: "compleja",
           image: [V + "dest-bariloche.webp", "Paisaje patagónico en Bariloche"],
           photos: [[V + "dest-bariloche.webp", "Lago Nahuel Huapi entre montañas"], [V + "hero-2.webp", "Caminante frente al cerro Fitz Roy"], [V + "promo-ushuaia.webp", "Faro en el Canal Beagle"], [V + "cat-aventura.webp", "Montañista en una cumbre nevada"]],
@@ -194,7 +194,7 @@
     },
     {
       id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|alquiler|arquitect/i,
-      templates: [
+    templates: [
         { name: "Propiedades para visitar", style: "Pizarra", font: "clasica", nav: "media", hero: "simple", footer: "compleja",
           image: [I + "hero-1.jpg", "Interior luminoso de una propiedad"],
           photos: [[I + "hero-2.jpg", "Living con ventanales"], [I + "hero-3.jpg", "Cocina integrada"], [I + "hero-4.jpg", "Frente de casa con jardín"], ["img/galx-main.jpg", "Living abierto al jardín"], ["img/galx-th2.jpg", "Cocina con isla de madera"], ["img/galx-th3.jpg", "Dormitorio en tonos claros"], ["img/galx-living.jpg", "Ambientes integrados"], ["img/galx-ideas.jpg", "Escritorio junto a la ventana"], ["img/galx-pausa.jpg", "Rincón de lectura"]],
@@ -227,7 +227,7 @@
     },
     {
       id: "educacion", name: "Educación y libros", match: /educaci[oó]n|idioma|academia|escuela|curso|libro|clases/i,
-      templates: [
+    templates: [
         { name: "Academia de idiomas", style: "Índigo", font: "moderna", nav: "compleja", hero: "media", footer: "compleja",
           image: ["img/rubros/idiomas/hero.jpg", "Clase de idiomas"],
           photos: [["img/rubros/idiomas/hero.jpg", "Estudiantes en clase"], ["img/rubros/idiomas/prof-1.jpg", "Profesora explicando en el pizarrón"]],
@@ -261,7 +261,7 @@
     },
     {
       id: "servicios", name: "Negocios y servicios", match: /servicio|consultor|empresa|estudio|contador|abogad/i,
-      templates: [
+    templates: [
         { name: "Consultoría para pymes", style: "Profesional", font: "moderna", nav: "media", hero: "dividida", footer: "compleja",
           image: ["img/equipo-grupo.jpg", "Equipo de trabajo en una reunión"],
           photos: [["img/quienes-media.jpg", "Reunión de diagnóstico"], ["img/quienes-compleja.jpg", "Consultores revisando indicadores"], ["img/equipo-grupo.jpg", "Equipo de trabajo"]],

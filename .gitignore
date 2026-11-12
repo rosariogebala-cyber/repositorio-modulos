@@ -6,7 +6,6 @@ __pycache__/
 data/db.json*
 data/previews/
 data/logos/
-Templates/
 .vercel
 .env*
 
