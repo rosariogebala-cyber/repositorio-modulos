@@ -871,49 +871,142 @@
   var LANDING_CATEGORIES = [
     { id: "belleza", name: "Belleza y estética", match: /belleza|est[eé]tica|barber|peluquer|spa/i,
       palettes: ["Ciruela suave", "Cálida", "Rosa empolvado"],
+      short: ["Turnos rápidos", "reserva-turno-simple"], extra: "resenas-google-simple",
+      title: "Belleza y cuidado personal", lead: "Conocé los tratamientos y elegí tu próximo turno.",
       modules: ["servicios-productos-media", "galeria-imagenes-media", "reserva-turno-media", "donde-nos-encontramos-simple"] },
     { id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas/i,
       palettes: ["Salvia", "Natural", "Lavanda"],
+      short: ["Reservá una clase", "reserva-turno-simple"], extra: "galeria-imagenes-media",
+      title: "Un espacio para moverte", lead: "Conocé las clases, el equipo y los horarios.",
       modules: ["servicios-productos-media", "equipo-simple", "reserva-turno-media", "preguntas-frecuentes-simple"] },
     { id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio/i,
       palettes: ["Azul clínico", "Menta", "Celeste humo"],
+      short: ["Solicitá un turno", "reserva-turno-simple"], extra: "preguntas-frecuentes-media",
+      title: "Atención profesional", lead: "Conocé las especialidades y coordiná una consulta.",
       modules: ["servicios-productos-media", "equipo-media", "reserva-turno-media", "donde-nos-encontramos-media"] },
     { id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]/i,
       palettes: ["Vino y cacao", "Terracota", "Café tostado"],
+      short: ["Menú y ubicación", "donde-nos-encontramos-simple"], extra: "quienes-somos-simple",
+      title: "Sabores para compartir", lead: "Explorá la carta y encontrá cómo visitarnos.",
       modules: ["productos-media", "galeria-imagenes-media", "donde-nos-encontramos-media"] },
     { id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs/i,
       palettes: ["Litoral", "Petróleo", "Coral"],
+      short: ["Elegí tu destino", "beneficios-simple"], extra: "proceso-media",
+      title: "Tu próximo viaje empieza acá", lead: "Explorá destinos y consultá por los paquetes disponibles.",
       modules: ["productos-compleja", "galeria-imagenes-media", "preguntas-frecuentes-simple"] },
     { id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|arquitect/i,
       palettes: ["Pizarra", "Profesional", "Arena"],
+      short: ["Consultá una propiedad", "donde-nos-encontramos-simple"], extra: "productos-media",
+      title: "Encontrá tu próximo lugar", lead: "Explorá las propiedades y coordiná una visita.",
       modules: ["beneficios-media", "galeria-imagenes-compleja", "donde-nos-encontramos-media"] },
     { id: "educacion", name: "Educación e idiomas", match: /educaci[oó]n|idioma|academia|escuela|curso/i,
       palettes: ["Azul tinta", "Índigo", "Celeste humo"],
+      short: ["Consultá por un curso", "beneficios-simple"], extra: "planes-media",
+      title: "Aprendé a tu ritmo", lead: "Conocé la propuesta, el equipo y las modalidades.",
       modules: ["servicios-productos-media", "equipo-media", "preguntas-frecuentes-simple"] },
     { id: "servicios", name: "Servicios profesionales", match: /servicio|consultor|tecnolog|empresa|estudio/i,
       palettes: ["Cobre", "Grafito", "Profesional"],
+      short: ["Pedí una consulta", "beneficios-simple"], extra: "equipo-simple",
+      title: "Servicios para tu negocio", lead: "Conocé cómo trabajamos y contanos qué necesitás.",
       modules: ["servicios-productos-media", "proceso-media", "casos-exito-simple", "preguntas-frecuentes-simple"] }
   ];
 
-  function loadCategoryTemplate(category) {
-    var ids = ["navegacion-simple", "hero-full-imagen-media"].concat(category.modules, "footer-cierre");
-    if (ids.some(function (id) { return !byId[id]; })) {
-      say("No se pudo cargar la plantilla. Esperá a que termine de cargar el catálogo.", "warn");
-      return;
-    }
-    if (state.items.length && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
-    state.items = ids.map(function (id) { return menuDefault({ id: id, width: "full" }); });
-    state.ignorados = [];
-    applySuggestedStyle(LANDING_STYLES.find(function (style) { return style.name === category.palettes[0]; }));
-    showTab("order");
-    say("Plantilla de «" + category.name + "» aplicada. Revisá los textos, fotos y datos antes de guardar.", "ok");
+  function categoryTemplates(category) {
+    return [
+      { name: category.short[0], hero: "hero-full-imagen-simple", modules: [category.modules[0], category.short[1]] },
+      { name: "Presentación", hero: "hero-full-imagen-media", modules: category.modules },
+      { name: "Completa", hero: "hero-full-imagen-compleja", modules: category.modules.concat(category.extra) }
+    ];
   }
 
-  function applySuggestedStyle(style) {
-    state.colores = {
+  function categoryTemplateItems(category, choice) {
+    var ids = ["navegacion-simple", choice.hero].concat(choice.modules, "footer-cierre");
+    if (ids.some(function (id) { return !byId[id]; })) return null;
+    var items = ids.map(function (id) { return menuDefault({ id: id, width: "full" }); });
+    var hero = document.createElement("template");
+    hero.innerHTML = byId[choice.hero].html;
+    hero.content.querySelectorAll(".nx-display").forEach(function (heading) { heading.textContent = category.title; });
+    hero.content.querySelectorAll(".nx-lead").forEach(function (lead) { lead.textContent = category.lead; });
+    items[1].html = hero.innerHTML;
+    return items;
+  }
+
+  function suggestedStyleColors(style) {
+    return {
       titulos: style.title, parrafos: style.text, etiquetas: style.accent,
       acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font
     };
+  }
+
+  function openCategoryGallery(initialCategory) {
+    var dialog = document.querySelector("[data-template-gallery]");
+    var categorySelect = dialog.querySelector("[data-template-category]");
+    var choiceSelect = dialog.querySelector("[data-template-choice]");
+    var deviceSelect = dialog.querySelector("[data-template-device]");
+    var preview = dialog.querySelector("[data-template-preview]");
+    var modules = dialog.querySelector("[data-template-modules]");
+    var use = dialog.querySelector("[data-template-use]");
+    var category;
+    var items;
+    var style;
+
+    function renderTemplatePreview() {
+      var choice = categoryTemplates(category)[Number(choiceSelect.value)];
+      items = categoryTemplateItems(category, choice);
+      style = LANDING_STYLES.find(function (entry) { return entry.name === category.palettes[0]; });
+      use.disabled = !items;
+      if (!items) {
+        preview.srcdoc = "";
+        modules.textContent = "El catálogo todavía está cargando.";
+        return;
+      }
+      modules.textContent = items.map(function (item) { return byId[item.id].group; }).join(" · ");
+      var current = state;
+      var markup;
+      try {
+        state = {
+          name: category.name, clienteId: current.clienteId, items: items, estilo: "",
+          colores: suggestedStyleColors(style)
+        };
+        markup = buildDocument({ base: baseUrl(), staticPreview: true });
+      } finally {
+        state = current;
+      }
+      preview.srcdoc = markup;
+    }
+
+    function renderChoices() {
+      category = LANDING_CATEGORIES.find(function (entry) { return entry.id === categorySelect.value; });
+      choiceSelect.replaceChildren();
+      categoryTemplates(category).forEach(function (choice, index) {
+        choiceSelect.add(new Option(choice.name, String(index), index === 1, index === 1));
+      });
+      renderTemplatePreview();
+    }
+
+    categorySelect.replaceChildren();
+    LANDING_CATEGORIES.forEach(function (entry) { categorySelect.add(new Option(entry.name, entry.id)); });
+    categorySelect.value = (initialCategory || LANDING_CATEGORIES[0]).id;
+    categorySelect.onchange = renderChoices;
+    choiceSelect.onchange = renderTemplatePreview;
+    deviceSelect.onchange = function () { preview.classList.toggle("is-mobile", deviceSelect.value === "mobile"); };
+    dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
+    use.onclick = function () {
+      if (!items) return;
+      if (state.items.length && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
+      state.items = items;
+      state.ignorados = [];
+      applySuggestedStyle(style);
+      showTab("order");
+      dialog.close();
+      say("Plantilla aplicada. Personalizá los textos, las fotos y los datos antes de guardar.", "ok");
+    };
+    renderChoices();
+    dialog.showModal();
+  }
+
+  function applySuggestedStyle(style) {
+    state.colores = suggestedStyleColors(style);
     state.items.forEach(function (item) {
       delete item.fondo;
       delete item.coloresModulo;
@@ -943,12 +1036,9 @@
     var category = group === "sugeridas" ? recommendedCategory :
       LANDING_CATEGORIES.find(function (entry) { return group === "rubro-" + entry.id; });
     var template = document.querySelector("[data-style-template]");
-    template.hidden = !category;
-    if (category) {
-      template.querySelector("[data-style-template-sections]").textContent = "Plantilla de " + category.name +
-        " con portada, " + category.modules.map(function (id) { return byId[id] ? byId[id].group : id; }).join(", ") + " y footer.";
-      template.querySelector("[data-apply-style-template]").onclick = function () { loadCategoryTemplate(category); };
-    }
+    template.querySelector("[data-style-template-sections]").textContent = category ?
+      "Rubro: " + category.name : "Compará tres diseños por rubro antes de elegir.";
+    template.querySelector("[data-apply-style-template]").onclick = function () { openCategoryGallery(category); };
     var styles = LANDING_STYLES;
     if (category) {
       styles = category.palettes.map(function (name) { return LANDING_STYLES.find(function (style) { return style.name === name; }); });
@@ -1268,12 +1358,20 @@
       '<body class="landing-page' + (opts.tools ? " has-tools" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
     ].filter(Boolean);
     var body = state.items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools); });
-    var tail = [
+    var tail = opts.staticPreview ? [] : [
       '  <script src="' + BOOTSTRAP_JS + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
       '  <script src="' + prefix + 'js/lanzate.js"></' + "script>"
     ];
     if (opts.preview) {
       tail.push("  <script>document.addEventListener('click',function(e){var t=e.target.closest('.lp-tools [data-act]');if(t){parent.postMessage({lbAct:{index:+t.getAttribute('data-index'),act:t.getAttribute('data-act')}},'*');return;}var a=e.target.closest('a[href^=\"#\"]');if(a)e.preventDefault();});</" + "script>");
+    }
+    if (opts.staticPreview) {
+      body = body.map(function (markup) {
+        var template = document.createElement("template");
+        template.innerHTML = markup;
+        template.content.querySelectorAll("a[href]").forEach(function (link) { link.removeAttribute("href"); });
+        return template.innerHTML;
+      });
     }
     return head.concat(body, tail, ["</body>", "</html>", ""]).join("\n");
   }
