@@ -907,7 +907,7 @@ def landing_page(cliente_slug, slug, origin=""):
         row = con.execute(
             "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
             "c.id AS cliente_id, c.actualizado AS cliente_actualizado, "
-            "c.nombre AS cliente, c.logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
+            "c.nombre AS cliente, (c.logo <> '') AS logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
             "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
             "WHERE c.slug = %s AND l.slug = %s",
             (cliente_slug, slug),
