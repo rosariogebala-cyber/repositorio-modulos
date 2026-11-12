@@ -15,9 +15,11 @@
   --shadow: 0 14px 40px rgba(23, 53, 44, 0.08);
   --radius: 18px;
   --fs-label: 12px;
+  --fs-body: 14px;
   --fs-section-title: clamp(2rem, 4vw, 3.15rem);
   --fs-button: 15px;
   --fs-field: 16px;
+  --ctl-h-sm: 24px;
   --ctl-h-lg: 44px;
 }
 
@@ -3403,12 +3405,12 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   letter-spacing: 0.02em;
 }
 .lb-hex:hover, .lb-hex:focus { background: #f7f6f2; color: #3c415c; outline: none; }
-.lb-fondos-title { margin: 18px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #a3a7b8; }
-.lb-fondo-note { grid-column: 1 / -1; margin: -6px 0 8px; font-size: 11px; font-weight: 500; color: #a3a7b8; white-space: nowrap; }
+.lb-fondos-title { margin: 18px 0 0; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #a3a7b8; }
+.lb-fondo-note { grid-column: 1 / -1; margin: -6px 0 8px; font-size: var(--fs-label); font-weight: 500; color: #a3a7b8; white-space: nowrap; }
 .lb-fondo-note.is-bad { color: #b4634a; }
 .lb-fondo-row .lb-link { grid-column: 1 / -1; justify-self: start; margin: -4px 0 6px; min-height: 32px; }
 .lb-contrast { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
-.lb-contrast li { font-size: 11px; line-height: 1.4; font-weight: 500; color: #a3a7b8; }
+.lb-contrast li { font-size: var(--fs-label); line-height: 1.4; font-weight: 500; color: #a3a7b8; }
 .lb-contrast li.is-bad { color: #b4634a; }
 .lb-ia-foot { display: flex; justify-content: flex-end; margin-top: 18px; }
 .rg-savebar {
@@ -3520,4 +3522,40 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 @media (max-width: 767.98px) {
   .nx-hero-slide > .lz-hero-photo { object-position: center; }
+}
+
+
+/* La escala compartida se aplica también a las landings ya publicadas. */
+.landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden) {
+  font-size: max(var(--fs-body), 0.875em);
+}
+
+.landing-page .nx :is(.nx-kicker, .plan-kicker) {
+  font-size: var(--fs-label);
+}
+
+.landing-page .nx :is(.btn, .btn-nx, .btn-nx-outline, .btn-nx-light) {
+  min-height: var(--ctl-h-lg);
+  font-size: var(--fs-button);
+}
+
+@media (max-width: 575.98px) {
+  .landing-page .nx .container {
+    padding-inline: var(--nx-gutter);
+  }
+}
+
+:is(.builder-page, .pf-page) :is(
+  button, input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]),
+  select, textarea, a.btn
+) {
+  min-height: var(--ctl-h-lg);
+}
+
+:is(.builder-page, .pf-page) :is(input[type="checkbox"], input[type="radio"]) + label {
+  min-height: var(--ctl-h-sm);
+}
+
+:is(.builder-page, .pf-page) :is(.lb-hint, .pf-help) {
+  font-size: var(--fs-body);
 }

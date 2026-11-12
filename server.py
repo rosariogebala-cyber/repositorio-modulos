@@ -716,10 +716,21 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
 
-    cta_color = None if "--green:" in markup else accessible_button_color(primary_color)
+    # La paleta guardada por el constructor tiene precedencia sobre la del cliente.
+    accent = next((
+        match[1]
+        for style in document.xpath("./head/style/text()")
+        if (match := re.search(r"--green:\s*(#[0-9a-fA-F]{6})\s*(?:;|})", style))
+    ), primary_color)
+    cta_color = accessible_button_color(accent)
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
         style.text = ".landing-page .btn-nx:not(:hover):not(:active){background-color:" + cta_color + ";color:#fff}"
+    for label in body.xpath(
+        './/h2[contains(concat(" ", normalize-space(@class), " "), " nx-kicker ")'
+        ' or contains(concat(" ", normalize-space(@class), " "), " plan-kicker ")]'
+    ):
+        label.tag = "p"
     for trap in body.xpath('.//form//input[@name="web" and @aria-hidden="true"]'):
         trap.set("hidden", "")
         trap.set("tabindex", "-1")
