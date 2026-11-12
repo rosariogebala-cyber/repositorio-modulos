@@ -806,25 +806,17 @@
       sector: /viaje|turismo|gastron|jard[ií]n|natural/i }
   ];
 
-  var LANDING_COLOR_KEYS = ["titulos", "parrafos", "etiquetas", "acento", "iconos", "nav", "hero"];
-
-  function manualLandingColors(colors) {
-    if (!colors) return [];
-    if (Array.isArray(colors.coloresManuales)) {
-      return LANDING_COLOR_KEYS.filter(function (key) { return colors.coloresManuales.includes(key); });
-    }
-    return LANDING_COLOR_KEYS.filter(function (key) { return normalizeHex(colors[key]); });
-  }
-
-  function suggestedLandingColors(style, previous) {
-    var manual = manualLandingColors(previous);
-    var colors = {
+  function applySuggestedStyle(style) {
+    state.colores = {
       titulos: style.title, parrafos: style.text, etiquetas: style.accent,
-      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font,
-      coloresManuales: manual
+      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font
     };
-    manual.forEach(function (key) { colors[key] = previous[key]; });
-    return colors;
+    state.items.forEach(function (item) {
+      delete item.fondo;
+      delete item.coloresModulo;
+      moduleColorHistory.delete(item);
+    });
+    update();
   }
 
   function renderStyleSuggestions() {
@@ -837,8 +829,9 @@
     var recommended = sector && LANDING_STYLES.find(function (style) { return style.sector.test(sector); });
     var styles = recommended ? [recommended].concat(LANDING_STYLES.filter(function (style) { return style !== recommended; })) : LANDING_STYLES;
     document.querySelector("[data-style-hint]").textContent = recommended ?
-      "Para " + sector + ", probá la paleta " + recommended.name.toLowerCase() + "." :
-      "Elegí una combinación para empezar y ajustala después.";
+      "Para " + sector + ", probá la paleta " + recommended.name.toLowerCase() + ". " : "";
+    document.querySelector("[data-style-hint]").textContent +=
+      "Elegir un estilo reemplaza la paleta y los colores personalizados de todas las secciones.";
     list.innerHTML = "";
     styles.forEach(function (style) {
       var button = document.createElement("button");
@@ -849,8 +842,7 @@
           return '<i style="background:' + color + '"></i>';
         }).join("") + '</span>';
       button.onclick = function () {
-        state.colores = suggestedLandingColors(style, state.colores);
-        refreshLandingStyle();
+        applySuggestedStyle(style);
       };
       list.appendChild(button);
     });
@@ -862,6 +854,7 @@
     try {
       var data = JSON.parse(match[1]);
       if (data.texto && !data.titulos) data.titulos = data.texto;
+      delete data.coloresManuales;
       if (!Object.hasOwn(LANDING_FONTS, data.tipografia)) delete data.tipografia;
       if (["titulos", "acento", "iconos"].every(function (key) { return /^#[0-9a-f]{6}$/i.test(data[key] || ""); })) return data;
       return data.tipografia ? { tipografia: data.tipografia } : null;
@@ -3487,7 +3480,6 @@
     if (!hex) return;
     var next = effectiveColors();
     next[key] = hex;
-    next.coloresManuales = Array.from(new Set(manualLandingColors(state.colores).concat(key)));
     state.colores = next;
     paintLandingColors();
     renderColors();
