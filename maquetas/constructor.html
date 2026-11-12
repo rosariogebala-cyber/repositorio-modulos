@@ -45,9 +45,9 @@
         <label class="lb-label lb-label-gap" for="lbDesc">Descripción para Google&nbsp;<span class="lb-optional">(opcional)</span></label>
         <textarea class="lb-input lb-desc" id="lbDesc" rows="3" maxlength="300" placeholder="Qué ofrece la landing, en una o dos frases" data-lb-desc></textarea>
         <p class="lb-hint" data-lb-desc-hint></p>
-        <div class="lb-colors" data-lb-colors>
+        <details class="lb-colors" data-lb-colors>
+          <summary class="lb-colors-title">Paleta general</summary>
           <div class="lb-card-head">
-            <h3 class="lb-colors-title">Colores de esta landing</h3>
             <button class="lb-link" type="button" data-lb-colors-reset>Usar los del cliente</button>
           </div>
           <ul class="lb-color-list">
@@ -102,9 +102,11 @@
             </li>
           </ul>
           <ul class="lb-contrast" data-lb-contrast></ul>
-          <h4 class="lb-fondos-title">Fondos por módulo</h4>
+        </details>
+        <details class="lb-colors">
+          <summary class="lb-colors-title">Fondos por módulo</summary>
           <ol class="lb-fondos" data-lb-fondos></ol>
-        </div>
+        </details>
       </section>
 
       <section class="lb-card lb-step" data-lb-step="2">

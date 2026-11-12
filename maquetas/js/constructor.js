@@ -802,10 +802,9 @@
     ];
     return pairs.map(function (pair) {
       var ratio = contrastRatio(pair[1], pair[2]);
-      var ok = ratio >= pair[3];
-      var value = (Math.round(ratio * 10) / 10).toFixed(1);
-      return '<li class="' + (ok ? "" : "is-bad") + '">' + pair[0] + ": " + value + ":1. " +
-        (ok ? "Llega al mínimo de " + pair[3] + ":1." : "Hace falta " + pair[3] + ":1. Oscurecé o aclará uno de los dos.") + "</li>";
+      if (ratio >= pair[3]) return "";
+      return '<li class="is-bad">' + pair[0] + ": " + ratio.toFixed(2) + ":1. " +
+        "Hace falta " + pair[3] + ":1. Oscurecé o aclará uno de los dos.</li>";
     }).join("");
   }
 
@@ -829,7 +828,7 @@
         '<input type="color" data-fondo value="' + (it.fondo || "#f7f4ef") + '" aria-label="Fondo de ' + escapeHtml(m.group) + '">' +
         '<input class="lb-hex" type="text" data-fondo-hex value="' + (it.fondo || "#f7f4ef") + '" maxlength="7" spellcheck="false" autocapitalize="off" aria-label="Hexadecimal del fondo de ' + escapeHtml(m.group) + '">' +
         "</span>" +
-        '<span class="lb-fondo-note' + (status.bad ? " is-bad" : "") + '" data-fondo-note' + (it.fondo ? "" : " hidden") + ">" + status.text + "</span>" +
+        '<span class="lb-fondo-note' + (status.bad ? " is-bad" : "") + '" data-fondo-note' + (it.fondo && status.bad ? "" : " hidden") + ">" + status.text + "</span>" +
         '<button type="button" class="lb-link" data-fondo-reset' + (it.fondo ? "" : " hidden") + ">Color original</button>";
       var input = li.querySelector("[data-fondo]");
       var hexInput = li.querySelector("[data-fondo-hex]");
@@ -842,7 +841,7 @@
         paintFondo(hex, i);
         var note = li.querySelector("[data-fondo-note]");
         var next = fondoNote(it);
-        note.hidden = false;
+        note.hidden = !next.bad;
         note.textContent = next.text;
         note.classList.toggle("is-bad", next.bad);
         li.querySelector("[data-fondo-reset]").hidden = false;
@@ -878,9 +877,11 @@
     document.querySelectorAll("[data-lb-fondos] [data-fondo-row], [data-lb-fondos] .lb-fondo-row").forEach(function (row) {
       var note = row.querySelector("[data-fondo-note]");
       var input = row.querySelector("[data-fondo]");
-      if (!note || !input || note.hidden) return;
+      var reset = row.querySelector("[data-fondo-reset]");
+      if (!note || !input || !reset || reset.hidden) return;
       var fake = { fondo: input.value };
       var status = fondoNote(fake);
+      note.hidden = !status.bad;
       note.textContent = status.text;
       note.classList.toggle("is-bad", status.bad);
     });
@@ -3073,6 +3074,7 @@
   function goTo(key) {
     if (key === "client" || key === "name") { openAssign(); return; }
     if (key === "colors") {
+      document.querySelector("[data-lb-colors]").open = true;
       document.querySelector('[data-hex="acento"]').focus();
       return;
     }
