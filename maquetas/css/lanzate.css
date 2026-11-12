@@ -3867,6 +3867,33 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .hero-mosaic-photos > img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; display: block; min-height: 0; }
 .hero-mosaic-photos .nx-hero-card { position: absolute; left: -24px; bottom: 24px; max-width: 280px; }
 
+/* Portada con foto enmarcada */
+.hero-frame { padding: clamp(40px, 6vw, 88px) 0; background: var(--paper); }
+.hero-frame-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+}
+.hero-frame .nx-hero-slide {
+  min-height: clamp(340px, 34vw, 520px);
+  border-radius: 28px;
+  background-position: center;
+  box-shadow: 0 24px 50px rgba(23, 32, 28, 0.16);
+}
+.hero-frame .nx-hero-slide::before { display: none; }
+
+/* Portada con fila de cifras sobre la foto */
+.hero-stats .nx-hero-slide { min-height: clamp(560px, 78vh, 760px); display: flex; align-items: flex-end; }
+.hero-stats .nx-hero-slide::before { background: linear-gradient(180deg, rgba(12, 20, 18, 0.15) 0%, rgba(12, 20, 18, 0.72) 100%); }
+.hero-stats .container { padding-bottom: clamp(28px, 4vw, 48px); }
+.hero-stats-copy { max-width: 640px; }
+.nx.hero-stats .nx-hero-slide :is(h1, h2, .nx-display) { color: #fff; }
+.nx.hero-stats .nx-display .em { color: color-mix(in srgb, var(--green) 35%, #fff); }
+.nx.hero-stats .nx-lead { color: rgba(255, 255, 255, 0.9); }
+.hero-stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: clamp(28px, 4vw, 48px); }
+.hero-stats-row .nx-hero-card { margin: 0; }
+
 /* Lista de precios */
 .price-list {
   display: grid;
@@ -4001,6 +4028,9 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .hero-mosaic-grid { grid-template-columns: minmax(0, 1fr); }
   .hero-mosaic-photos { height: 380px; }
   .hero-mosaic-photos .nx-hero-card { left: 12px; bottom: 12px; }
+  .hero-frame-grid { grid-template-columns: minmax(0, 1fr); }
+  .hero-frame .nx-hero-slide { order: -1; min-height: 280px; }
+  .hero-stats-row { grid-template-columns: minmax(0, 1fr); }
   .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 32px; }
   .stats-band .stats-row .stat:nth-child(odd) { border-left: 0; }
   .stats-dark-grid { grid-template-columns: minmax(0, 1fr); }

@@ -74,7 +74,7 @@
             { m: "preguntas-frecuentes-compleja", title: "Preguntas antes de empezar", filters: ["Primera clase", "Clases", "Pagos"], items: ["¿Necesito experiencia?|No. El grupo inicial está pensado para empezar de cero.", "¿Qué llevo?|Ropa cómoda y agua. Tenemos colchonetas.", "¿Puedo ir embarazada?|Sí, avisanos y adaptamos la práctica.", "¿Cuánto dura una clase?|Una hora con relajación final.", "¿Hay clases de prueba?|Sí, la primera clase es abierta.", "¿Cómo pago?|Por clase suelta o abono mensual."] },
             { m: "donde-nos-encontramos-simple", title: "Vení a practicar", items: ["Visitanos", "Horarios", "Clase de prueba|Escribinos y te guardamos un lugar."] }
           ] },
-        { name: "Gimnasio funcional", style: "Coral", font: "moderna", nav: "media", hero: "centrada", footer: "simple", tint: "impar",
+        { name: "Gimnasio funcional", style: "Coral", font: "moderna", nav: "media", hero: "datos", footer: "simple", tint: "impar",
           image: [P + "funcional.jpg", "Entrenamiento funcional en grupo"],
           photos: [[P + "funcional.jpg", "Entrenamiento funcional"], [P + "clase.jpg", "Clase grupal de alta intensidad"], [P + "hero.jpg", "Sala de entrenamiento"]],
           title: "Entrená fuerte, *entrená bien*", lead: "Clases funcionales de 45 minutos con coach en cada turno.", action: "Probá una clase gratis", target: "proceso",
@@ -160,7 +160,7 @@
     {
       id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs|agencia/i,
       templates: [
-        { name: "Escapadas a la Patagonia", style: "Litoral", font: "moderna", nav: "media", hero: "centrada", footer: "compleja",
+        { name: "Escapadas a la Patagonia", style: "Litoral", font: "moderna", nav: "media", hero: "marco", footer: "compleja",
           image: [V + "dest-bariloche.webp", "Paisaje patagónico en Bariloche"],
           photos: [[V + "dest-bariloche.webp", "Lago Nahuel Huapi entre montañas"], [V + "hero-2.webp", "Caminante frente al cerro Fitz Roy"], [V + "promo-ushuaia.webp", "Faro en el Canal Beagle"], [V + "cat-aventura.webp", "Montañista en una cumbre nevada"]],
           title: "Unos días al sur *cambian el ritmo*", lead: "Armá tu viaje entre lagos, senderos y pueblos de montaña.", action: "Explorá los destinos", target: "productos",
@@ -395,11 +395,11 @@
     {
       id: "hogar", name: "Hogar y familia", match: /hogar|familia|electric|mantenimiento|decoraci|interior/i,
       templates: [
-        { name: "Electricidad para el hogar", style: "Canela", font: "clasica", nav: "compleja", hero: "media", footer: "simple",
+        { name: "Electricidad para el hogar", style: "Canela", font: "clasica", nav: "compleja", hero: "datos", footer: "simple",
           image: ["img/plantillas/hogar.webp", "Electricista trabajando en una vivienda"],
           photos: [["img/plantillas/hogar.webp", "Revisión de un tablero eléctrico"]],
           title: "Instalaciones eléctricas *para tu casa*", lead: "Revisión, diagnóstico y reparaciones coordinadas con presupuesto previo.", action: "Pedí presupuesto", target: "proceso",
-          highlights: ["Matriculados", "Urgencias 24 h", "Garantía escrita"],
+          highlights: ["Matriculados|Electricistas habilitados.", "Urgencias 24 h|Guardia en CABA y zona norte.", "Garantía escrita|Seis meses por el trabajo."],
           people: ["Mónica R.", "Carlos D.", "Laura P."], quotes: ["Vinieron el mismo día por un corte y lo resolvieron rápido.", "Me cambiaron el tablero completo y dejaron todo limpio.", "Presupuesto claro y trabajo prolijo."],
           closing: "Una instalación segura empieza con una revisión",
           sections: [
@@ -484,7 +484,7 @@
     {
       id: "tecnologia", name: "Computación e internet", match: /tecnolog|software|internet|sistemas|app|saas/i,
       templates: [
-        { name: "Software para equipos", style: "Azul tinta", font: "moderna", nav: "media", hero: "media", footer: "compleja", tint: "impar",
+        { name: "Software para equipos", style: "Azul tinta", font: "moderna", nav: "media", hero: "marco", footer: "compleja", tint: "impar",
           image: ["img/plantillas/tecnologia.webp", "Desarrollador trabajando frente a una computadora"],
           photos: [["img/plantillas/tecnologia.webp", "Tablero de tareas en pantalla"], ["img/servicio-web.jpg", "La plataforma en una notebook"], ["img/equipo-grupo.jpg", "Equipo usando la plataforma"]],
           title: "Organizá el trabajo *en un solo lugar*", lead: "Una plataforma para centralizar tareas, responsables y avances del equipo.", action: "Probá gratis 14 días", target: "proceso",

@@ -46,7 +46,7 @@ window.LANZATE_MODULES = [
     "nombre": "Hero",
     "categoria": "estructura",
     "numero": 2,
-    "descripcion": "Portadas con imagen completa, dividida, centrada o en mosaico.",
+    "descripcion": "Portadas con foto completa, dividida, centrada, en mosaico, enmarcada o con cifras.",
     "variantes": [
       {
         "nombre": "Simple",
@@ -83,6 +83,18 @@ window.LANZATE_MODULES = [
         "imagen": "assets/modulos/hero-full-imagen/mosaico.png",
         "ancho": 800,
         "alto": 380
+      },
+      {
+        "nombre": "Marco",
+        "imagen": "assets/modulos/hero-full-imagen/marco.png",
+        "ancho": 800,
+        "alto": 408
+      },
+      {
+        "nombre": "Datos",
+        "imagen": "assets/modulos/hero-full-imagen/datos.png",
+        "ancho": 800,
+        "alto": 422
       }
     ]
   },
