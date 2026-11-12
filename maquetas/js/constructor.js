@@ -766,6 +766,7 @@
         else a.remove();
       });
     });
+    if (c.nombre) root.querySelectorAll("[data-template-brand]").forEach(function (brand) { brand.textContent = c.nombre; });
     var logo = logoSrc(c, preview);
     var mode = logoMode(c);
     if (logo && mode !== "texto") {
@@ -868,67 +869,181 @@
     { name: "Cobre", group: "calidas", font: "clasica", title: "#3d2d28", text: "#644c44", accent: "#8a462e" }
   ];
 
-  var LANDING_CATEGORIES = [
-    { id: "belleza", name: "Belleza y estética", match: /belleza|est[eé]tica|barber|peluquer|spa/i,
-      palettes: ["Ciruela suave", "Cálida", "Rosa empolvado"],
-      short: ["Turnos rápidos", "reserva-turno-simple"], extra: "resenas-google-simple",
-      title: "Belleza y cuidado personal", lead: "Conocé los tratamientos y elegí tu próximo turno.",
-      modules: ["servicios-productos-media", "galeria-imagenes-media", "reserva-turno-media", "donde-nos-encontramos-simple"] },
-    { id: "bienestar", name: "Pilates y bienestar", match: /pilates|yoga|bienestar|fitness|gimnas/i,
-      palettes: ["Salvia", "Natural", "Lavanda"],
-      short: ["Reservá una clase", "reserva-turno-simple"], extra: "galeria-imagenes-media",
-      title: "Un espacio para moverte", lead: "Conocé las clases, el equipo y los horarios.",
-      modules: ["servicios-productos-media", "equipo-simple", "reserva-turno-media", "preguntas-frecuentes-simple"] },
-    { id: "salud", name: "Salud y consultorios", match: /salud|m[eé]dic|cl[ií]nic|odont|consultorio/i,
-      palettes: ["Azul clínico", "Menta", "Celeste humo"],
-      short: ["Solicitá un turno", "reserva-turno-simple"], extra: "preguntas-frecuentes-media",
-      title: "Atención profesional", lead: "Conocé las especialidades y coordiná una consulta.",
-      modules: ["servicios-productos-media", "equipo-media", "reserva-turno-media", "donde-nos-encontramos-media"] },
-    { id: "gastronomia", name: "Gastronomía", match: /gastron|restaur|caf[eé]|panader|pasteler|bistr[oó]/i,
-      palettes: ["Vino y cacao", "Terracota", "Café tostado"],
-      short: ["Menú y ubicación", "donde-nos-encontramos-simple"], extra: "quienes-somos-simple",
-      title: "Sabores para compartir", lead: "Explorá la carta y encontrá cómo visitarnos.",
-      modules: ["productos-media", "galeria-imagenes-media", "donde-nos-encontramos-media"] },
-    { id: "turismo", name: "Viajes y turismo", match: /viaje|turismo|hotel|excurs/i,
-      palettes: ["Litoral", "Petróleo", "Coral"],
-      short: ["Elegí tu destino", "beneficios-simple"], extra: "proceso-media",
-      title: "Tu próximo viaje empieza acá", lead: "Explorá destinos y consultá por los paquetes disponibles.",
-      modules: ["productos-compleja", "galeria-imagenes-media", "preguntas-frecuentes-simple"] },
-    { id: "inmobiliaria", name: "Inmobiliaria", match: /inmobil|propiedad|bien(?:es)? ra[ií]z|arquitect/i,
-      palettes: ["Pizarra", "Profesional", "Arena"],
-      short: ["Consultá una propiedad", "donde-nos-encontramos-simple"], extra: "productos-media",
-      title: "Encontrá tu próximo lugar", lead: "Explorá las propiedades y coordiná una visita.",
-      modules: ["beneficios-media", "galeria-imagenes-compleja", "donde-nos-encontramos-media"] },
-    { id: "educacion", name: "Educación e idiomas", match: /educaci[oó]n|idioma|academia|escuela|curso/i,
-      palettes: ["Azul tinta", "Índigo", "Celeste humo"],
-      short: ["Consultá por un curso", "beneficios-simple"], extra: "planes-media",
-      title: "Aprendé a tu ritmo", lead: "Conocé la propuesta, el equipo y las modalidades.",
-      modules: ["servicios-productos-media", "equipo-media", "preguntas-frecuentes-simple"] },
-    { id: "servicios", name: "Servicios profesionales", match: /servicio|consultor|tecnolog|empresa|estudio/i,
-      palettes: ["Cobre", "Grafito", "Profesional"],
-      short: ["Pedí una consulta", "beneficios-simple"], extra: "equipo-simple",
-      title: "Servicios para tu negocio", lead: "Conocé cómo trabajamos y contanos qué necesitás.",
-      modules: ["servicios-productos-media", "proceso-media", "casos-exito-simple", "preguntas-frecuentes-simple"] }
-  ];
+  var LANDING_CATEGORIES = window.LanzatePlantillas;
+  var TEMPLATE_MODULES = {
+    services: "servicios-productos-simple",
+    benefits: "beneficios-simple",
+    process: "proceso-simple",
+    products: "productos-simple",
+    split: "imagen-texto-simple",
+    gallery: "galeria-imagenes-media",
+    faq: "preguntas-frecuentes-simple",
+    booking: "reserva-turno-simple"
+  };
 
   function categoryTemplates(category) {
-    return [
-      { name: category.short[0], hero: "hero-full-imagen-simple", modules: [category.modules[0], category.short[1]] },
-      { name: "Presentación", hero: "hero-full-imagen-media", modules: category.modules },
-      { name: "Completa", hero: "hero-full-imagen-compleja", modules: category.modules.concat(category.extra) }
-    ];
+    return category.templates;
   }
 
-  function categoryTemplateItems(category, choice) {
-    var ids = ["navegacion-simple", choice.hero].concat(choice.modules, "footer-cierre");
+  function categoryStyles(category) {
+    var names = new Set(category.templates.map(function (choice) { return choice.style; }));
+    return LANDING_STYLES.filter(function (style) { return names.has(style.name); });
+  }
+
+  function templateStyle(choice) {
+    return LANDING_STYLES.find(function (style) { return style.name === choice.style; });
+  }
+
+  function templateMarkup(id) {
+    var tpl = document.createElement("template");
+    tpl.innerHTML = byId[id].html;
+    return tpl;
+  }
+
+  function templateLink(link, label, href) {
+    link.textContent = label;
+    link.setAttribute("href", href);
+  }
+
+  function templateSection(section, target, action) {
+    var kind = section[0];
+    var title = section[1];
+    var content = section[2];
+    var extras = section[3];
+    var id = TEMPLATE_MODULES[kind];
+    var tpl = templateMarkup(id);
+    var root = tpl.content;
+    root.querySelector("h2").textContent = title;
+
+    if (kind === "split") {
+      root.querySelector(".nx-kicker").textContent = "Nuestro enfoque";
+      root.querySelector(".split-copy > p:not(.nx-kicker)").textContent = content;
+      setImage(root.querySelector("img"), { src: extras[0], alt: extras[1] });
+      templateLink(root.querySelector(".split-link"), action, target);
+    } else if (kind === "gallery") {
+      root.querySelectorAll(".gal-card").forEach(function (card, index) {
+        if (!content[index]) { card.remove(); return; }
+        var photo = content[index];
+        setImage(card.querySelector("img"), { src: photo[0], alt: photo[1] });
+        card.querySelector(".k").remove();
+        card.querySelector("h3").textContent = photo[2];
+      });
+    } else if (kind === "booking") {
+      var select = root.querySelector('select[name="servicio"]');
+      select.replaceChildren(new Option("Elegí una opción", ""));
+      content.forEach(function (label) { select.add(new Option(label, label)); });
+      root.querySelector(".bk-quick-copy .nx-lead").textContent = "Elegí una opción y completá tus datos para solicitar disponibilidad.";
+      root.querySelector("[data-book-done] p").innerHTML = "Solicitud de <b data-book-out=\"servicio\"></b> para el <b data-book-out=\"dia\"></b> a las <b data-book-out=\"horario\"></b>. Email indicado: <b data-book-out=\"email\"></b>.";
+    } else {
+      var cardSelector = {
+        services: ".svc-cols > div", benefits: ".row > div", process: ".step",
+        products: ".prod-card", faq: ".row > div"
+      }[kind];
+      root.querySelectorAll(cardSelector).forEach(function (card, index) {
+        if (!content[index]) { card.remove(); return; }
+        var parts = content[index].split("|");
+        card.querySelector("h3").textContent = parts[0];
+        if (kind === "products") {
+          card.querySelector(".meta").textContent = parts[1];
+          card.querySelector(".prod-price").remove();
+          card.querySelector("a").remove();
+          setImage(card.querySelector("img"), { src: extras[index][0], alt: extras[index][1] });
+        } else {
+          card.querySelector("p.text-secondary").textContent = parts[1];
+          if (extras) card.querySelector(".nx-ico .bi").className = "bi bi-" + extras[index];
+        }
+      });
+      if (kind === "products") root.querySelector(".nx-note").textContent = "Selección de ejemplo.";
+      if (kind === "services") {
+        var link = root.querySelector(".btn-nx");
+        if (target === "#" + slugify(byId[id].group)) link.remove();
+        else templateLink(link, action, target);
+      }
+    }
+    return { id: id, width: "full", html: tpl.innerHTML };
+  }
+
+  function templateHero(choice, target) {
+    var id = "hero-full-imagen-" + choice.hero;
+    var tpl = templateMarkup(id);
+    var root = tpl.content;
+    var slide = root.querySelector(".nx-hero-slide");
+    var carousel = root.querySelector(".carousel");
+    if (carousel) {
+      carousel.replaceChildren(slide);
+      carousel.classList.remove("carousel", "slide");
+      carousel.removeAttribute("id");
+      carousel.removeAttribute("data-bs-ride");
+    }
+    setImage(slide, { src: choice.image[0], alt: choice.image[1] });
+    var heading = root.querySelector(".nx-display");
+    var h1 = document.createElement("h1");
+    h1.className = heading.className;
+    h1.textContent = choice.title;
+    heading.replaceWith(h1);
+    root.querySelector(".nx-lead").textContent = choice.lead;
+    var action = root.querySelector(".btn-nx");
+    if (!action) {
+      action = document.createElement("a");
+      action.className = "btn-nx mt-4";
+      root.querySelector(".nx-lead").after(action);
+    }
+    templateLink(action, choice.action, target);
+
+    var featureSection = choice.sections.find(function (section) {
+      return ["services", "benefits", "process", "products", "booking"].includes(section[0]);
+    });
+    var features = featureSection[2];
+    root.querySelectorAll(".nx-pill, .nx-hero-card").forEach(function (card, index) {
+      var parts = features[index].split("|");
+      if (card.classList.contains("nx-pill")) card.textContent = parts[0];
+      else {
+        card.querySelector("h3").textContent = parts[0];
+        card.querySelector("p").textContent = parts[1] || choice.lead;
+        var icon = card.querySelector(".bi");
+        var icons = featureSection[3];
+        if (icons && typeof icons[index] === "string") icon.className = "bi bi-" + icons[index];
+        else icon.className = "bi bi-compass";
+      }
+    });
+    return { id: id, width: "full", html: tpl.innerHTML };
+  }
+
+  function categoryTemplateItems(choice) {
+    var ids = ["navegacion-simple", "hero-full-imagen-" + choice.hero]
+      .concat(choice.sections.map(function (section) { return TEMPLATE_MODULES[section[0]]; }), "footer-simple");
     if (ids.some(function (id) { return !byId[id]; })) return null;
-    var items = ids.map(function (id) { return menuDefault({ id: id, width: "full" }); });
-    var hero = document.createElement("template");
-    hero.innerHTML = byId[choice.hero].html;
-    hero.content.querySelectorAll(".nx-display").forEach(function (heading) { heading.textContent = category.title; });
-    hero.content.querySelectorAll(".nx-lead").forEach(function (lead) { lead.textContent = category.lead; });
-    items[1].html = hero.innerHTML;
-    return items;
+    var nav = templateMarkup(ids[0]);
+    var footer = templateMarkup("footer-simple");
+    var home = "#" + slugify(byId[ids[1]].group);
+    var links = [["Inicio", home]].concat(choice.sections.map(function (section) {
+      return [section[1], "#" + slugify(byId[TEMPLATE_MODULES[section[0]]].group)];
+    }));
+    var target = choice.target === "booking" ? "#" + slugify(byId[TEMPLATE_MODULES.booking].group) : links[1][1];
+    [nav, footer].forEach(function (tpl) {
+      var brand = tpl.content.querySelector(".nx-brand");
+      brand.setAttribute("data-template-brand", "");
+      templateLink(brand, choice.name, home);
+      tpl.content.querySelectorAll(".nav-link, footer nav a").forEach(function (link, index) {
+        if (links[index]) templateLink(link, links[index][0], links[index][1]);
+        else (link.closest("li") || link).remove();
+      });
+    });
+    templateLink(nav.content.querySelector(".btn-nx"), choice.action, target);
+    footer.content.querySelector(".nx-brand + p").textContent = choice.lead;
+    footer.content.querySelector(".nx-socials").remove();
+    footer.content.querySelector(".small.text-secondary").remove();
+    var accent = templateStyle(choice).accent;
+    var tint = "#" + accent.slice(1).match(/../g).map(function (part) {
+      return Math.round(255 * 0.91 + parseInt(part, 16) * 0.09).toString(16);
+    }).join("");
+    var content = choice.sections.map(function (section, index) {
+      var item = templateSection(section, target, choice.action);
+      if (index % 2 === 0) item.fondo = tint;
+      return item;
+    });
+    return [menuDefault({ id: ids[0], width: "full", html: nav.innerHTML }), templateHero(choice, target)]
+      .concat(content, { id: "footer-simple", width: "full", html: footer.innerHTML, fondo: tint });
   }
 
   function suggestedStyleColors(style) {
@@ -973,23 +1088,21 @@
         var grid = document.createElement("div");
         grid.className = "lb-template-grid";
         categoryTemplates(category).forEach(function (choice, index) {
-          var hero = byId[choice.hero];
-          if (!hero) return;
-          var style = LANDING_STYLES.find(function (entry) { return entry.name === category.palettes[0]; });
+          var style = templateStyle(choice);
           var card = document.createElement("article");
           card.className = "lb-template-card";
           var cover = document.createElement("div");
           cover.className = "lb-template-cover";
           cover.style.setProperty("--template-accent", style.accent);
           var image = document.createElement("img");
-          image.src = hero.thumb;
-          image.alt = "Imagen de ejemplo de la portada " + choice.name;
+          image.src = choice.image[0];
+          image.alt = choice.image[1];
           image.loading = "lazy";
           image.decoding = "async";
           var heading = document.createElement("h3");
           heading.textContent = choice.name;
           var details = document.createElement("p");
-          details.textContent = (choice.modules.length + 3) + " módulos";
+          details.textContent = style.name + " · " + (choice.sections.length + 3) + " módulos";
           var action = document.createElement("button");
           action.type = "button";
           action.className = "lb-template-card-action";
@@ -997,7 +1110,9 @@
           action.setAttribute("aria-label", "Ver vista previa de " + choice.name + ", " + category.name);
           action.onclick = function () { openCategoryGallery(category, index); };
           cover.append(image);
-          card.append(cover, heading, details, action);
+          var description = document.createElement("p");
+          description.textContent = choice.lead;
+          card.append(cover, heading, details, description, action);
           grid.append(card);
           count++;
         });
@@ -1006,7 +1121,7 @@
           sections.append(section);
         }
       });
-      status.textContent = count ? count + " plantillas disponibles" : "No se pudieron cargar las plantillas.";
+      status.textContent = count ? count + (count === 1 ? " plantilla disponible" : " plantillas disponibles") : "No se pudieron cargar las plantillas.";
     }
 
     myTemplate.onclick = function () { showLandingEditor(true); };
@@ -1029,8 +1144,8 @@
 
     function renderTemplatePreview() {
       var choice = categoryTemplates(category)[Number(choiceSelect.value)];
-      items = categoryTemplateItems(category, choice);
-      style = LANDING_STYLES.find(function (entry) { return entry.name === category.palettes[0]; });
+      items = categoryTemplateItems(choice);
+      style = templateStyle(choice);
       use.disabled = !items;
       if (!items) {
         preview.srcdoc = "";
@@ -1042,7 +1157,7 @@
       var markup;
       try {
         state = {
-          name: category.name, clienteId: current.clienteId, items: items, estilo: "",
+          name: choice.name, clienteId: null, items: items, estilo: "",
           colores: suggestedStyleColors(style)
         };
         markup = buildDocument({ base: baseUrl(), staticPreview: true });
@@ -1064,7 +1179,7 @@
     categorySelect.replaceChildren();
     LANDING_CATEGORIES.forEach(function (entry) { categorySelect.add(new Option(entry.name, entry.id)); });
     categorySelect.value = (initialCategory || LANDING_CATEGORIES[0]).id;
-    categorySelect.onchange = function () { renderChoices(1); };
+    categorySelect.onchange = function () { renderChoices(0); };
     choiceSelect.onchange = renderTemplatePreview;
     deviceSelect.onchange = function () { preview.classList.toggle("is-mobile", deviceSelect.value === "mobile"); };
     dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
@@ -1074,13 +1189,14 @@
       if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
       state.items = items;
       state.ignorados = [];
-      applySuggestedStyle(style);
+      state.colores = suggestedStyleColors(style);
+      update();
       showTab("order");
       dialog.close();
       if (landingEditor.hidden) showLandingEditor(true);
       say("Plantilla aplicada. Personalizá los textos, las fotos y los datos antes de guardar.", "ok");
     };
-    renderChoices(initialChoice == null ? 1 : initialChoice);
+    renderChoices(initialChoice == null ? 0 : initialChoice);
     dialog.showModal();
   }
 
@@ -1116,11 +1232,11 @@
       LANDING_CATEGORIES.find(function (entry) { return group === "rubro-" + entry.id; });
     var template = document.querySelector("[data-style-template]");
     template.querySelector("[data-style-template-sections]").textContent = category ?
-      "Rubro: " + category.name : "Compará tres diseños por rubro antes de elegir.";
+      "Rubro: " + category.name : "Compará diseños por rubro antes de elegir.";
     template.querySelector("[data-apply-style-template]").onclick = function () { openCategoryGallery(category); };
     var styles = LANDING_STYLES;
     if (category) {
-      styles = category.palettes.map(function (name) { return LANDING_STYLES.find(function (style) { return style.name === name; }); });
+      styles = categoryStyles(category);
       recommended = styles[0];
     } else if (group === "sugeridas") {
       var favorites = ["Cálida", "Profesional", "Natural", "Lavanda", "Coral", "Arena"];

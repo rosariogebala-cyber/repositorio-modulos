@@ -3717,7 +3717,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 .lb-template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
   gap: 18px;
 }
 
@@ -3744,7 +3744,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   height: 100%;
   border-radius: 6px;
   object-fit: cover;
-  object-position: top;
+  object-position: center;
 }
 
 .lb-template-card h3 { margin: 14px 16px 4px; font-size: 1rem; }
