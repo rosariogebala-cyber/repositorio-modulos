@@ -375,7 +375,7 @@
           var decorative = el.getAttribute("aria-hidden") === "true" || el.getAttribute("role") === "presentation";
           var namedControl = control && norm(control.getAttribute("aria-label") || control.textContent);
           if (alt === null || (!norm(alt) && !decorative && !namedControl)) {
-            add("error", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Describí la foto en pocas palabras: ayuda a Google y a la accesibilidad.", el);
+            add("error", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Copiá el texto que muestra la imagen. Si es una foto, describila o usá «imagen».", el);
           } else if (rules.imagenes.altMax && norm(alt).length > rules.imagenes.altMax) {
             add("aviso", "imagenes", mi, "Texto alternativo de " + norm(alt).length + " caracteres, el máximo es " + rules.imagenes.altMax + ".", "«" + cut(alt) + "»", el);
           }
@@ -471,7 +471,7 @@
       L.push("- " + r.label + ": " + parts.join(", ") + ".");
     });
     if (rules.imagenes.formatos.length) L.push("- Formatos: " + rules.imagenes.formatos.join(", ").toUpperCase() + ".");
-    if (rules.imagenes.altObligatorio) L.push("- Toda imagen lleva texto alternativo (alt) de hasta " + rules.imagenes.altMax + " caracteres.");
+    if (rules.imagenes.altObligatorio) L.push("- Toda imagen lleva texto alternativo (alt) de hasta " + rules.imagenes.altMax + " caracteres. Si muestra texto, transcribilo tal como aparece. Si es una foto, describila o usá «imagen».");
     if (Number(rules.imagenes.nitidez)) L.push("- Cada imagen mide al menos " + rules.imagenes.nitidez + "× el ancho con el que se muestra, para verse nítida.");
     return L.join("\n");
   }
