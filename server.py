@@ -1192,8 +1192,40 @@ def ia_client_text(c):
     return "\n".join(parts)
 
 
+def module_catalog():
+    path = Path(ROOT, "maquetas", "index.html")
+    document = html_dom.parse(str(path))
+    return {
+        module.get("id"): section.get("id")
+        for section in document.xpath("//section[@data-section and @id]")
+        for module in section.xpath(".//section[@id and contains(concat(' ', normalize-space(@class), ' '), ' mq-block ')]")
+    }
+
+
+def validate_module_suggestion(response, available, rules):
+    ids = response.get("modulos") if isinstance(response, dict) else None
+    if not isinstance(ids, list) or not ids or any(
+        not isinstance(module_id, str) or module_id not in available for module_id in ids
+    ):
+        raise ApiError(502, "La IA sugirió módulos fuera del catálogo. Probá de nuevo.")
+    groups = [available[module_id] for module_id in ids]
+    if len(groups) != len(set(groups)):
+        raise ApiError(502, "La IA sugirió más de una variante de la misma sección. Probá de nuevo.")
+    errors = structure_errors([{"id": module_id} for module_id in ids], rules)
+    if errors:
+        raise ApiError(502, "La propuesta de la IA no cumple las reglas: " + "; ".join(errors) + ".")
+    return ids
+
+
 def ia_suggest_modules(data):
-    catalog = data.get("catalogo") or []
+    requested_catalog = data.get("catalogo")
+    if not isinstance(requested_catalog, list):
+        raise ApiError(400, "No llegó la lista de módulos")
+    available = module_catalog()
+    catalog = [
+        item for item in requested_catalog
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] in available
+    ]
     if not catalog:
         raise ApiError(400, "No llegó la lista de módulos")
     prompt = (
@@ -1207,10 +1239,8 @@ def ia_suggest_modules(data):
         + '{"modulos": ["id", ...], "motivo": "una o dos frases que expliquen la elección"}'
     )
     out = ia_call(IA_SYSTEM, prompt)
-    valid = {m.get("id") for m in catalog}
-    ids = [i for i in out.get("modulos") or [] if i in valid]
-    if not ids:
-        raise ApiError(502, "La IA no sugirió módulos válidos. Probá de nuevo.")
+    allowed = {item["id"]: available[item["id"]] for item in catalog}
+    ids = validate_module_suggestion(out, allowed, read_rules())
     return {"modulos": ids, "motivo": str(out.get("motivo") or "")}
 
 
