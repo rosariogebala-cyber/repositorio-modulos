@@ -3585,3 +3585,20 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .nx-footer .foot-bottom { gap: 8px 12px; margin-top: 16px; padding-top: 8px; }
   .nx-footer .foot-bottom nav { gap: 0 12px; }
 }
+
+@media (max-width: 767.98px) {
+  .landing-page .prod-more,
+  .landing-page .foot-contact a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ctl-h-lg);
+    min-width: 24px;
+  }
+
+  .landing-page .prod-more {
+    padding-bottom: 0;
+    border-bottom: 0;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}
