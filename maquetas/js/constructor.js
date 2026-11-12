@@ -800,8 +800,8 @@
       }
     }
     if (data.alt != null) {
-      if (el.tagName === "IMG") el.setAttribute("alt", data.alt);
-      else if (el.closest(".nx-hero, .nx-hero-slide")) el.setAttribute("data-lz-background-alt", data.alt);
+      if (el.tagName === "IMG") el.setAttribute("alt", String(data.alt).trim() || "imagen");
+      else if (el.closest(".nx-hero, .nx-hero-slide")) el.setAttribute("data-lz-background-alt", String(data.alt).trim() || "imagen");
     }
   }
 
@@ -823,6 +823,9 @@
     var imagenes = withTexts && it.imagenes || {};
     images.forEach(function (el, k) {
       if (imagenes[k]) setImage(el, imagenes[k]);
+      if (el.tagName === "IMG" && !(el.getAttribute("alt") || "").trim()) {
+        el.setAttribute("alt", "imagen");
+      }
       if (preview) el.setAttribute("data-lb-i", k);
     });
     var hrefs = withTexts && it.links || {};
@@ -1528,7 +1531,7 @@
     tip.innerHTML =
       '<button type="button" class="lb-img-x" data-img-close aria-label="Cerrar">×</button>' +
       "<div><b>" + escapeHtml(role ? role.label : "Imagen") + "</b><br><small><span id=\"" + sizeId + "\" role=\"status\">Midiendo…</span>" + (need ? " · mínimo " + need : "") + "</small></div>" +
-      (canDescribe ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Describí lo importante o dejalo vacío si es decorativa"></label>' +
+      (canDescribe ? '<label>Descripción de la foto<input type="text" data-img-alt maxlength="' + ((rules && rules.imagenes.altMax) || 125) + '" value="' + escapeHtml(data.alt || "") + '" placeholder="Describí la imagen o copiá el texto que muestra"></label>' +
         (ai && isImg ? '<button type="button" class="is-ghost lb-img-ai" data-img-ai><i class="bi bi-stars"></i> Describir con IA</button>' : "") : "") +
       '<div class="lb-img-row"><button type="button" data-img-pick>Cambiar imagen</button>' +
       '<button type="button" class="is-save" data-img-save hidden></button>' +

@@ -531,6 +531,12 @@ def get_landing(landing_id):
         return landing_dict(get_landing_row(con, landing_id))
 
 
+def fill_image_alts(document):
+    for image in document.xpath(".//img"):
+        if not (image.get("alt") or "").strip():
+            image.set("alt", "imagen")
+
+
 def publish_html(html, items, logo):
     """Deja el HTML listo para servir desde /l/: rutas absolutas y las imágenes en su lugar."""
     html = HTML_REF.sub(lambda m: m.group(1) + absolute_ref(m.group(2)) + m.group(3), html)
@@ -609,9 +615,9 @@ def image_metadata_errors(html, rules):
     if not (rules.get("imagenes") or {}).get("altObligatorio"):
         return []
     document = html_dom.document_fromstring(html)
-    count = len(document.xpath("//img[normalize-space(@src) and not(@alt)]"))
+    count = len(document.xpath("//img[normalize-space(@src) and not(normalize-space(@alt))]"))
     if count:
-        return [f"{count} imagen(es) sin atributo alt. Describí la foto o indicá que es decorativa con alt vacío"]
+        return [f"{count} imagen(es) sin texto alternativo. Describí la imagen, transcribí su texto o escribí «imagen»"]
     return []
 
 
@@ -734,6 +740,8 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if body is None or "landing-page" not in body.get("class", "").split():
         return markup
 
+    fill_image_alts(body)
+
     # La paleta guardada por el constructor tiene precedencia sobre la del cliente.
     accent = next((
         match[1]
@@ -809,7 +817,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         if width is None:
             continue
         base = source.removesuffix(".jpg")
-        description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split())
+        description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split()) or "imagen"
         photo = etree.Element("img", {
             "class": "lz-hero-photo",
             "src": source,
@@ -823,8 +831,8 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
                   else style[:match.start()] + style[match.end():])
         slide.insert(0, photo)
 
-    for background in body.xpath('.//section[starts-with(@data-module, "hero")]//*[@data-lz-background-alt]'):
-        description = " ".join(background.get("data-lz-background-alt", "").split())
+    for background in body.xpath('.//section[starts-with(@data-module, "hero")]//*[@data-lz-background-alt or contains(@style, "background-image")]'):
+        description = " ".join(background.get("data-lz-background-alt", "").split()) or "imagen"
         if description and not background.xpath('./p[@data-lz-background-description]'):
             alternative = etree.Element("p", {"class": "visually-hidden", "data-lz-background-description": ""})
             alternative.text = description
@@ -1412,7 +1420,7 @@ def ia_describe_images(data):
         ia_client_text(data.get("cliente")) + "\n\n"
         + "Escribí el texto alternativo (alt) de cada imagen, en el mismo orden en que llegan:\n"
         + "\n".join(lines)
-        + "\n\n- Describí lo que se ve, en una frase concreta de hasta %d caracteres.\n" % limit
+        + "\n\n- Transcribí el texto visible si la imagen representa texto. Si es una foto, describí lo que se ve en hasta %d caracteres.\n" % limit
         + "- Sin «imagen de» ni «foto de» al principio, sin comillas y sin inventar marcas ni nombres.\n"
         + '\nRespondé con este JSON: {"fotos": [{"id": "...", "alt": "..."}, ...]}'
     )
