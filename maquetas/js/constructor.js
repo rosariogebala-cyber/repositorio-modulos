@@ -758,13 +758,62 @@
     return (hi + 0.05) / (lo + 0.05);
   }
 
+  var LANDING_FONTS = {
+    editorial: ["Fraunces, Georgia, serif", "Manrope, system-ui, sans-serif"],
+    moderna: ["Manrope, system-ui, sans-serif", "Manrope, system-ui, sans-serif"],
+    clasica: ["Georgia, serif", "Manrope, system-ui, sans-serif"]
+  };
+
+  var LANDING_STYLES = [
+    { name: "Cálida", font: "editorial", title: "#442b35", text: "#58454c", accent: "#873f5c",
+      sector: /est[eé]tica|belleza|pilates|bienestar|spa|salud/i },
+    { name: "Profesional", font: "moderna", title: "#192b4a", text: "#404d64", accent: "#23517b",
+      sector: /inmobil|propiedad|servicio|tecnolog|consultor|idioma/i },
+    { name: "Natural", font: "clasica", title: "#26392c", text: "#45574c", accent: "#25634a",
+      sector: /viaje|turismo|gastron|jard[ií]n|natural/i }
+  ];
+
+  function renderStyleSuggestions() {
+    var list = document.querySelector("[data-style-options]");
+    var select = document.querySelector("[data-lb-typography]");
+    if (!list || !select) return;
+    select.value = state.colores && state.colores.tipografia || "";
+    var client = currentClient();
+    var sector = client && client.rubro;
+    var recommended = sector && LANDING_STYLES.find(function (style) { return style.sector.test(sector); });
+    var styles = recommended ? [recommended].concat(LANDING_STYLES.filter(function (style) { return style !== recommended; })) : LANDING_STYLES;
+    document.querySelector("[data-style-hint]").textContent = recommended ?
+      "Para " + sector + ", probá la paleta " + recommended.name.toLowerCase() + "." :
+      "Elegí una combinación para empezar y ajustala después.";
+    list.innerHTML = "";
+    styles.forEach(function (style) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn-nx-outline lb-style-option";
+      button.innerHTML = '<span>' + style.name + '</span><span class="lb-style-swatches" aria-hidden="true">' +
+        [style.title, style.text, style.accent].map(function (color) {
+          return '<i style="background:' + color + '"></i>';
+        }).join("") + '</span>';
+      button.onclick = function () {
+        state.colores = {
+          titulos: style.title, parrafos: style.text, etiquetas: style.accent,
+          acento: style.accent, iconos: style.accent, nav: style.title, tipografia: style.font
+        };
+        refreshLandingStyle();
+      };
+      list.appendChild(button);
+    });
+  }
+
   function readLandingColors(estilo) {
     var match = COLOR_MARK.exec(estilo || "");
     if (!match) return null;
     try {
       var data = JSON.parse(match[1]);
       if (data.texto && !data.titulos) data.titulos = data.texto;
-      return ["titulos", "acento", "iconos"].every(function (key) { return /^#[0-9a-f]{6}$/i.test(data[key] || ""); }) ? data : null;
+      if (!Object.hasOwn(LANDING_FONTS, data.tipografia)) delete data.tipografia;
+      if (["titulos", "acento", "iconos"].every(function (key) { return /^#[0-9a-f]{6}$/i.test(data[key] || ""); })) return data;
+      return data.tipografia ? { tipografia: data.tipografia } : null;
     } catch (e) {
       return null;
     }
@@ -784,7 +833,12 @@
 
   function colorStyle(colors) {
     if (!colors) return "";
-    return ":root { --ink: " + colors.titulos + "; --muted: " + colors.parrafos + "; --lz-label: " + colors.etiquetas +
+    var fonts = Object.hasOwn(LANDING_FONTS, colors.tipografia) && LANDING_FONTS[colors.tipografia];
+    var typography = fonts ?
+      ".landing-page, .landing-page .nx, .landing-page .nx :is(input, select, textarea, button) { font-family:" + fonts[1] + "; }" +
+      ".landing-page .nx :is(h1, h2, h3, .nx-display) { font-family:" + fonts[0] + "; }" : "";
+    if (!colors.acento) return typography;
+    return typography + ":root { --ink: " + colors.titulos + "; --muted: " + colors.parrafos + "; --lz-label: " + colors.etiquetas +
       "; --green: " + colors.acento + "; --green-deep: " + shade(colors.acento, -0.28) + "; --lz-icon: " + colors.iconos + "; }" +
       ".landing-page { color: var(--ink); }" +
       ".landing-page :is(p, li, blockquote, figcaption, dd) { color: var(--muted); }" +
@@ -865,6 +919,7 @@
   }
 
   function renderColors() {
+    renderStyleSuggestions();
     var box = document.querySelector("[data-lb-contrast]");
     if (!box) return;
     var colors = effectiveColors();
@@ -2898,7 +2953,7 @@
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
-    if (state.colores && contrastRatio("#ffffff", effectiveColors().acento) < 4.5) {
+    if (state.colores && state.colores.acento && contrastRatio("#ffffff", effectiveColors().acento) < 4.5) {
       out.push({ key: "colors", text: "Ajustá el color de los botones para llegar a 4.5:1" });
     }
     if (rules && rules.general.bloquear && state.items.length && qaReport && qaView.errors) {
@@ -3359,6 +3414,23 @@
     saveDraft();
   });
 
+  function refreshLandingStyle() {
+    paintLandingColors();
+    renderColors();
+    renderMode();
+    scheduleQa(600);
+    saveDraft();
+  }
+
+  var typographySelect = document.querySelector("[data-lb-typography]");
+  if (typographySelect) typographySelect.addEventListener("change", function () {
+    var next = Object.assign({}, state.colores);
+    if (Object.hasOwn(LANDING_FONTS, typographySelect.value)) next.tipografia = typographySelect.value;
+    else delete next.tipografia;
+    state.colores = Object.keys(next).length ? next : null;
+    refreshLandingStyle();
+  });
+
   function setLandingColor(key, value) {
     var hex = normalizeHex(value);
     if (!hex) return;
@@ -3377,11 +3449,9 @@
   });
   var resetColors = document.querySelector("[data-lb-colors-reset]");
   if (resetColors) resetColors.addEventListener("click", function () {
-    state.colores = null;
-    paintLandingColors();
-    renderColors();
-    renderMode();
-    saveDraft();
+    var font = state.colores && state.colores.tipografia;
+    state.colores = font ? { tipografia: font } : null;
+    refreshLandingStyle();
   });
   nameInput.addEventListener("input", function () {
     state.name = nameInput.value;

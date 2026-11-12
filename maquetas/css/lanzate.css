@@ -3618,3 +3618,8 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .lb-module-color-row { grid-template-columns: minmax(0, 1fr) 44px 84px; }
   .lb-module-color-row button { grid-column: 1 / -1; justify-self: start; }
 }
+
+.lb-style-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.lb-style-option { display: inline-flex; gap: 8px; }
+.lb-style-swatches { display: inline-flex; gap: 3px; }
+.lb-style-swatches i { width: 10px; height: 10px; border-radius: 50%; }
