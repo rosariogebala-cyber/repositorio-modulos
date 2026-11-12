@@ -409,7 +409,12 @@ def clean_logo(data_url):
 def list_clients():
     with tx() as con:
         rows = con.execute(
-            "SELECT c.*, (SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n "
+            "SELECT c.id, c.slug, c.nombre, c.contacto, c.email, c.telefono, c.rubro, c.sitio, "
+            "c.color_primario, c.color_secundario, c.notas, c.estado, c.creado, c.actualizado, "
+            "c.privacidad_url, c.terminos_url, c.tipo_cliente, c.direccion, c.horario, "
+            "c.instagram, c.facebook, c.linkedin, c.logo_modo, c.ga4, c.gtm, c.meta_pixel, "
+            "(c.logo <> '') AS logo, "
+            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n "
             "FROM clientes c ORDER BY lower(c.nombre)"
         ).fetchall()
         return [client_dict(r, r["n"]) for r in rows]
