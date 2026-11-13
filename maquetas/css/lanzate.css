@@ -4283,3 +4283,17 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-review-grid pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
 .pf-review-grid iframe { width: 100%; min-height: 380px; border: 1px solid #e8e2f2; }
 @media (max-width: 640px) { .pf-review-grid { grid-template-columns: 1fr; } }
+
+.pf-review { padding: clamp(14px, 3vw, 30px); background: #faf8fd; }
+.pf-review-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; background: #faf8fd; padding: 12px 0; border-bottom: 1px solid #e8e2f2; }
+.pf-review-bar p { margin: 0 auto 0 0; font-weight: 700; }
+.pf-review-change { background: #fff; padding: 16px; }
+.pf-review-change header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.pf-review-change header h3 { margin-top: 4px; }
+.pf-review-change [data-choice-label] { padding: 4px 8px; border-radius: 8px; background: #f0eafb; }
+.pf-review-change .pf-review-grid > div { background: #f7f4fb; padding: 12px; border-radius: 10px; overflow-wrap: anywhere; }
+.pf-review-change .pf-review-grid strong { display: block; margin-bottom: 8px; }
+.pf-review-change img { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 8px; }
+.pf-review-change button[aria-pressed="true"] { background: #4b3180; color: #fff; }
+.pf-review-change button[data-choice="rechazar"][aria-pressed="true"] { background: #8c3042; }
+.pf-review-result iframe { width: 100%; height: min(58vh, 580px); background: #fff; border: 1px solid #e8e2f2; }

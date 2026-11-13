@@ -1009,7 +1009,9 @@ def submit_landing_revision(landing_id, client_id, data):
         if not isinstance(markup, str) or not markup.strip():
             raise ApiError(400, "Falta el HTML de la propuesta.")
         fields = ("cliente_id", "nombre", "html", "items", "estilo", "ignorados", "descripcion", "animacion")
+        client = get_client_row(con, client_id)
         revision = {"token": secrets.token_urlsafe(18), "base": current["actualizado"],
+                    "logo": logo_ref(client_id, client["logo"], client["actualizado"]),
                     "creado": now_ms(), "data": {key: data[key] for key in fields}}
         con.execute("UPDATE landings SET revision_cliente = %s, revision_estado = 'pendiente' WHERE id = %s",
                     (Jsonb(revision), landing_id))
@@ -1046,26 +1048,75 @@ def notify_landing_revision(landing_id, token):
         print("No se pudo enviar el aviso de revisión (%s)." % type(exc).__name__, file=sys.stderr)
 
 
-def review_sections(markup):
-    if not markup.strip():
-        return []
-    root = html_dom.document_fromstring(markup)
-    sections = root.xpath("//body/*[@data-module] | //main/*[@data-module]")
-    if not sections:
-        sections = root.xpath("//body")
-    out = []
-    for section in sections:
-        copy = html_dom.fromstring(html_dom.tostring(section))
-        for node in copy.xpath(".//script | .//style"):
-            node.drop_tree()
-        text = " ".join(copy.text_content().split())
-        images = list(copy.xpath(".//img/@src | .//img/@alt | .//video/@poster"))
-        images += re.findall(r"background-image:\s*url\(([^)]*)\)", " ".join(copy.xpath(".//@style")), re.I)
-        links = [" ".join(a.text_content().split()) + " → " + a.get("href")
-                 for a in copy.xpath(".//a[@href]")]
-        out.append({"id": section.get("id") or "", "modulo": section.get("data-module") or "Página",
-                    "texto": text, "imagenes": images, "enlaces": links})
-    return out
+def revision_document(markup):
+    return html_dom.document_fromstring(markup or "<html><body></body></html>")
+
+
+def revision_comparison(published, proposed, decisions=None):
+    """Build individual decisions from matching DOM nodes and apply them to a copy."""
+    old, new = revision_document(published), revision_document(proposed)
+    changes = []
+    affected = set()
+
+    def add(section, kind, before, after, apply):
+        key = str(len(changes) + 1)
+        changes.append({"id": key, "seccion": section, "tipo": kind, "antes": before, "despues": after})
+        if decisions is not None and decisions.get(key) == "aprobar":
+            apply()
+            affected.add(section)
+
+    def serialize(node):
+        return html_dom.tostring(node, encoding="unicode", with_tail=False)
+
+    def walk(a, b, section):
+        # Footer navigation is derived from the approved header links.
+        if section.split(" · ", 1)[1].startswith("footer-") and (
+            "foot-links" in a.get("class", "").split() or a.get("aria-label") == "Navegación del pie"
+        ):
+            return
+        if a.tag != b.tag or [n.tag for n in a] != [n.tag for n in b]:
+            def replace():
+                a.getparent().replace(a, revision_fragment(serialize(b), a.tail))
+            add(section, "bloque", serialize(a), serialize(b), replace)
+            return
+        for field in ("text", "tail"):
+            before, after = getattr(a, field), getattr(b, field)
+            if (before or "").strip() != (after or "").strip():
+                add(section, "texto", before, after, lambda: setattr(a, field, after))
+        if dict(a.attrib) != dict(b.attrib):
+            def update_attributes():
+                a.attrib.clear()
+                a.attrib.update(b.attrib)
+            kind = "imagen" if a.tag == "img" else "enlace" if a.tag == "a" else "bloque"
+            add(section, kind, serialize(a), serialize(b), update_attributes)
+        for left, right in zip(list(a), list(b)):
+            if isinstance(left.tag, str) and isinstance(right.tag, str):
+                walk(left, right, section)
+
+    old_sections = old.xpath("//body/*[@data-module] | //main/*[@data-module]")
+    new_sections = new.xpath("//body/*[@data-module] | //main/*[@data-module]")
+    if not old_sections or [(x.get("id"), x.get("data-module")) for x in old_sections] != [
+        (x.get("id"), x.get("data-module")) for x in new_sections
+    ]:
+        raise ApiError(409, "Las secciones de la propuesta no coinciden con la versión publicada.")
+    for index, (a, b) in enumerate(zip(old_sections, new_sections)):
+        walk(a, b, "%d · %s" % (index + 1, a.get("data-module")))
+    if decisions is not None and (set(decisions) != {c["id"] for c in changes}
+                                  or any(value not in ("aprobar", "rechazar") for value in decisions.values())):
+        raise ApiError(400, "Elegí aprobar o rechazar cada cambio antes de continuar.")
+    return changes, old, affected
+
+
+def revision_fragment(markup, tail=None):
+    node = html_dom.fragment_fromstring(markup)
+    node.tail = tail
+    return node
+
+
+def revision_markup(proposal, client):
+    data = proposal["data"]
+    return publish_html(data["html"], data["items"],
+                        proposal.get("logo", logo_ref(client["id"], client["logo"], client["actualizado"])))
 
 
 def landing_revision_details(landing_id):
@@ -1074,36 +1125,51 @@ def landing_revision_details(landing_id):
         proposal = row["revision_cliente"]
         if row["revision_estado"] != "pendiente" or not proposal:
             raise ApiError(404, "La landing no tiene cambios pendientes.")
-        data = proposal["data"]
         client = get_client_row(con, row["cliente_id"])
-        proposed_html = publish_html(data["html"], data["items"],
-                                     logo_ref(client["id"], client["logo"], client["actualizado"]))
-    before, after = review_sections(row["html"]), review_sections(proposed_html)
-    changes = []
-    for index in range(max(len(before), len(after))):
-        old = before[index] if index < len(before) else {}
-        new = after[index] if index < len(after) else {}
-        fields = [key for key in ("texto", "imagenes", "enlaces") if old.get(key) != new.get(key)]
-        if fields:
-            changes.append({"seccion": (new or old)["modulo"], "posicion": index + 1,
-                            "campos": [{"tipo": key, "antes": old.get(key), "despues": new.get(key)} for key in fields]})
+        proposed = revision_markup(proposal, client)
+    changes, _, _ = revision_comparison(row["html"], proposed)
     return {"token": proposal["token"], "creado": proposal["creado"], "cambios": changes,
-            "publicado": row["html"], "propuesto": proposed_html}
+            "publicado": row["html"], "propuesto": proposed}
 
 
-def decide_landing_revision(landing_id, token, decision):
-    if not isinstance(token, str) or decision not in ("aprobar", "rechazar"):
-        raise ApiError(400, "Elegí aprobar o rechazar la propuesta.")
+def decide_landing_revision(landing_id, token, action, decisions):
+    if not isinstance(token, str) or action not in ("preview", "publicar") or not isinstance(decisions, dict):
+        raise ApiError(400, "Revisá las decisiones de la propuesta.")
     with tx() as con:
         row = lock_landing_revision(con, landing_id)
-        if decision == "rechazar":
-            pending = row["revision_cliente"]
-            if row["revision_estado"] != "pendiente" or not pending or pending["token"] != token:
-                raise ApiError(409, "La propuesta cambió. Volvé a abrir la revisión antes de decidir.")
+        proposal = check_landing_revision(row, token)
+        client = get_client_row(con, row["cliente_id"])
+        proposed = revision_markup(proposal, client)
+        changes, document, affected = revision_comparison(row["html"], proposed, decisions)
+        if action == "publicar" and not affected:
             con.execute("UPDATE landings SET revision_cliente = NULL, revision_estado = 'rechazada' WHERE id = %s",
                         (landing_id,))
-            return {"ok": True}
-        data = check_landing_revision(row, token)["data"]
+            return {"publicada": False}
+        sync_landing_footer_menu(document.find("body"))
+        merged = "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
+        if action == "preview":
+            return {"html": merged}
+        previous = get_landing_row(con, landing_id)
+        data = dict(proposal["data"])
+        data["html"] = merged
+        # The editor must reopen the exact approved markup, including mixed decisions.
+        sections = document.xpath("//body/*[@data-module] | //main/*[@data-module]")
+        items = [dict(item) for item in previous["items"]]
+        if len(items) != len(sections):
+            raise ApiError(409, "La estructura guardada no coincide con la versión publicada.")
+        for index, section in enumerate(sections):
+            label = "%d · %s" % (index + 1, section.get("data-module"))
+            if label not in affected:
+                continue
+            frame = next((child for child in section if "mq-frame" in child.get("class", "").split()), None)
+            if frame is None or items[index].get("id") != section.get("data-module"):
+                raise ApiError(409, "No se pudo identificar un módulo de la propuesta.")
+            item = items[index]
+            item["html"] = (frame.text or "") + "".join(html_dom.tostring(child, encoding="unicode") for child in frame)
+            for key in ("textos", "imagenes", "links", "ocultos"):
+                item.pop(key, None)
+            item["menuAjustado"] = True
+        data["items"] = items
     return save_landing(data, landing_id, revision=token)
 
 
@@ -2423,7 +2489,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return landing_revision_details(ident)
             if method == "POST":
                 decision = self.read_json()
-                return decide_landing_revision(ident, decision.get("token"), decision.get("decision"))
+                return decide_landing_revision(ident, decision.get("token"), decision.get("accion"), decision.get("decisiones"))
         if name == "landing":
             if portal_id and not self.authorized():
                 with tx() as con:

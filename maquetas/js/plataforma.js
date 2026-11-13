@@ -302,49 +302,108 @@
       if (!dialog.open) return;
       status.textContent = "";
       var target = dialog.querySelector("[data-review-content]");
-      var types = { texto: "Texto", imagenes: "Imágenes", enlaces: "Enlaces" };
-      function value(text) {
-        return (Array.isArray(text) ? text.join("\n") : text || "—").replace(/data:[^\s]+/g, "Imagen cargada");
-      }
-      target.innerHTML = '<p>Enviada el ' + esc(formatDate(review.creado)) + '</p>' +
-        (review.cambios.length ? "" : "<p>Compará las vistas para revisar los cambios de diseño.</p>") +
+      var labels = { texto: "Texto", imagen: "Imagen", enlace: "Enlace", bloque: "Bloque" };
+      var decisions = {};
+      var shown = -1;
+      target.innerHTML = '<div class="pf-review-bar"><p data-review-progress aria-live="polite"></p>' +
+        '<button type="button" class="lb-act" data-review-preview>Ver resultado</button>' +
+        '<button type="button" class="btn-nx btn-sm" data-review-publish>Confirmar revisión</button></div>' +
+        '<div class="pf-review-result" hidden><iframe sandbox title="Resultado de la revisión"></iframe></div>' +
         review.cambios.map(function (change) {
-          return '<details class="pf-review-change"><summary>' + change.posicion + ' · ' + esc(change.seccion) + '</summary>' +
-            change.campos.map(function (field) {
-              return '<h3>' + types[field.tipo] + '</h3><div class="pf-review-grid">' +
-                '<div><strong>Publicado</strong><pre>' + esc(value(field.antes)) + '</pre></div>' +
-                '<div><strong>Propuesto</strong><pre>' + esc(value(field.despues)) + '</pre></div></div>';
-            }).join("") + '</details>';
-        }).join("") +
-        '<details class="pf-review-change"><summary>Comparar las dos versiones</summary><div class="pf-review-grid">' +
-        '<iframe sandbox title="Versión publicada"></iframe><iframe sandbox title="Versión propuesta"></iframe></div></details>' +
-        '<div class="lb-actions"><button class="btn-nx btn-sm" data-decision="aprobar">Aprobar y publicar</button>' +
-        '<button class="btn-nx-outline btn-sm" data-decision="rechazar">Rechazar propuesta</button></div>';
-      var compare = target.querySelector(".pf-review-change:last-of-type");
-      compare.addEventListener("toggle", function () {
-        if (!compare.open) return;
-        var frames = compare.querySelectorAll("iframe");
-        if (!frames[0].hasAttribute("srcdoc")) {
-          frames[0].srcdoc = review.publicado;
-          frames[1].srcdoc = review.propuesto;
+          return '<article class="pf-review-change"><header><div><span class="lb-kicker">' +
+            esc(change.seccion.replace(/-/g, " ")) + '</span><h3>' + labels[change.tipo] + ' ' + esc(change.id) +
+            '</h3></div><span data-choice-label>Pendiente</span></header><div class="pf-review-grid">' +
+            '<div><strong>Publicado</strong><div data-before></div></div><div><strong>Propuesto</strong><div data-after></div></div></div>' +
+            '<div class="lb-actions" role="group" aria-label="Decisión del cambio ' + esc(change.id) + '">' +
+            '<button type="button" class="lb-act" data-choice="aprobar" aria-pressed="false">Aprobar</button>' +
+            '<button type="button" class="lb-act" data-choice="rechazar" aria-pressed="false">Rechazar</button></div></article>';
+        }).join("");
+      var cards = target.querySelectorAll("article");
+      var preview = target.querySelector("[data-review-preview]");
+      var publish = target.querySelector("[data-review-publish]");
+      var result = target.querySelector(".pf-review-result");
+      var progress = target.querySelector("[data-review-progress]");
+      function documentPreview(html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        doc.querySelectorAll("script, base, meta[http-equiv], iframe, object, embed").forEach(function (el) { el.remove(); });
+        doc.querySelectorAll("a[href]").forEach(function (el) { el.removeAttribute("href"); });
+        return "<!DOCTYPE html>" + doc.documentElement.outerHTML;
+      }
+      function renderValue(box, type, value) {
+        if (type === "texto") {
+          box.textContent = value || "Sin texto";
+          return;
         }
-      });
-      var buttons = target.querySelectorAll("[data-decision]");
-      buttons.forEach(function (button) {
-        button.addEventListener("click", function () {
-          var decision = button.dataset.decision;
-          if (!window.confirm(decision === "aprobar" ? "¿Publicar esta propuesta?" : "¿Rechazar esta propuesta?")) return;
-          buttons.forEach(function (item) { item.disabled = true; });
-          api("POST", path, { token: review.token, decision: decision }).then(function () {
-            dialog.close();
-            if (opts.onMessage) opts.onMessage(decision === "aprobar" ? "Cambios aprobados y publicados." : "Propuesta rechazada.", "ok");
-            if (opts.onChange) opts.onChange();
-          }).catch(function (err) {
-            status.textContent = err.message;
-            buttons.forEach(function (item) { item.disabled = false; });
-          });
+        var doc = new DOMParser().parseFromString(value || "", "text/html");
+        var element = doc.body.firstElementChild;
+        if (type === "enlace" && element) {
+          box.textContent = element.getAttribute("href") || "Sin destino";
+        } else if (type === "imagen" && element && /^(\/[^/]|https:\/\/|data:image\/(?:jpeg|png|webp|gif);)/i.test(element.getAttribute("src") || "")) {
+          var img = document.createElement("img");
+          img.loading = "lazy";
+          img.src = element.getAttribute("src");
+          img.alt = element.getAttribute("alt") || "Imagen del cambio";
+          box.appendChild(img);
+          var alt = document.createElement("p");
+          alt.textContent = img.alt;
+          box.appendChild(alt);
+        } else {
+          box.textContent = doc.body.textContent.trim().slice(0, 300) || "Cambio visual. Mirá el resultado para compararlo.";
+        }
+      }
+      function update() {
+        var count = Object.keys(decisions).length;
+        var approved = Object.values(decisions).filter(function (choice) { return choice === "aprobar"; }).length;
+        progress.textContent = count + " de " + review.cambios.length + " revisados · " + approved + " aprobados";
+        preview.disabled = count !== review.cambios.length;
+        publish.disabled = preview.disabled;
+        publish.textContent = approved ? "Publicar cambios aprobados" : "Cerrar sin publicar";
+      }
+      cards.forEach(function (card, index) {
+        var change = review.cambios[index];
+        renderValue(card.querySelector("[data-before]"), change.tipo, change.antes);
+        renderValue(card.querySelector("[data-after]"), change.tipo, change.despues);
+        var buttons = card.querySelectorAll("[data-choice]");
+        buttons.forEach(function (button) {
+          button.onclick = function () {
+            decisions[change.id] = button.dataset.choice;
+            shown++;
+            result.hidden = true;
+            buttons.forEach(function (item) { item.setAttribute("aria-pressed", String(item === button)); });
+            card.querySelector("[data-choice-label]").textContent = button.dataset.choice === "aprobar" ? "Aprobado" : "Rechazado";
+            update();
+          };
         });
       });
+      function submit(action) {
+        return api("POST", path, { token: review.token, accion: action, decisiones: decisions });
+      }
+      preview.onclick = function () {
+        var version = ++shown;
+        status.textContent = "Preparando vista previa…";
+        submit("preview").then(function (data) {
+          if (version !== shown || !dialog.open) return;
+          result.querySelector("iframe").srcdoc = documentPreview(data.html);
+          result.hidden = false;
+          status.textContent = "";
+          result.scrollIntoView({ block: "nearest" });
+        }).catch(function (err) { if (version === shown) status.textContent = err.message; });
+      };
+      publish.onclick = function () {
+        if (!window.confirm("¿Confirmar las decisiones de esta revisión?")) return;
+        var controls = Array.from(target.querySelectorAll("button"));
+        controls.forEach(function (button) { button.disabled = true; });
+        submit("publicar").then(function (data) {
+          dialog.close();
+          if (opts.onMessage) opts.onMessage(data.publicada === false ? "Revisión cerrada." : "Cambios aprobados y publicados.", "ok");
+          if (opts.onChange) opts.onChange();
+        }).catch(function (err) {
+          status.textContent = err.message;
+          controls.forEach(function (button) { button.disabled = false; });
+          update();
+        });
+      };
+      update();
     }).catch(function (err) { status.textContent = err.message; });
   }
 
