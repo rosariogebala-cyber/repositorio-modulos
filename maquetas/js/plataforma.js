@@ -619,12 +619,13 @@
         '<h2>Acceso al portal</h2>' +
         '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-entrar>Entrar al portal</button></p>' +
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
-        '<p class="pf-admin-line">' + (c.portal_usuario ? "Usuario: " + esc(c.portal_usuario) : "Todavía no tiene usuario.") +
-        (c.portal_usuario ? " · La contraseña nueva se muestra una sola vez." : "") + "</p>" +
-        '<form class="pf-admin-form" data-pf-acceso>' +
+        '<p class="pf-admin-line" id="pf-acceso-ayuda">Elegí el usuario y una contraseña nueva de al menos 12 caracteres. Al guardar, se cierran las sesiones abiertas de este cliente.</p>' +
+        '<form class="pf-admin-form" data-pf-acceso aria-describedby="pf-acceso-ayuda">' +
         '<label>Usuario <input name="usuario" required minlength="3" maxlength="40" value="' + esc(c.portal_usuario || "") + '" autocomplete="off"></label>' +
-        '<button class="btn-nx btn-sm" type="submit">Generar contraseña</button></form>' +
-        '<p class="pf-admin-clave" data-pf-clave hidden></p></section>';
+        '<label>Contraseña nueva <input name="clave" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>' +
+        '<label><input type="checkbox" data-pf-ver-clave> Mostrar contraseña</label>' +
+        '<button class="btn-nx btn-sm" type="submit">Guardar acceso</button></form>' +
+        '<p data-pf-acceso-estado role="status"></p></section>';
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
       planForm.addEventListener("submit", function (e) {
@@ -636,15 +637,29 @@
           .catch(function (err) { say(msg, err.message, "warn"); });
       });
       profile.querySelector("[data-pf-entrar]").addEventListener("click", function () { openPortal(c.id, msg); });
-      profile.querySelector("[data-pf-acceso]").addEventListener("submit", function (e) {
+      var accessForm = profile.querySelector("[data-pf-acceso]");
+      var accessStatus = profile.querySelector("[data-pf-acceso-estado]");
+      var password = accessForm.elements.clave;
+      var revealPassword = accessForm.querySelector("[data-pf-ver-clave]");
+      revealPassword.addEventListener("change", function () {
+        password.type = revealPassword.checked ? "text" : "password";
+      });
+      accessForm.addEventListener("submit", function (e) {
         e.preventDefault();
-        var usuario = e.target.elements.usuario.value.trim();
-        api("POST", "/api/clientes/" + c.id + "/acceso", { usuario: usuario }).then(function (out) {
-          var box = profile.querySelector("[data-pf-clave]");
-          box.hidden = false;
-          box.textContent = "Contraseña de " + out.usuario + ": " + out.clave;
-          say(msg, "Listo el acceso al portal.", "ok");
-        }).catch(function (err) { say(msg, err.message, "warn"); });
+        var button = accessForm.querySelector("button");
+        button.disabled = true;
+        say(accessStatus, "Guardando acceso…");
+        api("POST", "/api/clientes/" + c.id + "/acceso", {
+          usuario: accessForm.elements.usuario.value.trim(),
+          clave: password.value
+        }).then(function (out) {
+          accessForm.elements.usuario.value = out.usuario;
+          password.value = "";
+          password.type = "password";
+          revealPassword.checked = false;
+          say(accessStatus, "Acceso guardado.", "ok");
+        }).catch(function (err) { say(accessStatus, err.message, "warn"); })
+          .finally(function () { button.disabled = false; });
       });
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
         clientForm(c).then(function (saved) {

@@ -413,11 +413,15 @@ def portal_client_id(value):
         return None
 
 
-def set_portal_access(client_id, usuario):
+def set_portal_access(client_id, usuario, clave=None):
     usuario = re.sub(r"\s+", "", str(usuario or "")).lower()
     if not re.fullmatch(r"[a-z0-9._-]{3,40}", usuario):
         raise ApiError(400, "El usuario del portal usa letras, números, punto o guion, de 3 a 40 caracteres.")
-    clave = secrets.token_urlsafe(9)
+    generated = clave is None
+    if generated:
+        clave = secrets.token_urlsafe(12)
+    elif not isinstance(clave, str) or not 12 <= len(clave) <= 128 or not clave.strip():
+        raise ApiError(400, "La contraseña del portal debe tener entre 12 y 128 caracteres.")
     with tx() as con:
         get_client_row(con, client_id)
         taken = con.execute(
@@ -427,11 +431,11 @@ def set_portal_access(client_id, usuario):
         if taken:
             raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
         con.execute(
-            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, actualizado = %s WHERE id = %s",
+            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, actualizado = %s WHERE id = %s",
             (usuario, hash_portal_password(clave), now_ms(), client_id),
         )
     record_audit("portal", "acceso " + usuario)
-    return {"usuario": usuario, "clave": clave}
+    return {"usuario": usuario, "clave": clave} if generated else {"usuario": usuario}
 
 
 def set_client_plan(client_id, data):
@@ -2614,7 +2618,8 @@ class Handler(SimpleHTTPRequestHandler):
                 slug = get_client_row(con, ident)["slug"]
             return {"ok": True, "sitio": "/sitio/%s/" % slug}
         if name == "acceso" and method == "POST":
-            return set_portal_access(ident, self.read_json().get("usuario"))
+            data = self.read_json()
+            return set_portal_access(ident, data.get("usuario"), data.get("clave"))
         if name == "plan" and method == "PUT":
             return set_client_plan(ident, self.read_json())
         if name == "sesion" and method == "GET":
