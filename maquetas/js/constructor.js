@@ -56,6 +56,7 @@
   var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
   var savedSnapshot = null;
   var busy = false;
+  var portalRevision = null;
   var device = 1280;
   var renderTimer = null;
 
@@ -2713,7 +2714,7 @@
     doc.querySelectorAll("#lbImgTip [data-img-save], #lbLinkTip [data-link-save]").forEach(function (btn) {
       btn.hidden = !state.landingId;
       btn.disabled = busy || !dirty;
-      btn.textContent = busy ? "Guardando…" : !dirty ? "Guardada ✓" : "Guardar cambios";
+      btn.textContent = busy ? "Guardando…" : !dirty ? "Guardada ✓" : (clientMode() ? "Enviar a revisión" : "Guardar cambios");
     });
   }
 
@@ -3921,7 +3922,7 @@
     chip.innerHTML = editing ? '<i class="bi bi-pencil-square"></i> Editando' : '<i class="bi bi-stars"></i> Nueva landing';
     chip.classList.toggle("is-editing", editing);
     kicker.textContent = client ? client.nombre : "";
-    createLabel.textContent = editing ? (dirty ? "Guardar cambios" : "Guardada") : "Crear landing";
+    createLabel.textContent = editing ? (dirty ? (clientMode() ? "Enviar a revisión" : "Guardar cambios") : "Guardada") : "Crear landing";
     createIcon.className = "bi " + (editing ? (dirty ? "bi-floppy" : "bi-check2") : "bi-plus-circle");
     createBtn.disabled = busy || (editing && !dirty && !todo.length);
     createBtn.classList.toggle("is-pending", todo.length > 0);
@@ -4166,7 +4167,11 @@
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
     var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
-    if (clientMode()) body.modo = "sitio";
+    if (clientMode()) {
+      body.modo = "sitio";
+      body.base_revision = portalRevision && portalRevision.base;
+      body.revision_token = portalRevision && portalRevision.token;
+    }
     var payload = JSON.stringify(body);
     if (payload.length > MAX_SAVE) {
       say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
@@ -4191,7 +4196,10 @@
         savedSnapshot = snapshot();
         saveDraft();
         renderSaved();
-        if (editing) {
+        if (data.revision_estado === "pendiente" && clientMode()) {
+          portalRevision.token = data.revision_token;
+          say("Cambios enviados a revisión. Tu sitio sigue mostrando la última versión aprobada.", "ok");
+        } else if (editing) {
           say("Cambios guardados y publicados.", "ok", { href: data.url, text: "Abrir landing", blank: true });
         } else {
           say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
@@ -4463,9 +4471,12 @@
     if (landingId) {
       openedFromUrl = true;
       showLandingEditor(false);
-      return api("GET", "/api/landings/" + landingId).then(function (lp) {
+      return api("GET", "/api/landings/" + landingId + (clientMode() ? "?modo=sitio" : "")).then(function (lp) {
+        if (clientMode()) portalRevision = { base: lp.actualizado, token: lp.revision_token || null };
         loadLanding(lp);
-        say("Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");
+        say(clientMode() && lp.revision_estado === "pendiente" ?
+          "Hay cambios pendientes de aprobación. Podés actualizar la propuesta." :
+          "Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");
       }).catch(function (err) {
         restoreDraft();
         nameInput.value = state.name;

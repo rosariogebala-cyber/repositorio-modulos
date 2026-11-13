@@ -4274,3 +4274,12 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 }
 .pt-portal .pt-lead-actions label { display: grid; gap: 4px; }
 .pt-portal .pt-lead-actions :is(button, a) { min-height: 44px; }
+
+.pf-review { width: min(1000px, calc(100% - 24px)); max-height: 90vh; }
+.pf-review-change { border: 1px solid #e8e2f2; border-radius: 10px; margin: 10px 0; padding: 12px; }
+.pf-review-change summary { cursor: pointer; font-weight: 700; }
+.pf-review-change h3 { font-size: .95rem; margin: 12px 0 6px; }
+.pf-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
+.pf-review-grid pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+.pf-review-grid iframe { width: 100%; min-height: 380px; border: 1px solid #e8e2f2; }
+@media (max-width: 640px) { .pf-review-grid { grid-template-columns: 1fr; } }

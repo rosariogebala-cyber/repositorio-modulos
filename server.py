@@ -135,6 +135,7 @@ ROUTES = [
     (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
     (re.compile(r"^/api/portal/clave$"), "portal-clave"),
     (re.compile(r"^/api/portal/logout$"), "portal-logout"),
+    (re.compile(r"^/api/landings/(\d+)/revision$"), "landing-revision"),
     (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
     (re.compile(r"^/api/portal/consultas/(\d+)$"), "portal-consulta"),
     (re.compile(r"^/api/portal/actividad/(\d+)$"), "portal-actividad"),
@@ -209,6 +210,8 @@ CREATE TABLE IF NOT EXISTS landings (
   actualizado BIGINT NOT NULL,
   UNIQUE (cliente_id, slug)
 );
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_cliente JSONB;
+ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_estado TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
@@ -768,7 +771,7 @@ def delete_client(client_id):
 
 LANDING_SELECT = (
     "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.portada, l.creado, l.actualizado, "
-    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, "
+    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, l.revision_estado, "
     "c.nombre AS cliente, c.slug AS cliente_slug, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id AND NOT q.leida) AS consultas_nuevas "
@@ -800,6 +803,7 @@ def landing_dict(row):
         "url": url,
         "path": url.lstrip("/"),
         "disponible": row["disponible"],
+        "revision_estado": row.get("revision_estado") or "",
     }
 
 
@@ -941,7 +945,8 @@ def limit_client_edit(previous, data):
     data["animacion"] = previous["animacion"] or ""
     old = previous["items"] or []
     new = data.get("items") or []
-    if len(old) != len(new) or any((a or {}).get("id") != (b or {}).get("id") for a, b in zip(old, new)):
+    if (not isinstance(new, list) or len(old) != len(new)
+            or any(not isinstance(b, dict) or a.get("id") != b.get("id") for a, b in zip(old, new))):
         raise ApiError(403, "Desde el sitio no se cambian los módulos.")
     merged = []
     repeatable = ("productos-", "galeria-imagenes-", "carrusel-imagenes-", "agenda-")
@@ -969,7 +974,111 @@ def limit_client_edit(previous, data):
     return data
 
 
-def save_landing(data, landing_id=None):
+def lock_landing_revision(con, landing_id):
+    row = con.execute(
+        "SELECT id, cliente_id, actualizado, revision_cliente, revision_estado, html "
+        "FROM landings WHERE id = %s FOR UPDATE", (landing_id,),
+    ).fetchone()
+    if not row:
+        raise ApiError(404, "La landing no existe.")
+    return row
+
+
+def check_landing_revision(row, token):
+    revision = row["revision_cliente"]
+    if row["revision_estado"] != "pendiente" or not revision or revision["token"] != token:
+        raise ApiError(409, "La propuesta cambió. Volvé a abrir la revisión antes de decidir.")
+    if revision["base"] != row["actualizado"]:
+        raise ApiError(409, "La versión publicada cambió. Pedile al cliente que vuelva a enviar sus cambios.")
+    return revision
+
+
+def submit_landing_revision(landing_id, client_id, data):
+    with tx() as con:
+        current = lock_landing_revision(con, landing_id)
+        if current["cliente_id"] != client_id:
+            raise ApiError(403, "Esta landing es de otro cliente.")
+        previous = get_landing_row(con, landing_id)
+        if data.get("base_revision") != current["actualizado"]:
+            raise ApiError(409, "La versión publicada cambió. Recargá la landing antes de enviar.")
+        pending = current["revision_cliente"]
+        if (pending["token"] if pending else None) != data.get("revision_token"):
+            raise ApiError(409, "Hay otra versión de la propuesta. Recargá la landing antes de enviar.")
+        data = limit_client_edit(previous, data)
+        markup = data.get("html")
+        if not isinstance(markup, str) or not markup.strip():
+            raise ApiError(400, "Falta el HTML de la propuesta.")
+        fields = ("cliente_id", "nombre", "html", "items", "estilo", "ignorados", "descripcion", "animacion")
+        revision = {"token": secrets.token_urlsafe(18), "base": current["actualizado"],
+                    "creado": now_ms(), "data": {key: data[key] for key in fields}}
+        con.execute("UPDATE landings SET revision_cliente = %s, revision_estado = 'pendiente' WHERE id = %s",
+                    (Jsonb(revision), landing_id))
+        return {"id": landing_id, "cliente_id": client_id, "revision_estado": "pendiente",
+                "revision_token": revision["token"]}
+
+
+def review_sections(markup):
+    if not markup.strip():
+        return []
+    root = html_dom.document_fromstring(markup)
+    sections = root.xpath("//body/*[@data-module] | //main/*[@data-module]")
+    if not sections:
+        sections = root.xpath("//body")
+    out = []
+    for section in sections:
+        copy = html_dom.fromstring(html_dom.tostring(section))
+        for node in copy.xpath(".//script | .//style"):
+            node.drop_tree()
+        text = " ".join(copy.text_content().split())
+        images = list(copy.xpath(".//img/@src | .//img/@alt | .//video/@poster"))
+        images += re.findall(r"background-image:\s*url\(([^)]*)\)", " ".join(copy.xpath(".//@style")), re.I)
+        links = [" ".join(a.text_content().split()) + " → " + a.get("href")
+                 for a in copy.xpath(".//a[@href]")]
+        out.append({"id": section.get("id") or "", "modulo": section.get("data-module") or "Página",
+                    "texto": text, "imagenes": images, "enlaces": links})
+    return out
+
+
+def landing_revision_details(landing_id):
+    with tx() as con:
+        row = lock_landing_revision(con, landing_id)
+        proposal = row["revision_cliente"]
+        if row["revision_estado"] != "pendiente" or not proposal:
+            raise ApiError(404, "La landing no tiene cambios pendientes.")
+        data = proposal["data"]
+        client = get_client_row(con, row["cliente_id"])
+        proposed_html = publish_html(data["html"], data["items"],
+                                     logo_ref(client["id"], client["logo"], client["actualizado"]))
+    before, after = review_sections(row["html"]), review_sections(proposed_html)
+    changes = []
+    for index in range(max(len(before), len(after))):
+        old = before[index] if index < len(before) else {}
+        new = after[index] if index < len(after) else {}
+        fields = [key for key in ("texto", "imagenes", "enlaces") if old.get(key) != new.get(key)]
+        if fields:
+            changes.append({"seccion": (new or old)["modulo"], "posicion": index + 1,
+                            "campos": [{"tipo": key, "antes": old.get(key), "despues": new.get(key)} for key in fields]})
+    return {"token": proposal["token"], "creado": proposal["creado"], "cambios": changes,
+            "publicado": row["html"], "propuesto": proposed_html}
+
+
+def decide_landing_revision(landing_id, token, decision):
+    if not isinstance(token, str) or decision not in ("aprobar", "rechazar"):
+        raise ApiError(400, "Elegí aprobar o rechazar la propuesta.")
+    with tx() as con:
+        row = lock_landing_revision(con, landing_id)
+        if decision == "rechazar":
+            pending = row["revision_cliente"]
+            if row["revision_estado"] != "pendiente" or not pending or pending["token"] != token:
+                raise ApiError(409, "La propuesta cambió. Volvé a abrir la revisión antes de decidir.")
+            con.execute("UPDATE landings SET revision_cliente = NULL, revision_estado = 'rechazada' WHERE id = %s",
+                        (landing_id,))
+            return {"ok": True}
+        data = check_landing_revision(row, token)["data"]
+    return save_landing(data, landing_id, revision=token)
+
+
+def save_landing(data, landing_id=None, revision=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
     items = data.get("items") or []
@@ -998,7 +1107,11 @@ def save_landing(data, landing_id=None):
     with tx() as con:
         client = get_client_row(con, client_id)
         if landing_id:
-            get_landing_row(con, landing_id)
+            current = lock_landing_revision(con, landing_id)
+            if revision:
+                check_landing_revision(current, revision)
+            elif current["revision_estado"] == "pendiente":
+                raise ApiError(409, "Resolvé primero los cambios pendientes del cliente.")
         slug = slugify(nombre)
         clash = con.execute(
             "SELECT 1 FROM landings WHERE cliente_id = %s AND slug = %s AND id <> %s",
@@ -1020,8 +1133,8 @@ def save_landing(data, landing_id=None):
         if landing_id:
             con.execute(
                 "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, html = %s, "
-                "portada = %s, preview = '', actualizado = %s WHERE id = %s",
-                values + (landing_id,),
+                "portada = %s, preview = '', actualizado = %s, revision_cliente = NULL, revision_estado = %s WHERE id = %s",
+                values + ("aprobada" if revision else "", landing_id),
             )
         else:
             landing_id = con.execute(
@@ -2276,25 +2389,39 @@ class Handler(SimpleHTTPRequestHandler):
                     raise ApiError(403, "Desde el sitio no se crean landings.")
                 saved = save_landing(self.read_json())
                 return saved
+        if name == "landing-revision" and self.authorized():
+            if method == "GET":
+                return landing_revision_details(ident)
+            if method == "POST":
+                decision = self.read_json()
+                return decide_landing_revision(ident, decision.get("token"), decision.get("decision"))
         if name == "landing":
             if portal_id and not self.authorized():
                 with tx() as con:
                     owned = get_landing_row(con, ident)
                 if owned["cliente_id"] != portal_id:
                     raise ApiError(403, "Esta landing es de otro cliente.")
+            portal_edit = bool(portal_id and (not self.authorized() or (query.get("modo") or [""])[0] == "sitio"))
             if method == "GET":
-                data = get_landing(ident)
-                if portal_id and not self.authorized():
-                    data = hide_public_path(data)
-                return data
+                if portal_edit:
+                    with tx() as con:
+                        row = lock_landing_revision(con, ident)
+                        if row["cliente_id"] != portal_id:
+                            raise ApiError(403, "Esta landing es de otro cliente.")
+                        data = landing_dict(get_landing_row(con, ident))
+                        pending = row["revision_cliente"]
+                        if pending:
+                            data["items"] = pending["data"]["items"]
+                            data["revision_token"] = pending["token"]
+                    return hide_public_path(data)
+                return get_landing(ident)
             if method == "PUT":
                 data = self.read_json()
-                if data.get("modo") == "sitio" or (portal_id and not self.authorized()):
-                    with tx() as con:
-                        previous = get_landing_row(con, ident)
-                    data = limit_client_edit(previous, data)
-                saved = save_landing(data, ident)
-                return hide_public_path(saved) if portal_id and not self.authorized() else saved
+                if data.get("modo") == "sitio" or portal_edit:
+                    if not portal_id:
+                        raise ApiError(401, "Ingresá al portal del cliente.")
+                    return submit_landing_revision(ident, portal_id, data)
+                return save_landing(data, ident)
             if method == "DELETE":
                 if portal_id and not self.authorized():
                     raise ApiError(403, "El portal no elimina landings. Pedilo a Lanzate.")

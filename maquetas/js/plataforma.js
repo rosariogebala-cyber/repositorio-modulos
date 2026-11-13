@@ -286,6 +286,68 @@
   }
 
   /* Fila de landing con acciones */
+  function reviewLanding(lp, opts) {
+    var dialog = document.createElement("dialog");
+    dialog.className = "lb-dialog pf-review";
+    dialog.setAttribute("aria-label", "Revisar cambios de " + lp.nombre);
+    dialog.innerHTML = '<h2>Revisar cambios</h2><p></p><div data-review-content></div>' +
+      '<p role="status">Cargando propuesta…</p><form method="dialog"><button class="lb-act">Cerrar</button></form>';
+    dialog.querySelector("p").textContent = lp.nombre;
+    dialog.addEventListener("close", function () { dialog.remove(); });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    var status = dialog.querySelector("[role=status]");
+    var path = "/api/landings/" + lp.id + "/revision";
+    api("GET", path).then(function (review) {
+      if (!dialog.open) return;
+      status.textContent = "";
+      var target = dialog.querySelector("[data-review-content]");
+      var types = { texto: "Texto", imagenes: "Imágenes", enlaces: "Enlaces" };
+      function value(text) {
+        return (Array.isArray(text) ? text.join("\n") : text || "—").replace(/data:[^\s]+/g, "Imagen cargada");
+      }
+      target.innerHTML = '<p>Enviada el ' + esc(formatDate(review.creado)) + '</p>' +
+        (review.cambios.length ? "" : "<p>Compará las vistas para revisar los cambios de diseño.</p>") +
+        review.cambios.map(function (change) {
+          return '<details class="pf-review-change"><summary>' + change.posicion + ' · ' + esc(change.seccion) + '</summary>' +
+            change.campos.map(function (field) {
+              return '<h3>' + types[field.tipo] + '</h3><div class="pf-review-grid">' +
+                '<div><strong>Publicado</strong><pre>' + esc(value(field.antes)) + '</pre></div>' +
+                '<div><strong>Propuesto</strong><pre>' + esc(value(field.despues)) + '</pre></div></div>';
+            }).join("") + '</details>';
+        }).join("") +
+        '<details class="pf-review-change"><summary>Comparar las dos versiones</summary><div class="pf-review-grid">' +
+        '<iframe sandbox title="Versión publicada"></iframe><iframe sandbox title="Versión propuesta"></iframe></div></details>' +
+        '<div class="lb-actions"><button class="btn-nx btn-sm" data-decision="aprobar">Aprobar y publicar</button>' +
+        '<button class="btn-nx-outline btn-sm" data-decision="rechazar">Rechazar propuesta</button></div>';
+      var compare = target.querySelector(".pf-review-change:last-of-type");
+      compare.addEventListener("toggle", function () {
+        if (!compare.open) return;
+        var frames = compare.querySelectorAll("iframe");
+        if (!frames[0].hasAttribute("srcdoc")) {
+          frames[0].srcdoc = review.publicado;
+          frames[1].srcdoc = review.propuesto;
+        }
+      });
+      var buttons = target.querySelectorAll("[data-decision]");
+      buttons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          var decision = button.dataset.decision;
+          if (!window.confirm(decision === "aprobar" ? "¿Publicar esta propuesta?" : "¿Rechazar esta propuesta?")) return;
+          buttons.forEach(function (item) { item.disabled = true; });
+          api("POST", path, { token: review.token, decision: decision }).then(function () {
+            dialog.close();
+            if (opts.onMessage) opts.onMessage(decision === "aprobar" ? "Cambios aprobados y publicados." : "Propuesta rechazada.", "ok");
+            if (opts.onChange) opts.onChange();
+          }).catch(function (err) {
+            status.textContent = err.message;
+            buttons.forEach(function (item) { item.disabled = false; });
+          });
+        });
+      });
+    }).catch(function (err) { status.textContent = err.message; });
+  }
+
   function landingRow(lp, opts) {
     opts = opts || {};
     var li = document.createElement("li");
@@ -311,6 +373,7 @@
       "<small>" + meta.join(" · ") + "</small>" +
       (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + "</span>" +
       '<span class="lb-saved-actions">' +
+      (lp.revision_estado === "pendiente" ? '<button class="lb-act" type="button" data-act="review">Revisar cambios</button>' : "") +
       icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
@@ -331,6 +394,7 @@
       var act = btn.getAttribute("data-act");
       var report = opts.onMessage || function () {};
       if (act === "edit") opts.onEdit(lp);
+      if (act === "review") reviewLanding(lp, opts);
       if (act === "duplicate") {
         btn.disabled = true;
         api("POST", "/api/landings/" + lp.id + "/duplicate")

@@ -191,6 +191,10 @@
           var items = c.landings.map(function (lp) {
             var cuando = lp.actualizado ? new Date(lp.actualizado).toLocaleDateString("es-AR") : "";
             return '<li class="pt-card"><div class="pt-page-title"><i class="bi bi-window" aria-hidden="true"></i><div><h3>' + esc(lp.nombre) + "</h3>" +
+              (lp.revision_estado ? '<p class="pt-plan">' + esc({
+                pendiente: "Cambios pendientes de aprobación", aprobada: "Cambios aprobados y publicados",
+                rechazada: "La última propuesta fue rechazada"
+              }[lp.revision_estado]) + '</p>' : "") +
               (cuando ? '<p class="pt-plan">Último cambio: ' + esc(cuando) + "</p>" : "") + "</div></div>" +
               '<span class="pt-actions"><a class="btn-nx btn-sm" href="/maquetas/constructor.html?landing=' + lp.id + '&desde=sitio">Editar</a> ' +
               '<a class="btn-nx-outline btn-sm" href="/vista/' + lp.id + '" target="_blank" rel="noopener">Ver</a></span></li>';
