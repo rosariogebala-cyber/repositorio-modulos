@@ -57,7 +57,7 @@
           '<label><input name="recordar" type="checkbox"> Recordar en este equipo</label>' +
           '<button class="btn-nx" type="submit">Entrar</button></form>' +
           '<form data-olvide hidden><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
-          '<button class="btn-nx" type="submit">Generar una contraseña nueva</button></form>' +
+          '<button class="btn-nx" type="submit">Enviar enlace de recuperación</button></form>' +
           '<p><button type="button" data-show-olvide>Olvidé mi contraseña</button></p>' +
           '<p data-msg role="status"></p>';
         root.querySelector("[data-login]").addEventListener("submit", function (e) {
@@ -77,8 +77,8 @@
         });
         root.querySelector("[data-olvide]").addEventListener("submit", function (e) {
           e.preventDefault();
-          api("POST", "/api/portal/olvide", { usuario: e.target.usuario.value, sitio: sitio }).then(function (out) {
-            root.querySelector("[data-msg]").textContent = "Contraseña nueva de " + out.usuario + ": " + out.clave;
+          api("POST", "/api/portal/olvide", { usuario: e.target.usuario.value, sitio: sitio }).then(function () {
+            root.querySelector("[data-msg]").textContent = "Si la cuenta tiene un correo habilitado, te enviamos un enlace. Si necesitás ayuda, contactá a Lanzate.";
           }).catch(function (err) { root.querySelector("[data-msg]").textContent = err.message; });
         });
       }
@@ -221,19 +221,30 @@
             "</div></section></aside></div>" +
             '<section class="pt-access"><h2>Acceso</h2>' +
             "<p>Usuario: " + esc(c.usuario || "—") + "</p>" +
-            "<p>Contraseña: " + esc(c.clave || "Generá una para verla.") + "</p>" +
-            '<p><button class="btn-nx-outline btn-sm" type="button" data-clave>Generar contraseña</button> ' +
-            '<button class="btn-nx-outline btn-sm" type="button" data-salir>Salir</button></p></section>';
+            '<p><button class="btn-nx-outline btn-sm" type="button" data-salir>Salir</button></p></section>';
           showActivity(c.landings);
-          root.querySelector("[data-clave]").addEventListener("click", function () {
-            api("POST", "/api/portal/clave", {}).then(home).catch(function (err) {
-              root.insertAdjacentHTML("beforeend", "<p>" + esc(err.message) + "</p>");
-            });
-          });
           root.querySelector("[data-salir]").addEventListener("click", function () {
             api("POST", "/api/portal/logout", {}).then(function () { loginForm("Sesión cerrada."); });
           });
         }).catch(function () { loginForm(); });
+      }
+      var resetToken = new URLSearchParams(location.hash.slice(1)).get("restablecer");
+      if (resetToken) {
+        history.replaceState(null, "", location.pathname + location.search);
+        root.classList.add("pt-signed-out");
+        root.innerHTML = '<h1>Restablecé tu contraseña</h1><form class="pt-login">' +
+          '<label>Contraseña nueva <input name="clave" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>' +
+          '<button class="btn-nx" type="submit">Guardar contraseña</button></form><p role="status"></p>';
+        root.querySelector("form").addEventListener("submit", function (event) {
+          event.preventDefault();
+          var button = event.target.querySelector("button");
+          var status = root.querySelector("[role=status]");
+          button.disabled = true;
+          api("POST", "/api/portal/restablecer", { token: resetToken, clave: event.target.elements.clave.value })
+            .then(function () { loginForm("Contraseña actualizada. Ingresá con tu nueva contraseña."); })
+            .catch(function (error) { status.textContent = error.message; button.disabled = false; });
+        });
+        return;
       }
       var ready = sitio ? api("GET", "/api/portal/sitio/" + sitio).then(function (site) { setBrand(site.nombre); }).catch(function () { root.innerHTML = "<p>Este sitio no existe.</p>"; return Promise.reject(); }) : Promise.resolve();
       ready.then(function () {

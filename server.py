@@ -93,6 +93,7 @@ def load_local_env():
 load_local_env()
 
 ON_VERCEL = bool(os.environ.get("VERCEL"))
+ISOLATED_PREVIEW = ON_VERCEL and os.environ.get("VERCEL_ENV") != "production"
 MAX_BODY = 40 * 1024 * 1024
 MAX_LOGO = 2 * 1024 * 1024
 SESSION_DAYS = 30
@@ -133,9 +134,10 @@ ROUTES = [
     (re.compile(r"^/api/portal/sesion$"), "portal-sesion"),
     (re.compile(r"^/api/portal/sitio/([a-z0-9-]+)$"), "portal-sitio"),
     (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
-    (re.compile(r"^/api/portal/clave$"), "portal-clave"),
+    (re.compile(r"^/api/portal/restablecer$"), "portal-restablecer"),
     (re.compile(r"^/api/portal/logout$"), "portal-logout"),
     (re.compile(r"^/api/landings/(\d+)/revision$"), "landing-revision"),
+    (re.compile(r"^/api/landings/(\d+)/restaurar$"), "landing-restaurar"),
     (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
     (re.compile(r"^/api/portal/consultas/(\d+)$"), "portal-consulta"),
     (re.compile(r"^/api/portal/actividad/(\d+)$"), "portal-actividad"),
@@ -151,7 +153,7 @@ ROUTES = [
     (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
     (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva", "portal-login", "portal-sesion", "portal-sitio", "portal-olvide", "portal-logout")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva", "portal-login", "portal-sesion", "portal-sitio", "portal-olvide", "portal-restablecer", "portal-logout")
 PANEL_PAGES = {
     "/maquetas/" + name + ".html"
     for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
@@ -212,6 +214,16 @@ CREATE TABLE IF NOT EXISTS landings (
 );
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_cliente JSONB;
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_estado TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS landing_publicaciones (
+    id BIGSERIAL PRIMARY KEY,
+    landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
+    creado BIGINT NOT NULL,
+    operador TEXT NOT NULL,
+    decisiones JSONB NOT NULL,
+    anterior JSONB NOT NULL,
+    huella TEXT NOT NULL
+);
+ALTER TABLE landing_publicaciones ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS ajustes (
   clave TEXT PRIMARY KEY,
   valor JSONB NOT NULL
@@ -230,6 +242,12 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_usuario TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_version BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_vence BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_enviado BIGINT NOT NULL DEFAULT 0;
+CREATE UNIQUE INDEX IF NOT EXISTS clientes_portal_reset_idx ON clientes (portal_reset_hash) WHERE portal_reset_hash <> '';
+UPDATE clientes SET portal_clave = '', portal_version = portal_version + 1 WHERE portal_clave LIKE 'v1:%';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan_vence TEXT NOT NULL DEFAULT '';
 ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
@@ -273,7 +291,10 @@ _schema_ready = False
 def tx():
     """Conexión por pedido; confirma al salir bien y deshace si hay error."""
     global _schema_ready
-    url = os.environ.get("DATABASE_URL")
+    preview = ISOLATED_PREVIEW
+    url = os.environ.get("LANZATE_PREVIEW_DATABASE_URL" if preview else "DATABASE_URL")
+    if not url and preview:
+        raise ApiError(503, "Falta configurar la base aislada de Preview.")
     if not url:
         raise ApiError(500, "Falta la conexión con la base de datos (DATABASE_URL).")
     try:
@@ -281,10 +302,20 @@ def tx():
     except psycopg.OperationalError:
         raise ApiError(503, "No se pudo conectar con la base de datos. Probá de nuevo en unos segundos.")
     with con:
+        if not preview:
+            marker = con.execute("SELECT to_regclass('public.lanzate_preview_guard') AS marker").fetchone()
+            if marker["marker"]:
+                raise ApiError(503, "La base de Preview no se puede usar para producción o desarrollo local.")
+        if preview:
+            marker = con.execute("SELECT to_regclass('public.lanzate_preview_guard') AS marker").fetchone()
+            if not marker["marker"] or not con.execute(
+                "SELECT 1 FROM public.lanzate_preview_guard WHERE ambiente = 'preview'"
+            ).fetchone():
+                raise ApiError(503, "Preview requiere una base de pruebas identificada.")
         if not _schema_ready:
             con.execute(SCHEMA)
-            _schema_ready = True
         yield con
+    _schema_ready = True
 
 
 def read_rules():
@@ -316,7 +347,7 @@ def save_rules(data):
 # --- Sesión ----------------------------------------------------------------------
 
 def access_key():
-    return os.environ.get("LANZATE_CLAVE") or ""
+    return os.environ.get("LANZATE_PREVIEW_ADMIN_KEY" if ISOLATED_PREVIEW else "LANZATE_CLAVE") or ""
 
 
 def access_user():
@@ -330,52 +361,59 @@ def valid_credentials(usuario, clave):
 
 
 def session_secret():
+    if ISOLATED_PREVIEW:
+        secret = os.environ.get("LANZATE_PREVIEW_SESSION_SECRET")
+        if not secret or len(secret) < 32:
+            raise ApiError(503, "Preview requiere su propio secreto de sesión.")
+        return secret.encode()
     return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
 
 
-def seal_portal_password(password):
-    raw = password.encode()
-    stream = hashlib.sha256(b"clave:" + session_secret()).digest()
-    mixed = bytes(b ^ stream[i % len(stream)] for i, b in enumerate(raw))
-    return "v1:" + mixed.hex()
-
-
-def open_portal_password(stored):
-    if not stored or not str(stored).startswith("v1:"):
-        return ""
-    raw = bytes.fromhex(stored[3:])
-    stream = hashlib.sha256(b"clave:" + session_secret()).digest()
-    return bytes(b ^ stream[i % len(stream)] for i, b in enumerate(raw)).decode()
+def hash_portal_password(password):
+    salt = secrets.token_hex(16)
+    digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=2**17, r=8, p=1,
+                            maxmem=256 * 1024 * 1024).hex()
+    return "scrypt$%s$%s" % (salt, digest)
 
 
 def check_portal_password(stored, password):
-    if str(stored).startswith("v1:"):
-        return hmac.compare_digest(open_portal_password(stored), str(password or ""))
+    if not isinstance(stored, str) or len(password) > 128:
+        return False
     try:
-        salt, digest = stored.split("$", 1)
+        if not stored.startswith("scrypt$"):
+            salt, digest = stored.split("$", 1)
+            test = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120000).hex()
+            return hmac.compare_digest(test, digest)
+        _, salt, digest = stored.split("$", 2)
+        test = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=2**17, r=8, p=1,
+                              maxmem=256 * 1024 * 1024).hex()
+        return hmac.compare_digest(test, digest)
     except ValueError:
         return False
-    test = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120000).hex()
-    return hmac.compare_digest(test, digest)
 
 
-def portal_token(client_id, days):
-    expires = str(int(time.time()) + days * 86400)
-    payload = "%s.%s" % (client_id, expires)
-    sig = hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
+def portal_token(client_id, days, version=None):
+    if version is None:
+        with tx() as con:
+            version = get_client_row(con, client_id)["portal_version"]
+    expires = int(time.time()) + days * 86400
+    payload = "%s.%s.%s" % (client_id, expires, version)
+    sig = hmac.new(session_secret(), ("portal:" + payload).encode(), hashlib.sha256).hexdigest()
     return payload + "." + sig
 
 
 def portal_client_id(value):
     try:
-        client_id, expires, sig = value.split(".", 2)
-        payload = client_id + "." + expires
-        good = hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
-        if hmac.compare_digest(sig, good) and int(expires) > time.time():
-            return int(client_id)
+        client_id, expires, version, sig = value.split(".")
+        payload = ".".join((client_id, expires, version))
+        good = hmac.new(session_secret(), ("portal:" + payload).encode(), hashlib.sha256).hexdigest()
+        if int(expires) <= time.time() or not hmac.compare_digest(sig, good):
+            return None
+        with tx() as con:
+            row = con.execute("SELECT portal_version FROM clientes WHERE id = %s", (int(client_id),)).fetchone()
+        return int(client_id) if row and row["portal_version"] == int(version) else None
     except (ValueError, AttributeError):
         return None
-    return None
 
 
 def set_portal_access(client_id, usuario):
@@ -392,8 +430,8 @@ def set_portal_access(client_id, usuario):
         if taken:
             raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
         con.execute(
-            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, actualizado = %s WHERE id = %s",
-            (usuario, seal_portal_password(clave), now_ms(), client_id),
+            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, actualizado = %s WHERE id = %s",
+            (usuario, hash_portal_password(clave), now_ms(), client_id),
         )
     record_audit("portal", "acceso " + usuario)
     return {"usuario": usuario, "clave": clave}
@@ -422,14 +460,14 @@ def portal_login(usuario, clave, sitio=""):
     sitio = str(sitio or "").strip()
     with tx() as con:
         row = con.execute(
-            "SELECT id, slug, portal_clave FROM clientes WHERE lower(portal_usuario) = %s",
+            "SELECT id, slug, portal_clave, portal_version FROM clientes WHERE lower(portal_usuario) = %s",
             (usuario,),
         ).fetchone()
     if not row or not row["portal_clave"] or not check_portal_password(row["portal_clave"], str(clave or "")):
         raise ApiError(401, "El usuario o la contraseña no son correctos.")
     if sitio and row["slug"] != sitio:
         raise ApiError(401, "Esta cuenta no corresponde a este sitio.")
-    return row["id"]
+    return row["id"], row["portal_version"]
 
 
 def portal_site(slug):
@@ -470,7 +508,6 @@ def portal_home(client_id):
         "plan": row.get("plan") or "",
         "plan_vence": row.get("plan_vence") or "",
         "usuario": row.get("portal_usuario") or "",
-        "clave": open_portal_password(row.get("portal_clave") or ""),
         "landings": [hide_public_path(landing_dict(item)) for item in landings],
     }
 
@@ -514,31 +551,62 @@ def set_portal_lead_status(client_id, lead_id, landing_id, status):
     return {"ok": True}
 
 
-def renew_portal_password(client_id):
-    clave = secrets.token_urlsafe(9)
-    with tx() as con:
-        row = get_client_row(con, client_id)
-        usuario = (row.get("portal_usuario") or "").strip()
-        if not usuario:
-            raise ApiError(400, "Este cliente todavía no tiene usuario de portal.")
-        con.execute(
-            "UPDATE clientes SET portal_clave = %s, actualizado = %s WHERE id = %s",
-            (seal_portal_password(clave), now_ms(), client_id),
-        )
-    record_audit("portal", "clave nueva " + usuario)
-    return {"usuario": usuario, "clave": clave}
-
-
 def recover_portal_password(usuario, sitio=""):
-    usuario = str(usuario or "").strip().lower()
+    key = os.environ.get("RESEND_API_KEY", "").strip()
+    sender = os.environ.get("PORTAL_MAIL_FROM", "").strip()
+    panel = os.environ.get("PORTAL_PUBLIC_URL", "").strip().rstrip("/")
+    if not key or not sender or not re.fullmatch(r"https://[a-zA-Z0-9.-]+", panel):
+        return {"ok": True}
+    if ISOLATED_PREVIEW:
+        return {"ok": True}
+    token = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    stamp = now_ms()
     with tx() as con:
         row = con.execute(
-            "SELECT id, slug FROM clientes WHERE lower(portal_usuario) = %s",
-            (usuario,),
+            "UPDATE clientes SET portal_reset_hash = %s, portal_reset_vence = %s, portal_reset_enviado = %s "
+            "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' AND email <> '' "
+            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING email",
+            (digest, stamp + 30 * 60000, stamp, str(usuario or "").strip().lower(),
+             sitio or "", sitio or "", stamp - 5 * 60000),
         ).fetchone()
-    if not row or (sitio and row["slug"] != sitio):
-        raise ApiError(404, "No hay un acceso con ese usuario en este sitio.")
-    return renew_portal_password(row["id"])
+    if row:
+        payload = {"from": sender, "to": [row["email"]], "subject": "Restablecé tu acceso a Lanzate",
+                   "text": "Elegí una contraseña nueva. El enlace vence en 30 minutos.\n\n"
+                           + panel + "/maquetas/portal.html#restablecer=" + token}
+        try:
+            request = Request("https://api.resend.com/emails", data=json.dumps(payload).encode(),
+                              headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+                              method="POST")
+            with urlopen(request, timeout=5):
+                pass
+        except (OSError, ValueError):
+            print("No se pudo enviar el correo de recuperación del portal.", file=sys.stderr)
+    return {"ok": True}
+
+
+def reset_portal_password(token, password):
+    if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
+        raise ApiError(400, "El enlace es inválido o venció.")
+    if not isinstance(password, str) or not 12 <= len(password) <= 128:
+        raise ApiError(400, "Usá entre 12 y 128 caracteres.")
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    with tx() as con:
+        valid = con.execute(
+            "SELECT 1 FROM clientes WHERE portal_reset_hash = %s AND portal_reset_vence > %s",
+            (digest, now_ms()),
+        ).fetchone()
+        if not valid:
+            raise ApiError(400, "El enlace es inválido o venció.")
+        changed = con.execute(
+            "UPDATE clientes SET portal_clave = %s, portal_version = portal_version + 1, "
+            "portal_reset_hash = '', portal_reset_vence = 0 WHERE portal_reset_hash = %s "
+            "AND portal_reset_vence > %s RETURNING id",
+            (hash_portal_password(password), digest, now_ms()),
+        ).fetchone()
+        if not changed:
+            raise ApiError(400, "El enlace es inválido o venció.")
+    return {"ok": True}
 
 
 def make_session():
@@ -585,7 +653,7 @@ def client_logo(client_id):
 
 
 def client_dict(row, count=None):
-    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave")}
+    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave", "portal_version", "portal_reset_hash", "portal_reset_vence", "portal_reset_enviado")}
     data["tiene_portal"] = bool((row.get("portal_usuario") or "").strip())
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row["id"], row["logo"], row["actualizado"])
@@ -711,7 +779,6 @@ def get_client(client_id):
         row = get_client_row(con, client_id)
         landings = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         data = client_dict(row, len(landings))
-        data["clave"] = open_portal_password(row.get("portal_clave") or "")
         data["lista"] = [landing_dict(l) for l in landings]
         return data
 
@@ -741,6 +808,8 @@ def update_client(client_id, data):
             values["logo"] = clean_logo(data["logo_data"])
         elif data.get("logo_quitar"):
             values["logo"] = ""
+        if values.get("email") != previous.get("email"):
+            values.update(portal_reset_hash="", portal_reset_vence=0)
         values["actualizado"] = now_ms()
         con.execute(
             "UPDATE clientes SET %s WHERE id = %%s" % ", ".join(k + " = %s" for k in values),
@@ -771,7 +840,7 @@ def delete_client(client_id):
 
 LANDING_SELECT = (
     "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.portada, l.creado, l.actualizado, "
-    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, l.revision_estado, "
+    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, l.revision_estado, EXISTS (SELECT 1 FROM landing_publicaciones p WHERE p.landing_id = l.id AND p.creado = l.actualizado) AS restaurable, "
     "c.nombre AS cliente, c.slug AS cliente_slug, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
     "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id AND NOT q.leida) AS consultas_nuevas "
@@ -804,6 +873,7 @@ def landing_dict(row):
         "path": url.lstrip("/"),
         "disponible": row["disponible"],
         "revision_estado": row.get("revision_estado") or "",
+        "restaurable": bool(row.get("restaurable")),
     }
 
 
@@ -1020,6 +1090,8 @@ def submit_landing_revision(landing_id, client_id, data):
 
 
 def notify_landing_revision(landing_id, token):
+    if ISOLATED_PREVIEW:
+        return
     key = os.environ.get("RESEND_API_KEY", "").strip()
     sender = os.environ.get("REVISION_MAIL_FROM", "").strip()
     recipient = os.environ.get("REVISION_MAIL_TO", "").strip()
@@ -1132,7 +1204,37 @@ def landing_revision_details(landing_id):
             "publicado": row["html"], "propuesto": proposed}
 
 
-def decide_landing_revision(landing_id, token, action, decisions):
+def validate_revision_markup(document):
+    allowed_tags = frozenset(
+        "a abbr article aside b blockquote br button caption circle dd details dialog div dl dt em fieldset "
+        "figcaption figure footer form g h1 h2 h3 h4 h5 h6 hr i iframe img input label legend li line "
+        "main nav ol optgroup option p path picture polygon polyline rect s section select small source span "
+        "strong summary svg table tbody td textarea th thead time tr ul video".split()
+    )
+    for module in document.xpath("//body/*[@data-module] | //main/*[@data-module]"):
+        for node in module.iter():
+            if not isinstance(node.tag, str):
+                continue
+            if node.tag.lower() not in allowed_tags:
+                raise ApiError(400, "La propuesta contiene elementos activos que requieren edición técnica.")
+            for name, value in node.attrib.items():
+                normalized = re.sub(r"[\x00-\x20]+", "", value).lower()
+                attribute = name.lower().rsplit(":", 1)[-1]
+                if (attribute.startswith("on") or attribute == "srcdoc"
+                        or (attribute in ("srcset", "style") and any(
+                            scheme in normalized for scheme in ("javascript:", "vbscript:", "data:text/")))
+                        or (attribute in ("href", "src", "action", "formaction", "poster") and
+                            normalized.startswith(("javascript:", "vbscript:", "data:text/", "data:image/svg")))):
+                    raise ApiError(400, "La propuesta contiene un enlace o atributo inseguro.")
+            if node.tag == "iframe":
+                url = urlsplit(node.get("src") or "")
+                if url.scheme != "https" or url.hostname not in ("www.google.com", "maps.google.com",
+                                                                "www.youtube-nocookie.com", "www.youtube.com",
+                                                                "player.vimeo.com"):
+                    raise ApiError(400, "La propuesta contiene un contenido incrustado sin verificar.")
+
+
+def decide_landing_revision(landing_id, token, action, decisions, fingerprint=None):
     if not isinstance(token, str) or action not in ("preview", "publicar") or not isinstance(decisions, dict):
         raise ApiError(400, "Revisá las decisiones de la propuesta.")
     with tx() as con:
@@ -1147,8 +1249,13 @@ def decide_landing_revision(landing_id, token, action, decisions):
             return {"publicada": False}
         sync_landing_footer_menu(document.find("body"))
         merged = "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
+        if affected:
+            validate_revision_markup(document)
+        digest = hashlib.sha256(merged.encode()).hexdigest()
         if action == "preview":
-            return {"html": merged}
+            return {"html": merged, "huella": digest}
+        if fingerprint != digest:
+            raise ApiError(409, "Abrí la vista previa del resultado antes de publicar.")
         previous = get_landing_row(con, landing_id)
         data = dict(proposal["data"])
         data["html"] = merged
@@ -1170,10 +1277,36 @@ def decide_landing_revision(landing_id, token, action, decisions):
                 item.pop(key, None)
             item["menuAjustado"] = True
         data["items"] = items
-    return save_landing(data, landing_id, revision=token)
+    return save_landing(data, landing_id, revision=token, decisions=decisions, fingerprint=digest)
 
 
-def save_landing(data, landing_id=None, revision=None):
+def restore_landing_publication(landing_id):
+    with tx() as con:
+        current = lock_landing_revision(con, landing_id)
+        if current["revision_estado"] == "pendiente":
+            raise ApiError(409, "Resolvé primero la propuesta pendiente.")
+        record = con.execute(
+            "SELECT anterior FROM landing_publicaciones WHERE landing_id = %s AND creado = %s ORDER BY id DESC LIMIT 1",
+            (landing_id, current["actualizado"]),
+        ).fetchone()
+        if not record:
+            raise ApiError(409, "No hay una versión anterior para restaurar.")
+        before = record["anterior"]
+        if before["cliente_id"] != current["cliente_id"]:
+            raise ApiError(409, "La versión anterior corresponde a otro cliente.")
+        con.execute(
+            "UPDATE landings SET items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, "
+            "html = %s, portada = %s, preview = '', revision_estado = '', actualizado = %s WHERE id = %s",
+            (Jsonb(before["items"]), before["estilo"], Jsonb(before["ignorados"]), before["descripcion"],
+             before["animacion"], before["html"], cover_of(before["html"]), max(now_ms(), current["actualizado"] + 1), landing_id),
+        )
+        saved = landing_dict(get_landing_row(con, landing_id))
+    write_landing_folder(saved["cliente_slug"], saved["slug"], before["html"])
+    record_audit("restaurar", saved["nombre"])
+    return saved
+
+
+def save_landing(data, landing_id=None, revision=None, decisions=None, fingerprint=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
     items = data.get("items") or []
@@ -1219,12 +1352,23 @@ def save_landing(data, landing_id=None, revision=None):
             placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
             if placeholder:
                 raise ApiError(400, "Reemplazá el dato de ejemplo «%s» antes de publicar." % placeholder.group())
-        stamp = now_ms()
+        stamp = max(now_ms(), current["actualizado"] + 1) if landing_id else now_ms()
         values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
         previous_path = None
         if landing_id:
             previous = get_landing_row(con, landing_id)
             previous_path = (previous["cliente_slug"], previous["slug"])
+        if revision and hashlib.sha256(html.encode()).hexdigest() != fingerprint:
+            raise ApiError(409, "El resultado cambió al validar. Volvé a abrir la revisión.")
+        if revision:
+            previous_snapshot = {key: previous[key] for key in
+                                 ("cliente_id", "nombre", "items", "estilo", "ignorados", "descripcion", "animacion")}
+            previous_snapshot["html"] = current["html"]
+            con.execute(
+                "INSERT INTO landing_publicaciones (landing_id, creado, operador, decisiones, anterior, huella) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (landing_id, stamp, access_user(), Jsonb(decisions), Jsonb(previous_snapshot), fingerprint),
+            )
         if landing_id:
             con.execute(
                 "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, html = %s, "
@@ -1848,6 +1992,8 @@ IA_PROVIDERS = {
 
 
 def ia_settings():
+    if ISOLATED_PREVIEW:
+        return {"proveedor": "anthropic", "clave": "", "modelo": IA_PROVIDERS["anthropic"]["modelo"]}
     data = {}
     if not ON_VERCEL and os.path.isfile(IA_CONFIG):
         try:
@@ -2319,7 +2465,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if row:
                     html = landing_page(row["cliente_slug"], row["slug"], origin=self.origin())
             if html:
-                self.send_public_landing(html)
+                self.send_body(200, html.encode("utf-8"), "text/html; charset=utf-8")
             else:
                 self.send_body(404, not_found_page(), "text/html; charset=utf-8")
             return True
@@ -2349,7 +2495,7 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
             portal_editor = portal_id and (
-                name in ("portal-inicio", "portal-actividad", "portal-consulta", "portal-clave", "landings", "landing")
+                name in ("portal-inicio", "portal-actividad", "portal-consulta", "landings", "landing")
                 or (method == "GET" and name in ("clientes", "reglas", "ia"))
             )
             if name not in PUBLIC_ROUTES and not self.authorized() and not portal_editor:
@@ -2371,6 +2517,7 @@ class Handler(SimpleHTTPRequestHandler):
                     self.cache_control = "no-store"
                 return True
             self.route_token = token
+            self.portal_id = portal_id
             result = self.dispatch(method, name, ident, query)
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
@@ -2382,12 +2529,12 @@ class Handler(SimpleHTTPRequestHandler):
         return True
 
     def dispatch(self, method, name, ident, query):
-        portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
+        portal_id = getattr(self, "portal_id", None)
         if name == "portal-login" and method == "POST":
             data = self.read_json()
-            client_id = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio"))
+            client_id, version = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio"))
             days = 30 if data.get("recordar") else 1
-            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client_id, days), days * 86400, PORTAL_COOKIE)),)
+            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client_id, days, version), days * 86400, PORTAL_COOKIE)),)
             return {"ok": True}
         if name == "portal-sitio" and method == "GET":
             return portal_site(self.route_token)
@@ -2403,10 +2550,9 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "portal-olvide" and method == "POST":
             data = self.read_json()
             return recover_portal_password(data.get("usuario"), data.get("sitio"))
-        if name == "portal-clave" and method == "POST":
-            if not portal_id:
-                raise ApiError(401, "Ingresá al portal del cliente.")
-            return renew_portal_password(portal_id)
+        if name == "portal-restablecer" and method == "POST":
+            data = self.read_json()
+            return reset_portal_password(data.get("token"), data.get("clave"))
         if name == "portal-inicio" and method == "GET":
             if not portal_id:
                 raise ApiError(401, "Ingresá al portal del cliente.")
@@ -2484,12 +2630,14 @@ class Handler(SimpleHTTPRequestHandler):
                     raise ApiError(403, "Desde el sitio no se crean landings.")
                 saved = save_landing(self.read_json())
                 return saved
+        if name == "landing-restaurar" and method == "POST" and self.authorized():
+            return restore_landing_publication(ident)
         if name == "landing-revision" and self.authorized():
             if method == "GET":
                 return landing_revision_details(ident)
             if method == "POST":
                 decision = self.read_json()
-                return decide_landing_revision(ident, decision.get("token"), decision.get("accion"), decision.get("decisiones"))
+                return decide_landing_revision(ident, decision.get("token"), decision.get("accion"), decision.get("decisiones"), decision.get("huella"))
         if name == "landing":
             if portal_id and not self.authorized():
                 with tx() as con:

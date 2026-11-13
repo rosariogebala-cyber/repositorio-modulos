@@ -305,6 +305,7 @@
       var labels = { texto: "Texto", imagen: "Imagen", enlace: "Enlace", bloque: "Bloque" };
       var decisions = {};
       var shown = -1;
+      var fingerprint = null;
       target.innerHTML = '<div class="pf-review-bar"><p data-review-progress aria-live="polite"></p>' +
         '<button type="button" class="lb-act" data-review-preview>Ver resultado</button>' +
         '<button type="button" class="btn-nx btn-sm" data-review-publish>Confirmar revisión</button></div>' +
@@ -356,7 +357,7 @@
         var approved = Object.values(decisions).filter(function (choice) { return choice === "aprobar"; }).length;
         progress.textContent = count + " de " + review.cambios.length + " revisados · " + approved + " aprobados";
         preview.disabled = count !== review.cambios.length;
-        publish.disabled = preview.disabled;
+        publish.disabled = preview.disabled || (approved > 0 && !fingerprint);
         publish.textContent = approved ? "Publicar cambios aprobados" : "Cerrar sin publicar";
       }
       cards.forEach(function (card, index) {
@@ -368,6 +369,7 @@
           button.onclick = function () {
             decisions[change.id] = button.dataset.choice;
             shown++;
+            fingerprint = null;
             result.hidden = true;
             buttons.forEach(function (item) { item.setAttribute("aria-pressed", String(item === button)); });
             card.querySelector("[data-choice-label]").textContent = button.dataset.choice === "aprobar" ? "Aprobado" : "Rechazado";
@@ -376,13 +378,15 @@
         });
       });
       function submit(action) {
-        return api("POST", path, { token: review.token, accion: action, decisiones: decisions });
+        return api("POST", path, { token: review.token, accion: action, decisiones: decisions, huella: fingerprint });
       }
       preview.onclick = function () {
         var version = ++shown;
         status.textContent = "Preparando vista previa…";
         submit("preview").then(function (data) {
           if (version !== shown || !dialog.open) return;
+          fingerprint = data.huella;
+          update();
           result.querySelector("iframe").srcdoc = documentPreview(data.html);
           result.hidden = false;
           status.textContent = "";
@@ -437,6 +441,7 @@
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
+      (lp.restaurable && lp.revision_estado !== "pendiente" ? '<button class="lb-act" type="button" data-act="restore">Restaurar versión</button>' : "") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
@@ -454,6 +459,16 @@
       var report = opts.onMessage || function () {};
       if (act === "edit") opts.onEdit(lp);
       if (act === "review") reviewLanding(lp, opts);
+      if (act === "restore" && window.confirm("¿Volver a la versión anterior de esta landing?")) {
+        btn.disabled = true;
+        api("POST", "/api/landings/" + lp.id + "/restaurar", {}).then(function () {
+          report("Versión anterior restaurada.", "ok");
+          if (opts.onChange) opts.onChange();
+        }).catch(function (err) {
+          btn.disabled = false;
+          report(err.message, "warn");
+        });
+      }
       if (act === "duplicate") {
         btn.disabled = true;
         api("POST", "/api/landings/" + lp.id + "/duplicate")
@@ -605,7 +620,7 @@
         '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-entrar>Entrar al portal</button></p>' +
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
         '<p class="pf-admin-line">' + (c.portal_usuario ? "Usuario: " + esc(c.portal_usuario) : "Todavía no tiene usuario.") +
-        (c.clave ? " · Contraseña: " + esc(c.clave) : (c.portal_usuario ? " · La contraseña anterior no se puede leer. Generá una nueva." : "")) + "</p>" +
+        (c.portal_usuario ? " · La contraseña nueva se muestra una sola vez." : "") + "</p>" +
         '<form class="pf-admin-form" data-pf-acceso>' +
         '<label>Usuario <input name="usuario" required minlength="3" maxlength="40" value="' + esc(c.portal_usuario || "") + '" autocomplete="off"></label>' +
         '<button class="btn-nx btn-sm" type="submit">Generar contraseña</button></form>' +

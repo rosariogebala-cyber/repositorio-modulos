@@ -28,3 +28,24 @@ Navegación por las 16 secciones en el orden solicitado. Cada botón lleva a su 
 ## Ubicación y Footer
 
 Se añadieron Dónde nos encontramos y Footer al final de la botonera, cada una con tres variantes. Los mapas, direcciones y datos de contacto son ilustrativos. La biblioteca muestra PNG: Google Maps se integrará como mapa real al desarrollar el módulo elegido.
+
+### Activación de los cambios de seguridad
+
+- Prepará una base nueva con datos ficticios para Preview. Solo en esa base,
+  creá `public.lanzate_preview_guard` con una columna `ambiente TEXT PRIMARY KEY`
+  y una fila con el valor `preview`. Preview valida la marca antes de ejecutar
+  migraciones o consultas de negocio. Producción rechaza una base con esa marca.
+- Configurá `LANZATE_PREVIEW_DATABASE_URL`, `LANZATE_PREVIEW_ADMIN_KEY` y
+  `LANZATE_PREVIEW_SESSION_SECRET` solo en Preview. Usá valores independientes
+  de producción y un secreto de sesión de al menos 32 caracteres. Preview
+  mantiene deshabilitados Resend y las llamadas de IA.
+- En producción, configurá `RESEND_API_KEY`, `PORTAL_MAIL_FROM` con un remitente
+  verificado y `PORTAL_PUBLIC_URL` con el origen HTTPS del portal. Confirmá
+  que cada cliente tenga un correo de recuperación correcto.
+- Al desplegar, los accesos del portal con contraseñas anteriores deben
+  restablecerse. Los registros reversibles se eliminan y las cookies del portal
+  emitidas por la versión anterior quedan invalidadas. Un administrador puede
+  emitir una nueva credencial desde la ficha si el cliente necesita ayuda.
+- Probá el ciclo completo en Preview con dos clientes ficticios antes de pasar
+  a producción. Incluí aprobación parcial, reapertura del editor y restauración
+  de la última publicación aprobada.
