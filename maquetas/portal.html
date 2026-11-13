@@ -6,9 +6,10 @@
   <title>Portal del cliente · Lanzate</title>
   <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/maquetas/css/fonts.css" rel="stylesheet">
   <link href="/maquetas/css/lanzate.css" rel="stylesheet">
 </head>
-<body class="lib-page pf-page">
+<body class="lib-page pf-page pt-portal">
   <header class="lib-header">
     <a class="lib-brand" href="" data-brand><span class="lib-brand-mark" aria-hidden="true">L</span><span data-brand-name>Sitio</span></a>
     <a class="pt-wa" data-wa href="https://wa.me/5491166035111" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp</a>
@@ -46,6 +47,7 @@
         });
       }
       function loginForm(note) {
+        root.classList.add("pt-signed-out");
         root.innerHTML =
           '<h1 class="pf-title">' + esc(brandName.textContent) + "</h1>" +
           '<p class="pt-plan">Entrá a tu sitio.</p>' +
@@ -109,13 +111,14 @@
             if (current !== request) return;
             status.textContent = "Actividad de " + page.selectedOptions[0].textContent;
             var metrics = [
-              ["Consultas recibidas", Number(data.consultas), "Formularios de contacto"],
-              ["Solicitudes de turno", Number(data.turnos), "Pedidos desde la landing"],
-              ["Visitas", "—", "Medición pendiente"],
-              ["Clics en WhatsApp", "—", "Medición pendiente"]
+              ["Consultas recibidas", Number(data.consultas), "Formularios de contacto", "envelope"],
+              ["Solicitudes de turno", Number(data.turnos), "Pedidos desde la landing", "calendar2-check"],
+              ["Visitas", "—", "Medición pendiente", "bar-chart"],
+              ["Clics en WhatsApp", "—", "Medición pendiente", "whatsapp"]
             ];
             results.innerHTML = '<dl class="pt-metrics">' + metrics.map(function (metric) {
-              return "<div><dt>" + metric[0] + "</dt><dd><strong>" + metric[1] + "</strong><small>" + metric[2] + "</small></dd></div>";
+              return '<div class="pt-metric' + (typeof metric[1] === "number" ? "" : " pt-metric-pending") +
+                '"><dt><i class="bi bi-' + metric[3] + '" aria-hidden="true"></i>' + metric[0] + "</dt><dd><strong>" + metric[1] + "</strong><small>" + metric[2] + "</small></dd></div>";
             }).join("") + "</dl><h3>Últimas entradas</h3>" +
             (data.entradas.length ? '<ul class="pt-inbox">' + data.entradas.map(function (item) {
               return '<li><details><summary><strong>' + (item.tipo === "turno" ? "Solicitud de turno" : "Consulta") +
@@ -136,6 +139,7 @@
         api("GET", "/api/portal/inicio").then(function (c) {
           if (sitio && c.slug && c.slug !== sitio) { loginForm("Esta sesión es de otro sitio."); return; }
           if (!sitio && c.sitio) { location.href = c.sitio; return; }
+          root.classList.remove("pt-signed-out");
           setBrand(c.nombre);
           document.querySelector("[data-wa]").href = wa("Hola, soy " + c.nombre + ". Quiero consultar por mi sitio.");
           var plan = c.plan ? esc(c.plan) : "Sin plan";
@@ -143,8 +147,8 @@
           var vence = c.plan_vence ? esc(c.plan_vence.split("-").reverse().join("/")) : "Sin fecha";
           var items = c.landings.map(function (lp) {
             var cuando = lp.actualizado ? new Date(lp.actualizado).toLocaleDateString("es-AR") : "";
-            return '<li class="pt-card"><div><h2>' + esc(lp.nombre) + "</h2>" +
-              (cuando ? '<p class="pt-plan">Último cambio: ' + esc(cuando) + "</p>" : "") + "</div>" +
+            return '<li class="pt-card"><div class="pt-page-title"><i class="bi bi-window" aria-hidden="true"></i><div><h3>' + esc(lp.nombre) + "</h3>" +
+              (cuando ? '<p class="pt-plan">Último cambio: ' + esc(cuando) + "</p>" : "") + "</div></div>" +
               '<span class="pt-actions"><a class="btn-nx btn-sm" href="/maquetas/constructor.html?landing=' + lp.id + '&desde=sitio">Editar</a> ' +
               '<a class="btn-nx-outline btn-sm" href="/vista/' + lp.id + '" target="_blank" rel="noopener">Ver</a></span></li>';
           }).join("");
@@ -153,9 +157,9 @@
           }
           root.innerHTML =
             '<div class="pt-top"><div><p class="lb-kicker">' + esc(c.rubro || "Tu sitio") + '</p><h1 class="pf-title">' + esc(c.nombre) + "</h1>" +
-            '<p class="pt-plan">Desde acá editás tus páginas y ves tu plan.</p></div></div>' +
+            '<p class="pt-plan">Revisá la actividad de tus sitios y editá tus páginas.</p></div></div>' +
             '<section class="pt-panel pt-activity" data-activity aria-labelledby="pt-activity-title"><h2 id="pt-activity-title">Actividad del sitio</h2></section>' +
-            '<div class="pt-grid"><section class="pt-panel"><h2>Páginas</h2>' +
+            '<div class="pt-grid"><section class="pt-panel"><h2>Tus páginas</h2>' +
             (items ? '<ul class="pt-list">' + items + "</ul>" : "<p>Todavía no hay páginas. Pedile a Lanzate que publique la primera.</p>") +
             "</section><aside><section class=\"pt-panel\"><h2>Tu plan</h2><dl class=\"pt-facts\">" +
             "<div><dt>Plan</dt><dd>" + plan + "</dd></div>" +
