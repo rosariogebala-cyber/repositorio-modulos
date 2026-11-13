@@ -7,7 +7,7 @@
   <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/maquetas/css/fonts.css" rel="stylesheet">
-  <link href="/maquetas/css/lanzate.css?v=olvide-clave" rel="stylesheet">
+  <link href="/maquetas/css/lanzate.css?v=pedir-clave" rel="stylesheet">
 </head>
 <body class="lib-page pf-page pt-portal">
   <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
@@ -60,11 +60,11 @@
           '<button class="btn-nx" type="submit">Entrar</button></form>' +
           '<p data-msg role="status"></p>' +
           '<details class="pt-forgot"><summary>Olvidé mi contraseña</summary>' +
-          '<p>Escribí tu usuario y te mandamos un email con un enlace para elegir una contraseña nueva.</p>' +
+          '<p>Escribí tu usuario y le avisamos a Lanzate. Te van a mandar una contraseña nueva.</p>' +
           '<form class="pt-login" data-forgot><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
-          '<button class="btn-nx-outline" type="submit">Mandarme el email</button></form>' +
+          '<button class="btn-nx-outline" type="submit">Pedir contraseña nueva</button></form>' +
           '<p data-forgot-msg role="status"></p>' +
-          '<p class="pt-forgot-alt">¿No te llega? <a href="' + esc(wa(sitio
+          '<p class="pt-forgot-alt">¿Es urgente? <a href="' + esc(wa(sitio
             ? "Hola, olvidé mi contraseña del portal de " + clientName + ". ¿Me ayudan a recuperar el acceso?"
             : "Hola, olvidé mi contraseña del portal. ¿Me ayudan a recuperar el acceso?")) +
           '" target="_blank" rel="noopener">Escribinos por WhatsApp</a></p></details>';
@@ -79,7 +79,7 @@
           button.disabled = true;
           note.textContent = "Enviando…";
           api("POST", "/api/portal/olvide", { usuario: forgot.usuario.value, sitio: sitio }).then(function () {
-            note.textContent = "Listo. Si el usuario es correcto, en unos minutos te llega el email. Revisá también Spam.";
+            note.textContent = "Listo, pedido enviado. Lanzate te va a mandar tu contraseña nueva.";
           }).catch(function (err) { note.textContent = err.message; })
             .finally(function () { button.disabled = false; });
         });

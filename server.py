@@ -247,6 +247,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave_ver TEXT NOT NULL DEF
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_hash TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_vence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_enviado BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_pedido_clave BIGINT NOT NULL DEFAULT 0;
 CREATE UNIQUE INDEX IF NOT EXISTS clientes_portal_reset_idx ON clientes (portal_reset_hash) WHERE portal_reset_hash <> '';
 UPDATE clientes SET portal_clave = '', portal_version = portal_version + 1 WHERE portal_clave LIKE 'v1:%';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT '';
@@ -465,7 +466,7 @@ def set_portal_access(client_id, usuario, clave=None):
         if taken:
             raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
         con.execute(
-            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, actualizado = %s WHERE id = %s",
+            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, portal_pedido_clave = 0, actualizado = %s WHERE id = %s",
             (usuario, hash_portal_password(clave), seal_portal_password(clave), now_ms(), client_id),
         )
     record_audit("portal", "acceso " + usuario)
@@ -626,46 +627,24 @@ def send_mail(payload, idempotency=""):
         return False
 
 
-def recover_portal_password(usuario, sitio=""):
-    if ISOLATED_PREVIEW:
-        raise ApiError(503, "El envío de correos está deshabilitado en esta vista previa.")
-    panel = mail_panel()
-    if not mail_env("RESEND_API_KEY") or not re.fullmatch(r"https://[a-zA-Z0-9.-]+", panel):
-        raise ApiError(503, "La recuperación por correo no está disponible. Contactá a Lanzate.")
-    token = secrets.token_urlsafe(32)
-    digest = hashlib.sha256(token.encode()).hexdigest()
+def request_portal_password(usuario, sitio=""):
     stamp = now_ms()
     with tx() as con:
         row = con.execute(
-            "UPDATE clientes SET portal_reset_hash = %s, portal_reset_vence = %s, portal_reset_enviado = %s "
+            "UPDATE clientes SET portal_pedido_clave = %s, portal_reset_enviado = %s "
             "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' "
-            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING id, nombre, email, slug, portal_usuario",
-            (digest, stamp + 30 * 60000, stamp, str(usuario or "").strip().lower(),
-             sitio or "", sitio or "", stamp - 5 * 60000),
+            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING id, nombre, email, telefono, portal_usuario",
+            (stamp, stamp, str(usuario or "").strip().lower(), sitio or "", sitio or "", stamp - 5 * 60000),
         ).fetchone()
-    if not row:
-        return {"ok": True}
-    sent = bool(row["email"]) and send_mail({
-        "from": mail_sender("PORTAL_MAIL_FROM"), "to": [row["email"]],
-        "subject": "Elegí una contraseña nueva para tu sitio",
-        "text": "Hola, %s. Pediste recuperar el acceso a tu sitio en Lanzate.\n\n"
-                "Entrá a este enlace para elegir una contraseña nueva. Vence en 30 minutos:\n%s/sitio/%s/#restablecer=%s\n\n"
-                "Tu usuario es: %s\n\nSi no lo pediste, ignorá este email: tu contraseña sigue igual."
-                % (row["nombre"], panel, row["slug"], token, row["portal_usuario"]),
-    })
-    staff = staff_recipients()
-    if staff:
-        if sent:
-            detail = "Le mandamos a %s un enlace para elegir una contraseña nueva." % row["email"]
-        elif row["email"]:
-            detail = "No se pudo mandar el enlace a %s. Guardale una contraseña nueva desde su ficha y pasásela." % row["email"]
-        else:
-            detail = "No tiene email cargado. Guardale una contraseña nueva desde su ficha y pasásela."
+    staff, panel = staff_recipients(), mail_panel()
+    if row and staff and panel and mail_env("RESEND_API_KEY") and not ISOLATED_PREVIEW:
+        contact = " · ".join(x for x in (row["email"], row["telefono"]) if x) or "sin datos de contacto cargados"
         send_mail({
             "from": mail_sender("REVISION_MAIL_FROM", "PORTAL_MAIL_FROM"), "to": staff,
-            "subject": "%s olvidó su contraseña del portal" % row["nombre"],
-            "text": "%s pidió recuperar el acceso a su portal (usuario: %s).\n\n%s\n\nFicha del cliente:\n%s/maquetas/cliente.html?id=%d"
-                    % (row["nombre"], row["portal_usuario"], detail, panel, row["id"]),
+            "subject": "%s pidió una contraseña nueva" % row["nombre"],
+            "text": "%s pidió una contraseña nueva para su portal (usuario: %s).\n\n"
+                    "Guardale una desde su ficha y pasásela. Contacto: %s.\n\n%s/maquetas/cliente.html?id=%d"
+                    % (row["nombre"], row["portal_usuario"], contact, panel, row["id"]),
         })
     return {"ok": True}
 
@@ -851,7 +830,7 @@ def list_clients():
             "SELECT c.id, c.slug, c.nombre, c.contacto, c.email, c.telefono, c.rubro, c.sitio, "
             "c.color_primario, c.color_secundario, c.notas, c.estado, c.creado, c.actualizado, "
             "c.privacidad_url, c.terminos_url, c.tipo_cliente, c.direccion, c.horario, "
-            "c.instagram, c.facebook, c.linkedin, c.logo_modo, c.ga4, c.gtm, c.meta_pixel, "
+            "c.instagram, c.facebook, c.linkedin, c.logo_modo, c.ga4, c.gtm, c.meta_pixel, c.portal_pedido_clave, "
             "(c.logo <> '') AS logo, "
             "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n, "
             "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id AND l.revision_estado = 'pendiente') AS pendientes "
@@ -2673,7 +2652,7 @@ class Handler(SimpleHTTPRequestHandler):
             return {"ok": True}
         if name == "portal-olvide" and method == "POST":
             data = self.read_json()
-            return recover_portal_password(data.get("usuario"), data.get("sitio"))
+            return request_portal_password(data.get("usuario"), data.get("sitio"))
         if name == "portal-restablecer" and method == "POST":
             data = self.read_json()
             return reset_portal_password(data.get("token"), data.get("clave"))

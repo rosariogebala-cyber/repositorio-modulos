@@ -511,11 +511,11 @@
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
-      }).sort(function (a, b) { return (b.pendientes ? 1 : 0) - (a.pendientes ? 1 : 0); });
+      }).sort(function (a, b) { return (needsAttention(b) ? 1 : 0) - (needsAttention(a) ? 1 : 0); });
       grid.innerHTML = "";
       list.forEach(function (c) {
         var art = document.createElement("article");
-        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "") + (c.pendientes ? " has-pending" : "");
+        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "") + (needsAttention(c) ? " has-pending" : "");
         art.innerHTML =
           '<div class="pf-client-top">' + avatar(c) +
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
@@ -523,6 +523,7 @@
           "</div>" + status(c) + "</div>" +
           (c.pendientes ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '"><i class="bi bi-bell-fill" aria-hidden="true"></i> ' +
             (c.pendientes === 1 ? "Hizo cambios para revisar" : "Hizo cambios en " + c.pendientes + " landings") + "</a>" : "") +
+          (c.portal_pedido_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió una contraseña nueva</a>' : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
           (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
@@ -543,9 +544,12 @@
       return api("GET", "/api/clientes").then(function (list) {
         clients = list;
         render();
-        var n = list.filter(function (c) { return c.pendientes; }).length;
-        if (n) say(msg, n === 1 ? "Un cliente hizo cambios en su web. Están esperando tu revisión." :
-          n + " clientes hicieron cambios en su web. Están esperando tu revisión.", "warn");
+        var changes = list.filter(function (c) { return c.pendientes; }).length;
+        var keys = list.filter(function (c) { return c.portal_pedido_clave; }).length;
+        var notes = [];
+        if (changes) notes.push(changes === 1 ? "Un cliente hizo cambios en su web." : changes + " clientes hicieron cambios en su web.");
+        if (keys) notes.push(keys === 1 ? "Un cliente pidió una contraseña nueva." : keys + " clientes pidieron una contraseña nueva.");
+        if (notes.length) say(msg, notes.join(" "), "warn");
       })
         .catch(function (err) { say(msg, err.message, "warn"); });
     }
@@ -598,6 +602,12 @@
           pending.map(function (lp, k) {
             return '<button class="btn-nx btn-sm" type="button" data-pf-revisar="' + k + '">Revisar «' + esc(lp.nombre) + "»</button>";
           }).join("") + "</div>" : "") +
+        (c.portal_pedido_clave ? '<div class="pf-pending-banner" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i>' +
+          "<p><strong>" + esc(c.nombre) + " pidió una contraseña nueva</strong> el " +
+          esc(new Date(c.portal_pedido_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + " a las " +
+          esc(new Date(c.portal_pedido_clave).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false })) +
+          ". Guardale una en «Acceso al portal» y pasásela.</p>" +
+          '<button class="btn-nx btn-sm" type="button" data-pf-ir-acceso>Crear contraseña</button></div>' : "") +
         '<div class="pf-profile-head">' + avatar(c, "lg") +
         '<div class="pf-profile-name"><p class="lb-kicker">' + esc(c.rubro || "Cliente") + "</p><h1>" + esc(c.nombre) + "</h1>" + status(c) + "</div>" +
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit><i class="bi bi-pencil"></i> Editar datos</button></div>' +
@@ -623,7 +633,7 @@
         '<label>Plan <select name="plan"><option value="">Sin plan</option><option>Base</option><option>Pro</option></select></label>' +
         '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
         '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
-        '<h2>Acceso al portal</h2>' +
+        '<h2 id="pf-acceso">Acceso al portal</h2>' +
         '<p><a class="btn-nx-outline btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Entrar al portal</a></p>' +
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
         (c.portal_usuario
@@ -643,6 +653,17 @@
           reviewLanding(pending[Number(btn.getAttribute("data-pf-revisar"))], { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } });
         });
       });
+      var goAccess = function () {
+        var input = profile.querySelector("[data-pf-acceso] [name=clave]");
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+        input.focus({ preventScroll: true });
+      };
+      var accessBtn = profile.querySelector("[data-pf-ir-acceso]");
+      if (accessBtn) accessBtn.addEventListener("click", goAccess);
+      if (location.hash === "#pf-acceso") {
+        history.replaceState(null, "", location.pathname + location.search);
+        goAccess();
+      }
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
       planForm.addEventListener("submit", function (e) {
@@ -914,18 +935,20 @@
   }
   if (document.body.classList.contains("lib-page")) addLogout();
 
+  function needsAttention(c) { return c.pendientes || c.portal_pedido_clave; }
+
   function markPendingNav() {
     var link = document.querySelector('.lib-header nav a[href="clientes.html"]');
     if (!link || !panelPage) return;
     api("GET", "/api/clientes").then(function (list) {
-      var n = list.filter(function (c) { return c.pendientes; }).length;
+      var n = list.filter(needsAttention).length;
       var old = link.querySelector(".pf-nav-pending");
       if (old) old.remove();
       if (!n) return;
       var badge = document.createElement("span");
       badge.className = "pf-nav-pending";
       badge.textContent = n;
-      badge.title = plural(n, "cliente con cambios para revisar", "clientes con cambios para revisar");
+      badge.title = plural(n, "cliente espera algo de vos", "clientes esperan algo de vos");
       link.appendChild(badge);
     }).catch(function () { /* el aviso es opcional */ });
   }
