@@ -607,13 +607,15 @@
     var count = document.querySelector("[data-pf-count]");
     var newLanding = document.querySelector("[data-pf-new-landing]");
     var landings = [];
-    var preset = new URLSearchParams(location.search).get("cliente") || "";
+    var params = new URLSearchParams(location.search);
+    var preset = params.get("cliente") || "";
+    var reviewId = params.get("revision");
 
     function render() {
       var q = normalize(search.value.trim());
       var cid = select.value;
       var shown = landings.filter(function (lp) {
-        return (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
+        return (!reviewId || String(lp.id) === reviewId) && (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
       });
       list.innerHTML = "";
       shown.forEach(function (lp) {
@@ -622,6 +624,16 @@
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
+      if (reviewId) {
+        var selected = shown[0];
+        say(msg, selected && selected.revision_estado === "pendiente" ?
+          "Esta landing tiene cambios pendientes. Abrí «Revisar cambios» para decidir." :
+          "La propuesta ya no está pendiente.", "");
+        var back = document.createElement("a");
+        back.href = "landings.html";
+        back.textContent = "Ver todas las landings";
+        msg.append(" ", back);
+      }
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
 

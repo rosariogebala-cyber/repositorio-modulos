@@ -1017,6 +1017,35 @@ def submit_landing_revision(landing_id, client_id, data):
                 "revision_token": revision["token"]}
 
 
+def notify_landing_revision(landing_id, token):
+    key = os.environ.get("RESEND_API_KEY", "").strip()
+    sender = os.environ.get("REVISION_MAIL_FROM", "").strip()
+    recipient = os.environ.get("REVISION_MAIL_TO", "").strip()
+    panel = os.environ.get("REVISION_PANEL_URL", "").strip().rstrip("/")
+    if not all((key, sender, recipient, panel)):
+        print("Aviso de revisión pendiente: falta configurar el correo.", file=sys.stderr)
+        return
+    link = "%s/maquetas/landings.html?revision=%d" % (panel, landing_id)
+    payload = {
+        "from": sender,
+        "to": [recipient],
+        "subject": "Lanzate · Cambios pendientes de revisión",
+        "text": "Un cliente envió cambios en su landing. Entrá al panel para comparar y decidir si se publican:\n\n" + link,
+    }
+    try:
+        request = Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json",
+                     "Idempotency-Key": "landing-revision/" + token, "User-Agent": "Lanzate/1.0"},
+            method="POST",
+        )
+        with urlopen(request, timeout=5):
+            pass
+    except (OSError, ValueError) as exc:
+        print("No se pudo enviar el aviso de revisión (%s)." % type(exc).__name__, file=sys.stderr)
+
+
 def review_sections(markup):
     if not markup.strip():
         return []
@@ -2420,7 +2449,9 @@ class Handler(SimpleHTTPRequestHandler):
                 if data.get("modo") == "sitio" or portal_edit:
                     if not portal_id:
                         raise ApiError(401, "Ingresá al portal del cliente.")
-                    return submit_landing_revision(ident, portal_id, data)
+                    submitted = submit_landing_revision(ident, portal_id, data)
+                    notify_landing_revision(ident, submitted["revision_token"])
+                    return submitted
                 return save_landing(data, ident)
             if method == "DELETE":
                 if portal_id and not self.authorized():
