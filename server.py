@@ -392,13 +392,10 @@ def check_portal_password(stored, password):
         return False
 
 
-def portal_token(client_id, days, version=None):
-    if version is None:
-        with tx() as con:
-            version = get_client_row(con, client_id)["portal_version"]
+def portal_token(client_id, days, version):
     expires = int(time.time()) + days * 86400
     payload = "%s.%s.%s" % (client_id, expires, version)
-    sig = hmac.new(session_secret(), ("portal:" + payload).encode(), hashlib.sha256).hexdigest()
+    sig = hmac.new(session_secret(), ("portal-login:" + payload).encode(), hashlib.sha256).hexdigest()
     return payload + "." + sig
 
 
@@ -406,7 +403,7 @@ def portal_client_id(value):
     try:
         client_id, expires, version, sig = value.split(".")
         payload = ".".join((client_id, expires, version))
-        good = hmac.new(session_secret(), ("portal:" + payload).encode(), hashlib.sha256).hexdigest()
+        good = hmac.new(session_secret(), ("portal-login:" + payload).encode(), hashlib.sha256).hexdigest()
         if int(expires) <= time.time() or not hmac.compare_digest(sig, good):
             return None
         with tx() as con:
@@ -2613,9 +2610,6 @@ class Handler(SimpleHTTPRequestHandler):
             data = self.read_json()
             return set_portal_lead_status(portal_id, ident, data.get("landing"), data.get("estado"))
         if name == "portal-entrar" and method == "POST":
-            with tx() as con:
-                get_client_row(con, ident)
-            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(ident, 1), 86400, PORTAL_COOKIE)),)
             with tx() as con:
                 slug = get_client_row(con, ident)["slug"]
             return {"ok": True, "sitio": "/sitio/%s/" % slug}

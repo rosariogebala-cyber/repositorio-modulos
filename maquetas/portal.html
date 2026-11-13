@@ -12,7 +12,7 @@
 <body class="lib-page pf-page pt-portal">
   <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="lib-header">
-    <a class="lib-brand" href="" data-brand><span class="lib-brand-mark" aria-hidden="true">L</span><span data-brand-name>Sitio</span></a>
+    <a class="lib-brand" href="/maquetas/portal.html" data-brand><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
     <a class="pt-wa" data-wa href="https://wa.me/5491166035111" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp</a>
   </header>
   <main class="pf-main" data-portal id="contenido-principal" tabindex="-1">
@@ -22,12 +22,13 @@
     (function () {
       var root = document.querySelector("[data-portal]");
       var brand = document.querySelector("[data-brand]");
-      var brandName = document.querySelector("[data-brand-name]");
       var sitio = (location.pathname.match(/^\/sitio\/([a-z0-9-]+)\/?$/) || [])[1] || "";
-      function setBrand(nombre) {
-        brandName.textContent = nombre || "Sitio";
-        brand.href = sitio ? "/sitio/" + sitio + "/" : "/maquetas/portal.html";
-        if (nombre) document.title = nombre;
+      if (sitio) brand.href = "/sitio/" + sitio + "/";
+      var clientName = "Portal del cliente";
+      function setClientName(nombre) {
+        if (!nombre) return;
+        clientName = nombre;
+        document.title = nombre + " · Lanzate";
       }
       function esc(s) {
         return String(s || "").replace(/[&<>"']/g, function (c) {
@@ -50,7 +51,7 @@
       function loginForm(note) {
         root.classList.add("pt-signed-out");
         root.innerHTML =
-          '<h1 class="pf-title">' + esc(brandName.textContent) + "</h1>" +
+          '<h1 class="pf-title">' + esc(clientName) + "</h1>" +
           '<p class="pt-plan">Entrá a tu sitio.</p>' +
           (note ? '<p class="lb-msg ok">' + esc(note) + "</p>" : "") +
           '<form class="pt-login" data-login><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
@@ -184,7 +185,7 @@
           if (sitio && c.slug && c.slug !== sitio) { loginForm("Esta sesión es de otro sitio."); return; }
           if (!sitio && c.sitio) { location.href = c.sitio; return; }
           root.classList.remove("pt-signed-out");
-          setBrand(c.nombre);
+          setClientName(c.nombre);
           document.querySelector("[data-wa]").href = wa("Hola, soy " + c.nombre + ". Quiero consultar por mi sitio.");
           var plan = c.plan ? esc(c.plan) : "Sin plan";
           var alta = c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—";
@@ -247,11 +248,11 @@
         });
         return;
       }
-      var ready = sitio ? api("GET", "/api/portal/sitio/" + sitio).then(function (site) { setBrand(site.nombre); }).catch(function () { root.innerHTML = "<p>Este sitio no existe.</p>"; return Promise.reject(); }) : Promise.resolve();
+      var ready = sitio ? api("GET", "/api/portal/sitio/" + sitio).then(function (site) { setClientName(site.nombre); }).catch(function () { root.innerHTML = "<p>Este sitio no existe.</p>"; return Promise.reject(); }) : Promise.resolve();
       ready.then(function () {
         return api("GET", "/api/portal/sesion");
       }).then(function (s) {
-        if (s.ok) home(); else loginForm();
+        if (s.ok && (!sitio || s.sitio === "/sitio/" + sitio + "/")) home(); else loginForm();
       }).catch(function (err) { if (err) loginForm(); });
     }());
   </script>
