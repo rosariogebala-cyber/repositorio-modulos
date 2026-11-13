@@ -593,13 +593,44 @@ def set_portal_lead_status(client_id, lead_id, landing_id, status):
     return {"ok": True}
 
 
+def mail_env(name):
+    return os.environ.get(name, "").strip()
+
+
+def mail_sender(*names):
+    for name in names:
+        if mail_env(name):
+            return mail_env(name)
+    return "Lanzate <onboarding@resend.dev>"
+
+
+def mail_panel():
+    host = mail_env("VERCEL_PROJECT_PRODUCTION_URL")
+    return (mail_env("REVISION_PANEL_URL") or mail_env("PORTAL_PUBLIC_URL") or ("https://" + host if host else "")).rstrip("/")
+
+
+def staff_recipients():
+    return [m.strip() for m in mail_env("REVISION_MAIL_TO").split(",") if m.strip()]
+
+
+def send_mail(payload, idempotency=""):
+    headers = {"Authorization": "Bearer " + mail_env("RESEND_API_KEY"), "Content-Type": "application/json", "User-Agent": "Lanzate/1.0"}
+    if idempotency:
+        headers["Idempotency-Key"] = idempotency
+    try:
+        request = Request("https://api.resend.com/emails", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urlopen(request, timeout=5):
+            return True
+    except (OSError, ValueError) as exc:
+        print("No se pudo enviar el correo «%s» (%s)." % (payload.get("subject", ""), type(exc).__name__), file=sys.stderr)
+        return False
+
+
 def recover_portal_password(usuario, sitio=""):
     if ISOLATED_PREVIEW:
         raise ApiError(503, "El envío de correos está deshabilitado en esta vista previa.")
-    key = os.environ.get("RESEND_API_KEY", "").strip()
-    sender = os.environ.get("PORTAL_MAIL_FROM", "").strip()
-    panel = os.environ.get("PORTAL_PUBLIC_URL", "").strip().rstrip("/")
-    if not key or not sender or not re.fullmatch(r"https://[a-zA-Z0-9.-]+", panel):
+    panel = mail_panel()
+    if not mail_env("RESEND_API_KEY") or not re.fullmatch(r"https://[a-zA-Z0-9.-]+", panel):
         raise ApiError(503, "La recuperación por correo no está disponible. Contactá a Lanzate.")
     token = secrets.token_urlsafe(32)
     digest = hashlib.sha256(token.encode()).hexdigest()
@@ -607,23 +638,35 @@ def recover_portal_password(usuario, sitio=""):
     with tx() as con:
         row = con.execute(
             "UPDATE clientes SET portal_reset_hash = %s, portal_reset_vence = %s, portal_reset_enviado = %s "
-            "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' AND email <> '' "
-            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING email, slug",
+            "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' "
+            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING id, nombre, email, slug, portal_usuario",
             (digest, stamp + 30 * 60000, stamp, str(usuario or "").strip().lower(),
              sitio or "", sitio or "", stamp - 5 * 60000),
         ).fetchone()
-    if row:
-        payload = {"from": sender, "to": [row["email"]], "subject": "Restablecé tu acceso a Lanzate",
-                   "text": "Elegí una contraseña nueva. El enlace vence en 30 minutos.\n\n"
-                           + panel + "/sitio/" + row["slug"] + "/#restablecer=" + token}
-        try:
-            request = Request("https://api.resend.com/emails", data=json.dumps(payload).encode(),
-                              headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
-                              method="POST")
-            with urlopen(request, timeout=5):
-                pass
-        except (OSError, ValueError):
-            print("No se pudo enviar el correo de recuperación del portal.", file=sys.stderr)
+    if not row:
+        return {"ok": True}
+    sent = bool(row["email"]) and send_mail({
+        "from": mail_sender("PORTAL_MAIL_FROM"), "to": [row["email"]],
+        "subject": "Elegí una contraseña nueva para tu sitio",
+        "text": "Hola, %s. Pediste recuperar el acceso a tu sitio en Lanzate.\n\n"
+                "Entrá a este enlace para elegir una contraseña nueva. Vence en 30 minutos:\n%s/sitio/%s/#restablecer=%s\n\n"
+                "Tu usuario es: %s\n\nSi no lo pediste, ignorá este email: tu contraseña sigue igual."
+                % (row["nombre"], panel, row["slug"], token, row["portal_usuario"]),
+    })
+    staff = staff_recipients()
+    if staff:
+        if sent:
+            detail = "Le mandamos a %s un enlace para elegir una contraseña nueva." % row["email"]
+        elif row["email"]:
+            detail = "No se pudo mandar el enlace a %s. Guardale una contraseña nueva desde su ficha y pasásela." % row["email"]
+        else:
+            detail = "No tiene email cargado. Guardale una contraseña nueva desde su ficha y pasásela."
+        send_mail({
+            "from": mail_sender("REVISION_MAIL_FROM", "PORTAL_MAIL_FROM"), "to": staff,
+            "subject": "%s olvidó su contraseña del portal" % row["nombre"],
+            "text": "%s pidió recuperar el acceso a su portal (usuario: %s).\n\n%s\n\nFicha del cliente:\n%s/maquetas/cliente.html?id=%d"
+                    % (row["nombre"], row["portal_usuario"], detail, panel, row["id"]),
+        })
     return {"ok": True}
 
 
@@ -1141,13 +1184,9 @@ def submit_landing_revision(landing_id, client_id, data):
 def notify_landing_revision(landing_id, token):
     if ISOLATED_PREVIEW:
         return
-    env = lambda name: os.environ.get(name, "").strip()
-    key = env("RESEND_API_KEY")
-    sender = env("REVISION_MAIL_FROM") or env("PORTAL_MAIL_FROM") or "Lanzate <onboarding@resend.dev>"
-    recipients = [m.strip() for m in env("REVISION_MAIL_TO").split(",") if m.strip()]
-    host = env("VERCEL_PROJECT_PRODUCTION_URL")
-    panel = (env("REVISION_PANEL_URL") or env("PORTAL_PUBLIC_URL") or ("https://" + host if host else "")).rstrip("/")
-    if not all((key, recipients, panel)):
+    recipients = staff_recipients()
+    panel = mail_panel()
+    if not all((mail_env("RESEND_API_KEY"), recipients, panel)):
         print("Aviso de revisión pendiente: falta configurar el correo.", file=sys.stderr)
         return
     with tx() as con:
@@ -1158,25 +1197,13 @@ def notify_landing_revision(landing_id, token):
     if not row:
         return
     ficha = "%s/maquetas/cliente.html?id=%d" % (panel, row["cliente_id"])
-    payload = {
-        "from": sender,
+    send_mail({
+        "from": mail_sender("REVISION_MAIL_FROM", "PORTAL_MAIL_FROM"),
         "to": recipients,
         "subject": "%s hizo cambios en «%s»" % (row["cliente"], row["landing"]),
         "text": "%s envió cambios en la landing «%s». Están esperando tu revisión: entrá a su ficha para "
                 "ver qué cambió y aprobar o rechazar cada cambio.\n\n%s" % (row["cliente"], row["landing"], ficha),
-    }
-    try:
-        request = Request(
-            "https://api.resend.com/emails",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json",
-                     "Idempotency-Key": "landing-revision/" + token, "User-Agent": "Lanzate/1.0"},
-            method="POST",
-        )
-        with urlopen(request, timeout=5):
-            pass
-    except (OSError, ValueError) as exc:
-        print("No se pudo enviar el aviso de revisión (%s)." % type(exc).__name__, file=sys.stderr)
+    }, "landing-revision/" + token)
 
 
 def revision_document(markup):
