@@ -2804,6 +2804,7 @@ html.is-client .lb-main { grid-template-columns: minmax(0, 1fr); }
 .btn-nx.is-pending { opacity: 0.55; }
 .btn-nx.is-pending:hover { transform: none; box-shadow: none; }
 
+[data-lb-client-review][hidden] { display: none; }
 .lb-statusbar {
   display: flex;
   flex-wrap: wrap;

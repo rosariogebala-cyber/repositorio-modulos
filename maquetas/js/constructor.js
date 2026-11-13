@@ -57,6 +57,7 @@
   var savedSnapshot = null;
   var busy = false;
   var portalRevision = null;
+  var clientReview = document.querySelector("[data-lb-client-review]");
   var device = 1280;
   var renderTimer = null;
 
@@ -3925,8 +3926,17 @@
     chip.classList.toggle("is-editing", editing);
     kicker.textContent = client ? client.nombre : "";
     createLabel.textContent = editing ? (dirty ? (clientMode() ? "Enviar a revisión" : "Guardar cambios") : "Guardada") : "Crear landing";
+    clientReview.hidden = !clientMode() || !editing || !portalRevision;
+    if (!clientReview.hidden) {
+      clientReview.querySelector("[data-lb-live]").href = "/vista/" + state.landingId;
+      clientReview.querySelector("[data-lb-client-state]").textContent = dirty
+        ? "Tenés cambios sin enviar. Tu sitio sigue mostrando la versión publicada."
+        : portalRevision.token ? "Cambios enviados. Pendientes de aprobación."
+        : "Estás viendo la versión publicada. Tocá un texto, una foto o un enlace para editarlo.";
+      createLabel.textContent = dirty ? "Enviar a revisión" : portalRevision.token ? "En revisión" : "Enviar a revisión";
+    }
     createIcon.className = "bi " + (editing ? (dirty ? "bi-floppy" : "bi-check2") : "bi-plus-circle");
-    createBtn.disabled = busy || (editing && !dirty && !todo.length);
+    createBtn.disabled = busy || (editing && !dirty && (clientMode() || !todo.length));
     createBtn.classList.toggle("is-pending", todo.length > 0);
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
@@ -4331,6 +4341,7 @@
     saveDraft();
   });
   $("[data-lb-anim-see]").addEventListener("click", function () { $("[data-lb-open]").click(); });
+  clientReview.querySelector("[data-lb-see-changes]").addEventListener("click", function () { $("[data-lb-open]").click(); });
 
   allSeg.addEventListener("click", function (e) {
     var btn = e.target.closest("[data-value]");

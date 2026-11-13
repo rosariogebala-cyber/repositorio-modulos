@@ -617,7 +617,7 @@
         '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
         '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
         '<h2>Acceso al portal</h2>' +
-        '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-entrar>Entrar al portal</button></p>' +
+        '<p><a class="btn-nx-outline btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Entrar al portal</a></p>' +
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
         '<p class="pf-admin-line" id="pf-acceso-ayuda">Elegí el usuario y una contraseña nueva de al menos 12 caracteres. Al guardar, se cierran las sesiones abiertas de este cliente.</p>' +
         '<form class="pf-admin-form" data-pf-acceso aria-describedby="pf-acceso-ayuda">' +
@@ -636,7 +636,6 @@
         }).then(function () { say(msg, "Se guardó el plan.", "ok"); load(); })
           .catch(function (err) { say(msg, err.message, "warn"); });
       });
-      profile.querySelector("[data-pf-entrar]").addEventListener("click", function () { openPortal(c.id, msg); });
       var accessForm = profile.querySelector("[data-pf-acceso]");
       var accessStatus = profile.querySelector("[data-pf-acceso-estado]");
       var password = accessForm.elements.clave;
