@@ -4304,3 +4304,28 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-review-change button[aria-pressed="true"] { background: #4b3180; color: #fff; }
 .pf-review-change button[data-choice="rechazar"][aria-pressed="true"] { background: #8c3042; }
 .pf-review-result iframe { width: 100%; height: min(58vh, 580px); background: #fff; border: 1px solid #e8e2f2; }
+
+/* Escala de lectura compartida por maquetas, administración y landings. */
+:is(.mq, .lib-page, .landing-page) {
+  --fs-body: 1rem;
+  --fs-label: .875rem;
+  --fs-field: 1rem;
+}
+.mq-page-title {
+  width: min(100% - 32px, 1100px);
+  margin: 28px auto 16px;
+  font: 700 clamp(1.75rem, 4vw, 2.75rem)/1.15 Manrope, sans-serif;
+}
+:is(.mq, .lib-page) .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6) {
+  font-size: var(--fs-body);
+  line-height: 1.5;
+}
+:is(.mq, .lib-page) .nx :is(.nx-kicker, .plan-kicker, .k, .h6, small),
+.lib-page :is(.pf-fact dt, .lb-hint, .pt-plan) { font-size: var(--fs-label); }
+:is(.mq, .lib-page, .landing-page) :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+:is(.mq, .lib-page) main[tabindex="-1"] { scroll-margin-top: var(--lib-offset, 96px); }
+.lib-page :is(.lb-fondo-note, .lb-contrast li:not(.is-bad), .lb-fondos-title, .pf-fact dt) { color: #555c77; }
+.lib-page .lb-contrast li.is-bad { color: #8b3927; }

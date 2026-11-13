@@ -19,3 +19,7 @@
 .module-section,.how-it-works{scroll-margin-top:var(--section-offset,190px)}
 @media(max-width:800px){.category-bar{position:sticky}.category-inner{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.category{flex-shrink:0}}
 .topnav a.active{padding:9px 0}@media(max-width:800px){.topnav{gap:18px;scrollbar-width:none}.topnav::-webkit-scrollbar{display:none}}
+
+.site-skip { position: fixed; inset: 12px auto auto 12px; z-index: 1100; padding: 12px 16px; background: #fff; color: #17132b; }
+.site-skip:not(:focus) { clip-path: inset(50%); }
+.site-skip:focus-visible { outline: 3px solid currentColor; }

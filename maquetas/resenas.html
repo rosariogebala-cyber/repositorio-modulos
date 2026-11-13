@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
       <a href="../assets/modulos/resenas-google/simple.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Reseñas Google</h1>
 
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span></div>
@@ -25,9 +29,9 @@
         <h2 class="nx-display">Lo que dicen de nosotros</h2>
         <p class="mt-2"><span class="g-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.6 18.7 23 15.8 23 12.3z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1 7.9-2.8l-3.7-2.9c-1 .7-2.4 1.2-4.2 1.2-3.2 0-5.9-2.2-6.9-5.1H1.3v3A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.1 14.4A7.2 7.2 0 0 1 4.7 12c0-.8.1-1.6.4-2.4V6.6H1.3A12 12 0 0 0 0 12c0 1.9.5 3.8 1.3 5.4l3.8-3z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.1 15.2 0 12 0 7.3 0 3.2 2.7 1.3 6.6l3.8 3C6.1 7 8.8 4.8 12 4.8z"/></svg></span> <span class="nx-stars is-google">★★★★★</span></p>
         <div class="row g-4 text-start mt-2">
-          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/lucia.jpg" alt="" style="width:48px;height:48px"><div><strong>Laura M.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>Respondieron rápido y la web quedó clara. Se nota que escucharon antes de diseñar.</p></div>
-          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/martin.jpg" alt="" style="width:48px;height:48px"><div><strong>Pablo R.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>Proceso ordenado y sin sorpresas. Cada etapa tuvo una revisión concreta.</p></div>
-          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/sofia.jpg" alt="" style="width:48px;height:48px"><div><strong>Carolina S.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>El resultado se parece a cómo trabajamos. Quedó simple y fácil de actualizar.</p></div>
+          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/lucia.jpg" alt="Retrato de Lucía" style="width:48px;height:48px"><div><strong>Laura M.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>Respondieron rápido y la web quedó clara. Se nota que escucharon antes de diseñar.</p></div>
+          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/martin.jpg" alt="Retrato de Martín" style="width:48px;height:48px"><div><strong>Pablo R.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>Proceso ordenado y sin sorpresas. Cada etapa tuvo una revisión concreta.</p></div>
+          <div class="col-md-4"><div class="d-flex align-items-center gap-2 mb-2"><img class="nx-avatar" src="img/sofia.jpg" alt="Retrato de Sofía" style="width:48px;height:48px"><div><strong>Carolina S.</strong><br><span class="text-secondary small">Reseña de Google</span></div></div><p class="nx-stars is-google mb-1">★★★★★</p><p>El resultado se parece a cómo trabajamos. Quedó simple y fácil de actualizar.</p></div>
         </div>
         <p class="nx-note">Reseñas ilustrativas. Datos de ejemplo.</p>
       </div>
@@ -94,6 +98,7 @@
       </div>
     </div></div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

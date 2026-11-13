@@ -10,9 +10,10 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a>
       <a href="#media">Media</a>
       <a href="#compleja">Compleja</a>
@@ -20,10 +21,13 @@
     </nav>
   </header>
 
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Navegación</h1>
+
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span><span>Barra blanca</span></div>
     <div class="mq-frame">
-      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full">
+      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-simple " data-width="full" aria-label="Ejemplo de navegación 1">
         <div class="container">
           <a class="nx-brand is-lower" href="#simple">marca ejemplo</a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navSimple" aria-controls="navSimple" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -45,7 +49,7 @@
   <section class="mq-block" id="media">
     <div class="mq-caption"><span>Media</span><span>Teléfono y búsqueda</span></div>
     <div class="mq-frame">
-      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-media" data-width="full">
+      <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-media" data-width="full" aria-label="Ejemplo de navegación 2">
         <div class="container">
           <a class="nx-brand" href="#media">Marca Ejemplo</a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMedia" aria-controls="navMedia" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -79,7 +83,7 @@
     <div class="mq-caption"><span>Compleja</span><span>Barra sobre foto</span></div>
     <div class="mq-frame">
       <div class="nav-dark-wrap">
-        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full">
+        <nav class="navbar navbar-expand-lg nx nx-nav nx-nav-dark" data-width="full" aria-label="Ejemplo de navegación 3">
           <div class="container">
             <a class="nx-brand" href="#compleja">Marca Ejemplo</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navDark" aria-controls="navDark" aria-expanded="false" aria-label="Abrir menú"><i class="bi bi-list"></i></button>
@@ -110,6 +114,7 @@
       </div>
     </div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

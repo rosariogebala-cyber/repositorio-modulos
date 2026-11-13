@@ -151,7 +151,7 @@
         label.className = "lb-mod" + (selected[m.id] ? " is-on" : "");
         label.innerHTML =
           '<input type="checkbox" value="' + m.id + '"' + (selected[m.id] ? " checked" : "") + ">" +
-          '<span class="lb-thumb"><img src="' + m.thumb + '" alt="" loading="lazy"><i class="bi bi-layout-wtf" aria-hidden="true"></i></span>' +
+          '<span class="lb-thumb"><img src="' + m.thumb + '" alt="Vista previa de ' + escapeHtml(m.name || "módulo") + '" loading="lazy"><i class="bi bi-layout-wtf" aria-hidden="true"></i></span>' +
           '<span class="lb-mod-text"><strong>' + escapeHtml(m.variant) + "</strong>" + (m.note ? "<small>" + escapeHtml(m.note) + "</small>" : "") + "</span>" +
           '<i class="bi bi-check-circle-fill lb-check" aria-hidden="true"></i>';
         var img = label.querySelector("img");
@@ -809,7 +809,7 @@
         var name = el.textContent.replace(/\s+/g, " ").trim() || c.nombre;
         el.classList.toggle("has-name", mode === "imagen-texto");
         el.innerHTML = mode === "imagen-texto"
-          ? '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt=""><span class="nx-brand-name">' + escapeHtml(name) + "</span>"
+          ? '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt="Logo de ' + escapeHtml(name) + '"><span class="nx-brand-name">' + escapeHtml(name) + "</span>"
           : '<img class="nx-brand-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(c.nombre) + '">';
       });
     }
@@ -1298,6 +1298,8 @@
   function showLandingEditor(focus) {
     templateStart.hidden = true;
     landingEditor.hidden = false;
+    var skip = document.querySelector(".lib-skip-link");
+    if (skip) skip.setAttribute("href", "#contenido-editor");
     if (focus) {
       nameInput.focus({ preventScroll: true });
       window.scrollTo(0, 0);
@@ -4530,7 +4532,7 @@
     if (!client || !brand) return;
     var mark = brand.querySelector(".lib-brand-mark");
     if (client.logo_url && client.logo_modo !== "texto") {
-      mark.innerHTML = '<img alt="" src="' + client.logo_url + '">';
+      mark.innerHTML = '<img alt="Logo de ' + escapeHtml(client.nombre) + '" src="' + escapeHtml(client.logo_url) + '">';
       mark.style.background = "transparent";
     }
     brand.lastChild.textContent = client.nombre || "Empresa";

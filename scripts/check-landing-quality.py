@@ -24,6 +24,21 @@ class LandingQuality(TestCase):
                 self.assertTrue(doc.xpath("//a[contains(@class, 'lib-skip-link')]"))
                 self.assertFalse([key for key, n in Counter(doc.xpath("//@id")).items() if n > 1])
 
+    def test_sections_and_panels_have_accessible_structure(self):
+        pages = [ROOT / "index.html", *sorted((ROOT / "maquetas").glob("*.html")),
+                 *sorted((ROOT / "Proyectos").glob("*/index.html"))]
+        for path in pages:
+            with self.subTest(page=str(path.relative_to(ROOT))):
+                doc = html.parse(str(path))
+                active = doc.xpath("//main[not(@hidden)]")
+                self.assertEqual(len(active), 1)
+                if path.name not in ("cliente.html", "portal.html"):
+                    self.assertEqual(len(active[0].xpath(".//h1")), 1)
+                self.assertFalse(doc.xpath("//img[not(normalize-space(@alt))]"))
+                self.assertFalse(doc.xpath("//nav[not(@aria-label or @aria-labelledby)]"))
+                self.assertFalse([key for key, count in Counter(doc.xpath("//@id")).items() if count > 1])
+                self.assertIn("#" + active[0].get("id"), doc.xpath("//a[normalize-space(.)='Saltar al contenido']/@href"))
+
     def test_existing_variants_are_used_without_overwriting_sizes(self):
         node = html.fromstring('<main><img src="/maquetas/img/gal-living.jpg" sizes="50vw"></main>')
         server.add_local_responsive_images(node)

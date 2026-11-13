@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
       <a href="../assets/modulos/reserva-turno/simple.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Reserva tu turno</h1>
 
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span><span>Formulario rápido</span></div>
@@ -137,7 +141,7 @@
                 </section>
                 <section class="bk-step" data-book-step="2" data-book-requires="profesional" hidden>
                   <h3 class="bk-step-title">¿Con quién querés atenderte?</h3>
-                  <div class="bk-pros"><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Lucía Fernández"><img src="img/lucia.jpg" alt=""><strong>Lucía Fernández</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Martín López"><img src="img/martin.jpg" alt=""><strong>Martín López</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sofía Díaz"><img src="img/sofia.jpg" alt=""><strong>Sofía Díaz</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sin preferencia"><span class="bk-pro-any"><i class="bi bi-shuffle"></i></span><strong>Sin preferencia</strong><small>Primer turno libre</small></button></div>
+                  <div class="bk-pros"><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Lucía Fernández"><img src="img/lucia.jpg" alt="Retrato de Lucía"><strong>Lucía Fernández</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Martín López"><img src="img/martin.jpg" alt="Retrato de Martín"><strong>Martín López</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sofía Díaz"><img src="img/sofia.jpg" alt="Retrato de Sofía"><strong>Sofía Díaz</strong><small>Especialista</small></button><button class="bk-pro" type="button" data-book-pick="profesional" data-label="Sin preferencia"><span class="bk-pro-any"><i class="bi bi-shuffle"></i></span><strong>Sin preferencia</strong><small>Primer turno libre</small></button></div>
                 </section>
                 <section class="bk-step" data-book-step="3" data-book-requires="dia,horario" hidden>
                   <h3 class="bk-step-title">Elegí día y horario</h3>
@@ -192,6 +196,7 @@
       </div>
     </div></div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

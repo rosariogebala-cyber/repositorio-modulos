@@ -14,6 +14,7 @@
   <script>if (/[?&]desde=sitio(?:&|$)/.test(location.search)) document.documentElement.classList.add("is-client");</script>
 </head>
 <body class="lib-page builder-page">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="lib-header">
     <a class="lib-brand" href="../index.html"><span class="lib-brand-mark" aria-hidden="true"><i class="bi bi-rocket-takeoff-fill"></i></span>Lanzate</a>
     <a class="lb-back" href="/maquetas/portal.html" data-lb-back hidden><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al sitio</a>
@@ -26,7 +27,7 @@
     </nav>
   </header>
 
-  <main class="lb-template-start" data-template-start>
+  <main class="lb-template-start" data-template-start id="contenido-principal" tabindex="-1">
     <header class="lb-template-start-head">
       <div>
         <h1>Crear landing</h1>
@@ -44,7 +45,7 @@
     <div data-template-sections></div>
   </main>
 
-  <main class="lb-main" data-landing-editor hidden>
+  <main class="lb-main" id="contenido-editor" tabindex="-1" data-landing-editor hidden>
     <aside class="lb-side" aria-label="Configuración de la landing">
       <section class="lb-card lb-step" data-lb-step="1">
         <div class="lb-step-head">

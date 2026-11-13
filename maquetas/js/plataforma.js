@@ -87,7 +87,7 @@
 
   function avatar(c, size) {
     var style = "--c1:" + esc(c.color_primario) + ";--c2:" + esc(c.color_secundario);
-    var inner = c.logo_url ? '<img src="' + esc(c.logo_url) + '" alt="">' : "<span>" + esc(initials(c.nombre)) + "</span>";
+    var inner = c.logo_url ? '<img src="' + esc(c.logo_url) + '" alt="Logo de ' + esc(c.nombre) + '">' : "<span>" + esc(initials(c.nombre)) + "</span>";
     return '<span class="pf-avatar' + (c.logo_url ? " has-logo" : "") + (size ? " is-" + size : "") + '" style="' + style + '">' + inner + "</span>";
   }
 
@@ -429,7 +429,7 @@
     li.title = lp.path;
     li.innerHTML =
       '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' +
-      (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="" loading="lazy">' : "") +
+      (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="Vista previa de ' + esc(lp.nombre) + '" loading="lazy">' : "") +
       '<i class="bi bi-window" aria-hidden="true"></i></a>' +
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
       (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +

@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
       <a href="../assets/modulos/casos-exito/simple.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Casos de éxito</h1>
 
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span></div>
@@ -24,9 +28,9 @@
       <div class="container">
         <h2 class="nx-display mb-4">Historias de negocios que crecen</h2>
         <div class="row g-4">
-          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/lucia.jpg" alt=""><p class="nx-stars mt-3">★★★★★</p><p>Ahora la gente entiende qué hacemos antes de escribirnos. La web ordenó lo que ya veníamos contando de a poco.</p><strong>Lucía Fernández</strong><br><span class="text-secondary">Estudio de bienestar</span></div>
-          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/martin.jpg" alt=""><p class="nx-stars mt-3">★★★★★</p><p>Pasamos de un PDF eterno a un sitio donde se ven las obras. Las consultas llegan con más contexto.</p><strong>Martín López</strong><br><span class="text-secondary">Arquitectura</span></div>
-          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/sofia.jpg" alt=""><p class="nx-stars mt-3">★★★★★</p><p>La tienda se siente como el local. Quienes nos conocen de Instagram ahora pueden comprar sin perderse.</p><strong>Sofía Díaz</strong><br><span class="text-secondary">Tienda de diseño</span></div>
+          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/lucia.jpg" alt="Retrato de Lucía"><p class="nx-stars mt-3">★★★★★</p><p>Ahora la gente entiende qué hacemos antes de escribirnos. La web ordenó lo que ya veníamos contando de a poco.</p><strong>Lucía Fernández</strong><br><span class="text-secondary">Estudio de bienestar</span></div>
+          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/martin.jpg" alt="Retrato de Martín"><p class="nx-stars mt-3">★★★★★</p><p>Pasamos de un PDF eterno a un sitio donde se ven las obras. Las consultas llegan con más contexto.</p><strong>Martín López</strong><br><span class="text-secondary">Arquitectura</span></div>
+          <div class="col-md-4 text-center"><img class="nx-avatar" src="img/sofia.jpg" alt="Retrato de Sofía"><p class="nx-stars mt-3">★★★★★</p><p>La tienda se siente como el local. Quienes nos conocen de Instagram ahora pueden comprar sin perderse.</p><strong>Sofía Díaz</strong><br><span class="text-secondary">Tienda de diseño</span></div>
         </div>
         <p class="nx-note">Casos ilustrativos. Datos de ejemplo.</p>
       </div>
@@ -39,10 +43,10 @@
       <div class="container" data-scroller>
         <h2 class="nx-display mb-4">La confianza se construye juntos</h2>
         <div class="nx-scroll-track" data-track>
-          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Bienestar</p><p class="nx-stars">★★★★★</p><p>Armamos la web sin apuro y cada revisión tuvo un objetivo. Hoy el estudio se presenta solo.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/lucia.jpg" alt="" style="width:48px;height:48px"><div><strong>Lucía Fernández</strong><br><span class="text-secondary">Alma Estudio</span></div></div></article>
-          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Arquitectura</p><p class="nx-stars">★★★★★</p><p>El sitio muestra el proceso, no solo la foto final. Eso cambió la calidad de las primeras reuniones.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/martin.jpg" alt="" style="width:48px;height:48px"><div><strong>Martín López</strong><br><span class="text-secondary">Forma Arquitectura</span></div></div></article>
-          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Diseño</p><p class="nx-stars">★★★★★</p><p>Catálogo claro, tono cercano y un checkout que no asusta. Las piezas se entienden antes de comprarlas.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/sofia.jpg" alt="" style="width:48px;height:48px"><div><strong>Sofía Díaz</strong><br><span class="text-secondary">Tienda de diseño</span></div></div></article>
-          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Servicios</p><p class="nx-stars">★★★★★</p><p>Por fin tenemos un lugar donde mandar a quien pregunta “¿y ustedes qué hacen?”.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/lucia.jpg" alt="" style="width:48px;height:48px"><div><strong>Laura M.</strong><br><span class="text-secondary">Consultora</span></div></div></article>
+          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Bienestar</p><p class="nx-stars">★★★★★</p><p>Armamos la web sin apuro y cada revisión tuvo un objetivo. Hoy el estudio se presenta solo.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/lucia.jpg" alt="Retrato de Lucía" style="width:48px;height:48px"><div><strong>Lucía Fernández</strong><br><span class="text-secondary">Alma Estudio</span></div></div></article>
+          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Arquitectura</p><p class="nx-stars">★★★★★</p><p>El sitio muestra el proceso, no solo la foto final. Eso cambió la calidad de las primeras reuniones.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/martin.jpg" alt="Retrato de Martín" style="width:48px;height:48px"><div><strong>Martín López</strong><br><span class="text-secondary">Forma Arquitectura</span></div></div></article>
+          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Diseño</p><p class="nx-stars">★★★★★</p><p>Catálogo claro, tono cercano y un checkout que no asusta. Las piezas se entienden antes de comprarlas.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/sofia.jpg" alt="Retrato de Sofía" style="width:48px;height:48px"><div><strong>Sofía Díaz</strong><br><span class="text-secondary">Tienda de diseño</span></div></div></article>
+          <article class="nx-scroll-item quote-card"><p class="nx-kicker">Servicios</p><p class="nx-stars">★★★★★</p><p>Por fin tenemos un lugar donde mandar a quien pregunta “¿y ustedes qué hacen?”.</p><div class="d-flex align-items-center gap-2 mt-3"><img class="nx-avatar" src="img/lucia.jpg" alt="Retrato de Lucía" style="width:48px;height:48px"><div><strong>Laura M.</strong><br><span class="text-secondary">Consultora</span></div></div></article>
         </div>
         <div class="pager">
           <button class="nx-round-nav" type="button" data-dir="prev" aria-label="Anterior"><i class="bi bi-arrow-left"></i></button>
@@ -67,7 +71,7 @@
         </div>
         <div data-page>
           <div class="row g-3">
-            <div class="col-lg-7" data-item data-tags="servicios"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/lucia.jpg" alt=""><p class="nx-stars">★★★★★</p><p class="fs-5">“Ahora la gente entiende qué hacemos antes de escribirnos.”</p><strong>Lucía Fernández</strong><br><span class="text-secondary">Estudio de bienestar</span></article></div>
+            <div class="col-lg-7" data-item data-tags="servicios"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/lucia.jpg" alt="Retrato de Lucía"><p class="nx-stars">★★★★★</p><p class="fs-5">“Ahora la gente entiende qué hacemos antes de escribirnos.”</p><strong>Lucía Fernández</strong><br><span class="text-secondary">Estudio de bienestar</span></article></div>
             <div class="col-lg-5">
               <article class="quote-card mb-3" data-item data-tags="profesionales"><p class="nx-stars">★★★★★</p><p>Las consultas llegan con más contexto.</p><strong>Martín López</strong> · Arquitectura</article>
               <article class="quote-card" data-item data-tags="comercios"><p class="nx-stars">★★★★★</p><p>La tienda se siente como el local.</p><strong>Sofía Díaz</strong> · Tienda de diseño</article>
@@ -76,8 +80,8 @@
         </div>
         <div data-page>
           <div class="row g-3">
-            <div class="col-lg-7" data-item data-tags="profesionales"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/martin.jpg" alt=""><p class="nx-stars">★★★★★</p><p class="fs-5">“El sitio muestra el proceso, no solo la foto final.”</p><strong>Martín López</strong><br><span class="text-secondary">Forma Arquitectura</span></article></div>
-            <div class="col-lg-5" data-item data-tags="comercios"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/sofia.jpg" alt=""><p class="nx-stars">★★★★★</p><p>Quienes nos conocen de Instagram ahora pueden comprar sin perderse.</p><strong>Sofía Díaz</strong></article></div>
+            <div class="col-lg-7" data-item data-tags="profesionales"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/martin.jpg" alt="Retrato de Martín"><p class="nx-stars">★★★★★</p><p class="fs-5">“El sitio muestra el proceso, no solo la foto final.”</p><strong>Martín López</strong><br><span class="text-secondary">Forma Arquitectura</span></article></div>
+            <div class="col-lg-5" data-item data-tags="comercios"><article class="quote-card h-100"><img class="nx-avatar mb-3" src="img/sofia.jpg" alt="Retrato de Sofía"><p class="nx-stars">★★★★★</p><p>Quienes nos conocen de Instagram ahora pueden comprar sin perderse.</p><strong>Sofía Díaz</strong></article></div>
           </div>
         </div>
         <div class="pager">
@@ -89,6 +93,7 @@
       </div>
     </div></div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

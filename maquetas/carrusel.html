@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
       <a href="../assets/modulos/carrusel-imagenes/media.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Carrusel</h1>
   <p class="mq-caption" style="padding-top:16px">Las referencias de este módulo coinciden con el hero. La variante simple del PNG está cortada, así que el fondo sale de las imágenes del hero.</p>
 
   <section class="mq-block" id="simple">
@@ -81,6 +85,7 @@
       </div>
     </div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

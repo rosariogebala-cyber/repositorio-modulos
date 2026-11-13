@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
       <a href="../assets/modulos/video-destacado/simple.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Videos</h1>
 
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span></div>
@@ -43,15 +47,15 @@
         </div>
         <div class="nx-scroll-track fw-track" data-track>
           <article class="nx-scroll-item vid-card">
-            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt=""><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">02:18</span></button>
+            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt="Vista previa del video Una idea compartida"><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">02:18</span></button>
             <div class="pad"><p class="k">Nosotros</p><h3>Una idea compartida</h3><button class="btn btn-link px-0" type="button" data-video="Una idea compartida">Ver video <i class="bi bi-arrow-right"></i></button></div>
           </article>
           <article class="nx-scroll-item vid-card">
-            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt=""><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">01:45</span></button>
+            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt="Vista previa del video El valor del detalle"><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">01:45</span></button>
             <div class="pad"><p class="k">Procesos</p><h3>El valor del detalle</h3><button class="btn btn-link px-0" type="button" data-video="El valor del detalle">Ver video <i class="bi bi-arrow-right"></i></button></div>
           </article>
           <article class="nx-scroll-item vid-card">
-            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt=""><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">03:06</span></button>
+            <button class="nx-frame ratio-16x9 w-100 border-0 p-0" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt="Vista previa del video Espacios con identidad"><span class="nx-play"><i class="bi bi-play-fill"></i></span><span class="nx-time">03:06</span></button>
             <div class="pad"><p class="k">Inspiración</p><h3>Espacios con identidad</h3><button class="btn btn-link px-0" type="button" data-video="Espacios con identidad">Ver video <i class="bi bi-arrow-right"></i></button></div>
           </article>
         </div>
@@ -85,9 +89,9 @@
             <div class="col-lg-5">
               <p class="fw-semibold">Para seguir mirando</p>
               <div class="vid-side">
-                <button class="vid-row" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt=""><div><h3>El valor del detalle</h3><p>01:45</p></div></button>
-                <button class="vid-row" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt=""><div><h3>Espacios con identidad</h3><p>03:06</p></div></button>
-                <button class="vid-row" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt=""><div><h3>Una idea compartida</h3><p>02:40</p></div></button>
+                <button class="vid-row" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt="Vista previa del video El valor del detalle"><div><h3>El valor del detalle</h3><p>01:45</p></div></button>
+                <button class="vid-row" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt="Vista previa del video Espacios con identidad"><div><h3>Espacios con identidad</h3><p>03:06</p></div></button>
+                <button class="vid-row" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt="Vista previa del video Una idea compartida"><div><h3>Una idea compartida</h3><p>02:40</p></div></button>
               </div>
             </div>
           </div>
@@ -111,12 +115,13 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
-          <div class="nx-frame ratio-16x9 mb-3"><img src="img/vid-esencia.jpg" alt=""></div>
+          <div class="nx-frame ratio-16x9 mb-3"><img src="img/vid-esencia.jpg" alt="Vista previa del video Esencia"></div>
           <p class="mb-0 text-secondary">Este es un reproductor de ejemplo. El módulo no incluye un archivo de video: en el sitio real acá iría el embed.</p>
         </div>
       </div>
     </div>
   </div>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>

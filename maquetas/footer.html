@@ -10,13 +10,17 @@
   <link href="css/lanzate.css" rel="stylesheet">
 </head>
 <body class="mq">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
   <header class="mq-top">
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
-    <nav class="mq-links">
+    <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a><a href="#cierre">Con cierre</a>
       <a href="../assets/modulos/footer/simple.png" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
+
+  <main id="contenido-principal" tabindex="-1">
+    <h1 class="mq-page-title">Footer</h1>
 
   <section class="mq-block" id="simple">
     <div class="mq-caption"><span>Simple</span></div>
@@ -29,7 +33,7 @@
               <a class="nx-brand is-lower" href="#simple">marca ejemplo</a>
               <p class="mb-0">Hacemos visible lo que hacés.</p>
             </div>
-            <nav class="d-flex flex-wrap gap-3">
+            <nav class="d-flex flex-wrap gap-3" aria-label="Navegación del pie">
               <a href="#simple">Inicio</a>
               <a href="#simple">Servicios</a>
               <a href="#simple">Nosotros</a>
@@ -197,7 +201,7 @@
               <div class="col-md-4 col-lg-4">
                 <p class="nx-footer-label">Contacto</p>
                 <div class="foot-contact">
-                  <img src="img/lucia.jpg" alt="">
+                  <img src="img/lucia.jpg" alt="Retrato de Lucía">
                   <div>
                     <p><strong>Lucía te responde</strong></p>
                     <p class="muted"><span class="foot-online" aria-hidden="true"></span>Lun a Vie 9 a 18 h</p>
@@ -226,6 +230,7 @@
       </footer>
     </div>
   </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/lanzate.js"></script>
 </body>
