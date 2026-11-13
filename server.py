@@ -549,13 +549,13 @@ def set_portal_lead_status(client_id, lead_id, landing_id, status):
 
 
 def recover_portal_password(usuario, sitio=""):
+    if ISOLATED_PREVIEW:
+        raise ApiError(503, "El envío de correos está deshabilitado en esta vista previa.")
     key = os.environ.get("RESEND_API_KEY", "").strip()
     sender = os.environ.get("PORTAL_MAIL_FROM", "").strip()
     panel = os.environ.get("PORTAL_PUBLIC_URL", "").strip().rstrip("/")
     if not key or not sender or not re.fullmatch(r"https://[a-zA-Z0-9.-]+", panel):
-        return {"ok": True}
-    if ISOLATED_PREVIEW:
-        return {"ok": True}
+        raise ApiError(503, "La recuperación por correo no está disponible. Contactá a Lanzate.")
     token = secrets.token_urlsafe(32)
     digest = hashlib.sha256(token.encode()).hexdigest()
     stamp = now_ms()
@@ -563,14 +563,14 @@ def recover_portal_password(usuario, sitio=""):
         row = con.execute(
             "UPDATE clientes SET portal_reset_hash = %s, portal_reset_vence = %s, portal_reset_enviado = %s "
             "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' AND email <> '' "
-            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING email",
+            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING email, slug",
             (digest, stamp + 30 * 60000, stamp, str(usuario or "").strip().lower(),
              sitio or "", sitio or "", stamp - 5 * 60000),
         ).fetchone()
     if row:
         payload = {"from": sender, "to": [row["email"]], "subject": "Restablecé tu acceso a Lanzate",
                    "text": "Elegí una contraseña nueva. El enlace vence en 30 minutos.\n\n"
-                           + panel + "/maquetas/portal.html#restablecer=" + token}
+                           + panel + "/sitio/" + row["slug"] + "/#restablecer=" + token}
         try:
             request = Request("https://api.resend.com/emails", data=json.dumps(payload).encode(),
                               headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},

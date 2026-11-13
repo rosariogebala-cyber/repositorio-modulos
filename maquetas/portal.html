@@ -58,9 +58,10 @@
           '<label>Contraseña <input name="clave" type="password" required autocomplete="current-password"></label>' +
           '<label><input name="recordar" type="checkbox"> Recordar en este equipo</label>' +
           '<button class="btn-nx" type="submit">Entrar</button></form>' +
-          '<form data-olvide hidden><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
-          '<button class="btn-nx" type="submit">Enviar enlace de recuperación</button></form>' +
-          '<p><button type="button" data-show-olvide>Olvidé mi contraseña</button></p>' +
+          '<p><button class="btn-nx-outline btn-sm" type="button" data-show-olvide aria-expanded="false" aria-controls="pt-recuperar">Olvidé mi contraseña</button></p>' +
+          '<div id="pt-recuperar" hidden><p>Ingresá tu usuario. El enlace se envía al correo registrado en tu cuenta.</p>' +
+          '<form class="pt-login" data-olvide><label>Usuario <input name="usuario" required autocomplete="username"></label>' +
+          '<button class="btn-nx" type="submit">Enviar enlace de recuperación</button></form></div>' +
           '<p data-msg role="status"></p>';
         root.querySelector("[data-login]").addEventListener("submit", function (e) {
           e.preventDefault();
@@ -74,14 +75,26 @@
             home();
           }).catch(function (err) { root.querySelector("[data-msg]").textContent = err.message; });
         });
+        var recovery = root.querySelector("#pt-recuperar");
+        var recoveryForm = recovery.querySelector("form");
+        var status = root.querySelector("[data-msg]");
         root.querySelector("[data-show-olvide]").addEventListener("click", function () {
-          root.querySelector("[data-olvide]").hidden = false;
+          recovery.hidden = !recovery.hidden;
+          this.setAttribute("aria-expanded", String(!recovery.hidden));
+          if (!recovery.hidden) {
+            recoveryForm.elements.usuario.value = root.querySelector("[data-login]").elements.usuario.value;
+            recoveryForm.elements.usuario.focus();
+          }
         });
-        root.querySelector("[data-olvide]").addEventListener("submit", function (e) {
+        recoveryForm.addEventListener("submit", function (e) {
           e.preventDefault();
-          api("POST", "/api/portal/olvide", { usuario: e.target.usuario.value, sitio: sitio }).then(function () {
-            root.querySelector("[data-msg]").textContent = "Si la cuenta tiene un correo habilitado, te enviamos un enlace. Si necesitás ayuda, contactá a Lanzate.";
-          }).catch(function (err) { root.querySelector("[data-msg]").textContent = err.message; });
+          var button = recoveryForm.querySelector("button");
+          button.disabled = true;
+          status.textContent = "Procesando solicitud…";
+          api("POST", "/api/portal/olvide", { usuario: recoveryForm.elements.usuario.value, sitio: sitio }).then(function () {
+            status.textContent = "Si la cuenta tiene un correo registrado, vas a recibir un enlace. Revisá también el correo no deseado.";
+          }).catch(function (err) { status.textContent = err.message; })
+            .finally(function () { button.disabled = false; });
         });
       }
       var WA = "https://wa.me/5491166035111?text=";
