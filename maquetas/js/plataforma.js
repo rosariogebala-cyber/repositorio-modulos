@@ -494,12 +494,6 @@
   }
 
   /* Página: Clientes */
-  function openPortal(id, msg) {
-    api("POST", "/api/clientes/" + id + "/entrar", {}).then(function (out) {
-      location.assign(out.sitio);
-    }).catch(function (err) { if (msg) say(msg, err.message, "warn"); });
-  }
-
   function pageClientes() {
     var grid = document.querySelector("[data-pf-clients]");
     var empty = document.querySelector("[data-pf-empty]");
@@ -534,9 +528,8 @@
           (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
           "</ul>" +
           '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + "</span>" +
-          '<span class="pf-client-actions"><button class="btn-nx btn-sm" type="button" data-act="portal">Abrir portal</button>' +
+          '<span class="pf-client-actions"><a class="btn-nx btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Abrir portal</a>' +
           '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
-        art.querySelector('[data-act="portal"]').addEventListener("click", function () { openPortal(c.id, msg); });
         grid.appendChild(art);
       });
       empty.hidden = list.length > 0;
