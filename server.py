@@ -243,6 +243,7 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_usuario TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_version BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave_ver TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_hash TEXT NOT NULL DEFAULT '';
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_vence BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_enviado BIGINT NOT NULL DEFAULT 0;
@@ -392,6 +393,39 @@ def check_portal_password(stored, password):
         return False
 
 
+def _portal_keystream(key, nonce, size):
+    out = b""
+    counter = 0
+    while len(out) < size:
+        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
+        counter += 1
+    return out[:size]
+
+
+def seal_portal_password(password):
+    """Copia cifrada que solo el panel puede leer; el login sigue usando el hash."""
+    key = hmac.new(session_secret(), b"portal-clave-ver", hashlib.sha256).digest()
+    nonce = secrets.token_bytes(16)
+    plain = password.encode("utf-8")
+    sealed = bytes(a ^ b for a, b in zip(plain, _portal_keystream(key, nonce, len(plain))))
+    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
+    return "v2:" + base64.urlsafe_b64encode(nonce + tag + sealed).decode()
+
+
+def open_portal_password(stored):
+    if not stored or not stored.startswith("v2:"):
+        return ""
+    try:
+        raw = base64.urlsafe_b64decode(stored[3:].encode())
+        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
+        key = hmac.new(session_secret(), b"portal-clave-ver", hashlib.sha256).digest()
+        if not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
+            return ""
+        return bytes(a ^ b for a, b in zip(sealed, _portal_keystream(key, nonce, len(sealed)))).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+
+
 def portal_token(client_id, days, version):
     expires = int(time.time()) + days * 86400
     payload = "%s.%s.%s" % (client_id, expires, version)
@@ -431,8 +465,8 @@ def set_portal_access(client_id, usuario, clave=None):
         if taken:
             raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
         con.execute(
-            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, actualizado = %s WHERE id = %s",
-            (usuario, hash_portal_password(clave), now_ms(), client_id),
+            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, actualizado = %s WHERE id = %s",
+            (usuario, hash_portal_password(clave), seal_portal_password(clave), now_ms(), client_id),
         )
     record_audit("portal", "acceso " + usuario)
     return {"usuario": usuario, "clave": clave} if generated else {"usuario": usuario}
@@ -600,10 +634,10 @@ def reset_portal_password(token, password):
         if not valid:
             raise ApiError(400, "El enlace es inválido o venció.")
         changed = con.execute(
-            "UPDATE clientes SET portal_clave = %s, portal_version = portal_version + 1, "
+            "UPDATE clientes SET portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, "
             "portal_reset_hash = '', portal_reset_vence = 0 WHERE portal_reset_hash = %s "
             "AND portal_reset_vence > %s RETURNING id",
-            (hash_portal_password(password), digest, now_ms()),
+            (hash_portal_password(password), seal_portal_password(password), digest, now_ms()),
         ).fetchone()
         if not changed:
             raise ApiError(400, "El enlace es inválido o venció.")
@@ -654,7 +688,7 @@ def client_logo(client_id):
 
 
 def client_dict(row, count=None):
-    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave", "portal_version", "portal_reset_hash", "portal_reset_vence", "portal_reset_enviado")}
+    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave", "portal_clave_ver", "portal_version", "portal_reset_hash", "portal_reset_vence", "portal_reset_enviado")}
     data["tiene_portal"] = bool((row.get("portal_usuario") or "").strip())
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row["id"], row["logo"], row["actualizado"])
@@ -780,6 +814,7 @@ def get_client(client_id):
         row = get_client_row(con, client_id)
         landings = con.execute(LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         data = client_dict(row, len(landings))
+        data["portal_clave"] = open_portal_password(row.get("portal_clave_ver") or "")
         data["lista"] = [landing_dict(l) for l in landings]
         return data
 

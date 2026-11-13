@@ -2464,10 +2464,9 @@ html.is-client .lb-main { grid-template-columns: minmax(0, 1fr); }
 html.is-client .lb-work { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 0; align-items: stretch; height: calc(100vh - 150px); }
 html.is-client .lb-viewport { height: 100%; overflow: auto; }
 html.is-client .lb-split { display: block; width: 14px; border: 0; padding: 0; cursor: ew-resize; touch-action: none; background: linear-gradient(#c4bfb2, #c4bfb2) center / 3px 100% no-repeat; }
-html.is-client .lb-change-device { width: 100%; }
-html.is-client .lb-change-device iframe { width: 100%; border: 0; display: block; }
+html.is-client .lb-change-device iframe { border: 0; display: block; }
 html.is-client .lb-change-pane { display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
-html.is-client .lb-change-view { flex: 1; overflow: auto; }
+html.is-client .lb-change-view { flex: 1; overflow-x: hidden; overflow-y: auto; }
 html.is-client .lb-change-device { transform-origin: top left; }
 .lb-side {
   position: sticky;
@@ -2978,6 +2977,11 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-admin-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 8px 0 14px; }
 .pf-admin-form label { display: grid; gap: 4px; font-size: 13px; }
 .pf-admin-clave { font-weight: 650; }
+.pf-acceso-actual { display: grid; gap: 6px; margin: 8px 0 14px; padding: 12px 14px; max-width: 420px; border: 1px solid #e0e9eb; border-radius: 10px; background: #fff; }
+.pf-acceso-actual div { display: flex; gap: 12px; font-size: 15px; }
+.pf-acceso-actual dt { min-width: 92px; color: #5b6170; font-weight: 600; }
+.pf-acceso-actual dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #0f1332; word-break: break-all; }
+.pf-acceso-actual button { justify-self: start; margin-top: 4px; }
 .pt-wa { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: #128c7e; color: #fff; font-size: 13px; font-weight: 650; text-decoration: none; }
 .pt-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr); gap: 16px; align-items: start; }
 .pt-panel { background: #fff; border: 1px solid #f0ede5; border-radius: 18px; padding: 18px; }

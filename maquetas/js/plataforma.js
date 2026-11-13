@@ -612,6 +612,11 @@
         '<h2>Acceso al portal</h2>' +
         '<p><a class="btn-nx-outline btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Entrar al portal</a></p>' +
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
+        (c.portal_usuario
+          ? '<dl class="pf-acceso-actual"><div><dt>Usuario</dt><dd>' + esc(c.portal_usuario) + "</dd></div>" +
+            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : "No se puede mostrar. Guardá una nueva para verla acá.") + "</dd></div>" +
+            (c.portal_clave ? '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' : "") + "</dl>"
+          : '<p class="pf-admin-line">Todavía no tiene acceso al portal.</p>') +
         '<p class="pf-admin-line" id="pf-acceso-ayuda">Elegí el usuario y una contraseña nueva de al menos 12 caracteres. Al guardar, se cierran las sesiones abiertas de este cliente.</p>' +
         '<form class="pf-admin-form" data-pf-acceso aria-describedby="pf-acceso-ayuda">' +
         '<label>Usuario <input name="usuario" required minlength="3" maxlength="40" value="' + esc(c.portal_usuario || "") + '" autocomplete="off"></label>' +
@@ -649,9 +654,17 @@
           password.value = "";
           password.type = "password";
           revealPassword.checked = false;
-          say(accessStatus, "Acceso guardado.", "ok");
+          say(msg, "Acceso guardado.", "ok");
+          load();
         }).catch(function (err) { say(accessStatus, err.message, "warn"); })
           .finally(function () { button.disabled = false; });
+      });
+      var copyAccess = profile.querySelector("[data-pf-copiar-acceso]");
+      if (copyAccess) copyAccess.addEventListener("click", function () {
+        var text = "Sitio: " + location.origin + "/sitio/" + c.slug + "/\nUsuario: " + c.portal_usuario + "\nContraseña: " + c.portal_clave;
+        navigator.clipboard.writeText(text).then(function () {
+          say(accessStatus, "Copiado: sitio, usuario y contraseña.", "ok");
+        }).catch(function () { say(accessStatus, "No se pudo copiar. Seleccioná el texto a mano.", "warn"); });
       });
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
         clientForm(c).then(function (saved) {

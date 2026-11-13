@@ -3898,8 +3898,66 @@
   var split = $("[data-lb-split]");
   var changeDevice = $("[data-lb-change-device]");
 
-  function plain(el) {
-    return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+  var FOOT_LINKS = ".foot-links a, nav[aria-label='Navegación del pie'] a";
+  var CHANGE_CSS = ".lz-chg-word{background:#ffe08a!important;color:#1a1400!important;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone}" +
+    ".lz-chg-del{display:inline-block;width:3px;height:1em;margin:0 1px;vertical-align:-.1em;background:#e07a00;border-radius:2px}" +
+    ".lz-chg-link{outline:2px dashed #e07a00!important;outline-offset:2px}" +
+    ".lz-chg-img{outline:4px solid #e07a00!important;outline-offset:3px}";
+
+  function wrapRange(el, start, end, make) {
+    var walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    for (var n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+    var pos = 0;
+    nodes.forEach(function (node) {
+      var from = pos;
+      var to = pos + node.data.length;
+      pos = to;
+      var a = Math.max(start, from);
+      var b = Math.min(end, to);
+      if (a >= b) return;
+      var middle = node.splitText(a - from);
+      middle.splitText(b - a);
+      var mark = make();
+      middle.parentNode.insertBefore(mark, middle);
+      mark.appendChild(middle);
+    });
+  }
+
+  /* Pinta solo las palabras que cambiaron dentro del texto; si solo se borró, deja una marca donde estaba. */
+  function markWords(el, before) {
+    var now = el.textContent;
+    before = before || "";
+    if (now.replace(/\s+/g, " ").trim() === before.replace(/\s+/g, " ").trim()) return;
+    var doc = el.ownerDocument;
+    var p = 0;
+    while (p < now.length && p < before.length && now[p] === before[p]) p++;
+    var s = 0;
+    while (s < now.length - p && s < before.length - p && now[now.length - 1 - s] === before[before.length - 1 - s]) s++;
+    var start = p;
+    var end = now.length - s;
+    while (start < end && /\s/.test(now[start])) start++;
+    while (end > start && /\s/.test(now[end - 1])) end--;
+    if (end > start) {
+      while (start > 0 && !/\s/.test(now[start - 1])) start--;
+      while (end < now.length && !/\s/.test(now[end])) end++;
+      wrapRange(el, start, end, function () {
+        var mark = doc.createElement("mark");
+        mark.className = "lz-chg-word";
+        return mark;
+      });
+      return;
+    }
+    var caret = doc.createElement("span");
+    caret.className = "lz-chg-del";
+    caret.setAttribute("aria-hidden", "true");
+    var done = false;
+    wrapRange(el, start, Math.min(now.length, start + 1), function () {
+      var holder = doc.createElement("span");
+      if (!done) { holder.appendChild(caret); done = true; }
+      return holder;
+    });
+    if (!done) el.appendChild(caret);
   }
 
   function shot(el) {
@@ -3920,10 +3978,38 @@
       var texts = {};
       var images = {};
       var links = {};
-      section.querySelectorAll("[data-lb-t]").forEach(function (el) { texts[el.getAttribute("data-lb-t")] = plain(el); });
+      section.querySelectorAll("[data-lb-t]").forEach(function (el) { texts[el.getAttribute("data-lb-t")] = el.textContent; });
       section.querySelectorAll("[data-lb-i]").forEach(function (el) { images[el.getAttribute("data-lb-i")] = shot(el); });
       section.querySelectorAll("[data-lb-l]").forEach(function (el) { links[el.getAttribute("data-lb-l")] = el.getAttribute("href") || ""; });
-      return { texts: texts, images: images, links: links };
+      var foot = Array.prototype.map.call(section.querySelectorAll(FOOT_LINKS), function (a) { return a.textContent; });
+      return { texts: texts, images: images, links: links, foot: foot };
+    });
+  }
+
+  function emptyBaseline() { return { texts: {}, images: {}, links: {}, foot: [] }; }
+
+  function markFooter(section, was) {
+    section.querySelectorAll(FOOT_LINKS).forEach(function (a, k) {
+      if (a.hasAttribute("data-lb-t")) return;
+      markWords(a, was.foot[k]);
+    });
+  }
+
+  function syncChangeFooter(doc) {
+    var navLinks = doc.querySelectorAll("[data-module^='navegacion-'] nav.nx-nav a.nav-link[href]");
+    if (!navLinks.length) return;
+    var clean = Array.prototype.map.call(navLinks, function (a) {
+      var copy = a.cloneNode(true);
+      copy.querySelectorAll(".lz-chg-del").forEach(function (n) { n.remove(); });
+      copy.textContent = copy.textContent;
+      return copy;
+    });
+    syncFooterMenu(doc, clean);
+    var sections = doc.querySelectorAll("section[data-module]");
+    sections.forEach(function (section, i) {
+      if (!/^footer-/.test(section.getAttribute("data-module") || "")) return;
+      if (state.items[i]) paintModuleColors(section, state.items[i]);
+      markFooter(section, (state.baseline || [])[i] || emptyBaseline());
     });
   }
 
@@ -3936,15 +4022,15 @@
     var index = Array.prototype.indexOf.call(leftSections, section);
     var other = doc.querySelectorAll("section[data-module]")[index];
     if (!other) return;
-    var was = (state.baseline || [])[index] || { texts: {}, images: {}, links: {} };
+    var was = (state.baseline || [])[index] || emptyBaseline();
     ["data-lb-t", "data-lb-i", "data-lb-l"].forEach(function (attr) {
       if (!el.hasAttribute(attr)) return;
       var key = el.getAttribute(attr);
       var target = other.querySelector("[" + attr + '="' + key + '"]');
       if (!target) return;
       if (attr === "data-lb-t") {
-        target.innerHTML = el.innerHTML;
-        target.classList.toggle("lz-chg-text", plain(target) !== (was.texts[key] || ""));
+        target.innerHTML = cleanEdited(el);
+        markWords(target, was.texts[key]);
       }
       if (attr === "data-lb-i") {
         if (el.tagName === "IMG") target.src = el.getAttribute("src") || "";
@@ -3956,19 +4042,29 @@
         target.classList.toggle("lz-chg-link", (target.getAttribute("href") || "") !== (was.links[key] || ""));
       }
     });
+    if (/^navegacion-/.test(other.getAttribute("data-module") || "")) syncChangeFooter(doc);
+    fitChange();
   }
+
+  var DESKTOP = 1280;
 
   function fitChange() {
     if (!changeFrame || !changePane || !changeDevice) return;
     var doc = changeFrame.contentDocument;
-    var width = Math.max(320, changePane.clientWidth);
+    var avail = Math.max(200, changePane.clientWidth);
+    var scale = Math.min(1, avail / DESKTOP);
+    changeDevice.style.width = DESKTOP + "px";
+    changeFrame.style.width = DESKTOP + "px";
     var h = 400;
-    try { h = Math.max(400, doc.documentElement.scrollHeight); } catch (e) { /* noop */ }
-    changeDevice.style.width = width + "px";
-    changeDevice.style.transform = "none";
-    changeDevice.style.height = h + "px";
-    changeFrame.style.width = width + "px";
+    try {
+      changeFrame.style.height = "400px";
+      h = Math.max(400, doc.documentElement.scrollHeight);
+    } catch (e) { /* noop */ }
     changeFrame.style.height = h + "px";
+    changeDevice.style.height = h + "px";
+    changeDevice.style.transform = "scale(" + scale + ")";
+    changeDevice.style.marginBottom = (h * scale - h) + "px";
+    changeDevice.style.marginRight = (DESKTOP * scale - DESKTOP) + "px";
   }
 
   function markClientChanges() {
@@ -3978,15 +4074,15 @@
     captureBaseline();
     var style = doc.getElementById("lzChg") || doc.createElement("style");
     style.id = "lzChg";
-    style.textContent = ".lz-chg-text,.lz-chg-link{background:#ffe08a!important;color:#1a1400!important}.lz-chg-img{outline:4px solid #e07a00!important;outline-offset:3px}";
+    style.textContent = CHANGE_CSS;
     if (!style.parentNode) doc.head.appendChild(style);
     var sections = doc.querySelectorAll("section[data-module]");
     sections.forEach(function (section, i) {
-      var was = (state.baseline || [])[i] || { texts: {}, images: {}, links: {} };
+      var was = (state.baseline || [])[i] || emptyBaseline();
       section.querySelectorAll("[data-lb-t]").forEach(function (el) {
-        var key = el.getAttribute("data-lb-t");
-        if (plain(el) !== (was.texts[key] || "")) el.classList.add("lz-chg-text");
+        markWords(el, was.texts[el.getAttribute("data-lb-t")]);
       });
+      markFooter(section, was);
       section.querySelectorAll("[data-lb-i]").forEach(function (el) {
         var key = el.getAttribute("data-lb-i");
         if (shot(el) !== (was.images[key] || "")) el.classList.add("lz-chg-img");
