@@ -24,7 +24,7 @@ import sys
 import time
 import unicodedata
 from contextlib import contextmanager
-from functools import partial
+from functools import lru_cache, partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
@@ -492,7 +492,7 @@ def portal_home(client_id):
     with tx() as con:
         row = get_client_row(con, client_id)
         landings = con.execute(
-            LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC",
+            LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC",
             (client_id,),
         ).fetchall()
     return {
@@ -777,7 +777,7 @@ def list_clients():
 def get_client(client_id):
     with tx() as con:
         row = get_client_row(con, client_id)
-        landings = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
+        landings = con.execute(LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         data = client_dict(row, len(landings))
         data["lista"] = [landing_dict(l) for l in landings]
         return data
@@ -847,6 +847,12 @@ LANDING_SELECT = (
     "FROM landings l JOIN clientes c ON c.id = l.cliente_id"
 )
 
+LANDING_SUMMARY_SELECT = LANDING_SELECT.replace(
+    "l.items, l.estilo, l.ignorados,", "jsonb_array_length(l.items) AS cantidad_modulos,"
+).replace(
+    "l.portada, l.creado", "CASE WHEN left(l.portada, 5) = 'data:' THEN '' ELSE l.portada END AS portada, l.creado"
+)
+
 
 def landing_dict(row):
     url = "/l/%s/%s/" % (row["cliente_slug"], row["slug"])
@@ -862,9 +868,8 @@ def landing_dict(row):
         "cliente_slug": row["cliente_slug"],
         "nombre": row["nombre"],
         "slug": row["slug"],
-        "items": row["items"] or [],
-        "estilo": row["estilo"],
-        "ignorados": row["ignorados"] or [],
+        **({"items": row["items"] or [], "estilo": row["estilo"], "ignorados": row["ignorados"] or []}
+           if "items" in row else {"cantidad_modulos": row["cantidad_modulos"]}),
         "consultas": row.get("consultas") or 0,
         "consultas_nuevas": row.get("consultas_nuevas") or 0,
         "creado": row["creado"],
@@ -887,9 +892,9 @@ def get_landing_row(con, landing_id):
 def list_landings(client_id=None):
     with tx() as con:
         if client_id:
-            rows = con.execute(LANDING_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
+            rows = con.execute(LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
         else:
-            rows = con.execute(LANDING_SELECT + " ORDER BY l.actualizado DESC").fetchall()
+            rows = con.execute(LANDING_SUMMARY_SELECT + " ORDER BY l.actualizado DESC").fetchall()
         return [landing_dict(r) for r in rows]
 
 
@@ -1200,8 +1205,7 @@ def landing_revision_details(landing_id):
         client = get_client_row(con, row["cliente_id"])
         proposed = revision_markup(proposal, client)
     changes, _, _ = revision_comparison(row["html"], proposed)
-    return {"token": proposal["token"], "creado": proposal["creado"], "cambios": changes,
-            "publicado": row["html"], "propuesto": proposed}
+    return {"token": proposal["token"], "creado": proposal["creado"], "cambios": changes}
 
 
 def validate_revision_markup(document):
@@ -1348,6 +1352,11 @@ def save_landing(data, landing_id=None, revision=None, decisions=None, fingerpri
         if clash:
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         html = publish_html(html, items, logo_ref(client["id"], client["logo"], client["actualizado"]))
+        if (rules.get("general") or {}).get("bloquear"):
+            final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
+            errors = published_structure_errors(final_markup)
+            if errors:
+                raise ApiError(400, "No se puede publicar: " + "; ".join(errors) + ".")
         if client_type(client) == "real":
             placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
             if placeholder:
@@ -1476,6 +1485,39 @@ def sync_landing_footer_menu(body):
                 if existing_style:
                     attrs["style"] = existing_style
                 etree.SubElement(parent, "a", **attrs).text = source.text_content().strip()
+
+
+@lru_cache(maxsize=1024)
+def local_image_variants(stem):
+    variants = [(width, f"{stem}-{width}.webp") for width in (480, 752, 800, 960, 1280, 1600)]
+    return [(width, asset) for width, asset in variants if os.path.isfile(os.path.join(ROOT, asset.lstrip("/")))]
+
+
+def published_structure_errors(markup):
+    doc = html_dom.document_fromstring(markup)
+    main = doc.xpath("//main")
+    if len(main) != 1 or len(main[0].xpath(".//h1")) != 1:
+        return ["la página final necesita un contenido principal y un encabezado H1"]
+    if doc.xpath("//img[not(normalize-space(@alt))]"):
+        return ["hay imágenes sin descripción alternativa"]
+    return []
+
+
+def add_local_responsive_images(body):
+    for image in body.xpath(".//img[@src and not(@srcset)]"):
+        source = image.get("src")
+        if not source.startswith("/maquetas/img/"):
+            continue
+        path = source.split("?", 1)[0].split("#", 1)[0]
+        if not path.startswith("/maquetas/img/") or ".." in path.split("/"):
+            continue
+        stem, _ = os.path.splitext(path)
+        existing = local_image_variants(stem)
+        if len(existing) < 2:
+            continue
+        image.set("srcset", ", ".join(f"{asset} {width}w" for width, asset in existing))
+        if not image.get("sizes"):
+            image.set("sizes", "100vw")
 
 
 def accessible_landing(markup, title, primary_color=None, legal_links=None):
@@ -1632,6 +1674,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
             alternative.text = description
             background.insert(0, alternative)
 
+    add_local_responsive_images(body)
     ids = set(document.xpath("//@id"))
 
     def unique_id(base):

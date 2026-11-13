@@ -3584,8 +3584,15 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 
 /* La escala compartida se aplica también a las landings ya publicadas. */
+.landing-page {
+  --fs-body: 1rem;
+  --fs-label: .875rem;
+  --fs-field: 1rem;
+}
+
 .landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6) {
   font-size: var(--fs-body);
+  line-height: 1.5;
 }
 
 .landing-page .nx :is(.nx-kicker, .plan-kicker, .k, .h6, small) {

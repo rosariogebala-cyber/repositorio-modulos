@@ -415,7 +415,7 @@
     opts = opts || {};
     var li = document.createElement("li");
     li.className = "lb-saved-item";
-    var count = (lp.items || []).length;
+    var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
     if (SHOW_LEADS && lp.consultas) {

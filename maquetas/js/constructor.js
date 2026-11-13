@@ -4036,9 +4036,12 @@
 
   function editLanding(lp) {
     if (lp.id !== state.landingId && !confirmDiscard()) return;
-    loadLanding(lp);
-    libraryDialog.close();
-    say("Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");
+    api("GET", "/api/landings/" + lp.id + (clientMode() ? "?modo=sitio" : "")).then(function (detail) {
+      if (clientMode()) portalRevision = { base: detail.actualizado, token: detail.revision_token || null };
+      loadLanding(detail);
+      libraryDialog.close();
+      say("Editando «" + detail.nombre + "» de " + detail.cliente + ".", "ok");
+    }).catch(function (error) { libSay(error.message, "warn"); });
   }
 
   function renderSaved() {
@@ -4146,7 +4149,7 @@
   });
 
   /* Vercel acepta hasta 4,5 MB por pedido: las fotos viajan una sola vez, dentro de items */
-  var MAX_SAVE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 38 * 1048576 : 4.3 * 1048576;
+  var MAX_SAVE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 38 * 1048576 : 4300000;
 
   function imageTokens(html) {
     state.items.forEach(function (it, i) {
@@ -4173,9 +4176,10 @@
       body.revision_token = portalRevision && portalRevision.token;
     }
     var payload = JSON.stringify(body);
-    if (payload.length > MAX_SAVE) {
-      say("La landing pesa " + (payload.length / 1048576).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
-        (MAX_SAVE / 1048576).toFixed(1).replace(".", ",") + " MB. Usá menos fotos o más livianas.", "warn");
+    var payloadBytes = new Blob([payload]).size;
+    if (payloadBytes > MAX_SAVE) {
+      say("La landing pesa " + (payloadBytes / 1000000).toFixed(1).replace(".", ",") + " MB y el máximo para guardar es " +
+        (MAX_SAVE / 1000000).toFixed(1).replace(".", ",") + " MB. Usá menos fotos o más livianas.", "warn");
       return;
     }
     busy = true;
