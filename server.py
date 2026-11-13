@@ -2694,6 +2694,7 @@ class Handler(SimpleHTTPRequestHandler):
                         if row["cliente_id"] != portal_id:
                             raise ApiError(403, "Esta landing es de otro cliente.")
                         data = landing_dict(get_landing_row(con, ident))
+                        data["publicado"] = data["items"]
                         pending = row["revision_cliente"]
                         if pending:
                             data["items"] = pending["data"]["items"]

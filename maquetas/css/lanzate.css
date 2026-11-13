@@ -2455,11 +2455,20 @@ html.is-client .lb-qa-col,
 html.is-client [data-lb-new],
 html.is-client [data-lb-library-open],
 html.is-client [data-lb-qa],
+html.is-client .split-toggle,
 html.is-client [data-lb-ai-texts],
 html.is-client [data-template-start] {
   display: none !important;
 }
 html.is-client .lb-main { grid-template-columns: minmax(0, 1fr); }
+html.is-client .lb-work { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 0; align-items: stretch; height: calc(100vh - 150px); }
+html.is-client .lb-viewport { height: 100%; overflow: auto; }
+html.is-client .lb-split { display: block; width: 14px; border: 0; padding: 0; cursor: ew-resize; touch-action: none; background: linear-gradient(#c4bfb2, #c4bfb2) center / 3px 100% no-repeat; }
+html.is-client .lb-change-device { width: 100%; }
+html.is-client .lb-change-device iframe { width: 100%; border: 0; display: block; }
+html.is-client .lb-change-pane { display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
+html.is-client .lb-change-view { flex: 1; overflow: auto; }
+html.is-client .lb-change-device { transform-origin: top left; }
 .lb-side {
   position: sticky;
   top: calc(var(--lib-header, 65px) + 16px);
@@ -3334,6 +3343,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-qa-col:has(.lb-qa[hidden]) { display: none; }
 @media (min-width: 1200px) {
   .lb-work:has(.lb-qa:not([hidden])) { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 14px; align-items: start; }
+  html.is-client .lb-work { display: grid !important; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) !important; gap: 0; align-items: stretch; height: calc(100vh - 150px); }
   .lb-qa-col { position: sticky; top: calc(var(--lib-header, 65px) + 16px); }
   .lb-qa-col .lb-qa { display: flex; flex-direction: column; margin: 0; max-height: calc(100vh - var(--lib-header, 65px) - 32px); border-radius: 12px; }
   .lb-qa-col .lb-qa-head { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; }
