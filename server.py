@@ -493,15 +493,22 @@ def set_client_plan(client_id, data):
 def portal_login(usuario, clave, sitio=""):
     usuario = str(usuario or "").strip().lower()
     sitio = str(sitio or "").strip()
+    clave = str(clave or "")
     with tx() as con:
         row = con.execute(
-            "SELECT id, slug, portal_clave, portal_version FROM clientes WHERE lower(portal_usuario) = %s",
+            "SELECT id, slug, portal_clave, portal_clave_ver, portal_version FROM clientes WHERE lower(portal_usuario) = %s",
             (usuario,),
         ).fetchone()
     if not row or not row["portal_clave"] or not check_portal_password(row["portal_clave"], str(clave or "")):
         raise ApiError(401, "El usuario o la contraseña no son correctos.")
     if sitio and row["slug"] != sitio:
         raise ApiError(401, "Esta cuenta no corresponde a este sitio.")
+    if open_portal_password(row["portal_clave_ver"] or "") != clave:
+        with tx() as con:
+            con.execute(
+                "UPDATE clientes SET portal_clave_ver = %s WHERE id = %s AND portal_clave = %s",
+                (seal_portal_password(clave), row["id"], row["portal_clave"]),
+            )
     return row["id"], row["portal_version"]
 
 
@@ -803,7 +810,8 @@ def list_clients():
             "c.privacidad_url, c.terminos_url, c.tipo_cliente, c.direccion, c.horario, "
             "c.instagram, c.facebook, c.linkedin, c.logo_modo, c.ga4, c.gtm, c.meta_pixel, "
             "(c.logo <> '') AS logo, "
-            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n "
+            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n, "
+            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id AND l.revision_estado = 'pendiente') AS pendientes "
             "FROM clientes c ORDER BY lower(c.nombre)"
         ).fetchall()
         return [client_dict(r, r["n"]) for r in rows]
@@ -1133,19 +1141,29 @@ def submit_landing_revision(landing_id, client_id, data):
 def notify_landing_revision(landing_id, token):
     if ISOLATED_PREVIEW:
         return
-    key = os.environ.get("RESEND_API_KEY", "").strip()
-    sender = os.environ.get("REVISION_MAIL_FROM", "").strip()
-    recipient = os.environ.get("REVISION_MAIL_TO", "").strip()
-    panel = os.environ.get("REVISION_PANEL_URL", "").strip().rstrip("/")
-    if not all((key, sender, recipient, panel)):
+    env = lambda name: os.environ.get(name, "").strip()
+    key = env("RESEND_API_KEY")
+    sender = env("REVISION_MAIL_FROM") or env("PORTAL_MAIL_FROM") or "Lanzate <onboarding@resend.dev>"
+    recipients = [m.strip() for m in env("REVISION_MAIL_TO").split(",") if m.strip()]
+    host = env("VERCEL_PROJECT_PRODUCTION_URL")
+    panel = (env("REVISION_PANEL_URL") or env("PORTAL_PUBLIC_URL") or ("https://" + host if host else "")).rstrip("/")
+    if not all((key, recipients, panel)):
         print("Aviso de revisión pendiente: falta configurar el correo.", file=sys.stderr)
         return
-    link = "%s/maquetas/landings.html?revision=%d" % (panel, landing_id)
+    with tx() as con:
+        row = con.execute(
+            "SELECT l.nombre AS landing, c.id AS cliente_id, c.nombre AS cliente FROM landings l "
+            "JOIN clientes c ON c.id = l.cliente_id WHERE l.id = %s", (landing_id,),
+        ).fetchone()
+    if not row:
+        return
+    ficha = "%s/maquetas/cliente.html?id=%d" % (panel, row["cliente_id"])
     payload = {
         "from": sender,
-        "to": [recipient],
-        "subject": "Lanzate · Cambios pendientes de revisión",
-        "text": "Un cliente envió cambios en su landing. Entrá al panel para comparar y decidir si se publican:\n\n" + link,
+        "to": recipients,
+        "subject": "%s hizo cambios en «%s»" % (row["cliente"], row["landing"]),
+        "text": "%s envió cambios en la landing «%s». Están esperando tu revisión: entrá a su ficha para "
+                "ver qué cambió y aprobar o rechazar cada cambio.\n\n%s" % (row["cliente"], row["landing"], ficha),
     }
     try:
         request = Request(

@@ -511,16 +511,18 @@
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
-      });
+      }).sort(function (a, b) { return (b.pendientes ? 1 : 0) - (a.pendientes ? 1 : 0); });
       grid.innerHTML = "";
       list.forEach(function (c) {
         var art = document.createElement("article");
-        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "");
+        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "") + (c.pendientes ? " has-pending" : "");
         art.innerHTML =
           '<div class="pf-client-top">' + avatar(c) +
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
+          (c.pendientes ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '"><i class="bi bi-bell-fill" aria-hidden="true"></i> ' +
+            (c.pendientes === 1 ? "Hizo cambios para revisar" : "Hizo cambios en " + c.pendientes + " landings") + "</a>" : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
           (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
@@ -538,7 +540,13 @@
     }
 
     function load() {
-      return api("GET", "/api/clientes").then(function (list) { clients = list; render(); })
+      return api("GET", "/api/clientes").then(function (list) {
+        clients = list;
+        render();
+        var n = list.filter(function (c) { return c.pendientes; }).length;
+        if (n) say(msg, n === 1 ? "Un cliente hizo cambios en su web. Están esperando tu revisión." :
+          n + " clientes hicieron cambios en su web. Están esperando tu revisión.", "warn");
+      })
         .catch(function (err) { say(msg, err.message, "warn"); });
     }
 
@@ -583,7 +591,13 @@
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio) + "</a>" : "";
+      var pending = c.lista.filter(function (lp) { return lp.revision_estado === "pendiente"; });
       profile.innerHTML =
+        (pending.length ? '<div class="pf-pending-banner" role="status"><i class="bi bi-bell-fill" aria-hidden="true"></i>' +
+          "<p><strong>" + esc(c.nombre) + " hizo cambios en su web.</strong> Revisalos para decidir qué se publica.</p>" +
+          pending.map(function (lp, k) {
+            return '<button class="btn-nx btn-sm" type="button" data-pf-revisar="' + k + '">Revisar «' + esc(lp.nombre) + "»</button>";
+          }).join("") + "</div>" : "") +
         '<div class="pf-profile-head">' + avatar(c, "lg") +
         '<div class="pf-profile-name"><p class="lb-kicker">' + esc(c.rubro || "Cliente") + "</p><h1>" + esc(c.nombre) + "</h1>" + status(c) + "</div>" +
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit><i class="bi bi-pencil"></i> Editar datos</button></div>' +
@@ -614,7 +628,7 @@
         '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
         (c.portal_usuario
           ? '<dl class="pf-acceso-actual"><div><dt>Usuario</dt><dd>' + esc(c.portal_usuario) + "</dd></div>" +
-            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : "No se puede mostrar. Guardá una nueva para verla acá.") + "</dd></div>" +
+            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : '<span class="pf-acceso-nota">Se va a ver acá cuando el cliente vuelva a entrar al portal, o si le guardás una nueva.</span>') + "</dd></div>" +
             (c.portal_clave ? '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' : "") + "</dl>"
           : '<p class="pf-admin-line">Todavía no tiene acceso al portal.</p>') +
         '<p class="pf-admin-line" id="pf-acceso-ayuda">Elegí el usuario y una contraseña nueva de al menos 12 caracteres. Al guardar, se cierran las sesiones abiertas de este cliente.</p>' +
@@ -624,6 +638,11 @@
         '<label><input type="checkbox" data-pf-ver-clave> Mostrar contraseña</label>' +
         '<button class="btn-nx btn-sm" type="submit">Guardar acceso</button></form>' +
         '<p data-pf-acceso-estado role="status"></p></section>';
+      profile.querySelectorAll("[data-pf-revisar]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          reviewLanding(pending[Number(btn.getAttribute("data-pf-revisar"))], { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } });
+        });
+      });
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
       planForm.addEventListener("submit", function (e) {
@@ -683,6 +702,7 @@
     }
 
     function load() {
+      markPendingNav();
       return api("GET", "/api/clientes/" + id).then(render).catch(function (err) {
         profile.innerHTML = '<p class="pf-empty">' + esc(err.message) + ' <a href="clientes.html">Volver a clientes</a></p>';
         newLanding.hidden = true;
@@ -893,6 +913,23 @@
     }).catch(function () { /* sin sesión: el botón no hace falta */ });
   }
   if (document.body.classList.contains("lib-page")) addLogout();
+
+  function markPendingNav() {
+    var link = document.querySelector('.lib-header nav a[href="clientes.html"]');
+    if (!link || !panelPage) return;
+    api("GET", "/api/clientes").then(function (list) {
+      var n = list.filter(function (c) { return c.pendientes; }).length;
+      var old = link.querySelector(".pf-nav-pending");
+      if (old) old.remove();
+      if (!n) return;
+      var badge = document.createElement("span");
+      badge.className = "pf-nav-pending";
+      badge.textContent = n;
+      badge.title = plural(n, "cliente con cambios para revisar", "clientes con cambios para revisar");
+      link.appendChild(badge);
+    }).catch(function () { /* el aviso es opcional */ });
+  }
+  markPendingNav();
 
   window.Lanzate = { api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 

@@ -2977,10 +2977,19 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-admin-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 8px 0 14px; }
 .pf-admin-form label { display: grid; gap: 4px; font-size: 13px; }
 .pf-admin-clave { font-weight: 650; }
+.pf-nav-pending { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 5px; padding: 0 5px; border-radius: 9px; background: #b4541f; color: #fff; font-size: 11px; font-weight: 700; line-height: 1; vertical-align: 1px; }
+.pf-client.has-pending { border-color: #e9a55f; box-shadow: 0 0 0 1px #e9a55f; }
+.pf-pending { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #fff4e5; color: #7a3410; font-size: 14px; font-weight: 600; text-decoration: none; }
+.pf-pending:hover { background: #ffe8c7; }
+.pf-pending-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 20px; padding: 14px 16px; border: 1px solid #f0c48a; border-radius: 10px; background: #fff4e5; color: #3d1f05; }
+.pf-pending-banner > i { color: #b4541f; font-size: 18px; }
+.pf-pending-banner p { flex: 1 1 260px; margin: 0; text-wrap: pretty; }
+.pf-pending-banner .btn-nx { text-wrap: balance; }
 .pf-acceso-actual { display: grid; gap: 6px; margin: 8px 0 14px; padding: 12px 14px; max-width: 420px; border: 1px solid #e0e9eb; border-radius: 10px; background: #fff; }
 .pf-acceso-actual div { display: flex; gap: 12px; font-size: 15px; }
 .pf-acceso-actual dt { min-width: 92px; color: #5b6170; font-weight: 600; }
 .pf-acceso-actual dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #0f1332; word-break: break-all; }
+.pf-acceso-actual .pf-acceso-nota { font-family: Inter, Manrope, sans-serif; font-size: 14px; color: #5b6170; word-break: normal; text-wrap: pretty; }
 .pf-acceso-actual button { justify-self: start; margin-top: 4px; }
 .pt-wa { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: #128c7e; color: #fff; font-size: 13px; font-weight: 650; text-decoration: none; }
 .pt-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr); gap: 16px; align-items: start; }
