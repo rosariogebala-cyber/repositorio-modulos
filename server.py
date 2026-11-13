@@ -136,6 +136,7 @@ ROUTES = [
     (re.compile(r"^/api/portal/clave$"), "portal-clave"),
     (re.compile(r"^/api/portal/logout$"), "portal-logout"),
     (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
+    (re.compile(r"^/api/portal/consultas/(\d+)$"), "portal-consulta"),
     (re.compile(r"^/api/portal/actividad/(\d+)$"), "portal-actividad"),
     (re.compile(r"^/api/clientes/(\d+)/logo$"), "logo"),
     (re.compile(r"^/api/landings$"), "landings"),
@@ -248,6 +249,7 @@ CREATE TABLE IF NOT EXISTS consultas (
   creado BIGINT NOT NULL,
   ip TEXT NOT NULL DEFAULT ''
 );
+ALTER TABLE consultas ADD COLUMN IF NOT EXISTS estado_atencion TEXT NOT NULL DEFAULT 'nueva';
 ALTER TABLE consultas ADD COLUMN IF NOT EXISTS ip TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS consultas_landing ON consultas (landing_id, creado DESC);
 CREATE TABLE IF NOT EXISTS uso_ia (
@@ -478,18 +480,35 @@ def portal_activity(client_id, landing_id, days):
             raise ApiError(404, "No encontramos ese sitio en tu portal.")
         summary = con.execute(
             "SELECT COUNT(*) FILTER (WHERE q.tipo <> 'turno') AS consultas, "
-            "COUNT(*) FILTER (WHERE q.tipo = 'turno') AS turnos "
+            "COUNT(*) FILTER (WHERE q.tipo = 'turno') AS turnos, "
+            "COUNT(*) FILTER (WHERE q.tipo <> 'turno' AND q.estado_atencion = 'nueva') AS nuevas "
             "FROM consultas q JOIN landings l ON l.id = q.landing_id "
             "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s",
             (landing_id, client_id, since),
         ).fetchone()
         latest = con.execute(
-            "SELECT q.tipo, q.datos, q.creado FROM consultas q JOIN landings l ON l.id = q.landing_id "
+            "SELECT q.id, q.tipo, q.datos, q.creado, q.estado_atencion FROM consultas q JOIN landings l ON l.id = q.landing_id "
             "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s "
             "ORDER BY q.creado DESC, q.id DESC LIMIT 20",
             (landing_id, client_id, since),
         ).fetchall()
-    return {"consultas": summary["consultas"], "turnos": summary["turnos"], "entradas": latest}
+    return {"consultas": summary["consultas"], "turnos": summary["turnos"],
+            "nuevas": summary["nuevas"], "entradas": latest}
+
+
+def set_portal_lead_status(client_id, lead_id, landing_id, status):
+    if type(landing_id) is not int or status not in ("nueva", "respondida", "cerrada"):
+        raise ApiError(400, "Elegí un sitio y un estado válido.")
+    with tx() as con:
+        row = con.execute(
+            "UPDATE consultas q SET estado_atencion = %s FROM landings l "
+            "WHERE q.landing_id = l.id AND l.cliente_id = %s AND l.id = %s "
+            "AND q.id = %s AND q.tipo <> 'turno' RETURNING q.id",
+            (status, client_id, landing_id, lead_id),
+        ).fetchone()
+        if not row:
+            raise ApiError(404, "No encontramos esa consulta en tu sitio.")
+    return {"ok": True}
 
 
 def renew_portal_password(client_id):
@@ -2122,7 +2141,7 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
             portal_editor = portal_id and (
-                name in ("portal-inicio", "portal-actividad", "portal-clave", "landings", "landing")
+                name in ("portal-inicio", "portal-actividad", "portal-consulta", "portal-clave", "landings", "landing")
                 or (method == "GET" and name in ("clientes", "reglas", "ia"))
             )
             if name not in PUBLIC_ROUTES and not self.authorized() and not portal_editor:
@@ -2191,6 +2210,11 @@ class Handler(SimpleHTTPRequestHandler):
             if period not in ("7", "30"):
                 raise ApiError(400, "Elegí un período de 7 o 30 días.")
             return portal_activity(portal_id, ident, int(period))
+        if name == "portal-consulta" and method == "PUT":
+            if not portal_id:
+                raise ApiError(401, "Ingresá al portal del cliente.")
+            data = self.read_json()
+            return set_portal_lead_status(portal_id, ident, data.get("landing"), data.get("estado"))
         if name == "portal-entrar" and method == "POST":
             with tx() as con:
                 get_client_row(con, ident)

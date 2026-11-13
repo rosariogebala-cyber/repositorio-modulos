@@ -84,6 +84,27 @@
       }
       var WA = "https://wa.me/5491166035111?text=";
       function wa(text) { return WA + encodeURIComponent(text); }
+      var leadStates = { nueva: "Nueva", respondida: "Respondida", cerrada: "Cerrada" };
+      function activityEntries(items, empty) {
+        if (!items.length) return "<p>" + empty + "</p>";
+        return '<ul class="pt-inbox">' + items.map(function (item) {
+          var fields = Object.entries(item.datos || {});
+          var email = fields.map(function (entry) { return String(entry[1]).trim(); }).find(function (value) {
+            return /^[a-z0-9._+%-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(value);
+          });
+          var state = item.estado_atencion;
+          var controls = item.tipo === "turno" ? "" :
+            '<form class="pt-lead-actions" data-lead="' + Number(item.id) + '"><label>Estado <select class="lb-input" name="estado">' +
+            Object.keys(leadStates).map(function (key) {
+              return '<option value="' + key + '"' + (state === key ? " selected" : "") + '>' + leadStates[key] + '</option>';
+            }).join("") + '</select></label><button class="btn-nx btn-sm" type="submit">Guardar estado</button>' +
+            (email ? '<a class="btn-nx-outline btn-sm" href="mailto:' + esc(email) + '">Responder por email</a>' : "") + "</form>";
+          return '<li><details><summary><strong>' + (item.tipo === "turno" ? "Solicitud de turno" : "Consulta · " + esc(leadStates[state])) +
+            "</strong><span>" + esc(new Date(item.creado).toLocaleString("es-AR")) + "</span></summary><dl>" +
+            fields.map(function (entry) { return "<div><dt>" + esc(entry[0]) + "</dt><dd>" + esc(entry[1]) + "</dd></div>"; }).join("") +
+            "</dl>" + controls + "</details></li>";
+        }).join("") + "</ul>";
+      }
       function showActivity(pages) {
         var panel = root.querySelector("[data-activity]");
         if (!pages.length) {
@@ -103,7 +124,7 @@
         var status = panel.querySelector("[role=status]");
         var results = panel.querySelector("[data-activity-results]");
         var request = 0;
-        function loadActivity() {
+        function loadActivity(saved) {
           var current = ++request;
           results.replaceChildren();
           status.textContent = "Cargando actividad…";
@@ -119,20 +140,42 @@
             results.innerHTML = '<dl class="pt-metrics">' + metrics.map(function (metric) {
               return '<div class="pt-metric' + (typeof metric[1] === "number" ? "" : " pt-metric-pending") +
                 '"><dt><i class="bi bi-' + metric[3] + '" aria-hidden="true"></i>' + metric[0] + "</dt><dd><strong>" + metric[1] + "</strong><small>" + metric[2] + "</small></dd></div>";
-            }).join("") + "</dl><h3>Últimas entradas</h3>" +
-            (data.entradas.length ? '<ul class="pt-inbox">' + data.entradas.map(function (item) {
-              return '<li><details><summary><strong>' + (item.tipo === "turno" ? "Solicitud de turno" : "Consulta") +
-                "</strong><span>" + esc(new Date(item.creado).toLocaleString("es-AR")) + "</span></summary><dl>" +
-                Object.entries(item.datos || {}).map(function (entry) {
-                  return "<div><dt>" + esc(entry[0]) + "</dt><dd>" + esc(entry[1]) + "</dd></div>";
-                }).join("") + "</dl></details></li>";
-            }).join("") + "</ul>" : "<p>Todavía no hay consultas ni solicitudes de turno en este período.</p>");
+            }).join("") + '</dl><h3 tabindex="-1" data-inbox-title>Consultas por atender <span class="pt-lead-count">' +
+            Number(data.nuevas) + ' nuevas</span></h3>' +
+            activityEntries(data.entradas.filter(function (item) { return item.tipo !== "turno"; }), "No hay consultas en este período.") +
+            "<h3>Solicitudes de turno recientes</h3>" +
+            activityEntries(data.entradas.filter(function (item) { return item.tipo === "turno"; }), "No hay solicitudes de turno en este período.");
+            if (saved) {
+              status.textContent += " · Estado guardado.";
+              var form = results.querySelector('[data-lead="' + saved + '"]');
+              if (form) {
+                form.closest("details").open = true;
+                form.querySelector("select").focus();
+              } else results.querySelector("[data-inbox-title]").focus();
+            }
           }).catch(function (err) {
             if (current === request) status.textContent = err.message;
           });
         }
-        page.addEventListener("change", loadActivity);
-        period.addEventListener("change", loadActivity);
+        results.addEventListener("submit", function (event) {
+          var form = event.target.closest("[data-lead]");
+          if (!form) return;
+          event.preventDefault();
+          var current = request;
+          var button = form.querySelector("button");
+          button.disabled = true;
+          api("PUT", "/api/portal/consultas/" + form.dataset.lead, {
+            landing: Number(page.value), estado: form.elements.estado.value
+          }).then(function () {
+            if (current === request) loadActivity(form.dataset.lead);
+          }).catch(function (err) {
+            if (current !== request) return;
+            button.disabled = false;
+            status.textContent = err.message;
+          });
+        });
+        page.addEventListener("change", function () { loadActivity(); });
+        period.addEventListener("change", function () { loadActivity(); });
         loadActivity();
       }
       function home() {
@@ -161,16 +204,16 @@
             '<section class="pt-panel pt-activity" data-activity aria-labelledby="pt-activity-title"><h2 id="pt-activity-title">Actividad del sitio</h2></section>' +
             '<div class="pt-grid"><section class="pt-panel"><h2>Tus páginas</h2>' +
             (items ? '<ul class="pt-list">' + items + "</ul>" : "<p>Todavía no hay páginas. Pedile a Lanzate que publique la primera.</p>") +
-            "</section><aside><section class=\"pt-panel\"><h2>Tu plan</h2><dl class=\"pt-facts\">" +
+            "</section><aside><section class=\"pt-panel\"><h2>Plan y soporte</h2><dl class=\"pt-facts\">" +
             "<div><dt>Plan</dt><dd>" + plan + "</dd></div>" +
-            "<div><dt>Vencimiento</dt><dd>" + vence + "</dd></div>" +
+            "<div><dt>Vencimiento del plan</dt><dd>" + vence + "</dd></div>" +
             "<div><dt>Alta</dt><dd>" + esc(alta) + "</dd></div>" +
-            "<div><dt>Estado</dt><dd>" + esc(c.estado === "pausado" ? "Pausado" : "Activo") + "</dd></div>" +
+            "<div><dt>Estado de la cuenta</dt><dd>" + esc(c.estado === "pausado" ? "Pausado" : "Activo") + "</dd></div>" +
             fact("Contacto", c.contacto) + fact("Email", c.email) + fact("Teléfono", c.telefono) +
             "</dl><div class=\"pt-help\">" +
-            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero mejorar mi plan.") + '" target="_blank" rel="noopener">Quiero un upgrade <i class="bi bi-arrow-up-right"></i></a>' +
-            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero dar de baja mi sitio.") + '" target="_blank" rel="noopener">Dar de baja el sitio <i class="bi bi-arrow-up-right"></i></a>' +
-            '<a href="' + wa("Hola, soy " + c.nombre + ". Tengo una consulta sobre mi sitio.") + '" target="_blank" rel="noopener">Otra consulta <i class="bi bi-whatsapp"></i></a>' +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero consultar qué incluye mi plan o cambiarlo.") + '" target="_blank" rel="noopener">Solicitar cambio de plan <i class="bi bi-arrow-up-right"></i></a>' +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Quiero dar de baja mi sitio.") + '" target="_blank" rel="noopener">Consultar por la baja <i class="bi bi-arrow-up-right"></i></a>' +
+            '<a href="' + wa("Hola, soy " + c.nombre + ". Necesito ayuda con mi sitio. El problema es:") + '" target="_blank" rel="noopener">Reportar un problema <i class="bi bi-whatsapp"></i></a>' +
             "</div></section></aside></div>" +
             '<section class="pt-access"><h2>Acceso</h2>' +
             "<p>Usuario: " + esc(c.usuario || "—") + "</p>" +

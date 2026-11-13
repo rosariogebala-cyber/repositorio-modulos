@@ -4255,3 +4255,22 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   box-shadow: 0 12px 32px #29124b12;
 }
 .pt-portal :focus-visible { outline: 2px solid #6540bc; outline-offset: 3px; }
+
+.pt-portal .pt-lead-count {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #f0eafb;
+  color: #58349c;
+  font-size: .8rem;
+}
+.pt-portal .pt-inbox + h3 { margin-top: 18px; }
+.pt-portal .pt-lead-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 14px;
+}
+.pt-portal .pt-lead-actions label { display: grid; gap: 4px; }
+.pt-portal .pt-lead-actions :is(button, a) { min-height: 44px; }
