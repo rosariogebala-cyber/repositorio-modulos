@@ -223,6 +223,12 @@ window.LANZATE_CLIENTES = [
     "plan_vence": "",
     "creado": 1793492159579,
     "actualizado": 1794863630365,
-    "logo": "logo.png"
+    "logo": "logo.png",
+    "pedidos": [
+      {
+        "fecha": 1794866933874,
+        "nota": ""
+      }
+    ]
   }
 ];
