@@ -224,11 +224,12 @@ window.LANZATE_CLIENTES = [
     "creado": 1793492159579,
     "actualizado": 1794863630365,
     "logo": "logo.png",
-    "pedidos": [
-      {
-        "fecha": 1794866933874,
-        "nota": ""
-      }
-    ]
+    "portal": {
+      "usuario": "babel-idiomas",
+      "hash": "scrypt$0c19824e9f08e5b74784bd8a0a53de89$e373362a0083e7df6a528e4bbb869ba5e7564a4d3e17d8c943c9a879a83f5052e14c79d4da66cfa1301ece940b8898fa1491342c95e324e363989d4c693c6190",
+      "clave": "XE-1sSw_PsQ7V-tPhyxxq5f5ym45K_GWkqqEk093PpqrtyUbOyfhii9iWvfP",
+      "version": 1,
+      "pidio_clave": 0
+    }
   }
 ];
