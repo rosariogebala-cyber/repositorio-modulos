@@ -1,0 +1,53 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "sh scripts/build-public.sh",
+  "outputDirectory": "public",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)data/*.js' ':(exclude)l' ':(exclude)sitemap.xml' ':(exclude)robots.txt' ':(exclude)privacidad' ':(exclude)terminos'",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-480.webp,maquetas/img/**/*-752.webp,maquetas/img/**/*-800.webp,maquetas/img/**/*-960.webp,maquetas/img/**/*-1280.webp,maquetas/img/**/*-1600.webp}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/maquetas/:page(constructor|landings|clientes|cliente|reglas).html",
+      "destination": "/api/index?__path=/maquetas/:page.html"
+    },
+    {
+      "source": "/data/:file(clientes|landings|planes|config|reglas).js",
+      "destination": "/api/index?__path=/data/:file.js"
+    },
+    {
+      "source": "/data/reglas.json",
+      "destination": "/api/index?__path=/data/reglas.json"
+    },
+    {
+      "source": "/l/:path*",
+      "destination": "/api/index?__path=/l/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?__path=/api/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    }
+  ]
+}

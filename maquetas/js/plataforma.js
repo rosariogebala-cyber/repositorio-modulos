@@ -11,6 +11,18 @@
   }
 
   var panelPage = /\/(?:constructor|landings|clientes|cliente|reglas)\.html$/.test(location.pathname);
+  var SESSION = { ok: true, requiere: false, online: false };
+
+  /* Clave del equipo: si no hay sesión, al login */
+  function toLogin() {
+    if (/login\.html$/.test(location.pathname)) return;
+    location.href = "/maquetas/login.html?volver=" + encodeURIComponent(location.pathname + location.search);
+  }
+  if (panelPage) {
+    fetch("/api/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) { return r.json(); })
+      .then(function (s) { SESSION = s; if (!s.ok) toLogin(); else addLogout(); })
+      .catch(function () { /* sin servidor: el aviso lo da cada pedido */ });
+  }
 
   function esc(text) {
     return String(text == null ? "" : text).replace(/[&<>"]/g, function (c) {
@@ -25,6 +37,7 @@
       opts.body = typeof body === "string" ? body : JSON.stringify(body);
     }
     return fetch(url, opts).then(function (r) {
+      if (r.status === 401 && !/\/api\/login$/.test(url)) toLogin();
       if (r.status === 413) throw new Error("La landing pesa demasiado para guardarla. Usá menos fotos o más livianas.");
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) throw new Error(data.error || "No se pudo completar la acción.");
@@ -669,7 +682,7 @@
     btn.className = "btn-nx btn-sm lib-publish";
     btn.setAttribute("data-pf-publish", "");
     btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar';
-    btn.title = "Sube los cambios a GitHub. En un par de minutos se ven online.";
+    btn.title = "Rearma las landings con los módulos actuales y las sube a GitHub. En un par de minutos se ven online.";
     btn.addEventListener("click", function () {
       var note = window.prompt("¿Qué cambiaste? (queda anotado en el historial)", "Actualiza landings");
       if (note === null) return;
@@ -697,6 +710,20 @@
     nav.appendChild(btn);
   }
   if (document.body.classList.contains("lib-page")) addPublish();
+
+  function addLogout() {
+    var nav = document.querySelector(".lib-header nav");
+    if (!nav || !SESSION.requiere || nav.querySelector("[data-pf-logout]")) return;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "lib-logout";
+    btn.setAttribute("data-pf-logout", "");
+    btn.innerHTML = '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir';
+    btn.addEventListener("click", function () {
+      api("POST", "/api/logout", {}).then(function () { location.href = "/maquetas/login.html"; });
+    });
+    nav.appendChild(btn);
+  }
 
   window.Lanzate = { rebuildAll: rebuildAll, api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 

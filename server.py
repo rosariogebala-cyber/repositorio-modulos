@@ -16,6 +16,8 @@ Uso:
 """
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -80,7 +82,13 @@ ROUTES = [
     (re.compile(r"^/api/publicar$"), "publicar"),
     (re.compile(r"^/api/ia$"), "ia"),
     (re.compile(r"^/api/sesion$"), "sesion"),
+    (re.compile(r"^/api/login$"), "login"),
+    (re.compile(r"^/api/logout$"), "logout"),
 ]
+PUBLIC_ROUTES = ("sesion", "login", "logout")
+PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
+COOKIE = "lz_sesion"
+SESSION_DAYS = 30
 
 
 class ApiError(Exception):
@@ -100,6 +108,214 @@ def slugify(text, fallback="landing"):
 
 # --- Archivos de datos (misma forma que js/config.js del sitio de venta) --------
 
+# --- Dónde se guardan los archivos ---------------------------------------------------
+# En tu computadora: el disco (y «Publicar» hace git push).
+# Online (Vercel, con GITHUB_TOKEN): cada guardado es un commit en GitHub, que publica con GitHub Pages.
+
+def load_local_env():
+    env = os.path.join(CONFIG_DIR, "lanzate.env")
+    if not os.path.isfile(env):
+        return
+    with open(env, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+load_local_env()
+ON_VERCEL = bool(os.environ.get("VERCEL"))
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") or ""
+REPOS = {
+    "modulos": os.environ.get("LANZATE_REPO") or "rosariogebala-cyber/repositorio-modulos",
+    "sitio": os.environ.get("LANZATE_SITIO_REPO") or "rosariogebala-cyber/lanzate",
+}
+BRANCH = os.environ.get("LANZATE_RAMA") or "main"
+GITHUB_API = os.environ.get("LANZATE_GITHUB_API") or "https://api.github.com"
+
+
+class LocalFiles:
+    """Archivos en el disco: Lanzate_modulos y, al lado, Lanzate_site."""
+    online = False
+
+    def root(self, repo):
+        return ROOT if repo == "modulos" else SITIO_VENTA
+
+    def has(self, repo):
+        return repo == "modulos" or os.path.isdir(os.path.join(SITIO_VENTA, "js"))
+
+    def read(self, repo, path):
+        try:
+            return Path(self.root(repo), path).read_bytes()
+        except OSError:
+            return None
+
+    def write(self, repo, path, data):
+        target = Path(self.root(repo), path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        if target.exists() and target.read_bytes() == data:
+            return
+        tmp = str(target) + ".tmp"
+        Path(tmp).write_bytes(data)
+        os.replace(tmp, target)
+
+    def delete(self, repo, path):
+        target = Path(self.root(repo), path)
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+        elif target.exists():
+            target.unlink()
+
+    def listdir(self, repo, path):
+        """Archivos (rutas relativas) debajo de path."""
+        base = Path(self.root(repo))
+        folder = base / path
+        if not folder.is_dir():
+            return []
+        return sorted(str(f.relative_to(base)).replace(os.sep, "/") for f in folder.rglob("*") if f.is_file())
+
+    def begin(self):
+        pass
+
+    def commit(self, message):
+        return None
+
+    def discard(self):
+        pass
+
+
+class GitHubFiles:
+    """Archivos en GitHub. Lee con la API y junta lo que se escribe para hacer un solo commit por pedido."""
+    online = True
+
+    def __init__(self, token):
+        self.token = token
+        self.local = threading.local()
+
+    def state(self):
+        if not hasattr(self.local, "pending"):
+            self.begin()
+        return self.local
+
+    def begin(self):
+        self.local.pending = {"modulos": {}, "sitio": {}}
+        self.local.cache = {}
+        self.local.trees = {}
+
+    def discard(self):
+        self.begin()
+
+    def has(self, repo):
+        return True
+
+    def call(self, method, url, body=None, raw=False):
+        req = Request(GITHUB_API + url, method=method,
+                      data=json.dumps(body).encode("utf-8") if body is not None else None,
+                      headers={"Authorization": "Bearer " + self.token, "X-GitHub-Api-Version": "2022-11-28",
+                               "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json",
+                               "User-Agent": "lanzate-panel", "Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=30) as resp:
+                data = resp.read()
+        except HTTPError as err:
+            if err.code == 404:
+                return None
+            detail = err.read().decode("utf-8", "replace")[:300]
+            if err.code in (401, 403):
+                raise ApiError(502, "GitHub no aceptó el token (GITHUB_TOKEN). Revisá que tenga permiso de escritura en los repos.")
+            raise ApiError(502, "GitHub respondió con un error (%d): %s" % (err.code, detail))
+        except (URLError, TimeoutError) as err:
+            raise ApiError(502, "No se pudo conectar con GitHub: %s" % err)
+        return data if raw else json.loads(data.decode("utf-8") or "null")
+
+    def read(self, repo, path):
+        st = self.state()
+        if path in st.pending[repo]:
+            return st.pending[repo][path]
+        key = (repo, path)
+        if key not in st.cache:
+            st.cache[key] = self.call("GET", "/repos/%s/contents/%s?ref=%s" % (REPOS[repo], quote(path), BRANCH), raw=True)
+        return st.cache[key]
+
+    def write(self, repo, path, data):
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        if self.read(repo, path) == data:
+            return
+        self.state().pending[repo][path] = data
+
+    def tree(self, repo):
+        st = self.state()
+        if repo not in st.trees:
+            out = self.call("GET", "/repos/%s/git/trees/%s?recursive=1" % (REPOS[repo], BRANCH)) or {}
+            st.trees[repo] = [t["path"] for t in out.get("tree") or [] if t.get("type") == "blob"]
+        return st.trees[repo]
+
+    def listdir(self, repo, path):
+        prefix = path.rstrip("/") + "/"
+        pending = self.state().pending[repo]
+        files = {p for p in self.tree(repo) if p.startswith(prefix) and pending.get(p, b"") is not None}
+        files.update(p for p, data in pending.items() if p.startswith(prefix) and data is not None)
+        return sorted(files)
+
+    def delete(self, repo, path):
+        pending = self.state().pending[repo]
+        targets = self.listdir(repo, path) or ([path] if self.read(repo, path) is not None else [])
+        for target in targets:
+            pending[target] = None
+
+    def commit(self, message):
+        st = self.state()
+        done = []
+        for repo, files in st.pending.items():
+            if not files:
+                continue
+            for attempt in range(3):
+                try:
+                    self.commit_repo(repo, files, message)
+                    break
+                except ApiError as err:
+                    if attempt == 2 or "422" not in str(err) and "409" not in str(err):
+                        raise
+            done.append(repo)
+        self.begin()
+        return done
+
+    def commit_repo(self, repo, files, message):
+        name = REPOS[repo]
+        ref = self.call("GET", "/repos/%s/git/ref/heads/%s" % (name, BRANCH))
+        head = ref["object"]["sha"]
+        base = self.call("GET", "/repos/%s/git/commits/%s" % (name, head))["tree"]["sha"]
+        entries = []
+        for path, data in sorted(files.items()):
+            if data is None:
+                entries.append({"path": path, "mode": "100644", "type": "blob", "sha": None})
+                continue
+            blob = self.call("POST", "/repos/%s/git/blobs" % name,
+                             {"content": base64.b64encode(data).decode(), "encoding": "base64"})
+            entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+        existing = set(self.tree(repo))
+        entries = [e for e in entries if e["sha"] is not None or e["path"] in existing]
+        if not entries:
+            return
+        tree = self.call("POST", "/repos/%s/git/trees" % name, {"base_tree": base, "tree": entries})
+        commit = self.call("POST", "/repos/%s/git/commits" % name,
+                           {"message": message, "tree": tree["sha"], "parents": [head]})
+        self.call("PATCH", "/repos/%s/git/refs/heads/%s" % (name, BRANCH), {"sha": commit["sha"], "force": False})
+
+
+FILES = GitHubFiles(GITHUB_TOKEN) if GITHUB_TOKEN else LocalFiles()
+
+
+def read_text(repo, path):
+    data = FILES.read(repo, path)
+    return None if data is None else data.decode("utf-8")
+
+
 DATA_FILES = {
     "config": ("config.js", "LANZATE_CONFIG", "Datos generales de Lanzate. La URL pública es la de GitHub Pages (o el dominio propio)."),
     "planes": ("planes.js", "LANZATE_PLANES", "Planes. Se copian solos desde Lanzate_site/js/config.js: editalos allá."),
@@ -117,14 +333,13 @@ _lock = threading.RLock()
 
 
 def data_path(key):
-    return os.path.join(DATA, DATA_FILES[key][0])
+    return "data/" + DATA_FILES[key][0]
 
 
 def read_data(key, default):
     """Lee window.X = {...}; del archivo. El contenido es JSON válido."""
-    try:
-        text = Path(data_path(key)).read_text(encoding="utf-8")
-    except OSError:
+    text = read_text("modulos", data_path(key))
+    if text is None:
         return default
     start = text.find("=", text.find("window."))
     end = text.rfind(";")
@@ -136,12 +351,8 @@ def read_data(key, default):
 
 def write_data(key, value):
     name, var, note = DATA_FILES[key]
-    os.makedirs(DATA, exist_ok=True)
     body = "/* %s */\nwindow.%s = %s;\n" % (note, var, json.dumps(value, ensure_ascii=False, indent=2))
-    tmp = data_path(key) + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        fh.write(body)
-    os.replace(tmp, data_path(key))
+    FILES.write("modulos", data_path(key), body)
 
 
 @contextmanager
@@ -183,6 +394,46 @@ def save_rules(data):
     return data
 
 
+# --- Clave del equipo -------------------------------------------------------------
+# Una sola clave para todo el equipo: LANZATE_USUARIO y LANZATE_CLAVE (en Vercel, en sus variables;
+# en tu computadora, en ~/.lanzate/lanzate.env). Si no hay clave cargada en tu computadora, el panel no la pide.
+
+def access_user():
+    return os.environ.get("LANZATE_USUARIO") or "Lanzate11"
+
+
+def access_key():
+    return os.environ.get("LANZATE_CLAVE") or ""
+
+
+def login_required():
+    return ON_VERCEL or bool(access_key())
+
+
+def session_secret():
+    return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
+
+
+def valid_credentials(usuario, clave):
+    user_ok = hmac.compare_digest(usuario.encode("utf-8"), access_user().encode("utf-8"))
+    key_ok = bool(access_key()) and hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8"))
+    return user_ok and key_ok
+
+
+def make_session():
+    expires = str(int(time.time()) + SESSION_DAYS * 86400)
+    return expires + "." + hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+
+
+def valid_session(value):
+    try:
+        expires, sig = value.split(".", 1)
+        good = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, good) and int(expires) > time.time()
+    except (ValueError, AttributeError):
+        return False
+
+
 # --- Planes: los mismos del sitio de venta ---------------------------------------
 
 def js_literal_to_json(text):
@@ -220,11 +471,13 @@ def js_literal_to_json(text):
 def site_plans():
     """Lee los planes de Lanzate_site/js/config.js si la carpeta del sitio está al lado."""
     try:
-        text = Path(SITIO_VENTA, "js", "config.js").read_text(encoding="utf-8")
+        text = read_text("sitio", "js/config.js") if FILES.has("sitio") else None
+        if text is None:
+            return None
         start = text.find("{", text.find("window.SITE"))
         end = text.rfind("}")
         site = json.loads(js_literal_to_json(text[start:end + 1]))
-    except (OSError, ValueError):
+    except (OSError, ValueError, ApiError):
         return None
     plans = site.get("planes")
     if not isinstance(plans, list):
@@ -274,11 +527,11 @@ def sync_plans():
                 if found[key] and config.get(key) != found[key]:
                     config[key] = found[key]
                     changed = True
-            if changed or not os.path.isfile(data_path("config")):
+            if changed or FILES.read("modulos", data_path("config")) is None:
                 merged = dict(DEFAULT_CONFIG)
                 merged.update(config)
                 write_data("config", merged)
-        elif not os.path.isfile(data_path("config")):
+        elif FILES.read("modulos", data_path("config")) is None:
             write_data("config", DEFAULT_CONFIG)
     return read_data("planes", {}).get("planes") or []
 
@@ -519,12 +772,15 @@ def decode_logo(data_url):
 
 def write_logo(slug, data_url):
     ext, raw = decode_logo(data_url)
-    folder = os.path.join(LANDINGS_DIR, slug)
-    os.makedirs(folder, exist_ok=True)
-    for old in Path(folder).glob("logo.*"):
-        old.unlink()
-    Path(folder, "logo." + ext).write_bytes(raw)
+    remove_logo(slug)
+    FILES.write("modulos", "l/%s/logo.%s" % (slug, ext), raw)
     return "logo." + ext
+
+
+def remove_logo(slug):
+    for path in FILES.listdir("modulos", "l/" + slug):
+        if path.rsplit("/", 1)[-1].startswith("logo.") and path.count("/") == 2:
+            FILES.delete("modulos", path)
 
 
 def next_id(rows):
@@ -559,7 +815,6 @@ def create_client(data):
         values["plan"] = values["plan_vence"] = ""
         values["creado"] = values["actualizado"] = now_ms()
         db["clientes"].append(values)
-    os.makedirs(os.path.join(LANDINGS_DIR, values["slug"]), exist_ok=True)
     return client_dict(values, 0)
 
 
@@ -570,8 +825,7 @@ def update_client(client_id, data):
         if data.get("logo_data"):
             values["logo"] = write_logo(row["slug"], data["logo_data"])
         elif data.get("logo_quitar"):
-            for old in Path(LANDINGS_DIR, row["slug"]).glob("logo.*"):
-                old.unlink()
+            remove_logo(row["slug"])
             values["logo"] = ""
         values["actualizado"] = now_ms()
         row.update(values)
@@ -587,7 +841,7 @@ def delete_client(client_id):
             raise ApiError(409, "«%s» tiene %d landing%s. Eliminalas o pasalas a otro cliente antes de borrarlo."
                            % (row["nombre"], count, "" if count == 1 else "s"))
         db["clientes"].remove(row)
-    shutil.rmtree(os.path.join(LANDINGS_DIR, row["slug"]), ignore_errors=True)
+    FILES.delete("modulos", "l/" + row["slug"])
     return row["nombre"]
 
 
@@ -819,7 +1073,7 @@ def save_landing(data, landing_id=None):
             row = dict(values, id=next_id(db["landings"]), creado=stamp, ejemplo=bool(data.get("ejemplo")))
             db["landings"].append(row)
     if previous_path and previous_path != (client["slug"], row["slug"]):
-        shutil.rmtree(os.path.join(LANDINGS_DIR, *previous_path), ignore_errors=True)
+        FILES.delete("modulos", "l/%s/%s" % previous_path)
     render_landing(row, client)
     write_site_files()
     return landing_dict(row, client)
@@ -860,7 +1114,7 @@ def delete_landing(landing_id):
         row = find_landing(db, landing_id)
         client = find_client(db, row["cliente_id"])
         db["landings"].remove(row)
-    shutil.rmtree(os.path.join(LANDINGS_DIR, client["slug"], row["slug"]), ignore_errors=True)
+    FILES.delete("modulos", "l/%s/%s" % (client["slug"], row["slug"]))
     write_site_files()
     return row["nombre"]
 
@@ -906,12 +1160,11 @@ def landing_page(row, client):
 
 def render_landing(row, client):
     html = landing_page(row, client)
-    folder = os.path.join(LANDINGS_DIR, client["slug"], row["slug"])
+    folder = "l/%s/%s" % (client["slug"], row["slug"])
     if not html:
-        shutil.rmtree(folder, ignore_errors=True)
+        FILES.delete("modulos", folder)
         return
-    os.makedirs(folder, exist_ok=True)
-    Path(folder, "index.html").write_text(relative_paths(html, 3), encoding="utf-8")
+    FILES.write("modulos", folder + "/index.html", relative_paths(html, 3))
 
 
 def render_client_landings(client_id):
@@ -934,13 +1187,10 @@ def render_all():
         if client:
             render_landing(row, client)
             expected.add((client["slug"], row["slug"]))
-    if os.path.isdir(LANDINGS_DIR):
-        for client_dir in Path(LANDINGS_DIR).iterdir():
-            if not client_dir.is_dir():
-                continue
-            for landing_dir in client_dir.iterdir():
-                if landing_dir.is_dir() and (client_dir.name, landing_dir.name) not in expected:
-                    shutil.rmtree(landing_dir, ignore_errors=True)
+    for path in FILES.listdir("modulos", "l"):
+        parts = path.split("/")
+        if len(parts) >= 4 and (parts[1], parts[2]) not in expected:
+            FILES.delete("modulos", "/".join(parts[:3]))
     write_site_files()
     return len(expected)
 
@@ -980,23 +1230,18 @@ def write_site_files():
         real = [(clients[l["cliente_id"]]["slug"], l["slug"]) for l in db["landings"]
                 if l["cliente_id"] in clients and l.get("html") and client_type(clients[l["cliente_id"]]) == "real"]
         examples = public_examples(db, origin)
-    Path(ROOT, "sitemap.xml").write_text(sitemap_xml(origin, sorted(real)), encoding="utf-8")
-    Path(ROOT, "robots.txt").write_text(
-        "User-agent: *\nDisallow: /maquetas/\nDisallow: /data/\nDisallow: /editar/\nSitemap: %s/sitemap.xml\n" % origin,
-        encoding="utf-8")
+    FILES.write("modulos", "sitemap.xml", sitemap_xml(origin, sorted(real)))
+    FILES.write("modulos", "robots.txt",
+                "User-agent: *\nDisallow: /maquetas/\nDisallow: /data/\nDisallow: /editar/\nSitemap: %s/sitemap.xml\n" % origin)
     for kind in ("privacidad", "terminos"):
-        folder = Path(ROOT, kind)
-        folder.mkdir(exist_ok=True)
-        (folder / "index.html").write_bytes(legal_page(kind))
-    if os.path.isdir(os.path.join(SITIO_VENTA, "js")):
+        FILES.write("modulos", kind + "/index.html", legal_page(kind))
+    if FILES.has("sitio"):
         body = ("/* Ejemplos que muestra la sección Proyectos. Los genera el panel de Lanzate_modulos con las\n"
                 "   landings marcadas como «ejemplo». No lo edites a mano. */\nwindow.EJEMPLOS = %s;\n"
                 % json.dumps(examples, ensure_ascii=False, indent=2))
-        target = os.path.join(SITIO_VENTA, "js", "ejemplos.js")
         try:
-            if not os.path.isfile(target) or Path(target).read_text(encoding="utf-8") != body:
-                Path(target).write_text(body, encoding="utf-8")
-        except OSError as err:
+            FILES.write("sitio", "js/ejemplos.js", body)
+        except (OSError, ApiError) as err:
             print("No se pudo escribir la lista de ejemplos del sitio: %s" % err, file=sys.stderr)
 
 
@@ -1040,6 +1285,12 @@ def publish(data):
     message = " ".join(str(data.get("mensaje") or "").split())[:200] or "Actualiza landings desde el panel"
     sync_plans()
     render_all()
+    if FILES.online:
+        repos = FILES.commit(message)
+        names = {"modulos": "repositorio-modulos", "sitio": "lanzate"}
+        return {"resultados": [{"carpeta": names[r], "ok": True, "detalle": "Cambios publicados."} for r in repos] or
+                [{"carpeta": "GitHub", "ok": True, "detalle": "Todo estaba publicado."}],
+                "url": read_config()["urlPublica"]}
     results = [publish_repo(ROOT, message)]
     if os.path.isdir(SITIO_VENTA):
         results.append(publish_repo(SITIO_VENTA, message))
@@ -1525,7 +1776,7 @@ IA_PROVIDERS = {
 
 def ia_settings():
     data = {}
-    if os.path.isfile(IA_CONFIG):
+    if not ON_VERCEL and os.path.isfile(IA_CONFIG):
         try:
             with open(IA_CONFIG, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -1550,6 +1801,8 @@ def ia_status():
 
 
 def save_ia_settings(data):
+    if ON_VERCEL:
+        raise ApiError(400, "Online, la clave de la IA se carga en Vercel (variable ANTHROPIC_API_KEY u OPENAI_API_KEY).")
     provider = data.get("proveedor")
     if provider not in IA_PROVIDERS:
         raise ApiError(400, "Elegí Claude u OpenAI")
@@ -1804,8 +2057,65 @@ def not_found_page():
     return Path(ROOT, "404.html").read_bytes()
 
 
+ACTION_NAMES = {"clientes": "Alta de cliente", "cliente": "Actualiza cliente", "plan": "Actualiza plan",
+                "pedidos": "Registra pedido de cambios", "landings": "Crea landing", "landing": "Actualiza landing",
+                "duplicate": "Duplica landing", "reglas": "Actualiza reglas"}
+
+
 class Handler(SimpleHTTPRequestHandler):
     extra_headers = ()
+
+    def cookie(self, name):
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == name:
+                return value
+        return ""
+
+    def session_cookie(self, value, max_age):
+        secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
+        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
+
+    def authorized(self):
+        return not login_required() or valid_session(self.cookie(COOKIE))
+
+    def route_path(self):
+        url = urlsplit(self.path)
+        query = parse_qs(url.query)
+        return query.pop("__path", [""])[0] or unquote(url.path), query
+
+    def serve_page(self, path):
+        """Páginas del panel (piden la clave) y archivos que viven en GitHub (/l/…, /data/…)."""
+        if path == "/data/reglas.json":
+            if not self.authorized():
+                self.send_json(401, {"error": "Ingresá con la clave del equipo."})
+            else:
+                self.send_json(200, read_rules())
+            return True
+        if path in PANEL_PAGES:
+            if not self.authorized():
+                self.send_response(303)
+                self.send_header("Location", "/maquetas/login.html?volver=" + quote(path + ("?" + urlsplit(self.path).query if urlsplit(self.path).query else "")))
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return True
+            if ON_VERCEL:
+                self.send_body(200, Path(ROOT, path.lstrip("/")).read_bytes(), "text/html; charset=utf-8")
+                return True
+            return False
+        if FILES.online and (path.startswith("/l/") or re.match(r"^/data/[a-z]+\.js$", path)):
+            rel = path.lstrip("/")
+            if rel.endswith("/") or rel.count("/") == 2 and "." not in rel.rsplit("/", 1)[-1]:
+                rel = rel.rstrip("/") + "/index.html"
+            data = FILES.read("modulos", rel)
+            if data is None:
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
+            else:
+                kind = {"html": "text/html; charset=utf-8", "js": "text/javascript; charset=utf-8", "png": "image/png",
+                        "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}.get(rel.rsplit(".", 1)[-1], "application/octet-stream")
+                self.send_body(200, data, kind)
+            return True
+        return False
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
@@ -1817,6 +2127,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         for name, value in self.extra_headers:
             self.send_header(name, value)
+        self.extra_headers = ()
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -1841,12 +2152,14 @@ class Handler(SimpleHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if not origin:
             return True
-        host = self.headers.get("Host") or ""
-        return urlsplit(origin).netloc == host
+        hosts = {(self.headers.get("Host") or "").strip()}
+        hosts.update(h.strip() for h in (self.headers.get("X-Forwarded-Host") or "").split(",") if h.strip())
+        return urlsplit(origin).netloc in hosts
 
     def serve_lanzate(self, method):
-        path = unquote(urlsplit(self.path).path)
-        query = parse_qs(urlsplit(self.path).query)
+        path, query = self.route_path()
+        if method in ("GET", "HEAD") and self.serve_page(path):
+            return True
         for pattern, name in ROUTES:
             match = pattern.match(path)
             if match:
@@ -1858,13 +2171,21 @@ class Handler(SimpleHTTPRequestHandler):
             return False
         token = match.group(1) if match.groups() else ""
         ident = int(token) if str(token).isdigit() else None
+        FILES.begin()
         try:
             if method != "GET" and not self.same_origin():
                 raise ApiError(403, "Pedido rechazado.")
+            if name not in PUBLIC_ROUTES and not self.authorized():
+                raise ApiError(401, "Ingresá con la clave del equipo.")
             result = self.dispatch(method, name, ident, query)
+            if method != "GET" and name != "publicar":
+                action = "Borra " + ("cliente" if name == "cliente" else "landing") if method == "DELETE" else ACTION_NAMES.get(name, "Actualiza datos")
+                FILES.commit(action + " desde el panel")
         except ApiError as err:
+            FILES.discard()
             self.send_json(err.status, {"error": str(err)})
         except OSError as err:
+            FILES.discard()
             print("Error de archivos: %s" % err, file=sys.stderr)
             self.send_json(500, {"error": "No se pudo guardar en la carpeta del proyecto: %s" % err})
         else:
@@ -1873,7 +2194,19 @@ class Handler(SimpleHTTPRequestHandler):
 
     def dispatch(self, method, name, ident, query):
         if name == "sesion" and method == "GET":
-            return {"ok": True, "requiere": False}
+            return {"ok": self.authorized(), "requiere": login_required(), "online": FILES.online}
+        if name == "login" and method == "POST":
+            if not access_key():
+                raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")
+            data = self.read_json()
+            if not valid_credentials(str(data.get("usuario") or ""), str(data.get("clave") or "")):
+                time.sleep(1)
+                raise ApiError(401, "El usuario o la contraseña no son correctos.")
+            self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
+            return {"ok": True}
+        if name == "logout" and method == "POST":
+            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0)),)
+            return {"ok": True}
         if name == "config" and method == "GET":
             return read_config()
         if name == "planes" and method == "GET":
@@ -1943,11 +2276,6 @@ class Handler(SimpleHTTPRequestHandler):
         raise ApiError(405, "Método no permitido")
 
     def send_head(self):
-        path = unquote(urlsplit(self.path).path)
-        if path == "/data/reglas.json":
-            body = json.dumps(read_rules(), ensure_ascii=False).encode("utf-8")
-            self.send_body(200, body, "application/json; charset=utf-8")
-            return None
         local = self.translate_path(self.path)
         if not os.path.exists(local):
             self.send_body(404, not_found_page(), "text/html; charset=utf-8")
@@ -1979,11 +2307,12 @@ def main():
     port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
     host = "127.0.0.1"
     sync_plans()
-    if not os.path.isfile(data_path("clientes")):
+    if FILES.read("modulos", data_path("clientes")) is None:
         write_data("clientes", [])
         write_data("landings", [])
     server = ThreadingHTTPServer((host, port), partial(Handler, directory=ROOT))
     print("Lanzate en http://%s:%d/" % (host, port))
+    print("  Clave del equipo: " + ("activada" if access_key() else "sin clave (cargala en ~/.lanzate/lanzate.env)"))
     print("  Constructor → http://%s:%d/maquetas/constructor.html" % (host, port))
     print("  Landings    → http://%s:%d/maquetas/landings.html" % (host, port))
     print("  Clientes    → http://%s:%d/maquetas/clientes.html" % (host, port))

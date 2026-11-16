@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Datos y páginas de cada cliente
 
-No hay base de datos. Todo vive en el repositorio y se publica con git (GitHub Pages).
+No hay base de datos. Todo vive en el repositorio y se publica con GitHub Pages. Online (Vercel), el panel guarda con commits a GitHub; en la computadora, en el disco y con «Publicar».
 
 - Datos: `data/clientes.js` y `data/landings.js` (`window.LANZATE_CLIENTES`, `window.LANZATE_LANDINGS`), con la misma forma que `js/config.js` del sitio de venta: `window.X = <JSON>;`. Los escribe el panel (`python3 server.py`); si los editás a mano, que sigan siendo JSON válido.
 - Página publicada: `l/<slug-del-cliente>/<slug-de-la-landing>/index.html`, con rutas relativas (`../../../maquetas/...`) para que funcione en GitHub Pages. La genera el panel al guardar; no la edites a mano.

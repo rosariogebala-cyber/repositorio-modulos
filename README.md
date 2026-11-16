@@ -1,9 +1,27 @@
 # Lanzate · Módulos, landings y panel
 
-Biblioteca de módulos, constructor de landings y panel de clientes. No usa base de datos ni Vercel:
-todo vive en este repositorio y se publica con git en GitHub Pages.
+Biblioteca de módulos, constructor de landings y panel de clientes. No usa base de datos:
+todo vive en este repositorio y se publica con GitHub Pages. El panel corre online en Vercel o en tu computadora.
 
-## Cómo se usa
+## Panel online para el equipo (Vercel)
+
+El panel está online en Vercel con una sola clave para todo el equipo. No hay base de datos: cada vez que alguien
+guarda, Vercel hace un commit en GitHub (en este repo y, si hace falta, en el del sitio de venta) y GitHub Pages
+publica las landings en un par de minutos. En el historial de GitHub queda cada cambio y se puede volver atrás.
+
+Variables de entorno en Vercel (Settings → Environment Variables):
+
+| Variable | Qué es |
+| --- | --- |
+| `LANZATE_USUARIO` | Usuario del equipo |
+| `LANZATE_CLAVE` | Clave del equipo |
+| `LANZATE_SECRETO` | Texto largo al azar para firmar las sesiones (32 caracteres o más) |
+| `GITHUB_TOKEN` | Token de GitHub con permiso de escritura (Contents: Read and write) en `repositorio-modulos` y `lanzate` |
+| `ANTHROPIC_API_KEY` | Opcional: clave de la IA del constructor |
+
+Los guardados de datos no vuelven a desplegar Vercel (`ignoreCommand` en `vercel.json`): solo los cambios de código.
+
+## Cómo se usa en tu computadora
 
 1. Abrí la Terminal en esta carpeta y corré:
 
@@ -13,7 +31,8 @@ todo vive en este repositorio y se publica con git en GitHub Pages.
 
    (la primera vez, si falta lxml: `python3 -m pip install -r requirements.txt`)
 
-2. Entrá a http://127.0.0.1:8877/maquetas/clientes.html. El panel corre solo en tu computadora, sin usuario ni contraseña.
+2. Entrá a http://127.0.0.1:8877/maquetas/clientes.html. Te pide la clave del equipo si está cargada en
+   `~/.lanzate/lanzate.env` (`LANZATE_USUARIO` y `LANZATE_CLAVE`).
 3. Creá o editá clientes y landings. Al guardar, la landing queda lista en `l/<cliente>/<landing>/`.
 4. Tocá **Publicar** (arriba a la derecha). Rearma las landings con los módulos actuales y hace commit y push
    de este repositorio y del sitio de venta (`../Lanzate_site`). En un par de minutos se ve online.
