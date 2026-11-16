@@ -1,51 +1,72 @@
-# Lanzate · Biblioteca actualizada
+# Lanzate · Módulos, landings y panel
 
-Abrí index.html en el navegador o la carpeta en Cursor. No requiere instalación ni compilación.
+Biblioteca de módulos, constructor de landings y panel de clientes. No usa base de datos ni Vercel:
+todo vive en este repositorio y se publica con git en GitHub Pages.
 
-16 módulos y 48 imágenes de 800 px de ancho. Cada sección tiene su carpeta en assets/modulos/ con simple.png, media.png y compleja.png.
+## Cómo se usa
 
-Se añadieron Productos, Promociones y Preguntas frecuentes. Se actualizaron las propuestas de contenido, se recuperó la imagen faltante y se corrigió la navegación repetida. Las portadas Hero y la Galería conservan el material del sitio recibido.
+1. Abrí la Terminal en esta carpeta y corré:
 
-## Archivos
+   ```sh
+   python3 server.py
+   ```
 
-- index.html: estructura.
-- css/styles.css: estilos responsive.
-- js/app.js: búsqueda, categorías, visor y descarga individual.
-- data/modules.json: catálogo editable.
-- data/modules.js: copia del catálogo que carga el navegador para funcionar también sin servidor. Mantener ambos sincronizados.
-- assets/modulos/: imágenes por sección.
+   (la primera vez, si falta lxml: `python3 -m pip install -r requirements.txt`)
 
-Las tres propuestas de Servicios tienen estructuras similares.
+2. Entrá a http://127.0.0.1:8877/maquetas/clientes.html. El panel corre solo en tu computadora, sin usuario ni contraseña.
+3. Creá o editá clientes y landings. Al guardar, la landing queda lista en `l/<cliente>/<landing>/`.
+4. Tocá **Publicar** (arriba a la derecha). Hace commit y push de este repositorio y del sitio de venta
+   (`../Lanzate_site`). En un par de minutos se ve online.
 
-Esta es una biblioteca visual. Los controles dibujados dentro de las imágenes son referencias, no widgets funcionales. El buscador, los filtros, el visor y la descarga del catálogo sí funcionan.
+## Dónde está cada cosa
 
-Validación: 48 rutas y dimensiones comprobadas, sintaxis JavaScript correcta; búsqueda y apertura del visor revisadas en navegador. No se publicó ni se modificó GitHub.
+| Qué | Dónde |
+| --- | --- |
+| Datos generales (WhatsApp, URL pública) | `data/config.js` → `window.LANZATE_CONFIG` |
+| Planes (Express, Negocio, Pro) | `data/planes.js` → se copian solos de `Lanzate_site/js/config.js` |
+| Clientes | `data/clientes.js` → `window.LANZATE_CLIENTES` |
+| Landings con sus módulos | `data/landings.js` → `window.LANZATE_LANDINGS` |
+| Reglas de calidad | `data/reglas.js` → `window.LANZATE_REGLAS` |
+| Landing publicada | `l/<cliente>/<landing>/index.html` |
+| Logo del cliente | `l/<cliente>/logo.png` (o .jpg, .webp, .svg) |
+| Editor de pedidos del cliente | `editar/` |
+| Módulos y plantillas por rubro | `maquetas/` (`maquetas/js/plantillas.js`) |
 
-## Botonera actualizada
+Los archivos de `data/` tienen la misma forma que `js/config.js` del sitio de venta: `window.X = {...};`.
+Los escribe el panel. Si los editás a mano, que el contenido siga siendo JSON válido.
 
-Navegación por las 16 secciones en el orden solicitado. Cada botón lleva a su sección. Si había una búsqueda activa, se limpia para mostrar el destino. Se retiró Productos / Promociones (antiguo punto 7) del catálogo y del paquete.
+## El sitio de venta usa lo mismo
 
-## Ubicación y Footer
+- **Planes:** se editan en `Lanzate_site/js/config.js`. El panel los copia a `data/planes.js` y los usa en la ficha del cliente.
+- **Proyectos:** en Landings, la estrella marca una landing como «Ejemplo en el sitio». El panel escribe
+  `Lanzate_site/js/ejemplos.js` y el sitio muestra esas landings en la sección Proyectos.
 
-Se añadieron Dónde nos encontramos y Footer al final de la botonera, cada una con tres variantes. Los mapas, direcciones y datos de contacto son ilustrativos. La biblioteca muestra PNG: Google Maps se integrará como mapa real al desarrollar el módulo elegido.
+## Cambios que pide el cliente
 
-### Activación de los cambios de seguridad
+El cliente no tiene usuario. Desde la ficha copiás el link del editor (`/editar/?l=<cliente>/<landing>`) y se lo pasás.
+Ahí toca los textos de su web y escribe encima, marca las fotos o botones a cambiar, y te lo manda por WhatsApp
+al número de `data/config.js`. Vos aplicás los cambios en el constructor y publicás.
 
-- Prepará una base nueva con datos ficticios para Preview. Solo en esa base,
-  creá `public.lanzate_preview_guard` con una columna `ambiente TEXT PRIMARY KEY`
-  y una fila con el valor `preview`. Preview valida la marca antes de ejecutar
-  migraciones o consultas de negocio. Producción rechaza una base con esa marca.
-- Configurá `LANZATE_PREVIEW_DATABASE_URL`, `LANZATE_PREVIEW_ADMIN_KEY` y
-  `LANZATE_PREVIEW_SESSION_SECRET` solo en Preview. Usá valores independientes
-  de producción y un secreto de sesión de al menos 32 caracteres. Preview
-  mantiene deshabilitados Resend y las llamadas de IA.
-- En producción, configurá `RESEND_API_KEY`, `PORTAL_MAIL_FROM` con un remitente
-  verificado y `PORTAL_PUBLIC_URL` con el origen HTTPS del portal. Confirmá
-  que cada cliente tenga un correo de recuperación correcto.
-- Al desplegar, los accesos del portal con contraseñas anteriores deben
-  restablecerse. Los registros reversibles se eliminan y las cookies del portal
-  emitidas por la versión anterior quedan invalidadas. Un administrador puede
-  emitir una nueva credencial desde la ficha si el cliente necesita ayuda.
-- Probá el ciclo completo en Preview con dos clientes ficticios antes de pasar
-  a producción. Incluí aprobación parcial, reapertura del editor y restauración
-  de la última publicación aprobada.
+## Formularios de las landings
+
+Las landings son páginas estáticas: el formulario de contacto y la reserva de turnos arman el mensaje
+y abren el WhatsApp del negocio (el teléfono del cliente). Si no tiene teléfono, abren un mail.
+
+## Traer los datos de Supabase (una sola vez)
+
+```sh
+python3 -m pip install "psycopg[binary]"
+python3 scripts/migrar-datos.py
+```
+
+Lee `DATABASE_URL` de `~/.lanzate/lanzate.env`, escribe `data/clientes.js` y `data/landings.js`
+y genera todas las páginas de `l/`. Con `python3 scripts/migrar-datos.py db.json` usa la copia local `data/db.json`.
+
+## Control de calidad
+
+`python3 scripts/check-landing-quality.py` revisa las landings de `l/`, los archivos de `data/` y las páginas del panel.
+GitHub lo corre en cada push.
+
+## IA
+
+La clave se guarda en tu computadora (`~/.lanzate/ia.json`), desde «Configurar IA» en el constructor.

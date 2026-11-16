@@ -1,22 +1,15 @@
 ---
-description: Cada cliente nuevo se guarda en su carpeta dentro de Templates
+description: Dónde se guardan clientes y landings
 alwaysApply: true
 ---
 
-# Carpeta por cliente
+# Datos y páginas de cada cliente
 
-Al crear un cliente, crear su carpeta en el mismo momento. No dejar el alta solo en la base.
+No hay base de datos. Todo vive en el repositorio y se publica con git (GitHub Pages).
 
-Ruta, dentro de `Lanzate_modulos`:
-
-```text
-Templates/<slug-del-cliente>/
-Templates/<slug-del-cliente>/<slug-de-la-landing>/index.html
-```
-
-- El slug del cliente es el de la base, no el nombre visible.
-- Al guardar o duplicar una landing, escribir `index.html` en la carpeta de esa landing y crear la carpeta del cliente si no existe.
-- Si cambia el slug de la landing, mover la carpeta y borrar la anterior.
-- Al borrar la landing, borrar su carpeta. Al borrar el cliente, borrar `Templates/<slug-del-cliente>/`.
-- Un cliente sin landings queda con la carpeta vacía (`.gitkeep` si hace falta que se vea).
-- No guardar estas carpetas fuera del proyecto ni bajo `Proyectos/portal-studio`.
+- Datos: `data/clientes.js` y `data/landings.js` (`window.LANZATE_CLIENTES`, `window.LANZATE_LANDINGS`), con la misma forma que `js/config.js` del sitio de venta: `window.X = <JSON>;`. Los escribe el panel (`python3 server.py`); si los editás a mano, que sigan siendo JSON válido.
+- Página publicada: `l/<slug-del-cliente>/<slug-de-la-landing>/index.html`, con rutas relativas (`../../../maquetas/...`) para que funcione en GitHub Pages. La genera el panel al guardar; no la edites a mano.
+- Logo del cliente: `l/<slug-del-cliente>/logo.<ext>`.
+- Planes: `data/planes.js` se copia solo de `Lanzate_site/js/config.js`. Los planes se editan en el sitio de venta.
+- Ejemplos del sitio de venta: las landings con `ejemplo: true` se escriben en `Lanzate_site/js/ejemplos.js`.
+- Si cambia el slug, el panel mueve la carpeta. Al borrar una landing o un cliente, borra su carpeta.

@@ -19,7 +19,7 @@
       trap.setAttribute("aria-hidden", "true");
     });
   }
-  var LEAD_FAIL = "No se pudo enviar. Revisá la conexión y probá de nuevo.";
+  var LEAD_FAIL = "No se pudo abrir WhatsApp. Escribinos por los datos de contacto de la página.";
 
   function leadData(form, extra) {
     var data = {};
@@ -36,21 +36,32 @@
     return data;
   }
 
+  /* Las landings son páginas estáticas: la consulta se arma como mensaje y se abre WhatsApp (o el mail) del negocio. */
+  var LEAD_LABELS = { nombre: "Nombre", email: "Email", telefono: "Teléfono", servicio: "Servicio", profesional: "Con quién",
+    dia: "Día", horario: "Horario", notas: "Mensaje", mensaje: "Mensaje", duracion: "Duración" };
   function sendLead(form, tipo, extra) {
     if (!leadMeta) return Promise.resolve(true);
     var trap = form.querySelector('[name="web"]');
-    var body = {
-      landing: leadMeta.getAttribute("content"),
-      tipo: tipo,
-      datos: leadData(form, extra),
-      origen: [location.search.replace(/^\?/, ""), document.referrer ? "desde " + document.referrer.replace(/^https?:\/\//, "").split("/")[0] : ""].filter(Boolean).join(" · "),
-      web: trap ? trap.value : ""
-    };
-    return fetch("/api/consultas/nueva", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true })
-      .then(function (r) {
-        if (r.ok) track("consulta", tipo);
-        return r.ok;
-      }, function () { return false; });
+    if (trap && trap.value) return Promise.resolve(true);
+    var data = leadData(form, extra);
+    var lines = [tipo === "turno" ? "Hola, quiero reservar un turno:" : "Hola, quiero hacer una consulta:"];
+    Object.keys(data).forEach(function (k) {
+      var value = data[k];
+      if (value === true) value = "Sí";
+      if (value === false || value === "" || value == null) return;
+      lines.push((LEAD_LABELS[k] || k.charAt(0).toUpperCase() + k.slice(1)) + ": " + value);
+    });
+    var text = lines.join("\n");
+    var wa = document.querySelector('meta[name="lz-whatsapp"]');
+    var mail = document.querySelector('meta[name="lz-email"]');
+    var url = "";
+    if (wa && wa.content) url = "https://wa.me/" + wa.content + "?text=" + encodeURIComponent(text);
+    else if (mail && mail.content) url = "mailto:" + mail.content + "?subject=" + encodeURIComponent(tipo === "turno" ? "Reserva de turno" : "Consulta desde la web") + "&body=" + encodeURIComponent(text);
+    if (!url) return Promise.resolve(false);
+    track("consulta", tipo);
+    var win = /^https:/.test(url) ? window.open(url, "_blank", "noopener") : null;
+    if (!win) location.href = url;
+    return Promise.resolve(true);
   }
 
   /* Conversiones para Analytics, Tag Manager y Meta (si el cliente los cargó) */
@@ -68,6 +79,13 @@
       if (a) track("contacto", /wa\.me/.test(a.href) ? "whatsapp" : /^tel:/.test(a.href) ? "telefono" : "email");
     }, true);
     document.querySelectorAll(".nx-note").forEach(function (el) { el.remove(); });
+    /* La reserva se pide por WhatsApp: el negocio la confirma al responder. */
+    document.querySelectorAll("[data-book-done]").forEach(function (box) {
+      var title = box.querySelector("h3");
+      if (title) title.textContent = "¡Ya casi!";
+      var text = box.querySelector("p");
+      if (text) text.textContent = "Se abrió WhatsApp con tu pedido de turno. Mandá el mensaje y te confirmamos el horario.";
+    });
     document.querySelectorAll("[data-form-msg]").forEach(function (el) { el.textContent = ""; });
     document.querySelectorAll("[data-demo-form], [data-book-form]").forEach(function (form) {
       var trap = document.createElement("input");
@@ -388,7 +406,7 @@
       if (btn) btn.disabled = true;
       sendLead(form, "contacto").then(function (ok) {
         if (btn) btn.disabled = false;
-        if (msg) msg.textContent = ok ? "¡Gracias! Te escribimos a la brevedad." : LEAD_FAIL;
+        if (msg) msg.textContent = ok ? "Se abrió WhatsApp con tu consulta. Tocá enviar para que nos llegue." : LEAD_FAIL;
         if (ok) form.reset();
       });
     });

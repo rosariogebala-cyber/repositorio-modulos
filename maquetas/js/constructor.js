@@ -4197,7 +4197,7 @@
 
     modeHint.className = "lb-hint lb-mode";
     modeHint.textContent = client
-      ? (window.LanzatePortal ? "Se publica en el sitio de " + client.nombre + "." : "Se publica en /l/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : ""))
+      ? "Se guarda en l/" + client.slug + "/" + (state.name.trim() ? slugify(state.name) + "/" : "") + " y se sube con «Publicar»."
       : "Cada landing se publica con el nombre de su cliente.";
   }
 
@@ -4394,7 +4394,7 @@
     if (assignCreates) createLanding();
   });
 
-  /* Vercel acepta hasta 4,5 MB por pedido: las fotos viajan una sola vez, dentro de items */
+  /* Tope por guardado: las fotos viajan una sola vez, dentro de items */
   var MAX_SAVE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 38 * 1048576 : 4300000;
 
   function imageTokens(html) {
@@ -4450,7 +4450,7 @@
           portalRevision.token = data.revision_token;
           say("Cambios enviados a revisión. Tu sitio sigue mostrando la última versión aprobada.", "ok");
         } else if (editing) {
-          say("Cambios guardados y publicados.", "ok", { href: data.url, text: "Abrir landing", blank: true });
+          say("Cambios guardados. Tocá «Publicar» para subirlos a internet.", "ok", { href: data.url, text: "Ver landing", blank: true });
         } else {
           say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
             { href: data.url, text: "Abrir landing", blank: true },
@@ -4785,27 +4785,9 @@
     brand.removeAttribute("href");
   }
 
-  function clientMode() {
-    return window.LanzatePortal || new URLSearchParams(location.search).get("desde") === "sitio";
-  }
-
-  function applyClientEditor() {
-    if (!clientMode()) return;
-    document.documentElement.classList.add("is-client");
-    document.title = "Editar landing";
-    var back = document.querySelector("[data-lb-back]");
-    fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
-      if (back && s.sitio) back.href = s.sitio;
-    });
-    paintClientBrand();
-    if (!new URLSearchParams(location.search).get("landing") && !state.landingId) {
-      fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
-        location.href = s.sitio || "/maquetas/portal.html";
-      });
-    }
-  }
-
-  document.addEventListener("lz-portal", function () { applyClientEditor(); renderMode(); });
+  /* El cliente ya no edita desde el constructor: arma su pedido en /editar/ y lo manda por WhatsApp. */
+  function clientMode() { return false; }
+  function applyClientEditor() {}
 
   Promise.all([loadLibrary(), loadClients()]).then(function () {
     renderClients();

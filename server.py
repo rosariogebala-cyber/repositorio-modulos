@@ -1,106 +1,49 @@
 #!/usr/bin/env python3
-"""Servidor de la plataforma Lanzate.
+"""Panel de Lanzate: corre en tu computadora y guarda todo en archivos del repositorio.
 
-Sirve el repositorio como `python3 -m http.server` y expone una API para
-gestionar clientes y sus landings. Los datos viven en Postgres (Supabase):
-clientes, landings con su HTML, logos, vistas previas y reglas. Cada landing
-se publica en /l/<cliente>/<landing>/.
+Los datos viven en archivos JS, con la misma forma que js/config.js del sitio de venta:
+    data/config.js    window.LANZATE_CONFIG   (marca, WhatsApp, URL pública)
+    data/planes.js    window.LANZATE_PLANES   (copia de los planes del sitio de venta)
+    data/clientes.js  window.LANZATE_CLIENTES
+    data/landings.js  window.LANZATE_LANDINGS
+    data/reglas.js    window.LANZATE_REGLAS
+Cada landing se escribe como página estática en l/<cliente>/<landing>/index.html.
+Para publicar: botón «Publicar» del panel (git add, commit y push) o a mano con git.
+GitHub Pages sirve el repositorio tal cual.
 
-En Vercel, api/index.py usa el mismo Handler. En local:
+Uso:
     python3 server.py [puerto]   (por defecto 8877)
-La conexión y la clave de acceso salen de las variables DATABASE_URL y
-LANZATE_CLAVE, o de ~/.lanzate/lanzate.env (fuera del repositorio).
 """
 
 import base64
-import hashlib
-import hmac
 import json
 import os
 import re
-import secrets
 import shutil
+import subprocess
 import sys
+import threading
 import time
 import unicodedata
 from contextlib import contextmanager
 from functools import lru_cache, partial
 from html import escape, unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.error import HTTPError, URLError
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, unquote, urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 from urllib.request import Request, urlopen
 
-import psycopg
 from lxml import etree, html as html_dom
-from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES = os.path.join(ROOT, "Templates")
-
-
-def ensure_client_folder(client_slug):
-    try:
-        os.makedirs(os.path.join(TEMPLATES, client_slug), exist_ok=True)
-    except OSError as err:
-        print("No se pudo crear la carpeta del cliente: %s" % err, file=sys.stderr)
-
-
-def write_landing_folder(client_slug, landing_slug, html, previous=None):
-    """Templates/<cliente>/<landing>/index.html junto al proyecto."""
-    try:
-        if previous and previous != (client_slug, landing_slug):
-            old = os.path.join(TEMPLATES, previous[0], previous[1])
-            if os.path.isdir(old):
-                shutil.rmtree(old)
-        folder = os.path.join(TEMPLATES, client_slug, landing_slug)
-        os.makedirs(folder, exist_ok=True)
-        with open(os.path.join(folder, "index.html"), "w", encoding="utf-8") as fh:
-            fh.write(html)
-    except OSError as err:
-        print("No se pudo escribir la carpeta de la landing: %s" % err, file=sys.stderr)
-
-
-def remove_landing_folder(client_slug, landing_slug):
-    folder = os.path.join(TEMPLATES, client_slug, landing_slug)
-    if os.path.isdir(folder):
-        shutil.rmtree(folder, ignore_errors=True)
-
-
-def remove_client_folder(client_slug):
-    folder = os.path.join(TEMPLATES, client_slug)
-    if os.path.isdir(folder):
-        shutil.rmtree(folder, ignore_errors=True)
+DATA = os.path.join(ROOT, "data")
+LANDINGS_DIR = os.path.join(ROOT, "l")
+SITIO_VENTA = os.path.normpath(os.path.join(ROOT, "..", "Lanzate_site"))
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".lanzate")
-LOCAL_ENV = os.path.join(CONFIG_DIR, "lanzate.env")
-REGLAS_JSON = os.path.join(ROOT, "data", "reglas.json")
 
-
-def load_local_env():
-    if not os.path.isfile(LOCAL_ENV):
-        return
-    with open(LOCAL_ENV, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
-
-
-load_local_env()
-
-ON_VERCEL = bool(os.environ.get("VERCEL"))
-ISOLATED_PREVIEW = ON_VERCEL and os.environ.get("VERCEL_ENV") != "production"
 MAX_BODY = 40 * 1024 * 1024
 MAX_LOGO = 2 * 1024 * 1024
-SESSION_DAYS = 30
-COOKIE = "lz_sesion"
-PORTAL_COOKIE = "lz_portal"
-PLANES = ("", "Base", "Pro")
-
 CLIENT_FIELDS = ("nombre", "contacto", "email", "telefono", "rubro", "sitio", "direccion", "horario",
                  "instagram", "facebook", "linkedin", "logo_modo", "color_primario", "color_secundario", "notas", "estado",
                  "ga4", "gtm", "meta_pixel")
@@ -112,7 +55,7 @@ TRACKING = {
 COLOR_DEFAULTS = {"color_primario": "#1b5e42", "color_secundario": "#e7f3ee"}
 ESTADOS = ("activo", "pausado")
 LOGO_MODOS = ("imagen", "imagen-texto", "texto")
-LOGO_TYPES = ("image/png", "image/jpeg", "image/webp", "image/svg+xml")
+LOGO_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
 
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -120,47 +63,23 @@ HTML_REF = re.compile(r'((?:src|href)=")((?:img|css|js)/[^"#?]+|\.\./assets/[^"#
 URL_REF = re.compile(r"(url\(\s*(?:&quot;|['\"])?)((?:img|css|js)/[^'\")&]+|\.\./assets/[^'\")&]+)")
 COVER_RE = re.compile(r"""(?:src="|url\(\s*(?:&quot;|['"])?)(/(?:maquetas|assets)/(?!modulos/)[^"')&]+\.(?:jpe?g|png|webp))""", re.I)
 IMG_TOKEN = re.compile(r"lzimg:(\d+):(\d+)")
+# Rutas absolutas del sitio (/maquetas/…, /assets/…, /l/…) que pasan a relativas en las páginas estáticas.
+ABS_REF = re.compile(r"""(?<=["'(\s,=])/(?=(?:maquetas|assets|l|privacidad|terminos)(?:/|["'?#\s)]))|(?<=&quot;)/(?=(?:maquetas|assets|l)/)""")
 
 ROUTES = [
-    (re.compile(r"^/api/sesion$"), "sesion"),
-    (re.compile(r"^/api/login$"), "login"),
-    (re.compile(r"^/api/logout$"), "logout"),
     (re.compile(r"^/api/clientes$"), "clientes"),
-    (re.compile(r"^/api/clientes/(\d+)/entrar$"), "portal-entrar"),
-    (re.compile(r"^/api/clientes/(\d+)/acceso$"), "acceso"),
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
-    (re.compile(r"^/api/portal/login$"), "portal-login"),
-    (re.compile(r"^/api/portal/sesion$"), "portal-sesion"),
-    (re.compile(r"^/api/portal/sitio/([a-z0-9-]+)$"), "portal-sitio"),
-    (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
-    (re.compile(r"^/api/portal/restablecer$"), "portal-restablecer"),
-    (re.compile(r"^/api/portal/logout$"), "portal-logout"),
-    (re.compile(r"^/api/landings/(\d+)/revision$"), "landing-revision"),
-    (re.compile(r"^/api/landings/(\d+)/restaurar$"), "landing-restaurar"),
-    (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
-    (re.compile(r"^/api/portal/consultas/(\d+)$"), "portal-consulta"),
-    (re.compile(r"^/api/portal/actividad/(\d+)$"), "portal-actividad"),
-    (re.compile(r"^/api/clientes/(\d+)/logo$"), "logo"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
-    (re.compile(r"^/api/landings/(\d+)/preview$"), "preview"),
     (re.compile(r"^/api/reglas$"), "reglas"),
-    (re.compile(r"^/api/auditoria$"), "auditoria"),
+    (re.compile(r"^/api/planes$"), "planes"),
+    (re.compile(r"^/api/config$"), "config"),
+    (re.compile(r"^/api/publicar$"), "publicar"),
     (re.compile(r"^/api/ia$"), "ia"),
-    (re.compile(r"^/api/consultas$"), "consultas"),
-    (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
-    (re.compile(r"^/api/consultas/(\d+)$"), "consulta"),
+    (re.compile(r"^/api/sesion$"), "sesion"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout", "preview", "logo", "consulta-nueva", "portal-login", "portal-sesion", "portal-sitio", "portal-olvide", "portal-restablecer", "portal-logout")
-PANEL_PAGES = {
-    "/maquetas/" + name + ".html"
-    for name in ("constructor", "landings", "clientes", "cliente", "consultas", "reglas")
-}
-LANDING_PAGE = re.compile(r"^/(?:l|Templates)/([a-z0-9-]+)/([a-z0-9-]+)/?$")
-VISTA_PAGE = re.compile(r"^/vista/(\d+)/?$")
-SITIO_PAGE = re.compile(r"^/sitio/([a-z0-9-]+)/?$")
 
 
 class ApiError(Exception):
@@ -178,155 +97,76 @@ def slugify(text, fallback="landing"):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or fallback
 
 
-# --- Base de datos (Postgres en Supabase) --------------------------------------
+# --- Archivos de datos (misma forma que js/config.js del sitio de venta) --------
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS clientes (
-  id BIGSERIAL PRIMARY KEY,
-  slug TEXT NOT NULL UNIQUE,
-  nombre TEXT NOT NULL,
-  contacto TEXT NOT NULL DEFAULT '',
-  email TEXT NOT NULL DEFAULT '',
-  telefono TEXT NOT NULL DEFAULT '',
-  rubro TEXT NOT NULL DEFAULT '',
-  sitio TEXT NOT NULL DEFAULT '',
-  logo TEXT NOT NULL DEFAULT '',
-  color_primario TEXT NOT NULL DEFAULT '#1b5e42',
-  color_secundario TEXT NOT NULL DEFAULT '#e7f3ee',
-  notas TEXT NOT NULL DEFAULT '',
-  estado TEXT NOT NULL DEFAULT 'activo',
-  creado BIGINT NOT NULL,
-  actualizado BIGINT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS landings (
-  id BIGSERIAL PRIMARY KEY,
-  cliente_id BIGINT NOT NULL REFERENCES clientes(id),
-  nombre TEXT NOT NULL,
-  slug TEXT NOT NULL,
-  items JSONB NOT NULL DEFAULT '[]',
-  estilo TEXT NOT NULL DEFAULT '',
-  html TEXT NOT NULL DEFAULT '',
-  portada TEXT NOT NULL DEFAULT '',
-  preview TEXT NOT NULL DEFAULT '',
-  creado BIGINT NOT NULL,
-  actualizado BIGINT NOT NULL,
-  UNIQUE (cliente_id, slug)
-);
-ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_cliente JSONB;
-ALTER TABLE landings ADD COLUMN IF NOT EXISTS revision_estado TEXT NOT NULL DEFAULT '';
-CREATE TABLE IF NOT EXISTS landing_publicaciones (
-    id BIGSERIAL PRIMARY KEY,
-    landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
-    creado BIGINT NOT NULL,
-    operador TEXT NOT NULL,
-    decisiones JSONB NOT NULL,
-    anterior JSONB NOT NULL,
-    huella TEXT NOT NULL
-);
-ALTER TABLE landing_publicaciones ENABLE ROW LEVEL SECURITY;
-CREATE TABLE IF NOT EXISTS ajustes (
-  clave TEXT PRIMARY KEY,
-  valor JSONB NOT NULL
-);
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS privacidad_url TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS terminos_url TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS tipo_cliente TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS direccion TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS horario TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS instagram TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS facebook TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS linkedin TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_modo TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ga4 TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gtm TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS meta_pixel TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_usuario TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_version BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_clave_ver TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_hash TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_vence BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_reset_enviado BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_pedido_clave BIGINT NOT NULL DEFAULT 0;
-CREATE UNIQUE INDEX IF NOT EXISTS clientes_portal_reset_idx ON clientes (portal_reset_hash) WHERE portal_reset_hash <> '';
-UPDATE clientes SET portal_clave = '', portal_version = portal_version + 1 WHERE portal_clave LIKE 'v1:%';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT '';
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS plan_vence TEXT NOT NULL DEFAULT '';
-ALTER TABLE landings ADD COLUMN IF NOT EXISTS ignorados JSONB NOT NULL DEFAULT '[]';
-ALTER TABLE landings ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT '';
-ALTER TABLE landings ADD COLUMN IF NOT EXISTS animacion TEXT NOT NULL DEFAULT '';
-CREATE TABLE IF NOT EXISTS auditoria (
-  id BIGSERIAL PRIMARY KEY,
-  usuario TEXT NOT NULL,
-  accion TEXT NOT NULL,
-  detalle TEXT NOT NULL DEFAULT '',
-  creado BIGINT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS consultas (
-  id BIGSERIAL PRIMARY KEY,
-  landing_id BIGINT NOT NULL REFERENCES landings(id) ON DELETE CASCADE,
-  tipo TEXT NOT NULL DEFAULT 'contacto',
-  datos JSONB NOT NULL DEFAULT '{}',
-  origen TEXT NOT NULL DEFAULT '',
-  leida BOOLEAN NOT NULL DEFAULT FALSE,
-  creado BIGINT NOT NULL,
-  ip TEXT NOT NULL DEFAULT ''
-);
-ALTER TABLE consultas ADD COLUMN IF NOT EXISTS estado_atencion TEXT NOT NULL DEFAULT 'nueva';
-ALTER TABLE consultas ADD COLUMN IF NOT EXISTS ip TEXT NOT NULL DEFAULT '';
-CREATE INDEX IF NOT EXISTS consultas_landing ON consultas (landing_id, creado DESC);
-CREATE TABLE IF NOT EXISTS uso_ia (
-  id BIGSERIAL PRIMARY KEY,
-  usuario TEXT NOT NULL,
-  creado BIGINT NOT NULL
-);
-ALTER TABLE consultas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE landings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ajustes ENABLE ROW LEVEL SECURITY;
-"""
+DATA_FILES = {
+    "config": ("config.js", "LANZATE_CONFIG", "Datos generales de Lanzate. La URL pública es la de GitHub Pages (o el dominio propio)."),
+    "planes": ("planes.js", "LANZATE_PLANES", "Planes. Se copian solos desde Lanzate_site/js/config.js: editalos allá."),
+    "clientes": ("clientes.js", "LANZATE_CLIENTES", "Clientes. Los guarda el panel (python3 server.py)."),
+    "landings": ("landings.js", "LANZATE_LANDINGS", "Landings con sus módulos. Las guarda el panel; la página publicada está en l/<cliente>/<landing>/."),
+    "reglas": ("reglas.js", "LANZATE_REGLAS", "Reglas de calidad de las landings. Se editan desde el panel (Reglas)."),
+}
+DEFAULT_CONFIG = {
+    "marca": "Lanzate",
+    "whatsapp": "",
+    "email": "",
+    "urlPublica": "https://rosariogebala-cyber.github.io/repositorio-modulos",
+}
+_lock = threading.RLock()
 
-_schema_ready = False
+
+def data_path(key):
+    return os.path.join(DATA, DATA_FILES[key][0])
+
+
+def read_data(key, default):
+    """Lee window.X = {...}; del archivo. El contenido es JSON válido."""
+    try:
+        text = Path(data_path(key)).read_text(encoding="utf-8")
+    except OSError:
+        return default
+    start = text.find("=", text.find("window."))
+    end = text.rfind(";")
+    try:
+        return json.loads(text[start + 1:end if end > start else None])
+    except ValueError:
+        raise ApiError(500, "No se pudo leer data/%s: revisá que no se haya roto al editarlo a mano." % DATA_FILES[key][0])
+
+
+def write_data(key, value):
+    name, var, note = DATA_FILES[key]
+    os.makedirs(DATA, exist_ok=True)
+    body = "/* %s */\nwindow.%s = %s;\n" % (note, var, json.dumps(value, ensure_ascii=False, indent=2))
+    tmp = data_path(key) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(body)
+    os.replace(tmp, data_path(key))
 
 
 @contextmanager
-def tx():
-    """Conexión por pedido; confirma al salir bien y deshace si hay error."""
-    global _schema_ready
-    preview = ISOLATED_PREVIEW
-    url = os.environ.get("LANZATE_PREVIEW_DATABASE_URL" if preview else "DATABASE_URL")
-    if not url and preview:
-        raise ApiError(503, "Falta configurar la base aislada de Preview.")
-    if not url:
-        raise ApiError(500, "Falta la conexión con la base de datos (DATABASE_URL).")
-    try:
-        con = psycopg.connect(url, row_factory=dict_row, prepare_threshold=None, connect_timeout=15)
-    except psycopg.OperationalError:
-        raise ApiError(503, "No se pudo conectar con la base de datos. Probá de nuevo en unos segundos.")
-    with con:
-        if not preview:
-            marker = con.execute("SELECT to_regclass('public.lanzate_preview_guard') AS marker").fetchone()
-            if marker["marker"]:
-                raise ApiError(503, "La base de Preview no se puede usar para producción o desarrollo local.")
-        if preview:
-            marker = con.execute("SELECT to_regclass('public.lanzate_preview_guard') AS marker").fetchone()
-            if not marker["marker"] or not con.execute(
-                "SELECT 1 FROM public.lanzate_preview_guard WHERE ambiente = 'preview'"
-            ).fetchone():
-                raise ApiError(503, "Preview requiere una base de pruebas identificada.")
-        if not _schema_ready:
-            con.execute(SCHEMA)
-        yield con
-    _schema_ready = True
+def store(*keys, save=True):
+    """Bloquea, lee los archivos pedidos y los guarda al salir bien."""
+    with _lock:
+        db = {k: read_data(k, [] if k in ("clientes", "landings") else {}) for k in keys}
+        yield db
+        if save:
+            for k in keys:
+                write_data(k, db[k])
+
+
+def read_config():
+    config = dict(DEFAULT_CONFIG)
+    config.update(read_data("config", {}) or {})
+    config["urlPublica"] = str(config.get("urlPublica") or "").rstrip("/")
+    return config
 
 
 def read_rules():
-    with tx() as con:
-        row = con.execute("SELECT valor FROM ajustes WHERE clave = 'reglas'").fetchone()
-    if row and isinstance(row["valor"], dict):
-        return row["valor"]
+    data = read_data("reglas", {})
+    if data:
+        return data
     try:
-        with open(REGLAS_JSON, encoding="utf-8") as fh:
+        with open(os.path.join(DATA, "reglas.json"), encoding="utf-8") as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
@@ -337,360 +177,110 @@ def save_rules(data):
     if not isinstance(data.get("textos"), dict) or not isinstance(data.get("imagenes"), dict):
         raise ApiError(400, "Las reglas no tienen el formato esperado")
     data["actualizado"] = now_ms()
-    with tx() as con:
-        con.execute(
-            "INSERT INTO ajustes (clave, valor) VALUES ('reglas', %s) ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor",
-            (Jsonb(data),),
-        )
-    record_audit("reglas", "actualización")
+    with _lock:
+        write_data("reglas", data)
     return data
 
 
-# --- Sesión ----------------------------------------------------------------------
+# --- Planes: los mismos del sitio de venta ---------------------------------------
 
-def access_key():
-    return os.environ.get("LANZATE_PREVIEW_ADMIN_KEY" if ISOLATED_PREVIEW else "LANZATE_CLAVE") or ""
+def js_literal_to_json(text):
+    """Convierte un objeto JS escrito a mano (claves sin comillas, comentarios, comas finales) a JSON."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        ch = text[i]
+        if ch == '"' or ch == "'":
+            j, buf = i + 1, []
+            while j < n and text[j] != ch:
+                if text[j] == "\\":
+                    buf.append(text[j:j + 2])
+                    j += 2
+                    continue
+                buf.append(text[j])
+                j += 1
+            raw = "".join(buf)
+            if ch == "'":
+                raw = raw.replace('"', '\\"').replace("\\'", "'")
+            out.append('"' + raw + '"')
+            i = j + 1
+        elif text.startswith("//", i):
+            i = text.find("\n", i) if text.find("\n", i) >= 0 else n
+        elif text.startswith("/*", i):
+            i = text.find("*/", i) + 2 if text.find("*/", i) >= 0 else n
+        else:
+            out.append(ch)
+            i += 1
+    result = "".join(out)
+    result = re.sub(r'([{,]\s*)([A-Za-z_$][\w$]*)\s*:', r'\1"\2":', result)
+    result = re.sub(r",(\s*[}\]])", r"\1", result)
+    return result
 
 
-def access_user():
-    return os.environ.get("LANZATE_USUARIO") or "Lanzate11"
-
-
-def valid_credentials(usuario, clave):
-    user_ok = hmac.compare_digest(usuario.encode("utf-8"), access_user().encode("utf-8"))
-    password_ok = hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8"))
-    return user_ok and password_ok
-
-
-def session_secret():
-    if ISOLATED_PREVIEW:
-        secret = os.environ.get("LANZATE_PREVIEW_SESSION_SECRET")
-        if not secret or len(secret) < 32:
-            raise ApiError(503, "Preview requiere su propio secreto de sesión.")
-        return secret.encode()
-    return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
-
-
-def hash_portal_password(password):
-    salt = secrets.token_hex(16)
-    digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=2**17, r=8, p=1,
-                            maxmem=256 * 1024 * 1024).hex()
-    return "scrypt$%s$%s" % (salt, digest)
-
-
-def check_portal_password(stored, password):
-    if not isinstance(stored, str) or len(password) > 128:
-        return False
+def site_plans():
+    """Lee los planes de Lanzate_site/js/config.js si la carpeta del sitio está al lado."""
     try:
-        if not stored.startswith("scrypt$"):
-            salt, digest = stored.split("$", 1)
-            test = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120000).hex()
-            return hmac.compare_digest(test, digest)
-        _, salt, digest = stored.split("$", 2)
-        test = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=2**17, r=8, p=1,
-                              maxmem=256 * 1024 * 1024).hex()
-        return hmac.compare_digest(test, digest)
-    except ValueError:
-        return False
-
-
-def _portal_keystream(key, nonce, size):
-    out = b""
-    counter = 0
-    while len(out) < size:
-        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
-        counter += 1
-    return out[:size]
-
-
-def seal_portal_password(password):
-    """Copia cifrada que solo el panel puede leer; el login sigue usando el hash."""
-    key = hmac.new(session_secret(), b"portal-clave-ver", hashlib.sha256).digest()
-    nonce = secrets.token_bytes(16)
-    plain = password.encode("utf-8")
-    sealed = bytes(a ^ b for a, b in zip(plain, _portal_keystream(key, nonce, len(plain))))
-    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
-    return "v2:" + base64.urlsafe_b64encode(nonce + tag + sealed).decode()
-
-
-def open_portal_password(stored):
-    if not stored or not stored.startswith("v2:"):
-        return ""
-    try:
-        raw = base64.urlsafe_b64decode(stored[3:].encode())
-        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
-        key = hmac.new(session_secret(), b"portal-clave-ver", hashlib.sha256).digest()
-        if not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
-            return ""
-        return bytes(a ^ b for a, b in zip(sealed, _portal_keystream(key, nonce, len(sealed)))).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return ""
-
-
-def portal_token(client_id, days, version):
-    expires = int(time.time()) + days * 86400
-    payload = "%s.%s.%s" % (client_id, expires, version)
-    sig = hmac.new(session_secret(), ("portal-login:" + payload).encode(), hashlib.sha256).hexdigest()
-    return payload + "." + sig
-
-
-def portal_client_id(value):
-    try:
-        client_id, expires, version, sig = value.split(".")
-        payload = ".".join((client_id, expires, version))
-        good = hmac.new(session_secret(), ("portal-login:" + payload).encode(), hashlib.sha256).hexdigest()
-        if int(expires) <= time.time() or not hmac.compare_digest(sig, good):
-            return None
-        with tx() as con:
-            row = con.execute("SELECT portal_version FROM clientes WHERE id = %s", (int(client_id),)).fetchone()
-        return int(client_id) if row and row["portal_version"] == int(version) else None
-    except (ValueError, AttributeError):
+        text = Path(SITIO_VENTA, "js", "config.js").read_text(encoding="utf-8")
+        start = text.find("{", text.find("window.SITE"))
+        end = text.rfind("}")
+        site = json.loads(js_literal_to_json(text[start:end + 1]))
+    except (OSError, ValueError):
         return None
+    plans = site.get("planes")
+    if not isinstance(plans, list):
+        return None
+    compare = site.get("comparar") or []
+    changes = next((row for row in compare if str(row[0]).lower().startswith("cambios")), None)
+    sections = next((row for row in compare if str(row[0]).lower().startswith("secciones")), None)
+    out = []
+    for index, plan in enumerate(plans):
+        item = {k: plan.get(k) for k in ("id", "nombre", "para", "inicial", "mensual", "incluye")}
+        if changes and len(changes) > index + 1:
+            item["cambiosPorMes"] = int(re.sub(r"\D", "", str(changes[index + 1])) or 0)
+        if sections and len(sections) > index + 1:
+            item["secciones"] = int(re.sub(r"\D", "", str(sections[index + 1])) or 0)
+        out.append(item)
+    return {"planes": out, "whatsapp": site.get("whatsapp") or "", "email": site.get("email") or ""}
 
 
-def set_portal_access(client_id, usuario, clave=None):
-    usuario = re.sub(r"\s+", "", str(usuario or "")).lower()
-    if not re.fullmatch(r"[a-z0-9._-]{3,40}", usuario):
-        raise ApiError(400, "El usuario del portal usa letras, números, punto o guion, de 3 a 40 caracteres.")
-    generated = clave is None
-    if generated:
-        clave = secrets.token_urlsafe(12)
-    elif not isinstance(clave, str) or not 12 <= len(clave) <= 128 or not clave.strip():
-        raise ApiError(400, "La contraseña del portal debe tener entre 12 y 128 caracteres.")
-    with tx() as con:
-        get_client_row(con, client_id)
-        taken = con.execute(
-            "SELECT id FROM clientes WHERE lower(portal_usuario) = %s AND id <> %s",
-            (usuario, client_id),
-        ).fetchone()
-        if taken:
-            raise ApiError(409, "Ese usuario de portal ya está usado. Elegí otro.")
-        con.execute(
-            "UPDATE clientes SET portal_usuario = %s, portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, portal_reset_hash = '', portal_reset_vence = 0, portal_reset_enviado = 0, portal_pedido_clave = 0, actualizado = %s WHERE id = %s",
-            (usuario, hash_portal_password(clave), seal_portal_password(clave), now_ms(), client_id),
-        )
-    record_audit("portal", "acceso " + usuario)
-    return {"usuario": usuario, "clave": clave} if generated else {"usuario": usuario}
+def sync_plans():
+    """Copia los planes del sitio de venta a data/planes.js. Si no está el sitio, deja los que hay."""
+    found = site_plans()
+    with _lock:
+        if found:
+            current = read_data("planes", {})
+            data = {"planes": found["planes"]}
+            if current != data:
+                write_data("planes", data)
+            config = read_data("config", {}) or {}
+            changed = False
+            for key in ("whatsapp", "email"):
+                if found[key] and config.get(key) != found[key]:
+                    config[key] = found[key]
+                    changed = True
+            if changed or not os.path.isfile(data_path("config")):
+                merged = dict(DEFAULT_CONFIG)
+                merged.update(config)
+                write_data("config", merged)
+        elif not os.path.isfile(data_path("config")):
+            write_data("config", DEFAULT_CONFIG)
+    return read_data("planes", {}).get("planes") or []
+
+
+def plan_ids():
+    return [p.get("id") for p in (read_data("planes", {}).get("planes") or []) if p.get("id")]
 
 
 def set_client_plan(client_id, data):
     plan = str(data.get("plan") or "")
-    if plan not in PLANES:
-        raise ApiError(400, "Elegí un plan: Base o Pro.")
+    if plan and plan not in plan_ids():
+        raise ApiError(400, "Elegí un plan del sitio de venta: " + ", ".join(plan_ids()) + ".")
     vence = str(data.get("plan_vence") or "").strip()
     if vence and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vence):
         raise ApiError(400, "La fecha de vencimiento tiene que ser AAAA-MM-DD.")
-    with tx() as con:
-        row = get_client_row(con, client_id)
-        con.execute(
-            "UPDATE clientes SET plan = %s, plan_vence = %s, actualizado = %s WHERE id = %s",
-            (plan, vence, now_ms(), client_id),
-        )
-        updated = client_dict(get_client_row(con, client_id), None)
-    record_audit("plan", row["nombre"] + " " + (plan or "sin plan"))
-    return updated
-
-
-def portal_login(usuario, clave, sitio=""):
-    usuario = str(usuario or "").strip().lower()
-    sitio = str(sitio or "").strip()
-    clave = str(clave or "")
-    with tx() as con:
-        row = con.execute(
-            "SELECT id, slug, portal_clave, portal_clave_ver, portal_version FROM clientes WHERE lower(portal_usuario) = %s",
-            (usuario,),
-        ).fetchone()
-    if not row or not row["portal_clave"] or not check_portal_password(row["portal_clave"], str(clave or "")):
-        raise ApiError(401, "El usuario o la contraseña no son correctos.")
-    if sitio and row["slug"] != sitio:
-        raise ApiError(401, "Esta cuenta no corresponde a este sitio.")
-    if open_portal_password(row["portal_clave_ver"] or "") != clave:
-        with tx() as con:
-            con.execute(
-                "UPDATE clientes SET portal_clave_ver = %s WHERE id = %s AND portal_clave = %s",
-                (seal_portal_password(clave), row["id"], row["portal_clave"]),
-            )
-    return row["id"], row["portal_version"]
-
-
-def portal_site(slug):
-    with tx() as con:
-        row = con.execute("SELECT nombre, slug FROM clientes WHERE slug = %s", (slug,)).fetchone()
-    if not row:
-        raise ApiError(404, "Este sitio no existe.")
-    return {"nombre": row["nombre"], "sitio": "/sitio/%s/" % row["slug"]}
-
-
-def hide_public_path(item):
-    """El portal no muestra /l/cliente/landing/: con eso se pueden probar otras páginas."""
-    item = dict(item)
-    item["url"] = "/vista/%d" % item["id"]
-    item["path"] = item.get("nombre") or ""
-    item.pop("slug", None)
-    item.pop("cliente_slug", None)
-    return item
-
-
-def portal_home(client_id):
-    with tx() as con:
-        row = get_client_row(con, client_id)
-        landings = con.execute(
-            LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC",
-            (client_id,),
-        ).fetchall()
-    return {
-        "slug": row["slug"],
-        "sitio": "/sitio/%s/" % row["slug"],
-        "nombre": row["nombre"],
-        "rubro": row.get("rubro") or "",
-        "contacto": row.get("contacto") or "",
-        "email": row.get("email") or "",
-        "telefono": row.get("telefono") or "",
-        "estado": row.get("estado") or "",
-        "creado": row.get("creado") or 0,
-        "plan": row.get("plan") or "",
-        "plan_vence": row.get("plan_vence") or "",
-        "usuario": row.get("portal_usuario") or "",
-        "landings": [hide_public_path(landing_dict(item)) for item in landings],
-    }
-
-
-def portal_activity(client_id, landing_id, days):
-    since = now_ms() - days * 86400000
-    with tx() as con:
-        if not con.execute("SELECT 1 FROM landings WHERE id = %s AND cliente_id = %s",
-                           (landing_id, client_id)).fetchone():
-            raise ApiError(404, "No encontramos ese sitio en tu portal.")
-        summary = con.execute(
-            "SELECT COUNT(*) FILTER (WHERE q.tipo <> 'turno') AS consultas, "
-            "COUNT(*) FILTER (WHERE q.tipo = 'turno') AS turnos, "
-            "COUNT(*) FILTER (WHERE q.tipo <> 'turno' AND q.estado_atencion = 'nueva') AS nuevas "
-            "FROM consultas q JOIN landings l ON l.id = q.landing_id "
-            "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s",
-            (landing_id, client_id, since),
-        ).fetchone()
-        latest = con.execute(
-            "SELECT q.id, q.tipo, q.datos, q.creado, q.estado_atencion FROM consultas q JOIN landings l ON l.id = q.landing_id "
-            "WHERE l.id = %s AND l.cliente_id = %s AND q.creado >= %s "
-            "ORDER BY q.creado DESC, q.id DESC LIMIT 20",
-            (landing_id, client_id, since),
-        ).fetchall()
-    return {"consultas": summary["consultas"], "turnos": summary["turnos"],
-            "nuevas": summary["nuevas"], "entradas": latest}
-
-
-def set_portal_lead_status(client_id, lead_id, landing_id, status):
-    if type(landing_id) is not int or status not in ("nueva", "respondida", "cerrada"):
-        raise ApiError(400, "Elegí un sitio y un estado válido.")
-    with tx() as con:
-        row = con.execute(
-            "UPDATE consultas q SET estado_atencion = %s FROM landings l "
-            "WHERE q.landing_id = l.id AND l.cliente_id = %s AND l.id = %s "
-            "AND q.id = %s AND q.tipo <> 'turno' RETURNING q.id",
-            (status, client_id, landing_id, lead_id),
-        ).fetchone()
-        if not row:
-            raise ApiError(404, "No encontramos esa consulta en tu sitio.")
-    return {"ok": True}
-
-
-def mail_env(name):
-    return os.environ.get(name, "").strip()
-
-
-def mail_sender(*names):
-    for name in names:
-        if mail_env(name):
-            return mail_env(name)
-    return "Lanzate <onboarding@resend.dev>"
-
-
-def mail_panel():
-    host = mail_env("VERCEL_PROJECT_PRODUCTION_URL")
-    return (mail_env("REVISION_PANEL_URL") or mail_env("PORTAL_PUBLIC_URL") or ("https://" + host if host else "")).rstrip("/")
-
-
-def staff_recipients():
-    return [m.strip() for m in mail_env("REVISION_MAIL_TO").split(",") if m.strip()]
-
-
-def send_mail(payload, idempotency=""):
-    headers = {"Authorization": "Bearer " + mail_env("RESEND_API_KEY"), "Content-Type": "application/json", "User-Agent": "Lanzate/1.0"}
-    if idempotency:
-        headers["Idempotency-Key"] = idempotency
-    try:
-        request = Request("https://api.resend.com/emails", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        with urlopen(request, timeout=5):
-            return True
-    except (OSError, ValueError) as exc:
-        print("No se pudo enviar el correo «%s» (%s)." % (payload.get("subject", ""), type(exc).__name__), file=sys.stderr)
-        return False
-
-
-def request_portal_password(usuario, sitio=""):
-    stamp = now_ms()
-    with tx() as con:
-        row = con.execute(
-            "UPDATE clientes SET portal_pedido_clave = %s, portal_reset_enviado = %s "
-            "WHERE lower(portal_usuario) = %s AND portal_usuario <> '' "
-            "AND (%s = '' OR slug = %s) AND portal_reset_enviado < %s RETURNING id, nombre, email, telefono, portal_usuario",
-            (stamp, stamp, str(usuario or "").strip().lower(), sitio or "", sitio or "", stamp - 5 * 60000),
-        ).fetchone()
-    staff, panel = staff_recipients(), mail_panel()
-    if row and staff and panel and mail_env("RESEND_API_KEY") and not ISOLATED_PREVIEW:
-        contact = " · ".join(x for x in (row["email"], row["telefono"]) if x) or "sin datos de contacto cargados"
-        send_mail({
-            "from": mail_sender("REVISION_MAIL_FROM", "PORTAL_MAIL_FROM"), "to": staff,
-            "subject": "%s pidió una contraseña nueva" % row["nombre"],
-            "text": "%s pidió una contraseña nueva para su portal (usuario: %s).\n\n"
-                    "Guardale una desde su ficha y pasásela. Contacto: %s.\n\n%s/maquetas/cliente.html?id=%d"
-                    % (row["nombre"], row["portal_usuario"], contact, panel, row["id"]),
-        })
-    return {"ok": True}
-
-
-def reset_portal_password(token, password):
-    if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
-        raise ApiError(400, "El enlace es inválido o venció.")
-    if not isinstance(password, str) or not 12 <= len(password) <= 128:
-        raise ApiError(400, "Usá entre 12 y 128 caracteres.")
-    digest = hashlib.sha256(token.encode()).hexdigest()
-    with tx() as con:
-        valid = con.execute(
-            "SELECT 1 FROM clientes WHERE portal_reset_hash = %s AND portal_reset_vence > %s",
-            (digest, now_ms()),
-        ).fetchone()
-        if not valid:
-            raise ApiError(400, "El enlace es inválido o venció.")
-        changed = con.execute(
-            "UPDATE clientes SET portal_clave = %s, portal_clave_ver = %s, portal_version = portal_version + 1, "
-            "portal_reset_hash = '', portal_reset_vence = 0 WHERE portal_reset_hash = %s "
-            "AND portal_reset_vence > %s RETURNING id",
-            (hash_portal_password(password), seal_portal_password(password), digest, now_ms()),
-        ).fetchone()
-        if not changed:
-            raise ApiError(400, "El enlace es inválido o venció.")
-    return {"ok": True}
-
-
-def make_session():
-    expires = str(int(time.time()) + SESSION_DAYS * 86400)
-    sig = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
-    return expires + "." + sig
-
-
-def valid_session(value):
-    try:
-        expires, sig = value.split(".", 1)
-        good = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig, good) and int(expires) > time.time()
-    except (ValueError, AttributeError):
-        return False
-
-
-def login_required():
-    """En Vercel siempre hace falta la clave; en local, solo si está configurada."""
-    return ON_VERCEL or bool(access_key())
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        row.update(plan=plan, plan_vence=vence, actualizado=now_ms())
+    return get_client(client_id)
 
 
 # --- Clientes ----------------------------------------------------------------
@@ -699,39 +289,33 @@ def client_type(row):
     saved = row.get("tipo_cliente")
     if saved in ("real", "demo"):
         return saved
-    domain = row["email"].strip().lower().rpartition("@")[2]
+    domain = (row.get("email") or "").strip().lower().rpartition("@")[2]
     return "demo" if domain in ("example.com", "example.net", "example.org") else "real"
 
 
-def logo_ref(client_id, logo, stamp):
-    return "/api/clientes/%d/logo?v=%d" % (client_id, stamp) if logo else ""
+def logo_ref(client):
+    """Ruta del logo del cliente: l/<cliente>/logo.<ext>."""
+    if not client.get("logo"):
+        return ""
+    return "/l/%s/%s?v=%d" % (client["slug"], client["logo"], client.get("actualizado") or 0)
 
 
-def client_logo(client_id):
-    with tx() as con:
-        row = con.execute("SELECT logo FROM clientes WHERE id = %s", (client_id,)).fetchone()
-    match = re.match(r"^data:([\w/+.-]+);base64,(.+)$", (row or {}).get("logo") or "", re.S)
-    if not match:
-        return None
-    return match.group(1), base64.b64decode(match.group(2))
+def find_client(db, client_id):
+    for row in db["clientes"]:
+        if row["id"] == client_id:
+            return row
+    raise ApiError(404, "El cliente no existe")
 
 
 def client_dict(row, count=None):
-    data = {k: row[k] for k in row.keys() if k not in ("n", "logo", "portal_clave", "portal_clave_ver", "portal_version", "portal_reset_hash", "portal_reset_vence", "portal_reset_enviado")}
-    data["tiene_portal"] = bool((row.get("portal_usuario") or "").strip())
+    data = dict(row)
     data["tipo_cliente"] = client_type(row)
-    data["logo_url"] = logo_ref(row["id"], row["logo"], row["actualizado"])
+    data["logo_url"] = logo_ref(row)
     data["carpeta"] = "/l/" + row["slug"] + "/"
+    data["editor"] = editor_url(row)
     if count is not None:
         data["landings"] = count
     return data
-
-
-def get_client_row(con, client_id):
-    row = con.execute("SELECT * FROM clientes WHERE id = %s", (client_id,)).fetchone()
-    if not row:
-        raise ApiError(404, "El cliente no existe")
-    return row
 
 
 def legal_url(value):
@@ -803,15 +387,16 @@ def clean_client(data, previous=None):
     return values
 
 
-def unique_client_slug(con, nombre, exclude_id=0):
+def unique_client_slug(db, nombre, exclude_id=0):
     base = slugify(nombre, "cliente")
+    taken = {c["slug"] for c in db["clientes"] if c["id"] != exclude_id}
     slug, n = base, 2
-    while con.execute("SELECT 1 FROM clientes WHERE slug = %s AND id <> %s", (slug, exclude_id)).fetchone():
+    while slug in taken:
         slug, n = "%s-%d" % (base, n), n + 1
     return slug
 
 
-def clean_logo(data_url):
+def decode_logo(data_url):
     match = re.match(r"^data:([\w/+.-]+);base64,(.+)$", data_url or "", re.S)
     if not match or match.group(1) not in LOGO_TYPES:
         raise ApiError(400, "El logo tiene que ser PNG, JPG, WEBP o SVG")
@@ -821,152 +406,140 @@ def clean_logo(data_url):
         raise ApiError(400, "No se pudo leer el logo")
     if len(raw) > MAX_LOGO:
         raise ApiError(400, "El logo pesa más de 2 MB")
-    return "data:%s;base64,%s" % (match.group(1), base64.b64encode(raw).decode())
+    return LOGO_TYPES[match.group(1)], raw
+
+
+def write_logo(slug, data_url):
+    ext, raw = decode_logo(data_url)
+    folder = os.path.join(LANDINGS_DIR, slug)
+    os.makedirs(folder, exist_ok=True)
+    for old in Path(folder).glob("logo.*"):
+        old.unlink()
+    Path(folder, "logo." + ext).write_bytes(raw)
+    return "logo." + ext
+
+
+def next_id(rows):
+    return max([r["id"] for r in rows] or [0]) + 1
 
 
 def list_clients():
-    with tx() as con:
-        rows = con.execute(
-            "SELECT c.id, c.slug, c.nombre, c.contacto, c.email, c.telefono, c.rubro, c.sitio, "
-            "c.color_primario, c.color_secundario, c.notas, c.estado, c.creado, c.actualizado, "
-            "c.privacidad_url, c.terminos_url, c.tipo_cliente, c.direccion, c.horario, "
-            "c.instagram, c.facebook, c.linkedin, c.logo_modo, c.ga4, c.gtm, c.meta_pixel, c.portal_pedido_clave, "
-            "(c.logo <> '') AS logo, "
-            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id) AS n, "
-            "(SELECT COUNT(*) FROM landings l WHERE l.cliente_id = c.id AND l.revision_estado = 'pendiente') AS pendientes "
-            "FROM clientes c ORDER BY lower(c.nombre)"
-        ).fetchall()
-        return [client_dict(r, r["n"]) for r in rows]
+    with store("clientes", "landings", save=False) as db:
+        counts = {}
+        for landing in db["landings"]:
+            counts[landing["cliente_id"]] = counts.get(landing["cliente_id"], 0) + 1
+        rows = sorted(db["clientes"], key=lambda c: c["nombre"].lower())
+        return [client_dict(r, counts.get(r["id"], 0)) for r in rows]
 
 
 def get_client(client_id):
-    with tx() as con:
-        row = get_client_row(con, client_id)
-        landings = con.execute(LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
+    with store("clientes", "landings", save=False) as db:
+        row = find_client(db, client_id)
+        landings = sorted((l for l in db["landings"] if l["cliente_id"] == client_id),
+                          key=lambda l: -l["actualizado"])
         data = client_dict(row, len(landings))
-        data["portal_clave"] = open_portal_password(row.get("portal_clave_ver") or "")
-        data["lista"] = [landing_dict(l) for l in landings]
+        data["lista"] = [landing_dict(l, row, summary=True) for l in landings]
         return data
 
 
 def create_client(data):
     values = clean_client(data)
-    with tx() as con:
-        values["slug"] = unique_client_slug(con, values["nombre"])
-        values["logo"] = clean_logo(data["logo_data"]) if data.get("logo_data") else ""
+    with store("clientes") as db:
+        values["slug"] = unique_client_slug(db, values["nombre"])
+        values["id"] = next_id(db["clientes"])
+        values["logo"] = write_logo(values["slug"], data["logo_data"]) if data.get("logo_data") else ""
+        values["plan"] = values["plan_vence"] = ""
         values["creado"] = values["actualizado"] = now_ms()
-        cols = list(values)
-        new_id = con.execute(
-            "INSERT INTO clientes (%s) VALUES (%s) RETURNING id" % (", ".join(cols), ", ".join(["%s"] * len(cols))),
-            list(values.values()),
-        ).fetchone()["id"]
-        created = client_dict(get_client_row(con, new_id), 0)
-    ensure_client_folder(created["slug"])
-    record_audit("cliente", "alta " + created["nombre"])
-    return created
+        db["clientes"].append(values)
+    os.makedirs(os.path.join(LANDINGS_DIR, values["slug"]), exist_ok=True)
+    return client_dict(values, 0)
 
 
 def update_client(client_id, data):
-    with tx() as con:
-        previous = get_client_row(con, client_id)
-        values = clean_client(data, previous)
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        values = clean_client(data, row)
         if data.get("logo_data"):
-            values["logo"] = clean_logo(data["logo_data"])
+            values["logo"] = write_logo(row["slug"], data["logo_data"])
         elif data.get("logo_quitar"):
+            for old in Path(LANDINGS_DIR, row["slug"]).glob("logo.*"):
+                old.unlink()
             values["logo"] = ""
-        if values.get("email") != previous.get("email"):
-            values.update(portal_reset_hash="", portal_reset_vence=0)
         values["actualizado"] = now_ms()
-        con.execute(
-            "UPDATE clientes SET %s WHERE id = %%s" % ", ".join(k + " = %s" for k in values),
-            list(values.values()) + [client_id],
-        )
-        count = con.execute("SELECT COUNT(*) AS n FROM landings WHERE cliente_id = %s", (client_id,)).fetchone()["n"]
-        updated = client_dict(get_client_row(con, client_id), count)
-    record_audit("cliente", "edición " + updated["nombre"])
-    return updated
+        row.update(values)
+    render_client_landings(client_id)
+    return get_client(client_id)
 
 
 def delete_client(client_id):
-    with tx() as con:
-        row = get_client_row(con, client_id)
-        count = con.execute("SELECT COUNT(*) AS n FROM landings WHERE cliente_id = %s", (client_id,)).fetchone()["n"]
+    with store("clientes", "landings") as db:
+        row = find_client(db, client_id)
+        count = sum(1 for l in db["landings"] if l["cliente_id"] == client_id)
         if count:
             raise ApiError(409, "«%s» tiene %d landing%s. Eliminalas o pasalas a otro cliente antes de borrarlo."
                            % (row["nombre"], count, "" if count == 1 else "s"))
-        con.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-        nombre = row["nombre"]
-        slug = row["slug"]
-    remove_client_folder(slug)
-    record_audit("cliente", "baja " + nombre)
-    return nombre
+        db["clientes"].remove(row)
+    shutil.rmtree(os.path.join(LANDINGS_DIR, row["slug"]), ignore_errors=True)
+    return row["nombre"]
 
 
 # --- Landings ----------------------------------------------------------------
 
-LANDING_SELECT = (
-    "SELECT l.id, l.cliente_id, l.nombre, l.slug, l.items, l.estilo, l.ignorados, l.descripcion, l.animacion, l.portada, l.creado, l.actualizado, "
-    "(l.preview <> '') AS tiene_preview, (l.html <> '') AS disponible, l.revision_estado, EXISTS (SELECT 1 FROM landing_publicaciones p WHERE p.landing_id = l.id AND p.creado = l.actualizado) AS restaurable, "
-    "c.nombre AS cliente, c.slug AS cliente_slug, "
-    "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id) AS consultas, "
-    "(SELECT COUNT(*) FROM consultas q WHERE q.landing_id = l.id AND NOT q.leida) AS consultas_nuevas "
-    "FROM landings l JOIN clientes c ON c.id = l.cliente_id"
-)
-
-LANDING_SUMMARY_SELECT = LANDING_SELECT.replace(
-    "l.items, l.estilo, l.ignorados,", "jsonb_array_length(l.items) AS cantidad_modulos,"
-).replace(
-    "l.portada, l.creado", "CASE WHEN left(l.portada, 5) = 'data:' THEN '' ELSE l.portada END AS portada, l.creado"
-)
-
-
-def landing_dict(row):
-    url = "/l/%s/%s/" % (row["cliente_slug"], row["slug"])
-    preview = "/api/landings/%d/preview?v=%d" % (row["id"], row["actualizado"]) if row["tiene_preview"] else row["portada"]
-    return {
-        "preview": preview,
-        "portada": row["portada"],
+def landing_dict(row, client, summary=False):
+    url = "/l/%s/%s/" % (client["slug"], row["slug"])
+    data = {
+        "preview": row.get("portada") or "",
+        "portada": row.get("portada") or "",
         "descripcion": row.get("descripcion") or "",
         "animacion": row.get("animacion") or "",
+        "ejemplo": bool(row.get("ejemplo")),
         "id": row["id"],
         "cliente_id": row["cliente_id"],
-        "cliente": row["cliente"],
-        "cliente_slug": row["cliente_slug"],
+        "cliente": client["nombre"],
+        "cliente_slug": client["slug"],
         "nombre": row["nombre"],
         "slug": row["slug"],
-        **({"items": row["items"] or [], "estilo": row["estilo"], "ignorados": row["ignorados"] or []}
-           if "items" in row else {"cantidad_modulos": row["cantidad_modulos"]}),
-        "consultas": row.get("consultas") or 0,
-        "consultas_nuevas": row.get("consultas_nuevas") or 0,
         "creado": row["creado"],
         "actualizado": row["actualizado"],
         "url": url,
         "path": url.lstrip("/"),
-        "disponible": row["disponible"],
-        "revision_estado": row.get("revision_estado") or "",
-        "restaurable": bool(row.get("restaurable")),
+        "editor": editor_url(client, row),
+        "disponible": bool(row.get("html")),
     }
+    if summary:
+        data["cantidad_modulos"] = len(row.get("items") or [])
+    else:
+        data.update(items=row.get("items") or [], estilo=row.get("estilo") or "", ignorados=row.get("ignorados") or [])
+    return data
 
 
-def get_landing_row(con, landing_id):
-    row = con.execute(LANDING_SELECT + " WHERE l.id = %s", (landing_id,)).fetchone()
-    if not row:
-        raise ApiError(404, "La landing no existe")
-    return row
+def find_landing(db, landing_id):
+    for row in db["landings"]:
+        if row["id"] == landing_id:
+            return row
+    raise ApiError(404, "La landing no existe")
 
 
 def list_landings(client_id=None):
-    with tx() as con:
-        if client_id:
-            rows = con.execute(LANDING_SUMMARY_SELECT + " WHERE l.cliente_id = %s ORDER BY l.actualizado DESC", (client_id,)).fetchall()
-        else:
-            rows = con.execute(LANDING_SUMMARY_SELECT + " ORDER BY l.actualizado DESC").fetchall()
-        return [landing_dict(r) for r in rows]
+    with store("clientes", "landings", save=False) as db:
+        clients = {c["id"]: c for c in db["clientes"]}
+        rows = [l for l in db["landings"] if (not client_id or l["cliente_id"] == client_id) and l["cliente_id"] in clients]
+        rows.sort(key=lambda l: -l["actualizado"])
+        return [landing_dict(r, clients[r["cliente_id"]], summary=True) for r in rows]
 
 
 def get_landing(landing_id):
-    with tx() as con:
-        return landing_dict(get_landing_row(con, landing_id))
+    with store("clientes", "landings", save=False) as db:
+        row = find_landing(db, landing_id)
+        return landing_dict(row, find_client(db, row["cliente_id"]))
+
+
+def editor_url(client, landing=None):
+    """Página donde el cliente arma su pedido de cambios (estática, sin login)."""
+    base = read_config()["urlPublica"]
+    if landing is None:
+        return base + "/editar/?c=" + quote(client["slug"])
+    return base + "/editar/?l=" + quote(client["slug"] + "/" + landing["slug"])
 
 
 def fill_image_alts(document):
@@ -1074,303 +647,9 @@ def image_metadata_errors(html, rules):
     return errors
 
 
-def limit_client_edit(previous, data):
-    """El cliente cambia textos, fotos y links. No módulos, nombre, cliente ni colores."""
-    if not previous:
-        raise ApiError(403, "Desde el sitio solo se edita una landing que ya existe.")
-    data["cliente_id"] = previous["cliente_id"]
-    data["nombre"] = previous["nombre"]
-    data["estilo"] = previous["estilo"] or ""
-    data["ignorados"] = previous["ignorados"] or []
-    data["descripcion"] = previous["descripcion"] or ""
-    data["animacion"] = previous["animacion"] or ""
-    old = previous["items"] or []
-    new = data.get("items") or []
-    if (not isinstance(new, list) or len(old) != len(new)
-            or any(not isinstance(b, dict) or a.get("id") != b.get("id") for a, b in zip(old, new))):
-        raise ApiError(403, "Desde el sitio no se cambian los módulos.")
-    merged = []
-    repeatable = ("productos-", "galeria-imagenes-", "carrusel-imagenes-", "agenda-")
-    for saved, incoming in zip(old, new):
-        item = dict(saved)
-        incoming = incoming if isinstance(incoming, dict) else {}
-        module_id = str(saved.get("id") or "")
-        can_repeat = module_id.startswith(repeatable)
-        html = incoming.get("html")
-        if can_repeat and isinstance(html, str) and html.strip():
-            if re.search(r"<\s*script", html, re.I):
-                raise ApiError(400, "No se puede guardar ese contenido.")
-            item["html"] = html
-            for key in ("textos", "imagenes", "links"):
-                if key in incoming:
-                    item[key] = incoming[key]
-                elif key in item:
-                    del item[key]
-        else:
-            for key in ("textos", "imagenes", "links"):
-                if key in incoming:
-                    item[key] = incoming[key]
-        merged.append(item)
-    data["items"] = merged
-    return data
 
 
-def lock_landing_revision(con, landing_id):
-    row = con.execute(
-        "SELECT id, cliente_id, actualizado, revision_cliente, revision_estado, html "
-        "FROM landings WHERE id = %s FOR UPDATE", (landing_id,),
-    ).fetchone()
-    if not row:
-        raise ApiError(404, "La landing no existe.")
-    return row
-
-
-def check_landing_revision(row, token):
-    revision = row["revision_cliente"]
-    if row["revision_estado"] != "pendiente" or not revision or revision["token"] != token:
-        raise ApiError(409, "La propuesta cambió. Volvé a abrir la revisión antes de decidir.")
-    if revision["base"] != row["actualizado"]:
-        raise ApiError(409, "La versión publicada cambió. Pedile al cliente que vuelva a enviar sus cambios.")
-    return revision
-
-
-def submit_landing_revision(landing_id, client_id, data):
-    with tx() as con:
-        current = lock_landing_revision(con, landing_id)
-        if current["cliente_id"] != client_id:
-            raise ApiError(403, "Esta landing es de otro cliente.")
-        previous = get_landing_row(con, landing_id)
-        if data.get("base_revision") != current["actualizado"]:
-            raise ApiError(409, "La versión publicada cambió. Recargá la landing antes de enviar.")
-        pending = current["revision_cliente"]
-        if (pending["token"] if pending else None) != data.get("revision_token"):
-            raise ApiError(409, "Hay otra versión de la propuesta. Recargá la landing antes de enviar.")
-        data = limit_client_edit(previous, data)
-        markup = data.get("html")
-        if not isinstance(markup, str) or not markup.strip():
-            raise ApiError(400, "Falta el HTML de la propuesta.")
-        fields = ("cliente_id", "nombre", "html", "items", "estilo", "ignorados", "descripcion", "animacion")
-        client = get_client_row(con, client_id)
-        revision = {"token": secrets.token_urlsafe(18), "base": current["actualizado"],
-                    "logo": logo_ref(client_id, client["logo"], client["actualizado"]),
-                    "creado": now_ms(), "data": {key: data[key] for key in fields}}
-        con.execute("UPDATE landings SET revision_cliente = %s, revision_estado = 'pendiente' WHERE id = %s",
-                    (Jsonb(revision), landing_id))
-        return {"id": landing_id, "cliente_id": client_id, "revision_estado": "pendiente",
-                "revision_token": revision["token"]}
-
-
-def notify_landing_revision(landing_id, token):
-    if ISOLATED_PREVIEW:
-        return
-    recipients = staff_recipients()
-    panel = mail_panel()
-    if not all((mail_env("RESEND_API_KEY"), recipients, panel)):
-        print("Aviso de revisión pendiente: falta configurar el correo.", file=sys.stderr)
-        return
-    with tx() as con:
-        row = con.execute(
-            "SELECT l.nombre AS landing, c.id AS cliente_id, c.nombre AS cliente FROM landings l "
-            "JOIN clientes c ON c.id = l.cliente_id WHERE l.id = %s", (landing_id,),
-        ).fetchone()
-    if not row:
-        return
-    ficha = "%s/maquetas/cliente.html?id=%d" % (panel, row["cliente_id"])
-    send_mail({
-        "from": mail_sender("REVISION_MAIL_FROM", "PORTAL_MAIL_FROM"),
-        "to": recipients,
-        "subject": "%s hizo cambios en «%s»" % (row["cliente"], row["landing"]),
-        "text": "%s envió cambios en la landing «%s». Están esperando tu revisión: entrá a su ficha para "
-                "ver qué cambió y aprobar o rechazar cada cambio.\n\n%s" % (row["cliente"], row["landing"], ficha),
-    }, "landing-revision/" + token)
-
-
-def revision_document(markup):
-    return html_dom.document_fromstring(markup or "<html><body></body></html>")
-
-
-def revision_comparison(published, proposed, decisions=None):
-    """Build individual decisions from matching DOM nodes and apply them to a copy."""
-    old, new = revision_document(published), revision_document(proposed)
-    changes = []
-    affected = set()
-
-    def add(section, kind, before, after, apply):
-        key = str(len(changes) + 1)
-        changes.append({"id": key, "seccion": section, "tipo": kind, "antes": before, "despues": after})
-        if decisions is not None and decisions.get(key) == "aprobar":
-            apply()
-            affected.add(section)
-
-    def serialize(node):
-        return html_dom.tostring(node, encoding="unicode", with_tail=False)
-
-    def walk(a, b, section):
-        # Footer navigation is derived from the approved header links.
-        if section.split(" · ", 1)[1].startswith("footer-") and (
-            "foot-links" in a.get("class", "").split() or a.get("aria-label") == "Navegación del pie"
-        ):
-            return
-        if a.tag != b.tag or [n.tag for n in a] != [n.tag for n in b]:
-            def replace():
-                a.getparent().replace(a, revision_fragment(serialize(b), a.tail))
-            add(section, "bloque", serialize(a), serialize(b), replace)
-            return
-        for field in ("text", "tail"):
-            before, after = getattr(a, field), getattr(b, field)
-            if (before or "").strip() != (after or "").strip():
-                add(section, "texto", before, after, lambda: setattr(a, field, after))
-        if dict(a.attrib) != dict(b.attrib):
-            def update_attributes():
-                a.attrib.clear()
-                a.attrib.update(b.attrib)
-            kind = "imagen" if a.tag == "img" else "enlace" if a.tag == "a" else "bloque"
-            add(section, kind, serialize(a), serialize(b), update_attributes)
-        for left, right in zip(list(a), list(b)):
-            if isinstance(left.tag, str) and isinstance(right.tag, str):
-                walk(left, right, section)
-
-    old_sections = old.xpath("//body/*[@data-module] | //main/*[@data-module]")
-    new_sections = new.xpath("//body/*[@data-module] | //main/*[@data-module]")
-    if not old_sections or [(x.get("id"), x.get("data-module")) for x in old_sections] != [
-        (x.get("id"), x.get("data-module")) for x in new_sections
-    ]:
-        raise ApiError(409, "Las secciones de la propuesta no coinciden con la versión publicada.")
-    for index, (a, b) in enumerate(zip(old_sections, new_sections)):
-        walk(a, b, "%d · %s" % (index + 1, a.get("data-module")))
-    if decisions is not None and (set(decisions) != {c["id"] for c in changes}
-                                  or any(value not in ("aprobar", "rechazar") for value in decisions.values())):
-        raise ApiError(400, "Elegí aprobar o rechazar cada cambio antes de continuar.")
-    return changes, old, affected
-
-
-def revision_fragment(markup, tail=None):
-    node = html_dom.fragment_fromstring(markup)
-    node.tail = tail
-    return node
-
-
-def revision_markup(proposal, client):
-    data = proposal["data"]
-    return publish_html(data["html"], data["items"],
-                        proposal.get("logo", logo_ref(client["id"], client["logo"], client["actualizado"])))
-
-
-def landing_revision_details(landing_id):
-    with tx() as con:
-        row = lock_landing_revision(con, landing_id)
-        proposal = row["revision_cliente"]
-        if row["revision_estado"] != "pendiente" or not proposal:
-            raise ApiError(404, "La landing no tiene cambios pendientes.")
-        client = get_client_row(con, row["cliente_id"])
-        proposed = revision_markup(proposal, client)
-    changes, _, _ = revision_comparison(row["html"], proposed)
-    return {"token": proposal["token"], "creado": proposal["creado"], "cambios": changes}
-
-
-def validate_revision_markup(document):
-    allowed_tags = frozenset(
-        "a abbr article aside b blockquote br button caption circle dd details dialog div dl dt em fieldset "
-        "figcaption figure footer form g h1 h2 h3 h4 h5 h6 hr i iframe img input label legend li line "
-        "main nav ol optgroup option p path picture polygon polyline rect s section select small source span "
-        "strong summary svg table tbody td textarea th thead time tr ul video".split()
-    )
-    for module in document.xpath("//body/*[@data-module] | //main/*[@data-module]"):
-        for node in module.iter():
-            if not isinstance(node.tag, str):
-                continue
-            if node.tag.lower() not in allowed_tags:
-                raise ApiError(400, "La propuesta contiene elementos activos que requieren edición técnica.")
-            for name, value in node.attrib.items():
-                normalized = re.sub(r"[\x00-\x20]+", "", value).lower()
-                attribute = name.lower().rsplit(":", 1)[-1]
-                if (attribute.startswith("on") or attribute == "srcdoc"
-                        or (attribute in ("srcset", "style") and any(
-                            scheme in normalized for scheme in ("javascript:", "vbscript:", "data:text/")))
-                        or (attribute in ("href", "src", "action", "formaction", "poster") and
-                            normalized.startswith(("javascript:", "vbscript:", "data:text/", "data:image/svg")))):
-                    raise ApiError(400, "La propuesta contiene un enlace o atributo inseguro.")
-            if node.tag == "iframe":
-                url = urlsplit(node.get("src") or "")
-                if url.scheme != "https" or url.hostname not in ("www.google.com", "maps.google.com",
-                                                                "www.youtube-nocookie.com", "www.youtube.com",
-                                                                "player.vimeo.com"):
-                    raise ApiError(400, "La propuesta contiene un contenido incrustado sin verificar.")
-
-
-def decide_landing_revision(landing_id, token, action, decisions, fingerprint=None):
-    if not isinstance(token, str) or action not in ("preview", "publicar") or not isinstance(decisions, dict):
-        raise ApiError(400, "Revisá las decisiones de la propuesta.")
-    with tx() as con:
-        row = lock_landing_revision(con, landing_id)
-        proposal = check_landing_revision(row, token)
-        client = get_client_row(con, row["cliente_id"])
-        proposed = revision_markup(proposal, client)
-        changes, document, affected = revision_comparison(row["html"], proposed, decisions)
-        if action == "publicar" and not affected:
-            con.execute("UPDATE landings SET revision_cliente = NULL, revision_estado = 'rechazada' WHERE id = %s",
-                        (landing_id,))
-            return {"publicada": False}
-        sync_landing_footer_menu(document.find("body"))
-        merged = "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
-        if affected:
-            validate_revision_markup(document)
-        digest = hashlib.sha256(merged.encode()).hexdigest()
-        if action == "preview":
-            return {"html": merged, "huella": digest}
-        if fingerprint != digest:
-            raise ApiError(409, "Abrí la vista previa del resultado antes de publicar.")
-        previous = get_landing_row(con, landing_id)
-        data = dict(proposal["data"])
-        data["html"] = merged
-        # The editor must reopen the exact approved markup, including mixed decisions.
-        sections = document.xpath("//body/*[@data-module] | //main/*[@data-module]")
-        items = [dict(item) for item in previous["items"]]
-        if len(items) != len(sections):
-            raise ApiError(409, "La estructura guardada no coincide con la versión publicada.")
-        for index, section in enumerate(sections):
-            label = "%d · %s" % (index + 1, section.get("data-module"))
-            if label not in affected:
-                continue
-            frame = next((child for child in section if "mq-frame" in child.get("class", "").split()), None)
-            if frame is None or items[index].get("id") != section.get("data-module"):
-                raise ApiError(409, "No se pudo identificar un módulo de la propuesta.")
-            item = items[index]
-            item["html"] = (frame.text or "") + "".join(html_dom.tostring(child, encoding="unicode") for child in frame)
-            for key in ("textos", "imagenes", "links", "ocultos"):
-                item.pop(key, None)
-            item["menuAjustado"] = True
-        data["items"] = items
-    return save_landing(data, landing_id, revision=token, decisions=decisions, fingerprint=digest)
-
-
-def restore_landing_publication(landing_id):
-    with tx() as con:
-        current = lock_landing_revision(con, landing_id)
-        if current["revision_estado"] == "pendiente":
-            raise ApiError(409, "Resolvé primero la propuesta pendiente.")
-        record = con.execute(
-            "SELECT anterior FROM landing_publicaciones WHERE landing_id = %s AND creado = %s ORDER BY id DESC LIMIT 1",
-            (landing_id, current["actualizado"]),
-        ).fetchone()
-        if not record:
-            raise ApiError(409, "No hay una versión anterior para restaurar.")
-        before = record["anterior"]
-        if before["cliente_id"] != current["cliente_id"]:
-            raise ApiError(409, "La versión anterior corresponde a otro cliente.")
-        con.execute(
-            "UPDATE landings SET items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, "
-            "html = %s, portada = %s, preview = '', revision_estado = '', actualizado = %s WHERE id = %s",
-            (Jsonb(before["items"]), before["estilo"], Jsonb(before["ignorados"]), before["descripcion"],
-             before["animacion"], before["html"], cover_of(before["html"]), max(now_ms(), current["actualizado"] + 1), landing_id),
-        )
-        saved = landing_dict(get_landing_row(con, landing_id))
-    write_landing_folder(saved["cliente_slug"], saved["slug"], before["html"])
-    record_audit("restaurar", saved["nombre"])
-    return saved
-
-
-def save_landing(data, landing_id=None, revision=None, decisions=None, fingerprint=None):
+def save_landing(data, landing_id=None):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
     items = data.get("items") or []
@@ -1396,22 +675,13 @@ def save_landing(data, landing_id=None, revision=None, decisions=None, fingerpri
     if animacion not in ("", "suave", "marcada"):
         animacion = ""
 
-    with tx() as con:
-        client = get_client_row(con, client_id)
-        if landing_id:
-            current = lock_landing_revision(con, landing_id)
-            if revision:
-                check_landing_revision(current, revision)
-            elif current["revision_estado"] == "pendiente":
-                raise ApiError(409, "Resolvé primero los cambios pendientes del cliente.")
+    with store("clientes", "landings") as db:
+        client = find_client(db, client_id)
+        current = find_landing(db, landing_id) if landing_id else None
         slug = slugify(nombre)
-        clash = con.execute(
-            "SELECT 1 FROM landings WHERE cliente_id = %s AND slug = %s AND id <> %s",
-            (client_id, slug, landing_id or 0),
-        ).fetchone()
-        if clash:
+        if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-        html = publish_html(html, items, logo_ref(client["id"], client["logo"], client["actualizado"]))
+        html = publish_html(html, items, logo_ref(client))
         if (rules.get("general") or {}).get("bloquear"):
             final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
             errors = published_structure_errors(final_markup)
@@ -1421,84 +691,244 @@ def save_landing(data, landing_id=None, revision=None, decisions=None, fingerpri
             placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
             if placeholder:
                 raise ApiError(400, "Reemplazá el dato de ejemplo «%s» antes de publicar." % placeholder.group())
-        stamp = max(now_ms(), current["actualizado"] + 1) if landing_id else now_ms()
-        values = (client_id, nombre, slug, Jsonb(items), estilo, Jsonb(ignorados), descripcion, animacion, html, cover_of(html), stamp)
+        stamp = max(now_ms(), current["actualizado"] + 1) if current else now_ms()
+        values = {"cliente_id": client_id, "nombre": nombre, "slug": slug, "items": items, "estilo": estilo,
+                  "ignorados": ignorados, "descripcion": descripcion, "animacion": animacion, "html": html,
+                  "portada": cover_of(html), "actualizado": stamp}
+        if "ejemplo" in data:
+            values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
-        if landing_id:
-            previous = get_landing_row(con, landing_id)
-            previous_path = (previous["cliente_slug"], previous["slug"])
-        if revision and hashlib.sha256(html.encode()).hexdigest() != fingerprint:
-            raise ApiError(409, "El resultado cambió al validar. Volvé a abrir la revisión.")
-        if revision:
-            previous_snapshot = {key: previous[key] for key in
-                                 ("cliente_id", "nombre", "items", "estilo", "ignorados", "descripcion", "animacion")}
-            previous_snapshot["html"] = current["html"]
-            con.execute(
-                "INSERT INTO landing_publicaciones (landing_id, creado, operador, decisiones, anterior, huella) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (landing_id, stamp, access_user(), Jsonb(decisions), Jsonb(previous_snapshot), fingerprint),
-            )
-        if landing_id:
-            con.execute(
-                "UPDATE landings SET cliente_id = %s, nombre = %s, slug = %s, items = %s, estilo = %s, ignorados = %s, descripcion = %s, animacion = %s, html = %s, "
-                "portada = %s, preview = '', actualizado = %s, revision_cliente = NULL, revision_estado = %s WHERE id = %s",
-                values + ("aprobada" if revision else "", landing_id),
-            )
+        if current:
+            old_client = find_client(db, current["cliente_id"])
+            previous_path = (old_client["slug"], current["slug"])
+            current.update(values)
+            row = current
         else:
-            landing_id = con.execute(
-                "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, animacion, html, portada, creado, actualizado) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                values + (stamp,),
-            ).fetchone()["id"]
-        saved = landing_dict(get_landing_row(con, landing_id))
-    write_landing_folder(saved["cliente_slug"], saved["slug"], html, previous_path)
-    record_audit("landing", saved["nombre"])
-    return saved
+            row = dict(values, id=next_id(db["landings"]), creado=stamp, ejemplo=bool(data.get("ejemplo")))
+            db["landings"].append(row)
+    if previous_path and previous_path != (client["slug"], row["slug"]):
+        shutil.rmtree(os.path.join(LANDINGS_DIR, *previous_path), ignore_errors=True)
+    render_landing(row, client)
+    write_site_files()
+    return landing_dict(row, client)
+
+
+def set_landing_example(landing_id, value):
+    with store("clientes", "landings") as db:
+        row = find_landing(db, landing_id)
+        row["ejemplo"] = bool(value)
+        client = find_client(db, row["cliente_id"])
+    write_site_files()
+    return landing_dict(row, client)
 
 
 def duplicate_landing(landing_id):
-    with tx() as con:
-        row = con.execute("SELECT * FROM landings WHERE id = %s", (landing_id,)).fetchone()
-        if not row:
-            raise ApiError(404, "La landing no existe")
+    with store("clientes", "landings") as db:
+        row = find_landing(db, landing_id)
+        client = find_client(db, row["cliente_id"])
+        taken = {l["slug"] for l in db["landings"] if l["cliente_id"] == row["cliente_id"]}
         n = 1
         while True:
             nombre = row["nombre"] + (" (copia)" if n == 1 else " (copia %d)" % n)
             slug = slugify(nombre)
-            if not con.execute("SELECT 1 FROM landings WHERE cliente_id = %s AND slug = %s", (row["cliente_id"], slug)).fetchone():
+            if slug not in taken:
                 break
             n += 1
         html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(nombre) + "</title>", row["html"], count=1, flags=re.S)
         stamp = now_ms()
-        new_id = con.execute(
-            "INSERT INTO landings (cliente_id, nombre, slug, items, estilo, ignorados, descripcion, animacion, html, portada, preview, creado, actualizado) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (row["cliente_id"], nombre, slug, Jsonb(row["items"]), row["estilo"], Jsonb(row["ignorados"] or []), row["descripcion"], row["animacion"], html, row["portada"], row["preview"], stamp, stamp),
-        ).fetchone()["id"]
-        copied = landing_dict(get_landing_row(con, new_id))
-    write_landing_folder(copied["cliente_slug"], copied["slug"], html)
-    record_audit("landing", "copia " + copied["nombre"])
-    return copied
+        copy = json.loads(json.dumps(row))
+        copy.update(id=next_id(db["landings"]), nombre=nombre, slug=slug, html=html, ejemplo=False, creado=stamp, actualizado=stamp)
+        db["landings"].append(copy)
+    render_landing(copy, client)
+    return landing_dict(copy, client)
 
 
 def delete_landing(landing_id):
-    with tx() as con:
-        row = get_landing_row(con, landing_id)
-        con.execute("DELETE FROM landings WHERE id = %s", (landing_id,))
-        nombre = row["nombre"]
-        folder = (row["cliente_slug"], row["slug"])
-    remove_landing_folder(*folder)
-    record_audit("landing", "baja " + nombre)
-    return nombre
+    with store("clientes", "landings") as db:
+        row = find_landing(db, landing_id)
+        client = find_client(db, row["cliente_id"])
+        db["landings"].remove(row)
+    shutil.rmtree(os.path.join(LANDINGS_DIR, client["slug"], row["slug"]), ignore_errors=True)
+    write_site_files()
+    return row["nombre"]
 
 
-def landing_preview(landing_id):
-    with tx() as con:
-        row = con.execute("SELECT preview FROM landings WHERE id = %s", (landing_id,)).fetchone()
-    match = re.match(r"^data:(image/[\w+.-]+);base64,(.+)$", (row or {}).get("preview") or "", re.S)
-    if not match:
+# --- Páginas estáticas -----------------------------------------------------------
+
+def relative_paths(html, depth):
+    """Las rutas /maquetas/…, /assets/… y /l/… pasan a relativas para que anden en GitHub Pages."""
+    prefix = "../" * depth
+    return ABS_REF.sub(prefix, html)
+
+
+def whatsapp_number(client):
+    digits = re.sub(r"\D", "", client.get("telefono") or "")
+    return digits if 8 <= len(digits) <= 15 else ""
+
+
+def landing_page(row, client):
+    """HTML final de la landing, con rutas absolutas (/maquetas/…)."""
+    if not row.get("html"):
         return None
-    return match.group(1), base64.b64decode(match.group(2))
+    origin = read_config()["urlPublica"]
+    path = "/l/%s/%s/" % (client["slug"], row["slug"])
+    meta = dict(row, cliente=client["nombre"], cliente_id=client["id"], cliente_actualizado=client.get("actualizado") or 0,
+                logo=client.get("logo"), direccion=client.get("direccion") or "", telefono=client.get("telefono") or "",
+                email=client.get("email") or "", tipo_cliente=client.get("tipo_cliente"),
+                ga4=client.get("ga4") or "", gtm=client.get("gtm") or "", meta_pixel=client.get("meta_pixel") or "",
+                slug_cliente=client["slug"])
+    head = '<meta name="lz-landing" content="%d">' % row["id"]
+    number = whatsapp_number(client)
+    if number:
+        head += '<meta name="lz-whatsapp" content="%s">' % number
+    if client.get("email") and client_type(client) == "real":
+        head += '<meta name="lz-email" content="%s">' % escape(client["email"], quote=True)
+    head += share_head(meta, origin, path)
+    html = row["html"].replace("</head>", head + "</head>", 1)
+    html = accessible_landing(html, row["nombre"], primary_color=client.get("color_primario"), legal_links=client)
+    return add_tracking_consent(html, meta)
+
+
+def render_landing(row, client):
+    html = landing_page(row, client)
+    folder = os.path.join(LANDINGS_DIR, client["slug"], row["slug"])
+    if not html:
+        shutil.rmtree(folder, ignore_errors=True)
+        return
+    os.makedirs(folder, exist_ok=True)
+    Path(folder, "index.html").write_text(relative_paths(html, 3), encoding="utf-8")
+
+
+def render_client_landings(client_id):
+    with store("clientes", "landings", save=False) as db:
+        client = find_client(db, client_id)
+        rows = [l for l in db["landings"] if l["cliente_id"] == client_id]
+    for row in rows:
+        render_landing(row, client)
+    write_site_files()
+
+
+def render_all():
+    """Vuelve a generar todas las páginas de l/ y los archivos públicos (sitemap, robots, legales)."""
+    with store("clientes", "landings", save=False) as db:
+        clients = {c["id"]: c for c in db["clientes"]}
+        rows = list(db["landings"])
+    expected = set()
+    for row in rows:
+        client = clients.get(row["cliente_id"])
+        if client:
+            render_landing(row, client)
+            expected.add((client["slug"], row["slug"]))
+    if os.path.isdir(LANDINGS_DIR):
+        for client_dir in Path(LANDINGS_DIR).iterdir():
+            if not client_dir.is_dir():
+                continue
+            for landing_dir in client_dir.iterdir():
+                if landing_dir.is_dir() and (client_dir.name, landing_dir.name) not in expected:
+                    shutil.rmtree(landing_dir, ignore_errors=True)
+    write_site_files()
+    return len(expected)
+
+
+def sitemap_xml(origin, rows):
+    paths = ["/l/%s/%s/" % pair for pair in rows]
+    entries = "".join("<url><loc>%s</loc></url>" % escape(origin + path) for path in paths)
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>\n"
+
+
+def public_examples(db, origin):
+    """Landings marcadas como ejemplo: son las que muestra el sitio de venta."""
+    clients = {c["id"]: c for c in db["clientes"]}
+    out = []
+    for row in sorted(db["landings"], key=lambda l: l["creado"]):
+        client = clients.get(row["cliente_id"])
+        if not client or not row.get("ejemplo") or not row.get("html"):
+            continue
+        out.append({
+            "nombre": client["nombre"],
+            "rubro": client.get("rubro") or "",
+            "landing": row["nombre"],
+            "url": origin + "/l/%s/%s/" % (client["slug"], row["slug"]),
+            "portada": (origin + row["portada"]) if row.get("portada") else "",
+            "captura": row.get("captura") or "",
+            "demo": client_type(client) == "demo",
+        })
+    return out
+
+
+def write_site_files():
+    """sitemap.xml, robots.txt y la lista de ejemplos para el sitio de venta."""
+    config = read_config()
+    origin = config["urlPublica"]
+    with store("clientes", "landings", save=False) as db:
+        clients = {c["id"]: c for c in db["clientes"]}
+        real = [(clients[l["cliente_id"]]["slug"], l["slug"]) for l in db["landings"]
+                if l["cliente_id"] in clients and l.get("html") and client_type(clients[l["cliente_id"]]) == "real"]
+        examples = public_examples(db, origin)
+    Path(ROOT, "sitemap.xml").write_text(sitemap_xml(origin, sorted(real)), encoding="utf-8")
+    Path(ROOT, "robots.txt").write_text(
+        "User-agent: *\nDisallow: /maquetas/\nDisallow: /data/\nDisallow: /editar/\nSitemap: %s/sitemap.xml\n" % origin,
+        encoding="utf-8")
+    for kind in ("privacidad", "terminos"):
+        folder = Path(ROOT, kind)
+        folder.mkdir(exist_ok=True)
+        (folder / "index.html").write_bytes(legal_page(kind))
+    if os.path.isdir(os.path.join(SITIO_VENTA, "js")):
+        body = ("/* Ejemplos que muestra la sección Proyectos. Los genera el panel de Lanzate_modulos con las\n"
+                "   landings marcadas como «ejemplo». No lo edites a mano. */\nwindow.EJEMPLOS = %s;\n"
+                % json.dumps(examples, ensure_ascii=False, indent=2))
+        target = os.path.join(SITIO_VENTA, "js", "ejemplos.js")
+        try:
+            if not os.path.isfile(target) or Path(target).read_text(encoding="utf-8") != body:
+                Path(target).write_text(body, encoding="utf-8")
+        except OSError as err:
+            print("No se pudo escribir la lista de ejemplos del sitio: %s" % err, file=sys.stderr)
+
+
+# --- Publicar con git -----------------------------------------------------------
+
+def git(folder, *args, timeout=120):
+    try:
+        done = subprocess.run(("git",) + args, cwd=folder, capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        raise ApiError(500, "No está instalado git en esta computadora.")
+    except subprocess.TimeoutExpired:
+        raise ApiError(504, "git tardó demasiado. Revisá la conexión y probá de nuevo.")
+    return done.returncode, (done.stdout + done.stderr).strip()
+
+
+def publish_repo(folder, message):
+    if not os.path.isdir(os.path.join(folder, ".git")):
+        return {"carpeta": os.path.basename(folder), "ok": False, "detalle": "La carpeta no es un repositorio de git."}
+    git(folder, "add", "-A")
+    code, out = git(folder, "diff", "--cached", "--quiet")
+    if code == 0:
+        changed = False
+    else:
+        code, out = git(folder, "commit", "-m", message)
+        if code != 0:
+            return {"carpeta": os.path.basename(folder), "ok": False, "detalle": out[-500:]}
+        changed = True
+    code, out = git(folder, "pull", "--rebase", "--autostash")
+    if code != 0:
+        git(folder, "rebase", "--abort")
+        return {"carpeta": os.path.basename(folder), "ok": False,
+                "detalle": "GitHub tiene cambios que chocan con los tuyos. Resolvelo con git en la Terminal.\n" + out[-400:]}
+    code, out = git(folder, "push")
+    if code != 0:
+        return {"carpeta": os.path.basename(folder), "ok": False, "detalle": out[-500:]}
+    return {"carpeta": os.path.basename(folder), "ok": True,
+            "detalle": "Cambios publicados." if changed else "No había cambios nuevos; se sincronizó con GitHub."}
+
+
+def publish(data):
+    message = " ".join(str(data.get("mensaje") or "").split())[:200] or "Actualiza landings desde el panel"
+    sync_plans()
+    render_all()
+    results = [publish_repo(ROOT, message)]
+    if os.path.isdir(SITIO_VENTA):
+        results.append(publish_repo(SITIO_VENTA, message))
+    return {"resultados": results, "url": read_config()["urlPublica"]}
 
 
 def accessible_button_color(color):
@@ -1799,28 +1229,6 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     return "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
 
 
-def landing_page(cliente_slug, slug, origin=""):
-    with tx() as con:
-        row = con.execute(
-            "SELECT l.id, l.nombre, l.html, l.descripcion, l.portada, l.actualizado, (l.preview <> '') AS tiene_preview, "
-            "c.id AS cliente_id, c.actualizado AS cliente_actualizado, "
-            "c.nombre AS cliente, (c.logo <> '') AS logo, c.direccion, c.telefono, c.email, c.tipo_cliente, c.color_primario, c.privacidad_url, c.terminos_url, c.ga4, c.gtm, c.meta_pixel "
-            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
-            "WHERE c.slug = %s AND l.slug = %s",
-            (cliente_slug, slug),
-        ).fetchone()
-    if not row or not row["html"]:
-        return None
-    head = '<meta name="lz-landing" content="%d">' % row["id"] + share_head(row, origin, "/l/%s/%s/" % (cliente_slug, slug))
-    html = row["html"].replace("</head>", head + "</head>", 1)
-    html = accessible_landing(
-        html, row["nombre"],
-        primary_color=row["color_primario"],
-        legal_links=row,
-    )
-    return add_tracking_consent(html, row)
-
-
 def auto_description(html):
     """Si no cargaron descripción, usa el primer párrafo que sigue al título principal."""
     after = html.split("</h1>", 1)[1] if "</h1>" in html else html.split("<body", 1)[-1]
@@ -1834,12 +1242,7 @@ def auto_description(html):
 def share_head(row, origin, path):
     """Lo que muestran Google y las redes al compartir el link."""
     desc = row["descripcion"] or auto_description(row["html"])
-    if row["portada"]:
-        image = origin + row["portada"]
-    elif row["tiene_preview"]:
-        image = "%s/api/landings/%d/preview?v=%d" % (origin, row["id"], row["actualizado"])
-    else:
-        image = ""
+    image = origin + row["portada"] if row.get("portada") and origin else ""
     tags = [
         ("name", "description", desc),
         ("property", "og:type", "website"),
@@ -1853,10 +1256,9 @@ def share_head(row, origin, path):
     if client_type(row) == "demo":
         tags.append(("name", "robots", "noindex, nofollow"))
     out = "".join('<meta %s="%s" content="%s">' % (attr, key, escape(value)) for attr, key, value in tags if value)
-    icon = logo_ref(row["cliente_id"], row["logo"], row["cliente_actualizado"]) or "/assets/favicon-lanzate.svg"
-    return out + '<link rel="icon" href="%s"><link rel="canonical" href="%s">' % (
-        escape(icon, quote=True), escape(origin + path, quote=True)
-    ) + local_business_head(row, origin + path)
+    icon = ("/l/%s/%s" % (row["slug_cliente"], row["logo"])) if row.get("logo") else "/assets/favicon-lanzate.svg"
+    canonical = '<link rel="canonical" href="%s">' % escape(origin + path, quote=True) if origin else ""
+    return out + '<link rel="icon" href="%s">' % escape(icon, quote=True) + canonical + local_business_head(row, origin + path)
 
 
 def local_business_head(row, url):
@@ -1977,18 +1379,6 @@ def add_tracking_consent(html, landing):
     return re.sub(r"</body\s*>", lambda match: ui + match.group(), html, count=1, flags=re.IGNORECASE)
 
 
-# --- Consultas que llegan desde los formularios de las landings publicadas -----
-
-def record_audit(action, detail=""):
-    try:
-        with tx() as con:
-            con.execute(
-                "INSERT INTO auditoria (usuario, accion, detalle, creado) VALUES (%s, %s, %s, %s)",
-                (access_user(), action[:80], str(detail)[:300], now_ms()),
-            )
-    except psycopg.Error as err:
-        print("No se pudo registrar la auditoría: %s" % err, file=sys.stderr)
-
 
 def legal_page(kind):
     title = "Privacidad" if kind == "privacidad" else "Términos"
@@ -2007,85 +1397,9 @@ def legal_page(kind):
     return html.encode("utf-8")
 
 
-def new_lead(data, ip=""):
-    if str(data.get("web") or "").strip():
-        return {"ok": True}
-    try:
-        landing_id = int(data.get("landing"))
-    except (TypeError, ValueError):
-        raise ApiError(400, "Falta la landing")
-    datos = data.get("datos")
-    if not isinstance(datos, dict):
-        raise ApiError(400, "La consulta está vacía")
-    clean = {}
-    for key, value in list(datos.items())[:20]:
-        if isinstance(value, bool):
-            value = "Sí" if value else "No"
-        value = str("" if value is None else value).strip()[:1000]
-        if value:
-            clean[str(key)[:40]] = value
-    if not clean:
-        raise ApiError(400, "La consulta está vacía")
-    tipo = "turno" if data.get("tipo") == "turno" else "contacto"
-    origen = str(data.get("origen") or "")[:300]
-    with tx() as con:
-        # Serializa el conteo y la inserción de consultas por landing.
-        if not con.execute("SELECT 1 FROM landings WHERE id = %s FOR NO KEY UPDATE", (landing_id,)).fetchone():
-            raise ApiError(404, "La landing no existe")
-        stamp = now_ms()
-        recent = con.execute("SELECT COUNT(*) AS n FROM consultas WHERE landing_id = %s AND creado > %s",
-                             (landing_id, stamp - 600000)).fetchone()["n"]
-        if recent >= 30:
-            raise ApiError(429, "Llegaron muchas consultas seguidas. Probá de nuevo en unos minutos.")
-        if ip:
-            by_ip = con.execute("SELECT COUNT(*) AS n FROM consultas WHERE ip = %s AND creado > %s",
-                                (ip, stamp - 600000)).fetchone()["n"]
-            if by_ip >= 8:
-                raise ApiError(429, "Llegaron muchas consultas desde esta conexión. Probá más tarde.")
-        con.execute(
-            "INSERT INTO consultas (landing_id, tipo, datos, origen, creado, ip) VALUES (%s, %s, %s, %s, %s, %s)",
-            (landing_id, tipo, Jsonb(clean), origen, stamp, ip[:64]),
-        )
-    return {"ok": True}
-
-
-def list_leads(query):
-    where, params = [], []
-    for key, column in (("landing", "q.landing_id"), ("cliente", "c.id")):
-        value = (query.get(key) or [""])[0]
-        if value.isdigit():
-            where.append(column + " = %s")
-            params.append(int(value))
-    sql = ("SELECT q.id, q.landing_id, q.tipo, q.datos, q.origen, q.leida, q.creado, l.nombre AS landing, l.slug, "
-           "c.id AS cliente_id, c.nombre AS cliente, c.slug AS cliente_slug "
-           "FROM consultas q JOIN landings l ON l.id = q.landing_id JOIN clientes c ON c.id = l.cliente_id"
-           + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY q.creado DESC LIMIT 500")
-    with tx() as con:
-        rows = con.execute(sql, params).fetchall()
-    out = []
-    for r in rows:
-        item = dict(r)
-        item["url"] = "/l/%s/%s/" % (r["cliente_slug"], r["slug"])
-        out.append(item)
-    return out
-
-
-def update_lead(lead_id, data):
-    with tx() as con:
-        row = con.execute("UPDATE consultas SET leida = %s WHERE id = %s RETURNING id", (bool(data.get("leida")), lead_id)).fetchone()
-    if not row:
-        raise ApiError(404, "La consulta no existe")
-    return {"ok": True}
-
-
-def delete_lead(lead_id):
-    with tx() as con:
-        con.execute("DELETE FROM consultas WHERE id = %s", (lead_id,))
-    return {"ok": True}
-
 
 # --- IA (textos y módulos sugeridos) ------------------------------------------
-# En local la clave vive fuera del repositorio; en Vercel, en sus variables de entorno.
+# La clave vive fuera del repositorio, en ~/.lanzate/ia.json.
 
 IA_CONFIG = os.path.join(CONFIG_DIR, "ia.json")
 IA_PROVIDERS = {
@@ -2095,10 +1409,8 @@ IA_PROVIDERS = {
 
 
 def ia_settings():
-    if ISOLATED_PREVIEW:
-        return {"proveedor": "anthropic", "clave": "", "modelo": IA_PROVIDERS["anthropic"]["modelo"]}
     data = {}
-    if not ON_VERCEL and os.path.isfile(IA_CONFIG):
+    if os.path.isfile(IA_CONFIG):
         try:
             with open(IA_CONFIG, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -2123,8 +1435,6 @@ def ia_status():
 
 
 def save_ia_settings(data):
-    if ON_VERCEL:
-        raise ApiError(400, "En la versión online la clave de la IA se carga en Vercel (variable ANTHROPIC_API_KEY u OPENAI_API_KEY).")
     provider = data.get("proveedor")
     if provider not in IA_PROVIDERS:
         raise ApiError(400, "Elegí Claude u OpenAI")
@@ -2144,11 +1454,6 @@ def ia_call(system, prompt, images=None):
     cfg = ia_settings()
     if not cfg["clave"]:
         raise ApiError(400, "Configurá la IA: tocá «Configurar IA» y pegá la clave")
-    day = now_ms() - 86400000
-    with tx() as con:
-        used = con.execute("SELECT COUNT(*) AS n FROM uso_ia WHERE creado > %s", (day,)).fetchone()["n"]
-    if used >= 80:
-        raise ApiError(429, "Se alcanzó el cupo diario de la IA. Probá mañana.")
     if cfg["proveedor"] == "openai":
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": "Bearer " + cfg["clave"], "Content-Type": "application/json"}
@@ -2191,12 +1496,6 @@ def ia_call(system, prompt, images=None):
         return json.loads(text[start:end + 1])
     except ValueError:
         raise ApiError(502, "La IA no devolvió una respuesta válida. Probá de nuevo.")
-    record_audit("ia", cfg["proveedor"])
-    try:
-        with tx() as con:
-            con.execute("INSERT INTO uso_ia (usuario, creado) VALUES (%s, %s)", (access_user(), now_ms()))
-    except psycopg.Error as err:
-        print("No se pudo registrar el uso de IA: %s" % err, file=sys.stderr)
 
 
 IA_SYSTEM = (
@@ -2382,61 +1681,20 @@ def ia_describe_images(data):
     return {"fotos": result}
 
 
-# --- HTTP ----------------------------------------------------------------------
 
-def sitemap_xml(origin):
-    with tx() as con:
-        rows = con.execute(
-            "SELECT c.slug AS cliente, l.slug AS landing, c.tipo_cliente, c.email "
-            "FROM landings l JOIN clientes c ON c.id = l.cliente_id "
-            "WHERE l.html <> '' ORDER BY c.slug, l.slug"
-        ).fetchall()
-    paths = ["/"]
-    paths.extend("/l/{cliente}/{landing}/".format(**row) for row in rows if client_type(row) == "real")
-    entries = "".join("<url><loc>%s</loc></url>" % escape(origin + path) for path in paths)
-    return '<?xml version="1.0" encoding="UTF-8"?>' + (
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
-    )
 
+# --- HTTP (solo en tu computadora) ------------------------------------------------
 
 def not_found_page():
     return Path(ROOT, "404.html").read_bytes()
 
 
-SECURITY_HEADERS = (
-    ("X-Content-Type-Options", "nosniff"),
-    ("Referrer-Policy", "strict-origin-when-cross-origin"),
-    ("X-Frame-Options", "SAMEORIGIN"),
-    ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
-    ("Content-Security-Policy",
-     "default-src 'self'; "
-     "base-uri 'self'; "
-     "form-action 'self' https://wa.me https://api.whatsapp.com mailto:; "
-     "frame-ancestors 'self'; "
-     "img-src 'self' data: blob: https:; "
-     "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; "
-     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
-     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net; "
-     "frame-src 'self' https://www.google.com https://maps.google.com https://www.googletagmanager.com; "
-     "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.supabase.co"),
-)
-
-
 class Handler(SimpleHTTPRequestHandler):
     extra_headers = ()
-    cache_control = "no-store"
 
     def end_headers(self):
-        self.send_header("Cache-Control", self.cache_control)
-        for name, value in SECURITY_HEADERS:
-            self.send_header(name, value)
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
-
-    def route(self):
-        url = urlsplit(self.path)
-        query = parse_qs(url.query)
-        path = query.pop("__path", [""])[0] or unquote(url.path)
-        return path, query
 
     def send_body(self, status, body, content_type):
         self.send_response(status)
@@ -2447,23 +1705,6 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
-
-    def send_public_landing(self, html):
-        body = html.encode("utf-8")
-        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
-        validators = {value.strip()[2:] if value.strip().startswith("W/") else value.strip() for value in self.headers.get("If-None-Match", "").split(",")}
-        self.cache_control = "public, max-age=60, stale-while-revalidate=300"
-        try:
-            if etag in validators or "*" in validators:
-                self.send_response(304)
-                self.send_header("ETag", etag)
-                self.end_headers()
-            else:
-                self.extra_headers = (("ETag", etag),)
-                self.send_body(200, body, "text/html; charset=utf-8")
-        finally:
-            self.cache_control = "no-store"
-            self.extra_headers = ()
 
     def send_json(self, status, payload):
         self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
@@ -2480,232 +1721,54 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError(400, "El contenido no es JSON válido")
         return data
 
-    def cookie(self, name):
-        for part in (self.headers.get("Cookie") or "").split(";"):
-            key, _, value = part.strip().partition("=")
-            if key == name:
-                return value
-        return ""
-
-    def session_cookie(self, value, max_age, name=COOKIE):
-        secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
-        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (name, value, max_age, secure)
-
-    def origin(self):
-        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip()
-        proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip()
-        if not re.match(r"^[\w.-]+(:\d+)?$", host) or proto not in ("http", "https"):
-            return ""
-        return "%s://%s" % (proto, host)
-
-    def authorized(self):
-        if not login_required():
+    def same_origin(self):
+        """El panel solo acepta cambios desde sus propias páginas."""
+        origin = self.headers.get("Origin")
+        if not origin:
             return True
-        return bool(access_key()) and valid_session(self.cookie(COOKIE))
+        host = self.headers.get("Host") or ""
+        return urlsplit(origin).netloc == host
 
     def serve_lanzate(self, method):
-        """Atiende la API y las landings publicadas. Devuelve False si la ruta es un archivo estático."""
-        path, query = self.route()
-        if path in ("/robots.txt", "/sitemap.xml") and method in ("GET", "HEAD"):
-            origin = self.origin()
-            if not origin:
-                self.send_json(400, {"error": "No se pudo identificar el dominio."})
-            elif path == "/robots.txt":
-                robots = "User-agent: *\nDisallow: /api/\nDisallow: /maquetas/\nDisallow: /data/\nSitemap: " + origin + "/sitemap.xml\n"
-                self.send_body(200, robots.encode("utf-8"), "text/plain; charset=utf-8")
-            else:
-                try:
-                    sitemap = sitemap_xml(origin)
-                except (ApiError, psycopg.Error):
-                    self.send_json(503, {"error": "El sitemap no está disponible temporalmente."})
-                else:
-                    self.send_body(200, sitemap.encode("utf-8"), "application/xml; charset=utf-8")
-            return True
-
-        if path in ("/privacidad", "/terminos") and method in ("GET", "HEAD"):
-            self.send_body(200, legal_page(path.strip("/")), "text/html; charset=utf-8")
-            return True
-
-        if path in PANEL_PAGES and method in ("GET", "HEAD"):
-            portal = portal_client_id(self.cookie(PORTAL_COOKIE))
-            if path == "/maquetas/constructor.html" and portal and not self.authorized():
-                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
-                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
-                return True
-            if not self.authorized():
-                target = path + ("?" + urlencode(query, doseq=True) if query else "")
-                self.send_response(303)
-                self.send_header("Location", "/maquetas/login.html?" + urlencode({"volver": target}))
-                self.send_header("Content-Length", "0")
-                self.end_headers()
-            else:
-                with open(os.path.join(ROOT, path.lstrip("/")), "rb") as page_file:
-                    self.send_body(200, page_file.read(), "text/html; charset=utf-8")
-            return True
-        if path == "/data/reglas.json" and method in ("GET", "HEAD"):
-            if self.authorized():
-                self.send_json(200, read_rules())
-            else:
-                self.send_json(401, {"error": "Ingresá a Lanzate para consultar las reglas."})
-            return True
-        sitio = SITIO_PAGE.match(path)
-        if sitio and method in ("GET", "HEAD"):
-            with open(os.path.join(ROOT, "maquetas", "portal.html"), "rb") as page_file:
-                self.send_body(200, page_file.read(), "text/html; charset=utf-8")
-            return True
-        vista = VISTA_PAGE.match(path)
-        if vista and method in ("GET", "HEAD"):
-            portal = portal_client_id(self.cookie(PORTAL_COOKIE))
-            landing_id = int(vista.group(1))
-            html = None
-            if portal:
-                with tx() as con:
-                    row = con.execute(
-                        "SELECT c.slug AS cliente_slug, l.slug FROM landings l JOIN clientes c ON c.id = l.cliente_id "
-                        "WHERE l.id = %s AND l.cliente_id = %s",
-                        (landing_id, portal),
-                    ).fetchone()
-                if row:
-                    html = landing_page(row["cliente_slug"], row["slug"], origin=self.origin())
-            if html:
-                self.send_body(200, html.encode("utf-8"), "text/html; charset=utf-8")
-            else:
-                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
-            return True
-        page = LANDING_PAGE.match(path)
-        if page and method in ("GET", "HEAD"):
-            try:
-                html = landing_page(*page.groups(), origin=self.origin())
-            except ApiError as err:
-                self.send_body(err.status, not_found_page(), "text/html; charset=utf-8")
-                return True
-            if html:
-                self.send_public_landing(html)
-            else:
-                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
-            return True
+        path = unquote(urlsplit(self.path).path)
+        query = parse_qs(urlsplit(self.path).query)
         for pattern, name in ROUTES:
             match = pattern.match(path)
             if match:
                 break
         else:
-            if path.startswith("/api/") or ON_VERCEL:
+            if path.startswith("/api/"):
                 self.send_json(404, {"error": "Ruta inexistente"})
                 return True
             return False
         token = match.group(1) if match.groups() else ""
         ident = int(token) if str(token).isdigit() else None
         try:
-            portal_id = portal_client_id(self.cookie(PORTAL_COOKIE))
-            portal_editor = portal_id and (
-                name in ("portal-inicio", "portal-actividad", "portal-consulta", "landings", "landing")
-                or (method == "GET" and name in ("clientes", "reglas", "ia"))
-            )
-            if name not in PUBLIC_ROUTES and not self.authorized() and not portal_editor:
-                raise ApiError(401, "Ingresá la clave para usar la plataforma.")
-            if name == "preview":
-                shot = landing_preview(ident)
-                if not shot:
-                    raise ApiError(404, "La landing no tiene vista previa")
-                self.send_body(200, shot[1], shot[0])
-                return True
-            if name == "logo":
-                logo = client_logo(ident)
-                if not logo:
-                    raise ApiError(404, "El cliente no tiene logo")
-                self.cache_control = "public, max-age=31536000, immutable"
-                try:
-                    self.send_body(200, logo[1], logo[0])
-                finally:
-                    self.cache_control = "no-store"
-                return True
-            self.route_token = token
-            self.portal_id = portal_id
+            if method != "GET" and not self.same_origin():
+                raise ApiError(403, "Pedido rechazado.")
             result = self.dispatch(method, name, ident, query)
         except ApiError as err:
             self.send_json(err.status, {"error": str(err)})
-        except psycopg.Error as err:
-            print("Error de base de datos: %s" % err, file=sys.stderr)
-            self.send_json(500, {"error": "No se pudo completar la acción en la base de datos. Probá de nuevo."})
+        except OSError as err:
+            print("Error de archivos: %s" % err, file=sys.stderr)
+            self.send_json(500, {"error": "No se pudo guardar en la carpeta del proyecto: %s" % err})
         else:
             self.send_json(200, result)
         return True
 
     def dispatch(self, method, name, ident, query):
-        portal_id = getattr(self, "portal_id", None)
-        if name == "portal-login" and method == "POST":
-            data = self.read_json()
-            client_id, version = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio"))
-            days = 30 if data.get("recordar") else 1
-            self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client_id, days, version), days * 86400, PORTAL_COOKIE)),)
-            return {"ok": True}
-        if name == "portal-sitio" and method == "GET":
-            return portal_site(self.route_token)
-        if name == "portal-sesion" and method == "GET":
-            sitio = ""
-            if portal_id:
-                with tx() as con:
-                    sitio = "/sitio/%s/" % get_client_row(con, portal_id)["slug"]
-            return {"ok": bool(portal_id), "cliente": portal_id or 0, "sitio": sitio}
-        if name == "portal-logout" and method == "POST":
-            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0, PORTAL_COOKIE)),)
-            return {"ok": True}
-        if name == "portal-olvide" and method == "POST":
-            data = self.read_json()
-            return request_portal_password(data.get("usuario"), data.get("sitio"))
-        if name == "portal-restablecer" and method == "POST":
-            data = self.read_json()
-            return reset_portal_password(data.get("token"), data.get("clave"))
-        if name == "portal-inicio" and method == "GET":
-            if not portal_id:
-                raise ApiError(401, "Ingresá al portal del cliente.")
-            return portal_home(portal_id)
-        if name == "portal-actividad" and method == "GET":
-            if not portal_id:
-                raise ApiError(401, "Ingresá al portal del cliente.")
-            period = (query.get("dias") or ["30"])[0]
-            if period not in ("7", "30"):
-                raise ApiError(400, "Elegí un período de 7 o 30 días.")
-            return portal_activity(portal_id, ident, int(period))
-        if name == "portal-consulta" and method == "PUT":
-            if not portal_id:
-                raise ApiError(401, "Ingresá al portal del cliente.")
-            data = self.read_json()
-            return set_portal_lead_status(portal_id, ident, data.get("landing"), data.get("estado"))
-        if name == "portal-entrar" and method == "POST":
-            with tx() as con:
-                slug = get_client_row(con, ident)["slug"]
-            return {"ok": True, "sitio": "/sitio/%s/" % slug}
-        if name == "acceso" and method == "POST":
-            data = self.read_json()
-            return set_portal_access(ident, data.get("usuario"), data.get("clave"))
+        if name == "sesion" and method == "GET":
+            return {"ok": True, "requiere": False}
+        if name == "config" and method == "GET":
+            return read_config()
+        if name == "planes" and method == "GET":
+            return read_data("planes", {}).get("planes") or []
         if name == "plan" and method == "PUT":
             return set_client_plan(ident, self.read_json())
-        if name == "sesion" and method == "GET":
-            return {"ok": self.authorized(), "requiere": login_required()}
-        if name == "login" and method == "POST":
-            if not access_key():
-                raise ApiError(500, "Falta configurar la clave de acceso (LANZATE_CLAVE).")
-            credentials = self.read_json()
-            usuario = str(credentials.get("usuario") or "")
-            clave = str(credentials.get("clave") or "")
-            if not valid_credentials(usuario, clave):
-                time.sleep(1)
-                raise ApiError(401, "El usuario o la contraseña no son correctos.")
-            self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
-            record_audit("login", "ingreso")
-            return {"ok": True}
-        if name == "logout" and method == "POST":
-            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0)),)
-            return {"ok": True}
+        if name == "publicar" and method == "POST":
+            return publish(self.read_json())
         if name == "clientes":
             if method == "GET":
-                if portal_id and not self.authorized():
-                    with tx() as con:
-                        data = client_dict(get_client_row(con, portal_id), None)
-                    data.pop("slug", None)
-                    data["carpeta"] = ""
-                    return [data]
                 return list_clients()
             if method == "POST":
                 return create_client(self.read_json())
@@ -2720,83 +1783,27 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "landings":
             if method == "GET":
                 client = (query.get("cliente") or [""])[0]
-                if portal_id and not self.authorized():
-                    client = str(portal_id)
-                rows = list_landings(int(client) if client.isdigit() else None)
-                if portal_id and not self.authorized():
-                    rows = [hide_public_path(item) for item in rows]
-                return rows
+                return list_landings(int(client) if client.isdigit() else None)
             if method == "POST":
-                if portal_id and not self.authorized():
-                    raise ApiError(403, "Desde el sitio no se crean landings.")
-                saved = save_landing(self.read_json())
-                return saved
-        if name == "landing-restaurar" and method == "POST" and self.authorized():
-            return restore_landing_publication(ident)
-        if name == "landing-revision" and self.authorized():
-            if method == "GET":
-                return landing_revision_details(ident)
-            if method == "POST":
-                decision = self.read_json()
-                return decide_landing_revision(ident, decision.get("token"), decision.get("accion"), decision.get("decisiones"), decision.get("huella"))
+                return save_landing(self.read_json())
         if name == "landing":
-            if portal_id and not self.authorized():
-                with tx() as con:
-                    owned = get_landing_row(con, ident)
-                if owned["cliente_id"] != portal_id:
-                    raise ApiError(403, "Esta landing es de otro cliente.")
-            portal_edit = bool(portal_id and (not self.authorized() or (query.get("modo") or [""])[0] == "sitio"))
             if method == "GET":
-                if portal_edit:
-                    with tx() as con:
-                        row = lock_landing_revision(con, ident)
-                        if row["cliente_id"] != portal_id:
-                            raise ApiError(403, "Esta landing es de otro cliente.")
-                        data = landing_dict(get_landing_row(con, ident))
-                        data["publicado"] = data["items"]
-                        pending = row["revision_cliente"]
-                        if pending:
-                            data["items"] = pending["data"]["items"]
-                            data["revision_token"] = pending["token"]
-                    return hide_public_path(data)
                 return get_landing(ident)
             if method == "PUT":
                 data = self.read_json()
-                if data.get("modo") == "sitio" or portal_edit:
-                    if not portal_id:
-                        raise ApiError(401, "Ingresá al portal del cliente.")
-                    submitted = submit_landing_revision(ident, portal_id, data)
-                    notify_landing_revision(ident, submitted["revision_token"])
-                    return submitted
+                if set(data) == {"ejemplo"}:
+                    return set_landing_example(ident, data["ejemplo"])
                 return save_landing(data, ident)
             if method == "DELETE":
-                if portal_id and not self.authorized():
-                    raise ApiError(403, "El portal no elimina landings. Pedilo a Lanzate.")
                 delete_landing(ident)
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
             return duplicate_landing(ident)
-        if name == "auditoria" and method == "GET":
-            with tx() as con:
-                rows = con.execute(
-                    "SELECT usuario, accion, detalle, creado FROM auditoria ORDER BY creado DESC LIMIT 100"
-                ).fetchall()
-            return [dict(row) for row in rows]
         if name == "reglas":
             if method == "GET":
                 return read_rules()
             if method == "PUT":
                 return save_rules(self.read_json())
-        if name == "consulta-nueva" and method == "POST":
-            forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-            return new_lead(self.read_json(), forwarded or (self.client_address[0] if self.client_address else ""))
-        if name == "consultas" and method == "GET":
-            return list_leads(query)
-        if name == "consulta":
-            if method == "PUT":
-                return update_lead(ident, self.read_json())
-            if method == "DELETE":
-                return delete_lead(ident)
         if name == "ia":
             if method == "GET":
                 return ia_status()
@@ -2814,6 +1821,18 @@ class Handler(SimpleHTTPRequestHandler):
                     return ia_describe_images(data)
                 raise ApiError(400, "Tarea de IA desconocida")
         raise ApiError(405, "Método no permitido")
+
+    def send_head(self):
+        path = unquote(urlsplit(self.path).path)
+        if path == "/data/reglas.json":
+            body = json.dumps(read_rules(), ensure_ascii=False).encode("utf-8")
+            self.send_body(200, body, "application/json; charset=utf-8")
+            return None
+        local = self.translate_path(self.path)
+        if not os.path.exists(local):
+            self.send_body(404, not_found_page(), "text/html; charset=utf-8")
+            return None
+        return super().send_head()
 
     def do_GET(self):
         if not self.serve_lanzate("GET"):
@@ -2838,16 +1857,16 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
-    host = os.environ.get("HOST") or "127.0.0.1"
-    if not os.environ.get("DATABASE_URL"):
-        print("Falta DATABASE_URL: agregala en %s" % LOCAL_ENV, file=sys.stderr)
-        sys.exit(1)
-    with tx():
-        pass
+    host = "127.0.0.1"
+    sync_plans()
+    if not os.path.isfile(data_path("clientes")):
+        write_data("clientes", [])
+        write_data("landings", [])
     server = ThreadingHTTPServer((host, port), partial(Handler, directory=ROOT))
     print("Lanzate en http://%s:%d/" % (host, port))
-    print("  Constructor → /maquetas/constructor.html")
-    print("  Landings    → /maquetas/landings.html")
+    print("  Constructor → http://%s:%d/maquetas/constructor.html" % (host, port))
+    print("  Landings    → http://%s:%d/maquetas/landings.html" % (host, port))
+    print("  Clientes    → http://%s:%d/maquetas/clientes.html" % (host, port))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

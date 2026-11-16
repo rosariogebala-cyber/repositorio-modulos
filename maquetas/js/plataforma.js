@@ -1,8 +1,7 @@
 (function () {
   "use strict";
 
-  var OFFLINE = "No hay conexión con el servidor. Revisá internet y probá de nuevo.";
-  var SHOW_LEADS = false;
+  var OFFLINE = "El panel no responde. Abrí la Terminal en Lanzate_modulos y corré: python3 server.py";
 
   var currentNav = document.querySelector(".lib-header nav .is-current");
   if (currentNav && currentNav.parentElement.scrollWidth > currentNav.parentElement.clientWidth) {
@@ -11,27 +10,7 @@
     nav.scrollLeft = left - (nav.clientWidth - currentNav.offsetWidth) / 2;
   }
 
-  function toLogin() {
-    if (/login\.html$/.test(location.pathname)) return;
-    location.href = "login.html?volver=" + encodeURIComponent(location.pathname + location.search);
-  }
-
-  var panelPage = /\/(?:constructor|landings|clientes|cliente|consultas|reglas)\.html$/.test(location.pathname);
-  if (panelPage) {
-    document.documentElement.hidden = true;
-    fetch("/api/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) {
-      return r.json();
-    }).then(function (s) {
-      if (s.ok) { document.documentElement.hidden = false; return null; }
-      if (!/\/constructor\.html$/.test(location.pathname)) { toLogin(); return null; }
-      return fetch("/api/portal/sesion", { cache: "no-store", credentials: "same-origin" }).then(function (r) {
-        return r.json();
-      }).then(function (p) {
-        if (p.ok) { window.LanzatePortal = true; document.dispatchEvent(new Event("lz-portal")); document.documentElement.hidden = false; }
-        else location.href = p.sitio || "/maquetas/portal.html";
-      });
-    }).catch(function () { toLogin(); });
-  }
+  var panelPage = /\/(?:constructor|landings|clientes|cliente|reglas)\.html$/.test(location.pathname);
 
   function esc(text) {
     return String(text == null ? "" : text).replace(/[&<>"]/g, function (c) {
@@ -46,7 +25,6 @@
       opts.body = typeof body === "string" ? body : JSON.stringify(body);
     }
     return fetch(url, opts).then(function (r) {
-      if (r.status === 401 && !/\/api\/login$/.test(url) && !/\/constructor\.html$/.test(location.pathname)) toLogin();
       if (r.status === 413) throw new Error("La landing pesa demasiado para guardarla. Usá menos fotos o más livianas.");
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) throw new Error(data.error || "No se pudo completar la acción.");
@@ -286,131 +264,6 @@
   }
 
   /* Fila de landing con acciones */
-  function reviewLanding(lp, opts) {
-    var dialog = document.createElement("dialog");
-    dialog.className = "lb-dialog pf-review";
-    dialog.setAttribute("aria-label", "Revisar cambios de " + lp.nombre);
-    dialog.innerHTML = '<h2>Revisar cambios</h2><p></p><div data-review-content></div>' +
-      '<p role="status">Cargando propuesta…</p><form method="dialog"><button class="lb-act">Cerrar</button></form>';
-    dialog.querySelector("p").textContent = lp.nombre;
-    dialog.addEventListener("close", function () { dialog.remove(); });
-    document.body.appendChild(dialog);
-    dialog.showModal();
-    var status = dialog.querySelector("[role=status]");
-    var path = "/api/landings/" + lp.id + "/revision";
-    api("GET", path).then(function (review) {
-      if (!dialog.open) return;
-      status.textContent = "";
-      var target = dialog.querySelector("[data-review-content]");
-      var labels = { texto: "Texto", imagen: "Imagen", enlace: "Enlace", bloque: "Bloque" };
-      var decisions = {};
-      var shown = -1;
-      var fingerprint = null;
-      target.innerHTML = '<div class="pf-review-bar"><p data-review-progress aria-live="polite"></p>' +
-        '<button type="button" class="lb-act" data-review-preview>Ver resultado</button>' +
-        '<button type="button" class="btn-nx btn-sm" data-review-publish>Confirmar revisión</button></div>' +
-        '<div class="pf-review-result" hidden><iframe sandbox title="Resultado de la revisión"></iframe></div>' +
-        review.cambios.map(function (change) {
-          return '<article class="pf-review-change"><header><div><span class="lb-kicker">' +
-            esc(change.seccion.replace(/-/g, " ")) + '</span><h3>' + labels[change.tipo] + ' ' + esc(change.id) +
-            '</h3></div><span data-choice-label>Pendiente</span></header><div class="pf-review-grid">' +
-            '<div><strong>Publicado</strong><div data-before></div></div><div><strong>Propuesto</strong><div data-after></div></div></div>' +
-            '<div class="lb-actions" role="group" aria-label="Decisión del cambio ' + esc(change.id) + '">' +
-            '<button type="button" class="lb-act" data-choice="aprobar" aria-pressed="false">Aprobar</button>' +
-            '<button type="button" class="lb-act" data-choice="rechazar" aria-pressed="false">Rechazar</button></div></article>';
-        }).join("");
-      var cards = target.querySelectorAll("article");
-      var preview = target.querySelector("[data-review-preview]");
-      var publish = target.querySelector("[data-review-publish]");
-      var result = target.querySelector(".pf-review-result");
-      var progress = target.querySelector("[data-review-progress]");
-      function documentPreview(html) {
-        var doc = new DOMParser().parseFromString(html, "text/html");
-        doc.querySelectorAll("script, base, meta[http-equiv], iframe, object, embed").forEach(function (el) { el.remove(); });
-        doc.querySelectorAll("a[href]").forEach(function (el) { el.removeAttribute("href"); });
-        return "<!DOCTYPE html>" + doc.documentElement.outerHTML;
-      }
-      function renderValue(box, type, value) {
-        if (type === "texto") {
-          box.textContent = value || "Sin texto";
-          return;
-        }
-        var doc = new DOMParser().parseFromString(value || "", "text/html");
-        var element = doc.body.firstElementChild;
-        if (type === "enlace" && element) {
-          box.textContent = element.getAttribute("href") || "Sin destino";
-        } else if (type === "imagen" && element && /^(\/[^/]|https:\/\/|data:image\/(?:jpeg|png|webp|gif);)/i.test(element.getAttribute("src") || "")) {
-          var img = document.createElement("img");
-          img.loading = "lazy";
-          img.src = element.getAttribute("src");
-          img.alt = element.getAttribute("alt") || "Imagen del cambio";
-          box.appendChild(img);
-          var alt = document.createElement("p");
-          alt.textContent = img.alt;
-          box.appendChild(alt);
-        } else {
-          box.textContent = doc.body.textContent.trim().slice(0, 300) || "Cambio visual. Mirá el resultado para compararlo.";
-        }
-      }
-      function update() {
-        var count = Object.keys(decisions).length;
-        var approved = Object.values(decisions).filter(function (choice) { return choice === "aprobar"; }).length;
-        progress.textContent = count + " de " + review.cambios.length + " revisados · " + approved + " aprobados";
-        preview.disabled = count !== review.cambios.length;
-        publish.disabled = preview.disabled || (approved > 0 && !fingerprint);
-        publish.textContent = approved ? "Publicar cambios aprobados" : "Cerrar sin publicar";
-      }
-      cards.forEach(function (card, index) {
-        var change = review.cambios[index];
-        renderValue(card.querySelector("[data-before]"), change.tipo, change.antes);
-        renderValue(card.querySelector("[data-after]"), change.tipo, change.despues);
-        var buttons = card.querySelectorAll("[data-choice]");
-        buttons.forEach(function (button) {
-          button.onclick = function () {
-            decisions[change.id] = button.dataset.choice;
-            shown++;
-            fingerprint = null;
-            result.hidden = true;
-            buttons.forEach(function (item) { item.setAttribute("aria-pressed", String(item === button)); });
-            card.querySelector("[data-choice-label]").textContent = button.dataset.choice === "aprobar" ? "Aprobado" : "Rechazado";
-            update();
-          };
-        });
-      });
-      function submit(action) {
-        return api("POST", path, { token: review.token, accion: action, decisiones: decisions, huella: fingerprint });
-      }
-      preview.onclick = function () {
-        var version = ++shown;
-        status.textContent = "Preparando vista previa…";
-        submit("preview").then(function (data) {
-          if (version !== shown || !dialog.open) return;
-          fingerprint = data.huella;
-          update();
-          result.querySelector("iframe").srcdoc = documentPreview(data.html);
-          result.hidden = false;
-          status.textContent = "";
-          result.scrollIntoView({ block: "nearest" });
-        }).catch(function (err) { if (version === shown) status.textContent = err.message; });
-      };
-      publish.onclick = function () {
-        if (!window.confirm("¿Confirmar las decisiones de esta revisión?")) return;
-        var controls = Array.from(target.querySelectorAll("button"));
-        controls.forEach(function (button) { button.disabled = true; });
-        submit("publicar").then(function (data) {
-          dialog.close();
-          if (opts.onMessage) opts.onMessage(data.publicada === false ? "Revisión cerrada." : "Cambios aprobados y publicados.", "ok");
-          if (opts.onChange) opts.onChange();
-        }).catch(function (err) {
-          status.textContent = err.message;
-          controls.forEach(function (button) { button.disabled = false; });
-          update();
-        });
-      };
-      update();
-    }).catch(function (err) { status.textContent = err.message; });
-  }
-
   function landingRow(lp, opts) {
     opts = opts || {};
     var li = document.createElement("li");
@@ -418,10 +271,7 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
-    if (SHOW_LEADS && lp.consultas) {
-      meta.push('<a class="pf-leads-link' + (lp.consultas_nuevas ? " is-new" : "") + '" href="consultas.html?landing=' + lp.id + '">' +
-        plural(lp.consultas, "consulta", "consultas") + (lp.consultas_nuevas ? " (" + lp.consultas_nuevas + (lp.consultas_nuevas === 1 ? " nueva" : " nuevas") + ")" : "") + "</a>");
-    }
+    if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
         '<i class="bi ' + ico + '" aria-hidden="true"></i></' + tag + ">";
@@ -436,12 +286,12 @@
       "<small>" + meta.join(" · ") + "</small>" +
       (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + "</span>" +
       '<span class="lb-saved-actions">' +
-      (lp.revision_estado === "pendiente" ? '<button class="lb-act" type="button" data-act="review">Revisar cambios</button>' : "") +
       icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
-      (lp.restaurable && lp.revision_estado !== "pendiente" ? '<button class="lb-act" type="button" data-act="restore">Restaurar versión</button>' : "") +
+      icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
+      icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link del editor para el cliente") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
@@ -458,16 +308,17 @@
       var act = btn.getAttribute("data-act");
       var report = opts.onMessage || function () {};
       if (act === "edit") opts.onEdit(lp);
-      if (act === "review") reviewLanding(lp, opts);
-      if (act === "restore" && window.confirm("¿Volver a la versión anterior de esta landing?")) {
+      if (act === "example") {
         btn.disabled = true;
-        api("POST", "/api/landings/" + lp.id + "/restaurar", {}).then(function () {
-          report("Versión anterior restaurada.", "ok");
+        api("PUT", "/api/landings/" + lp.id, { ejemplo: !lp.ejemplo }).then(function (saved) {
+          report(saved.ejemplo ? "«" + lp.nombre + "» se muestra como ejemplo en el sitio. Publicá para que se vea online." : "«" + lp.nombre + "» ya no se muestra en el sitio.", "ok");
           if (opts.onChange) opts.onChange();
-        }).catch(function (err) {
-          btn.disabled = false;
-          report(err.message, "warn");
-        });
+        }).catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
+      }
+      if (act === "editor") {
+        navigator.clipboard.writeText(lp.editor).then(function () {
+          report("Link copiado. Pasáselo al cliente: ahí marca los cambios y te los manda por WhatsApp.", "ok");
+        }, function () { window.prompt("Copiá el link del editor:", lp.editor); });
       }
       if (act === "duplicate") {
         btn.disabled = true;
@@ -478,7 +329,7 @@
           })
           .catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
       }
-      var question = "¿Eliminar «" + lp.nombre + "»? Deja de estar publicada en " + lp.url + ".";
+      var question = "¿Eliminar «" + lp.nombre + "»? Deja de estar online cuando publiques.";
       if (act === "delete" && confirm(question)) {
         btn.disabled = true;
         api("DELETE", "/api/landings/" + lp.id)
@@ -511,27 +362,24 @@
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
-      }).sort(function (a, b) { return (needsAttention(b) ? 1 : 0) - (needsAttention(a) ? 1 : 0); });
+      });
       grid.innerHTML = "";
       list.forEach(function (c) {
         var art = document.createElement("article");
-        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "") + (needsAttention(c) ? " has-pending" : "");
+        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "");
         art.innerHTML =
           '<div class="pf-client-top">' + avatar(c) +
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
-          (c.pendientes ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '"><i class="bi bi-bell-fill" aria-hidden="true"></i> ' +
-            (c.pendientes === 1 ? "Hizo cambios para revisar" : "Hizo cambios en " + c.pendientes + " landings") + "</a>" : "") +
-          (c.portal_pedido_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió una contraseña nueva</a>' : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
           (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
           (c.telefono ? '<li><i class="bi bi-telephone"></i>' + esc(c.telefono) + "</li>" : "") +
           (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
           "</ul>" +
-          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + "</span>" +
-          '<span class="pf-client-actions"><a class="btn-nx btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Abrir portal</a>' +
+          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + (c.plan ? " · " + esc(planName(c.plan)) : "") + "</span>" +
+          '<span class="pf-client-actions">' +
           '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
         grid.appendChild(art);
       });
@@ -541,15 +389,9 @@
     }
 
     function load() {
-      return api("GET", "/api/clientes").then(function (list) {
+      return loadPlans().then(function () { return api("GET", "/api/clientes"); }).then(function (list) {
         clients = list;
         render();
-        var changes = list.filter(function (c) { return c.pendientes; }).length;
-        var keys = list.filter(function (c) { return c.portal_pedido_clave; }).length;
-        var notes = [];
-        if (changes) notes.push(changes === 1 ? "Un cliente hizo cambios en su web." : changes + " clientes hicieron cambios en su web.");
-        if (keys) notes.push(keys === 1 ? "Un cliente pidió una contraseña nueva." : keys + " clientes pidieron una contraseña nueva.");
-        if (notes.length) say(msg, notes.join(" "), "warn");
       })
         .catch(function (err) { say(msg, err.message, "warn"); });
     }
@@ -595,19 +437,7 @@
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio) + "</a>" : "";
-      var pending = c.lista.filter(function (lp) { return lp.revision_estado === "pendiente"; });
       profile.innerHTML =
-        (pending.length ? '<div class="pf-pending-banner" role="status"><i class="bi bi-bell-fill" aria-hidden="true"></i>' +
-          "<p><strong>" + esc(c.nombre) + " hizo cambios en su web.</strong> Revisalos para decidir qué se publica.</p>" +
-          pending.map(function (lp, k) {
-            return '<button class="btn-nx btn-sm" type="button" data-pf-revisar="' + k + '">Revisar «' + esc(lp.nombre) + "»</button>";
-          }).join("") + "</div>" : "") +
-        (c.portal_pedido_clave ? '<div class="pf-pending-banner" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i>' +
-          "<p><strong>" + esc(c.nombre) + " pidió una contraseña nueva</strong> el " +
-          esc(new Date(c.portal_pedido_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + " a las " +
-          esc(new Date(c.portal_pedido_clave).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false })) +
-          ". Guardale una en «Acceso al portal» y pasásela.</p>" +
-          '<button class="btn-nx btn-sm" type="button" data-pf-ir-acceso>Crear contraseña</button></div>' : "") +
         '<div class="pf-profile-head">' + avatar(c, "lg") +
         '<div class="pf-profile-name"><p class="lb-kicker">' + esc(c.rubro || "Cliente") + "</p><h1>" + esc(c.nombre) + "</h1>" + status(c) + "</div>" +
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit><i class="bi bi-pencil"></i> Editar datos</button></div>' +
@@ -630,40 +460,17 @@
         '<section class="pf-admin"><h2>Administración</h2>' +
         '<p class="pf-admin-line">Alta: ' + (c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—") + "</p>" +
         '<form class="pf-admin-form" data-pf-plan>' +
-        '<label>Plan <select name="plan"><option value="">Sin plan</option><option>Base</option><option>Pro</option></select></label>' +
+        '<label>Plan <select name="plan"><option value="">Sin plan</option>' + PLANS.map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.nombre) + "</option>";
+        }).join("") + "</select></label>" +
         '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
         '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
-        '<h2 id="pf-acceso">Acceso al portal</h2>' +
-        '<p><a class="btn-nx-outline btn-sm" href="/sitio/' + encodeURIComponent(c.slug) + '/" target="_blank" rel="noopener">Entrar al portal</a></p>' +
-        '<p class="pf-admin-line">Sitio: ' + esc("/sitio/" + c.slug + "/") + "</p>" +
-        (c.portal_usuario
-          ? '<dl class="pf-acceso-actual"><div><dt>Usuario</dt><dd>' + esc(c.portal_usuario) + "</dd></div>" +
-            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : '<span class="pf-acceso-nota">Se va a ver acá cuando el cliente vuelva a entrar al portal, o si le guardás una nueva.</span>') + "</dd></div>" +
-            (c.portal_clave ? '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' : "") + "</dl>"
-          : '<p class="pf-admin-line">Todavía no tiene acceso al portal.</p>') +
-        '<p class="pf-admin-line" id="pf-acceso-ayuda">Elegí el usuario y una contraseña nueva de al menos 12 caracteres. Al guardar, se cierran las sesiones abiertas de este cliente.</p>' +
-        '<form class="pf-admin-form" data-pf-acceso aria-describedby="pf-acceso-ayuda">' +
-        '<label>Usuario <input name="usuario" required minlength="3" maxlength="40" value="' + esc(c.portal_usuario || "") + '" autocomplete="off"></label>' +
-        '<label>Contraseña nueva <input name="clave" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>' +
-        '<label><input type="checkbox" data-pf-ver-clave> Mostrar contraseña</label>' +
-        '<button class="btn-nx btn-sm" type="submit">Guardar acceso</button></form>' +
-        '<p data-pf-acceso-estado role="status"></p></section>';
-      profile.querySelectorAll("[data-pf-revisar]").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          reviewLanding(pending[Number(btn.getAttribute("data-pf-revisar"))], { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } });
-        });
-      });
-      var goAccess = function () {
-        var input = profile.querySelector("[data-pf-acceso] [name=clave]");
-        input.scrollIntoView({ behavior: "smooth", block: "center" });
-        input.focus({ preventScroll: true });
-      };
-      var accessBtn = profile.querySelector("[data-pf-ir-acceso]");
-      if (accessBtn) accessBtn.addEventListener("click", goAccess);
-      if (location.hash === "#pf-acceso") {
-        history.replaceState(null, "", location.pathname + location.search);
-        goAccess();
-      }
+        (planInfo(c.plan) ? '<p class="pf-admin-line">' + esc(planInfo(c.plan)) + "</p>" : "") +
+        '<h2 id="pf-cambios">Pedidos de cambios</h2>' +
+        '<p class="pf-admin-line">El cliente no tiene usuario ni contraseña. Le pasás este link: ahí marca los textos, fotos o links que quiere cambiar y te los manda por WhatsApp. Vos los aplicás en el constructor y publicás.</p>' +
+        '<p><a class="btn-nx-outline btn-sm" href="' + esc(c.editor) + '" target="_blank" rel="noopener">Abrir editor del cliente</a> ' +
+        '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-editor><i class="bi bi-copy" aria-hidden="true"></i> Copiar link</button></p>' +
+        '<p data-pf-editor-estado role="status"></p></section>';
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
       planForm.addEventListener("submit", function (e) {
@@ -674,37 +481,10 @@
         }).then(function () { say(msg, "Se guardó el plan.", "ok"); load(); })
           .catch(function (err) { say(msg, err.message, "warn"); });
       });
-      var accessForm = profile.querySelector("[data-pf-acceso]");
-      var accessStatus = profile.querySelector("[data-pf-acceso-estado]");
-      var password = accessForm.elements.clave;
-      var revealPassword = accessForm.querySelector("[data-pf-ver-clave]");
-      revealPassword.addEventListener("change", function () {
-        password.type = revealPassword.checked ? "text" : "password";
-      });
-      accessForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-        var button = accessForm.querySelector("button");
-        button.disabled = true;
-        say(accessStatus, "Guardando acceso…");
-        api("POST", "/api/clientes/" + c.id + "/acceso", {
-          usuario: accessForm.elements.usuario.value.trim(),
-          clave: password.value
-        }).then(function (out) {
-          accessForm.elements.usuario.value = out.usuario;
-          password.value = "";
-          password.type = "password";
-          revealPassword.checked = false;
-          say(msg, "Acceso guardado.", "ok");
-          load();
-        }).catch(function (err) { say(accessStatus, err.message, "warn"); })
-          .finally(function () { button.disabled = false; });
-      });
-      var copyAccess = profile.querySelector("[data-pf-copiar-acceso]");
-      if (copyAccess) copyAccess.addEventListener("click", function () {
-        var text = "Sitio: " + location.origin + "/sitio/" + c.slug + "/\nUsuario: " + c.portal_usuario + "\nContraseña: " + c.portal_clave;
-        navigator.clipboard.writeText(text).then(function () {
-          say(accessStatus, "Copiado: sitio, usuario y contraseña.", "ok");
-        }).catch(function () { say(accessStatus, "No se pudo copiar. Seleccioná el texto a mano.", "warn"); });
+      profile.querySelector("[data-pf-copiar-editor]").addEventListener("click", function () {
+        var out = profile.querySelector("[data-pf-editor-estado]");
+        navigator.clipboard.writeText(c.editor).then(function () { say(out, "Link copiado.", "ok"); },
+          function () { say(out, c.editor, ""); });
       });
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
         clientForm(c).then(function (saved) {
@@ -723,8 +503,7 @@
     }
 
     function load() {
-      markPendingNav();
-      return api("GET", "/api/clientes/" + id).then(render).catch(function (err) {
+      return loadPlans().then(function () { return api("GET", "/api/clientes/" + id); }).then(render).catch(function (err) {
         profile.innerHTML = '<p class="pf-empty">' + esc(err.message) + ' <a href="clientes.html">Volver a clientes</a></p>';
         newLanding.hidden = true;
       });
@@ -744,13 +523,12 @@
     var landings = [];
     var params = new URLSearchParams(location.search);
     var preset = params.get("cliente") || "";
-    var reviewId = params.get("revision");
 
     function render() {
       var q = normalize(search.value.trim());
       var cid = select.value;
       var shown = landings.filter(function (lp) {
-        return (!reviewId || String(lp.id) === reviewId) && (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
+        return (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
       });
       list.innerHTML = "";
       shown.forEach(function (lp) {
@@ -759,16 +537,6 @@
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
-      if (reviewId) {
-        var selected = shown[0];
-        say(msg, selected && selected.revision_estado === "pendiente" ?
-          "Esta landing tiene cambios pendientes. Abrí «Revisar cambios» para decidir." :
-          "La propuesta ya no está pendiente.", "");
-        var back = document.createElement("a");
-        back.href = "landings.html";
-        back.textContent = "Ver todas las landings";
-        msg.append(" ", back);
-      }
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
 
@@ -790,169 +558,50 @@
     load();
   }
 
-  /* Página: consultas que llegan desde las landings */
-  var LEAD_LABELS = { nombre: "Nombre", email: "Email", telefono: "Teléfono", servicio: "Servicio", profesional: "Profesional",
-    dia: "Día", horario: "Horario", notas: "Mensaje", mensaje: "Mensaje", recordatorio: "Recordatorio por WhatsApp", duracion: "Duración" };
-
-  var LEAD_ORDER = ["nombre", "email", "telefono", "servicio", "profesional", "dia", "horario", "duracion", "recordatorio", "notas", "mensaje"];
-
-  function waLink(tel) {
-    var d = String(tel || "").replace(/\D/g, "");
-    if (!d) return "";
-    if (d.indexOf("54") !== 0) d = "549" + d.replace(/^0/, "");
-    return "https://wa.me/" + d;
+  /* Planes: los mismos del sitio de venta (data/planes.js) */
+  var PLANS = [];
+  function loadPlans() {
+    if (PLANS.length) return Promise.resolve(PLANS);
+    return api("GET", "/api/planes").then(function (list) { PLANS = list || []; return PLANS; }, function () { return PLANS; });
+  }
+  function planName(id) {
+    var p = PLANS.filter(function (x) { return x.id === id; })[0];
+    return p ? p.nombre : id;
+  }
+  function planInfo(id) {
+    var p = PLANS.filter(function (x) { return x.id === id; })[0];
+    if (!p) return "";
+    var parts = [];
+    if (p.secciones) parts.push("hasta " + p.secciones + " secciones");
+    if (p.cambiosPorMes) parts.push(plural(p.cambiosPorMes, "cambio", "cambios") + " por mes");
+    return parts.length ? "Plan " + p.nombre + ": " + parts.join(" y ") + "." : "";
   }
 
-  function pageConsultas() {
-    var list = document.querySelector("[data-pf-leads]");
-    var empty = document.querySelector("[data-pf-leads-empty]");
-    var msg = document.querySelector("[data-pf-msg]");
-    var search = document.querySelector("[data-pf-search]");
-    var clientSel = document.querySelector("[data-pf-client-filter]");
-    var landingSel = document.querySelector("[data-pf-landing-filter]");
-    var count = document.querySelector("[data-pf-count]");
-    var leads = [];
-    var params = new URLSearchParams(location.search);
-    var presetLanding = params.get("landing") || "";
-
-    function fillLandings() {
-      var cid = clientSel.value;
-      var seen = {};
-      var opts = leads.filter(function (l) { return !cid || String(l.cliente_id) === cid; }).filter(function (l) {
-        if (seen[l.landing_id]) return false;
-        seen[l.landing_id] = true;
-        return true;
-      });
-      var current = landingSel.value || presetLanding;
-      landingSel.innerHTML = '<option value="">Todas las landings</option>' + opts.map(function (l) {
-        return '<option value="' + l.landing_id + '">' + esc(l.landing) + (cid ? "" : " · " + esc(l.cliente)) + "</option>";
-      }).join("");
-      landingSel.value = opts.some(function (l) { return String(l.landing_id) === current; }) ? current : "";
-      presetLanding = "";
-    }
-
-    function card(l) {
-      var d = l.datos || {};
-      var who = d.nombre || d.email || d.telefono || "Consulta sin nombre";
-      var fields = Object.keys(d).sort(function (a, b) {
-        var ia = LEAD_ORDER.indexOf(a), ib = LEAD_ORDER.indexOf(b);
-        return (ia === -1 ? 50 : ia) - (ib === -1 ? 50 : ib);
-      }).map(function (k) {
-        var label = LEAD_LABELS[k] || k.charAt(0).toUpperCase() + k.slice(1);
-        return '<div class="pf-fact"><dt>' + esc(label) + "</dt><dd>" + esc(d[k]) + "</dd></div>";
-      }).join("");
-      var acts = [];
-      if (d.email) acts.push('<a class="lb-act" href="mailto:' + esc(d.email) + "?subject=" + encodeURIComponent("Tu consulta en " + l.cliente) + '"><i class="bi bi-envelope"></i> Responder por email</a>');
-      if (d.telefono && waLink(d.telefono)) acts.push('<a class="lb-act" href="' + esc(waLink(d.telefono)) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a>');
-      acts.push('<button class="lb-act" type="button" data-act="read">' + (l.leida ? '<i class="bi bi-envelope"></i> Marcar como nueva' : '<i class="bi bi-check2"></i> Marcar como leída') + "</button>");
-      acts.push('<button class="lb-act lb-act-icon is-danger" type="button" data-act="delete" title="Borrar consulta" aria-label="Borrar consulta de ' + esc(who) + '"><i class="bi bi-trash3"></i></button>');
-      var li = document.createElement("li");
-      li.className = "pf-lead" + (l.leida ? "" : " is-new");
-      li.innerHTML =
-        '<div class="pf-lead-head"><div><strong>' + esc(who) + "</strong>" +
-        '<small><span class="pf-lead-type">' + (l.tipo === "turno" ? "Turno" : "Contacto") + "</span>" +
-        (l.leida ? "" : '<span class="pf-lead-new">Nueva</span>') +
-        '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.landing) + '</a> · <a href="cliente.html?id=' + l.cliente_id + '">' + esc(l.cliente) + "</a></small></div>" +
-        '<time datetime="' + new Date(l.creado).toISOString() + '">' + esc(formatDate(l.creado)) + "</time></div>" +
-        '<dl class="pf-facts">' + fields + "</dl>" +
-        (l.origen ? '<p class="pf-lead-origin">Origen: ' + esc(l.origen) + "</p>" : "") +
-        '<div class="pf-lead-acts">' + acts.join("") + "</div>";
-      li.addEventListener("click", function (e) {
-        var btn = e.target.closest("button[data-act]");
-        if (!btn) return;
-        btn.disabled = true;
-        if (btn.getAttribute("data-act") === "read") {
-          api("PUT", "/api/consultas/" + l.id, { leida: !l.leida }).then(function () { l.leida = !l.leida; render(); })
-            .catch(function (err) { btn.disabled = false; say(msg, err.message, "warn"); });
-        } else if (confirm("¿Borrar la consulta de «" + who + "»? No se puede recuperar.")) {
-          api("DELETE", "/api/consultas/" + l.id).then(function () {
-            leads = leads.filter(function (x) { return x !== l; });
-            say(msg, "Se borró la consulta.", "ok");
-            render();
-          }).catch(function (err) { btn.disabled = false; say(msg, err.message, "warn"); });
-        } else btn.disabled = false;
-      });
-      return li;
-    }
-
-    function render() {
-      var q = normalize(search.value.trim());
-      var cid = clientSel.value;
-      var lid = landingSel.value;
-      var shown = leads.filter(function (l) {
-        return (!cid || String(l.cliente_id) === cid) && (!lid || String(l.landing_id) === lid) &&
-          (!q || normalize(Object.keys(l.datos || {}).map(function (k) { return l.datos[k]; }).join(" ") + " " + l.landing + " " + l.cliente).indexOf(q) !== -1);
-      });
-      list.innerHTML = "";
-      shown.forEach(function (l) { list.appendChild(card(l)); });
-      var nuevas = shown.filter(function (l) { return !l.leida; }).length;
-      count.textContent = plural(shown.length, "consulta", "consultas") + (nuevas ? " · " + plural(nuevas, "nueva", "nuevas") : "");
-      empty.hidden = shown.length > 0;
-      empty.textContent = leads.length ? "No hay consultas con ese filtro."
-        : "Todavía no llegó ninguna consulta. Aparecen acá cuando alguien completa un formulario o reserva un turno en una landing&nbsp;publicada.".replace("&nbsp;", "\u00a0");
-    }
-
-    function load() {
-      return Promise.all([api("GET", "/api/clientes"), api("GET", "/api/consultas")]).then(function (res) {
-        leads = res[1];
-        var withLeads = {};
-        leads.forEach(function (l) { withLeads[l.cliente_id] = (withLeads[l.cliente_id] || 0) + 1; });
-        var current = clientSel.value || params.get("cliente") || "";
-        if (presetLanding) {
-          var match = leads.filter(function (l) { return String(l.landing_id) === presetLanding; })[0];
-          if (match) current = String(match.cliente_id);
-        }
-        clientSel.innerHTML = '<option value="">Todos los clientes</option>' + res[0].filter(function (c) { return withLeads[c.id]; }).map(function (c) {
-          return '<option value="' + c.id + '">' + esc(c.nombre) + " (" + withLeads[c.id] + ")</option>";
-        }).join("");
-        clientSel.value = withLeads[current] ? current : "";
-        fillLandings();
-        render();
-      }).catch(function (err) { say(msg, err.message, "warn"); });
-    }
-
-    search.addEventListener("input", render);
-    clientSel.addEventListener("change", function () { fillLandings(); render(); });
-    landingSel.addEventListener("change", render);
-    load();
-  }
-
-  function addLogout() {
+  /* Publicar: guarda en git y sube a GitHub (las landings y el sitio de venta) */
+  function addPublish() {
     var nav = document.querySelector(".lib-header nav");
-    if (!nav || nav.querySelector("[data-pf-logout]")) return;
-    api("GET", "/api/sesion").then(function (s) {
-      if (!s.requiere || !s.ok) return;
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "lib-logout";
-      btn.setAttribute("data-pf-logout", "");
-      btn.innerHTML = '<i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir';
-      btn.addEventListener("click", function () {
-        api("POST", "/api/logout", {}).then(function () { location.href = "login.html"; });
-      });
-      nav.appendChild(btn);
-    }).catch(function () { /* sin sesión: el botón no hace falta */ });
+    if (!nav || nav.querySelector("[data-pf-publish]") || !panelPage) return;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-nx btn-sm lib-publish";
+    btn.setAttribute("data-pf-publish", "");
+    btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar';
+    btn.title = "Sube los cambios a GitHub. En un par de minutos se ven online.";
+    btn.addEventListener("click", function () {
+      var note = window.prompt("¿Qué cambiaste? (queda anotado en el historial)", "Actualiza landings");
+      if (note === null) return;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Publicando…';
+      api("POST", "/api/publicar", { mensaje: note }).then(function (out) {
+        var lines = out.resultados.map(function (r) { return (r.ok ? "✓ " : "✗ ") + r.carpeta + ": " + r.detalle; });
+        var ok = out.resultados.every(function (r) { return r.ok; });
+        window.alert((ok ? "Listo. En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
+      }).catch(function (err) { window.alert(err.message); })
+        .then(function () { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar'; });
+    });
+    nav.appendChild(btn);
   }
-  if (document.body.classList.contains("lib-page")) addLogout();
-
-  function needsAttention(c) { return c.pendientes || c.portal_pedido_clave; }
-
-  function markPendingNav() {
-    var link = document.querySelector('.lib-header nav a[href="clientes.html"]');
-    if (!link || !panelPage) return;
-    api("GET", "/api/clientes").then(function (list) {
-      var n = list.filter(needsAttention).length;
-      var old = link.querySelector(".pf-nav-pending");
-      if (old) old.remove();
-      if (!n) return;
-      var badge = document.createElement("span");
-      badge.className = "pf-nav-pending";
-      badge.textContent = n;
-      badge.title = plural(n, "cliente espera algo de vos", "clientes esperan algo de vos");
-      link.appendChild(badge);
-    }).catch(function () { /* el aviso es opcional */ });
-  }
-  markPendingNav();
+  if (document.body.classList.contains("lib-page")) addPublish();
 
   window.Lanzate = { api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 
@@ -960,5 +609,4 @@
   if (page === "clientes") pageClientes();
   if (page === "cliente") pageCliente();
   if (page === "landings") pageLandings();
-  if (page === "consultas") pageConsultas();
 })();

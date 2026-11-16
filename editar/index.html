@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Pedir cambios en tu web · Lanzate</title>
+  <link rel="icon" href="../assets/favicon-lanzate.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../maquetas/css/fonts.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    :root { --ink: #17352c; --muted: #4f625a; --line: #d7e3dc; --soft: #f3f7f5; --brand: #1b5e42; --brand-deep: #134531; --warn: #8a4b00; --ok: #1b5e42; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; }
+    body { margin: 0; font: 16px/1.5 "Manrope", system-ui, sans-serif; color: var(--ink); background: var(--soft); display: grid; grid-template-rows: auto 1fr; }
+    a { color: var(--brand); }
+    .skip { position: absolute; left: -999px; top: 8px; background: #fff; padding: 8px 12px; border-radius: 8px; z-index: 10; }
+    .skip:focus { left: 8px; }
+    header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 12px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+    .brand img { width: 28px; height: 28px; }
+    .brand small { display: block; font-weight: 500; color: var(--muted); font-size: 14px; }
+    .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--soft); }
+    .modes button { min-height: 44px; border: 0; background: transparent; padding: 0 16px; border-radius: 999px; font: inherit; color: var(--ink); cursor: pointer; }
+    .modes button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+    .modes button:focus-visible, .btn:focus-visible, select:focus-visible, textarea:focus-visible, .change button:focus-visible { outline: 3px solid #2358a0; outline-offset: 2px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+    .stage { position: relative; min-height: 0; }
+    .stage iframe { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
+    .stage .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+    aside { background: #fff; border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+    .panel { padding: 20px; overflow: auto; flex: 1; }
+    h1 { font-size: 20px; line-height: 1.25; margin: 0 0 8px; text-wrap: balance; }
+    h2 { font-size: 16px; margin: 20px 0 8px; }
+    p { margin: 0 0 12px; text-wrap: pretty; }
+    .hint { color: var(--muted); font-size: 15px; }
+    .plan { background: var(--soft); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
+    ol.changes { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+    .change { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
+    .change header { all: unset; display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 14px; color: var(--muted); }
+    .change button { min-width: 44px; min-height: 44px; margin: -10px -8px 0 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; }
+    .change .before { text-decoration: line-through; color: var(--muted); }
+    .change .after { font-weight: 600; }
+    .empty { color: var(--muted); font-size: 15px; }
+    label { display: block; font-weight: 600; font-size: 15px; margin: 12px 0 4px; }
+    textarea, select { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #9fb3aa; border-radius: 10px; }
+    textarea { min-height: 84px; resize: vertical; }
+    .actions { padding: 16px 20px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--brand); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; background: #fff; color: var(--brand); }
+    .btn-main { background: var(--brand); color: #fff; }
+    .btn-main:hover { background: var(--brand-deep); }
+    .btn[disabled] { opacity: .5; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; }
+    .row .btn { flex: 1; }
+    [role="status"] { font-size: 15px; min-height: 1.5em; margin: 0; }
+    .is-warn { color: var(--warn); }
+    .is-ok { color: var(--ok); }
+    .notice { max-width: 34rem; margin: 64px auto; padding: 24px; background: #fff; border-radius: 16px; }
+    .notice ul { padding-left: 20px; }
+    @media (max-width: 860px) {
+      body { grid-template-rows: auto auto; }
+      main { grid-template-columns: 1fr; }
+      .stage { height: 70vh; }
+      aside { border-left: 0; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#pedido">Saltar a tu pedido</a>
+  <header>
+    <div class="brand"><img src="../assets/favicon-lanzate.svg" alt=""><span>Pedir cambios <small data-title>Cargando tu web…</small></span></div>
+    <div class="modes" role="group" aria-label="Qué querés cambiar">
+      <button type="button" data-mode="texto" aria-pressed="true"><i class="bi bi-fonts" aria-hidden="true"></i> Textos</button>
+      <button type="button" data-mode="foto" aria-pressed="false"><i class="bi bi-image" aria-hidden="true"></i> Fotos y links</button>
+    </div>
+  </header>
+  <main id="contenido" tabindex="-1">
+    <div class="stage"><p class="loading" data-loading>Cargando tu web…</p><iframe title="Tu web, lista para marcar cambios" data-frame hidden></iframe></div>
+    <aside aria-labelledby="pedido">
+      <div class="panel">
+        <h1 id="pedido" tabindex="-1">Tu pedido de cambios</h1>
+        <p class="hint" data-help>Tocá cualquier texto de tu web y escribí encima lo nuevo. Para cambiar una foto o adónde lleva un botón, elegí «Fotos y links» y tocalo.</p>
+        <p class="plan" data-plan hidden></p>
+        <h2>Cambios marcados</h2>
+        <ol class="changes" data-changes></ol>
+        <p class="empty" data-empty>Todavía no marcaste cambios.</p>
+        <label for="nota">Algo más que quieras contarnos</label>
+        <textarea id="nota" data-note placeholder="Por ejemplo: sumar un servicio nuevo, cambiar el horario de los sábados…"></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn btn-main" type="button" data-send disabled><i class="bi bi-whatsapp" aria-hidden="true"></i> Enviar por WhatsApp</button>
+        <div class="row">
+          <button class="btn" type="button" data-copy disabled><i class="bi bi-copy" aria-hidden="true"></i> Copiar</button>
+          <button class="btn" type="button" data-download disabled><i class="bi bi-download" aria-hidden="true"></i> Descargar</button>
+        </div>
+        <p role="status" data-status></p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="../data/config.js"></script>
+  <script src="../data/planes.js"></script>
+  <script src="../data/clientes.js"></script>
+  <script src="../data/landings.js"></script>
+  <script src="../data/modules.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var config = window.LANZATE_CONFIG || {};
+    var plans = (window.LANZATE_PLANES || {}).planes || [];
+    var clients = window.LANZATE_CLIENTES || [];
+    var landings = window.LANZATE_LANDINGS || [];
+    var modules = window.LANZATE_MODULES || [];
+    var params = new URLSearchParams(location.search);
+    var frame = document.querySelector("[data-frame]");
+    var list = document.querySelector("[data-changes]");
+    var empty = document.querySelector("[data-empty]");
+    var note = document.querySelector("[data-note]");
+    var statusEl = document.querySelector("[data-status]");
+    var buttons = ["[data-send]", "[data-copy]", "[data-download]"].map(function (s) { return document.querySelector(s); });
+    var changes = [];
+    var mode = "texto";
+    var client = null;
+    var landing = null;
+    var STORAGE = "lanzate:pedido:" + (params.get("l") || params.get("c") || "");
+
+    function say(text, tone) {
+      statusEl.textContent = text || "";
+      statusEl.className = tone ? "is-" + tone : "";
+    }
+
+    function stop(html) {
+      document.querySelector("main").innerHTML = '<div class="notice">' + html + "</div>";
+      document.querySelector("[data-title]").textContent = "";
+    }
+
+    /* Qué web abrir: ?l=cliente/landing, o ?c=cliente para elegir entre sus landings */
+    var path = (params.get("l") || "").split("/");
+    client = clients.filter(function (c) { return c.slug === (path[0] || params.get("c")); })[0];
+    if (!client) { stop("<h1>No encontramos tu web</h1><p>Revisá que el link esté completo o pedinos uno nuevo por WhatsApp.</p>"); return; }
+    var own = landings.filter(function (l) { return l.cliente_id === client.id && l.html; });
+    landing = own.filter(function (l) { return l.slug === path[1]; })[0];
+    if (!landing && own.length === 1) landing = own[0];
+    if (!landing) {
+      stop("<h1>¿Qué página querés cambiar?</h1><ul>" + own.map(function (l) {
+        return '<li><a href="?l=' + encodeURIComponent(client.slug + "/" + l.slug) + '">' + escapeHtml(l.nombre) + "</a></li>";
+      }).join("") + "</ul>");
+      return;
+    }
+
+    function escapeHtml(text) {
+      return String(text == null ? "" : text).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+
+    document.title = "Pedir cambios · " + client.nombre;
+    document.querySelector("[data-title]").textContent = client.nombre + " · " + landing.nombre;
+    var plan = plans.filter(function (p) { return p.id === client.plan; })[0];
+    if (plan) {
+      var planBox = document.querySelector("[data-plan]");
+      planBox.hidden = false;
+      planBox.textContent = "Tu plan " + plan.nombre + (plan.cambiosPorMes ? " incluye " + plan.cambiosPorMes + (plan.cambiosPorMes === 1 ? " pedido de cambios" : " pedidos de cambios") + " por mes." : ".");
+    }
+
+    function sectionName(el) {
+      var section = el.closest("[data-module]");
+      if (!section) return "Página";
+      var id = section.getAttribute("data-module").replace(/-(simple|media|compleja)$/, "");
+      var found = modules.filter(function (m) { return m.id === id; })[0];
+      return found ? found.nombre : id;
+    }
+
+    function clean(text) { return String(text || "").replace(/\s+/g, " ").trim(); }
+
+    function save() {
+      try { localStorage.setItem(STORAGE, JSON.stringify({ changes: changes.map(function (c) { return { tipo: c.tipo, seccion: c.seccion, antes: c.antes, despues: c.despues, detalle: c.detalle }; }), nota: note.value })); } catch (e) {}
+    }
+
+    function render() {
+      list.innerHTML = "";
+      changes.forEach(function (c, i) {
+        var li = document.createElement("li");
+        li.className = "change";
+        var body = c.tipo === "texto"
+          ? '<p class="before">' + escapeHtml(c.antes) + '</p><p class="after">' + escapeHtml(c.despues) + "</p>"
+          : c.tipo === "foto" ? "<p>Cambiar la foto" + (c.antes ? " «" + escapeHtml(c.antes) + "»" : "") + ". " + escapeHtml(c.detalle || "Te mando la foto nueva por WhatsApp.") + "</p>"
+          : '<p>Botón «' + escapeHtml(c.antes) + "»: que lleve a <b>" + escapeHtml(c.despues) + "</b></p>";
+        li.innerHTML = '<header><span>' + (i + 1) + ". " + escapeHtml(c.seccion) + '</span><button type="button" aria-label="Quitar el cambio ' + (i + 1) + '"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>' + body;
+        li.querySelector("button").addEventListener("click", function () {
+          if (c.el && c.tipo === "texto") { c.el.textContent = c.antes; c.el.removeAttribute("data-lz-changed"); }
+          if (c.el) c.el.style.outline = "";
+          changes.splice(i, 1);
+          render();
+        });
+        list.appendChild(li);
+      });
+      empty.hidden = changes.length > 0;
+      var ready = changes.length > 0 || clean(note.value);
+      buttons.forEach(function (b) { b.disabled = !ready; });
+      save();
+    }
+
+    function message() {
+      var lines = ["Hola, soy " + client.nombre + ". Quiero estos cambios en mi web «" + landing.nombre + "»:", ""];
+      changes.forEach(function (c, i) {
+        var line = (i + 1) + ". [" + c.seccion + "] ";
+        if (c.tipo === "texto") line += "Cambiar «" + c.antes + "» por «" + c.despues + "»";
+        else if (c.tipo === "foto") line += "Cambiar la foto" + (c.antes ? " «" + c.antes + "»" : "") + ". " + (c.detalle || "Te mando la foto nueva por acá.");
+        else line += "El botón «" + c.antes + "» que lleve a " + c.despues;
+        lines.push(line);
+      });
+      if (clean(note.value)) lines.push("", "Además: " + clean(note.value));
+      return lines.join("\n");
+    }
+
+    function upsertText(el, before) {
+      var after = clean(el.textContent);
+      var existing = changes.filter(function (c) { return c.el === el; })[0];
+      if (after === before) {
+        if (existing) changes.splice(changes.indexOf(existing), 1);
+        el.style.outline = "";
+      } else if (existing) {
+        existing.despues = after;
+      } else {
+        changes.push({ tipo: "texto", el: el, seccion: sectionName(el), antes: before, despues: after });
+        el.style.outline = "3px solid #e0a100";
+      }
+      render();
+    }
+
+    var TEXT_TAGS = "h1,h2,h3,h4,h5,h6,p,li,a,button,blockquote,figcaption,dt,dd,summary,label,small,strong,span,b,em,td,th";
+
+    function editableTargets(doc) {
+      return Array.prototype.filter.call(doc.querySelectorAll("[data-module] :is(" + TEXT_TAGS + ")"), function (el) {
+        if (!clean(el.textContent) || el.closest("script,style,svg,[hidden],[aria-hidden='true']")) return false;
+        /* Solo elementos que tienen texto propio y ningún bloque adentro */
+        return Array.prototype.some.call(el.childNodes, function (n) { return n.nodeType === 3 && clean(n.textContent); }) &&
+          !el.querySelector("p,div,ul,ol,li,h1,h2,h3,h4,h5,h6,section,img,svg,button,input,select,textarea");
+      });
+    }
+
+    function setMode(next) {
+      mode = next;
+      document.querySelectorAll("[data-mode]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === mode)); });
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      editableTargets(doc).forEach(function (el) {
+        if (mode === "texto") el.setAttribute("contenteditable", "plaintext-only");
+        else el.removeAttribute("contenteditable");
+      });
+      doc.documentElement.setAttribute("data-lz-mode", mode);
+      document.querySelector("[data-help]").textContent = mode === "texto"
+        ? "Tocá cualquier texto de tu web y escribí encima lo nuevo. Los cambios aparecen en esta lista."
+        : "Tocá una foto para pedir que la cambiemos, o un botón para decirnos adónde tiene que llevar.";
+    }
+
+    function prepare() {
+      var doc = frame.contentDocument;
+      var style = doc.createElement("style");
+      style.textContent = "[contenteditable]{cursor:text}[contenteditable]:hover{outline:2px dashed #1b5e42;outline-offset:2px}" +
+        "[contenteditable]:focus{outline:3px solid #2358a0;outline-offset:2px}" +
+        "html[data-lz-mode=foto] [data-module] img,html[data-lz-mode=foto] [data-module] a{cursor:pointer}" +
+        "html[data-lz-mode=foto] [data-module] img:hover,html[data-lz-mode=foto] [data-module] a:hover{outline:3px dashed #1b5e42;outline-offset:2px}" +
+        "[data-lz-consent],[data-lz-consent-open]{display:none!important}";
+      doc.head.appendChild(style);
+      var before = new WeakMap();
+      doc.addEventListener("focusin", function (e) {
+        if (e.target.isContentEditable && !before.has(e.target)) before.set(e.target, clean(e.target.textContent));
+      });
+      doc.addEventListener("focusout", function (e) {
+        if (e.target.isContentEditable) upsertText(e.target, before.get(e.target));
+      });
+      doc.addEventListener("keydown", function (e) {
+        if (e.target.isContentEditable && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
+      });
+      /* En la vista de edición, los links y formularios no navegan */
+      doc.addEventListener("submit", function (e) { e.preventDefault(); }, true);
+      doc.addEventListener("click", function (e) {
+        var link = e.target.closest("a, button");
+        var img = e.target.closest("img");
+        if (mode === "texto") {
+          if (link && !e.target.isContentEditable) e.preventDefault();
+          if (link && link.tagName === "A") e.preventDefault();
+          return;
+        }
+        if (!e.target.closest("[data-module]")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (img) {
+          if (changes.some(function (c) { return c.el === img; })) return;
+          var detail = window.prompt("¿Qué foto va en lugar de esta? Podés describirla o avisarnos que la mandás por WhatsApp.", "Te mando la foto nueva por WhatsApp.");
+          if (detail === null) return;
+          img.style.outline = "4px solid #e0a100";
+          changes.push({ tipo: "foto", el: img, seccion: sectionName(img), antes: clean(img.getAttribute("alt")), detalle: clean(detail) });
+          render();
+        } else if (link) {
+          var label = clean(link.textContent) || clean(link.getAttribute("aria-label")) || "sin texto";
+          var target = window.prompt("¿Adónde tiene que llevar «" + label + "»? Por ejemplo: tu Instagram, un número de WhatsApp o una página.", "");
+          if (!target || !clean(target)) return;
+          link.style.outline = "4px solid #e0a100";
+          changes.push({ tipo: "link", el: link, seccion: sectionName(link), antes: label, despues: clean(target) });
+          render();
+        }
+      }, true);
+      setMode(mode);
+      document.querySelector("[data-loading]").hidden = true;
+      frame.hidden = false;
+    }
+
+    try {
+      var saved = JSON.parse(localStorage.getItem(STORAGE) || "null");
+      if (saved) {
+        changes = (saved.changes || []).map(function (c) { return c; });
+        note.value = saved.nota || "";
+      }
+    } catch (e) {}
+
+    frame.addEventListener("load", prepare);
+    frame.src = "../l/" + encodeURIComponent(client.slug) + "/" + encodeURIComponent(landing.slug) + "/";
+    document.querySelectorAll("[data-mode]").forEach(function (b) {
+      b.addEventListener("click", function () { setMode(b.getAttribute("data-mode")); });
+    });
+    note.addEventListener("input", render);
+
+    var number = String(config.whatsapp || "").replace(/\D/g, "");
+    buttons[0].addEventListener("click", function () {
+      if (!number) { say("Todavía no cargamos el WhatsApp de Lanzate. Usá «Copiar» y mandanos el texto.", "warn"); return; }
+      window.open("https://wa.me/" + number + "?text=" + encodeURIComponent(message()), "_blank", "noopener");
+      say("Se abrió WhatsApp con tu pedido. Tocá enviar, y si hay fotos nuevas, mandalas en el mismo chat.", "ok");
+    });
+    buttons[1].addEventListener("click", function () {
+      navigator.clipboard.writeText(message()).then(function () { say("Pedido copiado. Pegalo en WhatsApp o en un mail.", "ok"); },
+        function () { say("No se pudo copiar. Probá con «Descargar».", "warn"); });
+    });
+    buttons[2].addEventListener("click", function () {
+      var data = { cliente: client.slug, landing: landing.slug, creado: new Date().toISOString(), nota: clean(note.value),
+        cambios: changes.map(function (c) { return { tipo: c.tipo, seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) };
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([message() + "\n\n" + JSON.stringify(data, null, 2)], { type: "text/plain" }));
+      a.download = "pedido-de-cambios-" + client.slug + ".txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+    render();
+  })();
+  </script>
+</body>
+</html>

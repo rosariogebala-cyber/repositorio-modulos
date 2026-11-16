@@ -1,13 +1,10 @@
 .DS_Store
 __pycache__/
 *.pyc
+data/*.tmp
 
-# Clientes y landings viven en Supabase
+# Copias viejas de la base (Supabase). Los datos ahora viven en data/*.js
 data/db.json*
 data/previews/
-data/logos/
 .vercel
 .env*
-
-# Salida del build de Vercel
-public/

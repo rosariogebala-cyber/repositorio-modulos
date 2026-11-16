@@ -1,4 +1,4 @@
-"""Verifica el HTML generado y el build sin conectarse a la base."""
+"""Verifica las landings estáticas de l/, los archivos de data/ y las páginas del panel."""
 import sys
 from collections import Counter
 from pathlib import Path
@@ -13,7 +13,7 @@ import server
 
 class LandingQuality(TestCase):
     def test_generated_landings_have_landmarks_and_alt(self):
-        for path in sorted((ROOT / "Templates").glob("*/*/index.html")):
+        for path in sorted((ROOT / "l").glob("*/*/index.html")):
             with self.subTest(landing=str(path.relative_to(ROOT))):
                 result = server.accessible_landing(path.read_text(), path.parent.name)
                 doc = html.document_fromstring(result)
@@ -32,7 +32,7 @@ class LandingQuality(TestCase):
                 doc = html.parse(str(path))
                 active = doc.xpath("//main[not(@hidden)]")
                 self.assertEqual(len(active), 1)
-                if path.name not in ("cliente.html", "portal.html"):
+                if path.name != "cliente.html":
                     self.assertEqual(len(active[0].xpath(".//h1")), 1)
                 self.assertFalse(doc.xpath("//img[not(normalize-space(@alt))]"))
                 self.assertFalse(doc.xpath("//nav[not(@aria-label or @aria-labelledby)]"))
@@ -61,16 +61,38 @@ class LandingQuality(TestCase):
                 luminance = sum(weight * value for weight, value in zip((0.2126, 0.7152, 0.0722), linear))
                 self.assertGreaterEqual(1.05 / (luminance + 0.05), 4.5)
 
-    def test_public_build_keeps_panel_private(self):
-        public = ROOT / "public"
-        for path in ("maquetas/constructor.html", "maquetas/landings.html", "data/reglas.json", "data/db.json"):
-            self.assertFalse((public / path).exists(), path)
-        self.assertTrue((public / "maquetas/css/lanzate.css").is_file())
+    def test_static_landings_use_relative_paths(self):
+        for path in sorted((ROOT / "l").glob("*/*/index.html")):
+            with self.subTest(landing=str(path.relative_to(ROOT))):
+                text = path.read_text()
+                self.assertNotRegex(text, r"""["'(\s,=]/(?:maquetas|assets|api)/""")
+                self.assertNotIn("/api/", text)
 
-    def test_landing_lists_omit_editable_payloads(self):
-        self.assertNotIn("l.items,", server.LANDING_SUMMARY_SELECT)
-        self.assertIn("jsonb_array_length(l.items)", server.LANDING_SUMMARY_SELECT)
-        self.assertIn("left(l.portada, 5)", server.LANDING_SUMMARY_SELECT)
+    def test_relative_paths(self):
+        out = server.relative_paths('<img src="/maquetas/a.jpg" srcset="/maquetas/a-480.webp 480w, /maquetas/a.jpg 800w">'
+                                    '<a href="https://x.com/maquetas/">x</a><div style="background:url(&quot;/assets/b.png&quot;)">', 3)
+        self.assertIn('src="../../../maquetas/a.jpg"', out)
+        self.assertIn(", ../../../maquetas/a.jpg 800w", out)
+        self.assertIn("https://x.com/maquetas/", out)
+        self.assertIn("&quot;../../../assets/b.png", out)
+
+    def test_data_files_load(self):
+        for key in ("clientes", "landings", "planes", "config"):
+            with self.subTest(archivo=key):
+                if (ROOT / "data" / server.DATA_FILES[key][0]).exists():
+                    self.assertIsNotNone(server.read_data(key, None))
+
+    def test_site_config_parses(self):
+        sample = """window.SITE = {
+  marca: "Lanzate", // comentario
+  /* bloque */ url: "https://a.b/c",
+  planes: [{ id: "pro", incluye: ["10 cambios por mes",], },],
+};"""
+        start = sample.find("{")
+        import json
+        data = json.loads(server.js_literal_to_json(sample[start:sample.rfind("}") + 1]))
+        self.assertEqual(data["url"], "https://a.b/c")
+        self.assertEqual(data["planes"][0]["id"], "pro")
 
 
 if __name__ == "__main__":
