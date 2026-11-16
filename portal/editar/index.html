@@ -70,7 +70,7 @@
 <body>
   <a class="skip" href="#pedido">Saltar a tu pedido</a>
   <header>
-    <div class="brand"><a href="/portal/" aria-label="Volver a tu portal"><img src="/assets/favicon-lanzate.svg" alt=""></a><span>Pedir cambios <small data-title>Cargando tu web…</small></span></div>
+    <div class="brand"><a href="/portal/" data-back aria-label="Volver a tu portal"><img src="/assets/favicon-lanzate.svg" alt=""></a><span>Pedir cambios <small data-title>Cargando tu web…</small></span></div>
     <div class="modes" role="group" aria-label="Qué querés cambiar">
       <button type="button" data-mode="texto" aria-pressed="true"><i class="bi bi-fonts" aria-hidden="true"></i> Textos</button>
       <button type="button" data-mode="foto" aria-pressed="false"><i class="bi bi-image" aria-hidden="true"></i> Fotos y links</button>
@@ -92,7 +92,7 @@
       <div class="actions">
         <button class="btn btn-main" type="button" data-send disabled><i class="bi bi-send" aria-hidden="true"></i> Enviar pedido</button>
         <div class="row">
-          <a class="btn" href="/portal/#pedidos"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al portal</a>
+          <a class="btn" href="/portal/" data-back><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al portal</a>
         </div>
         <input type="file" accept="image/jpeg,image/png,image/webp" data-photo-input hidden>
         <p role="status" data-status></p>
@@ -102,7 +102,8 @@
 
   <script>
     /* Datos del cliente con sesión (o del cliente que el equipo abre desde la ficha) */
-    document.write('<script src="/api/portal/datos.js?c=' + encodeURIComponent((new URLSearchParams(location.search).get("l") || "").split("/")[0]) + '"><\/script>');
+    window.LZ_SITIO = (location.pathname.match(/^\/portal\/([a-z0-9-]+)\/editar\//) || [])[1] || (new URLSearchParams(location.search).get("l") || "").split("/")[0];
+    document.write('<script src="/api/portal/datos.js?c=' + encodeURIComponent(window.LZ_SITIO) + '"><\/script>');
   </script>
   <script src="/data/modules.js"></script>
   <script>
@@ -138,9 +139,11 @@
     }
 
     /* Qué web abrir: ?l=cliente/landing, o ?c=cliente para elegir entre sus landings */
-    var path = (params.get("l") || "").split("/");
+    var SITIO = window.LZ_SITIO || "";
+    var lparam = params.get("l") || "";
+    var path = lparam.indexOf("/") >= 0 ? lparam.split("/") : [SITIO, lparam];
     client = clients.filter(function (c) { return c.slug === (path[0] || params.get("c")); })[0];
-    if (!window.LANZATE_CLIENTES) { location.href = "/portal/?volver=" + encodeURIComponent(location.pathname + location.search); return; }
+    if (!window.LANZATE_CLIENTES) { location.href = "/portal/" + (SITIO ? SITIO + "/" : "") + "?volver=" + encodeURIComponent(location.pathname + location.search); return; }
     if (!client) client = clients[0];
     if (!client) { stop("<h1>No encontramos tu web</h1><p>Volvé a <a href=\"/portal/\">tu portal</a>.</p>"); return; }
     var own = landings.filter(function (l) { return l.cliente_id === client.id && l.html; });
@@ -148,7 +151,7 @@
     if (!landing && own.length === 1) landing = own[0];
     if (!landing) {
       stop("<h1>¿Qué página querés cambiar?</h1><ul>" + own.map(function (l) {
-        return '<li><a href="?l=' + encodeURIComponent(client.slug + "/" + l.slug) + '">' + escapeHtml(l.nombre) + "</a></li>";
+        return '<li><a href="?l=' + encodeURIComponent(l.slug) + '">' + escapeHtml(l.nombre) + "</a></li>";
       }).join("") + "</ul>");
       return;
     }
@@ -159,6 +162,7 @@
       });
     }
 
+    document.querySelectorAll("[data-back]").forEach(function (a) { a.href = "/portal/" + client.slug + "/#pedidos"; });
     document.title = "Pedir cambios · " + client.nombre;
     document.querySelector("[data-title]").textContent = client.nombre + " · " + landing.nombre;
     var plan = plans.filter(function (p) { return p.id === client.plan; })[0];
@@ -357,7 +361,7 @@
       btn.disabled = true;
       say("Enviando tu pedido…");
       var photos = changes.filter(function (c) { return c.data; }).map(function (c) { return { data: c.data, nota: c.seccion + (c.detalle ? ": " + c.detalle : "") }; });
-      fetch("/api/portal/pedidos", {
+      fetch("/api/portal/pedidos?sitio=" + encodeURIComponent(client.slug), {
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ landing: landing.slug, nota: clean(note.value), fotos: photos,
           cambios: changes.map(function (c) { return { tipo: c.tipo, seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) })
@@ -368,7 +372,7 @@
           try { localStorage.removeItem(STORAGE); } catch (e) {}
           render();
           say("¡Listo! Recibimos tu pedido. Vas a ver si lo aceptamos en tu portal, en «Pedidos de cambios».", "ok");
-          setTimeout(function () { location.href = "/portal/#pedidos"; }, 2200);
+          setTimeout(function () { location.href = "/portal/" + client.slug + "/#pedidos"; }, 2200);
         })
         .catch(function (err) {
           btn.disabled = false;

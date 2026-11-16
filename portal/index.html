@@ -232,11 +232,16 @@
     var DATA = null;
     var leadFilter = "nueva";
     var msg = $("[data-login-msg]");
+    /* Cada cliente tiene su portal: /portal/<cliente>/ */
+    var SITIO = (location.pathname.match(/^\/portal\/([a-z0-9-]+)\/?$/) || [])[1] || "";
+    if (SITIO === "editar") SITIO = "";
+    if (SITIO && !/\/$/.test(location.pathname)) { location.replace("/portal/" + SITIO + "/" + location.search + location.hash); return; }
     var TABS = ["resumen", "web", "pedidos", "visitas", "consultas", "plan", "marca", "contacto", "cuenta"];
 
     function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
     function say(el, text, tone) { el.textContent = text || ""; el.className = tone ? "is-" + tone : ""; }
     function api(method, url, body) {
+      if (SITIO && /^\/api\/portal\//.test(url)) url += (url.indexOf("?") < 0 ? "?" : "&") + "sitio=" + encodeURIComponent(SITIO);
       return fetch(url, { method: method, credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || "No se pudo completar."); e.status = r.status; throw e; } return d; }); });
     }
@@ -251,6 +256,15 @@
     function showLogin() {
       $("[data-login]").hidden = false;
       $("[data-app]").hidden = true;
+      if (SITIO) {
+        api("GET", "/api/portal/sitio/" + SITIO).then(function (site) {
+          document.title = "Portal de " + site.nombre + " · Lanzate";
+          $("#ingreso").textContent = "Portal de " + site.nombre;
+          var logo = $(".login .logo");
+          logo.innerHTML = site.logo ? '<img src="' + esc(site.logo) + '" alt="Logo de ' + esc(site.nombre) + '" style="width:auto;height:44px;max-width:180px;object-fit:contain">'
+            : '<span class="avatar" style="--c1:' + esc(site.colores[0]) + '">' + esc(site.nombre.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join("").toUpperCase()) + "</span>";
+        }).catch(function (err) { say(msg, err.message, "warn"); });
+      }
       $("#usuario").focus();
     }
     $("[data-login-form]").addEventListener("submit", function (e) {
@@ -258,8 +272,11 @@
       var btn = e.target.querySelector("button");
       btn.disabled = true;
       say(msg, "");
-      api("POST", "/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value })
-        .then(function () { return load(); })
+      api("POST", "/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value, sitio: SITIO })
+        .then(function (d) {
+          if (!SITIO || SITIO !== d.sitio) { location.href = "/portal/" + d.sitio + "/" + location.search; return; }
+          return load();
+        })
         .catch(function (err) { say(msg, err.message, "warn"); })
         .then(function () { btn.disabled = false; });
     });
@@ -271,19 +288,20 @@
     });
     $("[data-forgot-form]").addEventListener("submit", function (e) {
       e.preventDefault();
-      api("POST", "/api/portal/olvide", { usuario: e.target.elements.usuario.value })
+      api("POST", "/api/portal/olvide", { usuario: e.target.elements.usuario.value, sitio: SITIO })
         .then(function (d) { say(msg, d.mensaje, "ok"); e.target.hidden = true; })
         .catch(function (err) { say(msg, err.message, "warn"); });
     });
     $("[data-logout]").addEventListener("click", function () {
-      api("POST", "/api/portal/logout").then(function () { location.href = "/portal/"; });
+      api("POST", "/api/portal/logout").then(function () { location.href = "/portal/" + (SITIO ? SITIO + "/" : ""); });
     });
 
     /* ---------- Datos ---------- */
     function load() {
+      if (!SITIO) { showLogin(); return Promise.resolve(); }
       return api("GET", "/api/portal/inicio").then(function (d) {
         var volver = new URLSearchParams(location.search).get("volver") || "";
-        if (/^\/portal\/editar\/\?l=[\w%\/.-]+$/.test(volver)) { location.replace(volver); return; }
+        if (new RegExp("^/portal/" + SITIO + "/editar/\\?l=[\\w%.-]+$").test(volver)) { location.replace(volver); return; }
         DATA = d;
         $("[data-login]").hidden = true;
         $("[data-app]").hidden = false;

@@ -81,7 +81,8 @@ y recién después sube los cambios. Si arreglás un módulo o cambiás el telé
 
 ## Portal del cliente
 
-Cada cliente entra a https://lanzate-mu.vercel.app/portal/ con su usuario y contraseña. Tiene estas secciones:
+Cada cliente tiene su propio portal, https://lanzate-mu.vercel.app/portal/<cliente>/ (el link está en su ficha), y entra con su
+usuario y contraseña. Un usuario no sirve en el portal de otro cliente. Tiene estas secciones:
 
 - **Resumen:** visitas de los últimos 30 días, consultas nuevas, pedidos en revisión y pedidos disponibles del mes.
 - **Mi web:** sus páginas, para verlas o pedir cambios.

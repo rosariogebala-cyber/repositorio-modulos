@@ -95,6 +95,7 @@ ROUTES = [
     (re.compile(r"^/api/portal/pedidos$"), "portal-pedidos"),
     (re.compile(r"^/api/portal/consultas/([\w-]+)$"), "portal-consulta"),
     (re.compile(r"^/api/portal/clave$"), "portal-clave"),
+    (re.compile(r"^/api/portal/sitio/([a-z0-9-]+)$"), "portal-sitio"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos/([\w-]+)$"), "pedido"),
     (re.compile(r"^/api/clientes/(\d+)/estadisticas$"), "estadisticas"),
     (re.compile(r"^/api/clientes/(\d+)/consultas/([\w-]+)$"), "consulta"),
@@ -103,7 +104,7 @@ ROUTES = [
     (re.compile(r"^/api/logout$"), "logout"),
 ]
 PUBLIC_ROUTES = ("sesion", "login", "logout", "portal-login", "portal-logout", "portal-sesion", "portal-olvide",
-                 "portal-inicio", "portal-datos", "portal-pedidos", "portal-consulta", "portal-clave", "visita", "consulta-nueva")
+                 "portal-inicio", "portal-datos", "portal-sitio", "portal-pedidos", "portal-consulta", "portal-clave", "visita", "consulta-nueva")
 CROSS_SITE_ROUTES = ("visita", "consulta-nueva")
 PORTAL_COOKIE = "lz_portal"
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
@@ -664,11 +665,14 @@ def portal_client(value):
     return None
 
 
-def portal_login(usuario, clave):
+def portal_login(usuario, clave, sitio=""):
     usuario = str(usuario or "").strip().lower()
     for row in read_data("clientes", []):
         access = row.get("portal") or {}
         if usuario and access.get("usuario") == usuario and check_portal_password(access.get("hash"), str(clave or "")):
+            if sitio and row["slug"] != sitio:
+                time.sleep(1)
+                raise ApiError(401, "Este usuario no es de este portal. Revisá el link que te pasamos.")
             if row.get("estado") == "pausado":
                 raise ApiError(403, "Tu cuenta está pausada. Escribinos para reactivarla.")
             return row
@@ -676,13 +680,22 @@ def portal_login(usuario, clave):
     raise ApiError(401, "El usuario o la contraseña no son correctos.")
 
 
-def request_password(usuario):
+def portal_site(slug):
+    """Lo que muestra la pantalla de ingreso de cada portal: nombre, logo y colores del cliente."""
+    for row in read_data("clientes", []):
+        if row["slug"] == slug:
+            return {"nombre": row["nombre"], "slug": row["slug"], "logo": logo_ref(row),
+                    "colores": [row.get("color_primario"), row.get("color_secundario")]}
+    raise ApiError(404, "Este portal no existe. Revisá el link que te pasamos.")
+
+
+def request_password(usuario, sitio=""):
     """El cliente avisa que se olvidó la contraseña: queda marcado en el panel para que el equipo se la reenvíe."""
     usuario = str(usuario or "").strip().lower()
     with store("clientes") as db:
         for row in db["clientes"]:
             access = row.get("portal") or {}
-            if usuario and access.get("usuario") == usuario:
+            if usuario and access.get("usuario") == usuario and (not sitio or row["slug"] == sitio):
                 if now_ms() - (access.get("pidio_clave") or 0) > 10 * 60000:
                     access["pidio_clave"] = now_ms()
                 break
@@ -713,7 +726,7 @@ def portal_home(client):
         "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
                                                   "turnos", "medicion")} if plan else None,
         "landings": [{"nombre": l["nombre"], "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
-                      "editor": "/portal/editar/?l=" + quote(client["slug"] + "/" + l["slug"]),
+                      "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
                       "actualizado": l["actualizado"]} for l in sorted(landings, key=lambda l: -l["actualizado"])],
         "pedidos": requests,
@@ -1403,8 +1416,8 @@ def editor_url(client, landing=None):
     """Página donde el cliente arma su pedido de cambios (estática, sin login)."""
     base = read_config().get("urlPanel") or ""
     if landing is None:
-        return base + "/portal/"
-    return base + "/portal/editar/?l=" + quote(client["slug"] + "/" + landing["slug"])
+        return base + "/portal/%s/" % client["slug"]
+    return base + "/portal/%s/editar/?l=%s" % (client["slug"], quote(landing["slug"]))
 
 
 def fill_image_alts(document):
@@ -2584,8 +2597,16 @@ class Handler(SimpleHTTPRequestHandler):
         secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
         return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (name, value, max_age, secure)
 
-    def portal_client(self):
-        return portal_client(self.cookie(PORTAL_COOKIE))
+    def portal_client(self, sitio):
+        """Cada cliente tiene su propio portal (/portal/<cliente>/) y su propia sesión."""
+        sitio = str(sitio or "")
+        if not re.fullmatch(r"[a-z0-9-]+", sitio):
+            return None
+        client = portal_client(self.cookie(PORTAL_COOKIE + "_" + sitio.replace("-", "_")))
+        return client if client and client["slug"] == sitio else None
+
+    def portal_cookie(self, slug, value, max_age):
+        return self.session_cookie(value, max_age, PORTAL_COOKIE + "_" + slug.replace("-", "_"))
 
     def authorized(self):
         return not login_required() or valid_session(self.cookie(COOKIE))
@@ -2602,6 +2623,11 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(401, {"error": "Ingresá con la clave del equipo."})
             else:
                 self.send_json(200, read_rules())
+            return True
+        portal = re.match(r"^/portal/([a-z0-9-]+)/(editar/)?$", path)
+        if portal and portal.group(1) != "editar":
+            page = "portal/editar/index.html" if portal.group(2) else "portal/index.html"
+            self.send_body(200, Path(ROOT, page).read_bytes(), "text/html; charset=utf-8")
             return True
         if path in PANEL_PAGES:
             if not self.authorized():
@@ -2681,7 +2707,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return True
             return False
         token = match.group(1) if match.groups() else ""
-        self.route_token = match.group(2) if len(match.groups()) > 1 else (token if name == "portal-consulta" else "")
+        self.route_token = match.group(2) if len(match.groups()) > 1 else (token if name in ("portal-consulta", "portal-sitio") else "")
         ident = int(token) if str(token).isdigit() else None
         FILES.begin()
         try:
@@ -2692,7 +2718,7 @@ class Handler(SimpleHTTPRequestHandler):
             if name not in PUBLIC_ROUTES and not self.authorized():
                 raise ApiError(401, "Ingresá con la clave del equipo.")
             if name == "portal-datos":
-                client = self.portal_client()
+                client = self.portal_client((query.get("c") or [""])[0])
                 if not client and self.authorized():
                     slug = (query.get("c") or [""])[0]
                     client = next((c for c in read_data("clientes", []) if c["slug"] == slug), None)
@@ -2731,26 +2757,31 @@ class Handler(SimpleHTTPRequestHandler):
             return set_portal_access(ident, self.read_json())
         if name == "clave-enviada" and method == "POST":
             return clear_password_request(ident)
+        sitio = (query.get("sitio") or [""])[0]
+        if name == "portal-sitio" and method == "GET":
+            return portal_site(self.route_token)
         if name == "portal-login" and method == "POST":
             data = self.read_json()
-            client = portal_login(data.get("usuario"), data.get("clave"))
+            client = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio") or sitio)
             token = portal_token(client["id"], client["portal"]["version"])
-            self.extra_headers = (("Set-Cookie", self.session_cookie(token, 30 * 86400, PORTAL_COOKIE)),)
-            return {"ok": True}
+            self.extra_headers = (("Set-Cookie", self.portal_cookie(client["slug"], token, 30 * 86400)),)
+            return {"ok": True, "sitio": client["slug"]}
         if name == "portal-logout" and method == "POST":
-            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0, PORTAL_COOKIE)),)
+            if re.fullmatch(r"[a-z0-9-]+", sitio):
+                self.extra_headers = (("Set-Cookie", self.portal_cookie(sitio, "", 0)),)
             return {"ok": True}
         if name == "portal-sesion" and method == "GET":
-            client = self.portal_client()
+            client = self.portal_client(sitio)
             return {"ok": bool(client), "nombre": client["nombre"] if client else ""}
         if name == "portal-olvide" and method == "POST":
-            return request_password(self.read_json().get("usuario"))
+            data = self.read_json()
+            return request_password(data.get("usuario"), data.get("sitio") or sitio)
         if name == "visita" and method == "POST":
             return record_visit(self.read_json(), self.headers.get("User-Agent"))
         if name == "consulta-nueva" and method == "POST":
             return record_lead(self.read_json())
         if name in ("portal-pedidos", "portal-consulta", "portal-clave"):
-            client = self.portal_client()
+            client = self.portal_client(sitio)
             if not client:
                 raise ApiError(401, "Ingresá a tu portal.")
             if name == "portal-pedidos" and method == "POST":
@@ -2759,7 +2790,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return set_lead_status(client["id"], self.route_token, self.read_json().get("estado"))
             if name == "portal-clave" and method == "POST":
                 version = change_portal_password(client["id"], self.read_json())
-                self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client["id"], version), 30 * 86400, PORTAL_COOKIE)),)
+                self.extra_headers = (("Set-Cookie", self.portal_cookie(client["slug"], portal_token(client["id"], version), 30 * 86400)),)
                 return {"ok": True}
         if name == "pedido" and method == "PUT":
             return decide_request(ident, self.route_token, self.read_json())
@@ -2771,7 +2802,7 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "consulta" and method == "PUT":
             return set_lead_status(ident, self.route_token, self.read_json().get("estado"))
         if name == "portal-inicio" and method == "GET":
-            client = self.portal_client()
+            client = self.portal_client(sitio)
             if not client:
                 raise ApiError(401, "Ingresá a tu portal.")
             return portal_home(client)

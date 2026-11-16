@@ -33,6 +33,22 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index?__path=/api/:path*"
+    },
+    {
+      "source": "/portal/:slug([a-z0-9-]+)/editar",
+      "destination": "/portal/editar/index.html"
+    },
+    {
+      "source": "/portal/:slug([a-z0-9-]+)/editar/",
+      "destination": "/portal/editar/index.html"
+    },
+    {
+      "source": "/portal/:slug([a-z0-9-]+)",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/portal/:slug([a-z0-9-]+)/",
+      "destination": "/portal/index.html"
     }
   ],
   "headers": [
