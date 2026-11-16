@@ -455,77 +455,172 @@
     var newLanding = document.querySelector("[data-pf-new-landing]");
     var countEl = document.querySelector("[data-pf-landings-count]");
 
-    function field(icon, label, value) {
-      return value ? '<div class="pf-fact"><dt><i class="bi bi-' + icon + '"></i> ' + label + "</dt><dd>" + value + "</dd></div>" : "";
+    function row(icon, label, value) {
+      return value ? '<div class="cf-row"><dt><i class="bi bi-' + icon + '" aria-hidden="true"></i>' + label + "</dt><dd>" + value + "</dd></div>" : "";
     }
+
+    function money(n) { return n ? "$" + Number(n).toLocaleString("es-AR") : ""; }
 
     function render(c) {
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
-      var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio) + "</a>" : "";
+      var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio.replace(/^https?:\/\//, "")) + "</a>" : "";
       var ps = c.plan_estado || {};
+      var plan = PLANS.filter(function (p) { return p.id === c.plan; })[0];
       var month = new Date().toISOString().slice(0, 7);
       var requests = (c.pedidos || []).slice().reverse();
+      var portalUrl = c.editor;
+      var portalShort = portalUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+      var used = ps.cambios_usados || 0;
+      var limit = ps.cambios_mes || 0;
+      var pct = limit ? Math.min(100, Math.round(used / limit * 100)) : 0;
+      var since = c.creado ? new Date(c.creado).toLocaleDateString("es-AR", { month: "long", year: "numeric" }) : "";
+      var vence = c.plan_vence ? c.plan_vence.split("-").reverse().join("/") : "";
+      var venceText = ps.vencido ? "Venció el " + vence : ps.dias != null ? (ps.dias === 0 ? "Vence hoy" : ps.dias === 1 ? "Vence mañana" : "Vence en " + ps.dias + " días") + " · " + vence : "Sin fecha de vencimiento";
+      var socials = ["instagram", "facebook", "linkedin"].filter(function (k) { return c[k]; }).map(function (k) {
+        var handle = socialUrl(k, c[k]).replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop();
+        return '<a class="cf-chip" href="' + esc(socialUrl(k, c[k])) + '" target="_blank" rel="noopener"><i class="bi bi-' + k + '" aria-hidden="true"></i> @' + esc(handle) + "</a>";
+      }).join("");
+      var tracking = [c.ga4 ? "Analytics" : "", c.gtm ? "Tag Manager" : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean);
+      var trackingOff = tracking.length && ps.plan && !ps.medicion;
+
       profile.innerHTML =
-        (c.pidio_clave ? '<div class="pf-pending-banner" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i><p><strong>' + esc(c.nombre) +
+        (c.pidio_clave ? '<div class="cf-alert is-key" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i><p><strong>' + esc(c.nombre) +
           " pidió su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Copiá el acceso y mandáselo.</p>" +
-          '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso>Copiar acceso</button>' +
+          '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' +
           '<button class="btn-nx-outline btn-sm" type="button" data-pf-clave-enviada>Ya se la mandé</button></div>' : "") +
-        (planAlert(c) ? '<div class="pf-pending-banner" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong>" +
-          (ps.vencido || (ps.dias != null && ps.dias <= 15) ? " Avisale para renovarlo y actualizá la fecha de vencimiento." : " Un pedido más se cobra aparte o pasa al mes que viene.") + "</p></div>" : "") +
-        '<div class="pf-profile-head">' + avatar(c, "lg") +
-        '<div class="pf-profile-name"><p class="lb-kicker">' + esc(c.rubro || "Cliente") + "</p><h1>" + esc(c.nombre) + "</h1>" + status(c) + "</div>" +
-        '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit><i class="bi bi-pencil"></i> Editar datos</button></div>' +
-        '<dl class="pf-facts">' +
-        field("person", "Contacto", esc(c.contacto)) +
-        field("envelope", "Email", c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + "</a>" : "") +
-        field("telephone", "Teléfono", esc(c.telefono)) +
-        field("globe2", "Sitio web", site) +
-        field("geo-alt", "Dirección", esc(c.direccion)) +
-        field("clock", "Horario", esc(c.horario)) +
-        field("share", "Redes", ["instagram", "facebook", "linkedin"].filter(function (k) { return c[k]; }).map(function (k) {
-          var handle = socialUrl(k, c[k]).replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop();
-          return '<a href="' + esc(socialUrl(k, c[k])) + '" target="_blank" rel="noopener"><i class="bi bi-' + k + '"></i> @' + esc(handle) + "</a>";
-        }).join(" ")) +
-        field("palette", "Colores", '<span class="pf-swatch" style="background:' + esc(c.color_primario) + '"></span><span class="pf-swatch" style="background:' + esc(c.color_secundario) + '"></span> ' + esc(c.color_primario) + " · " + esc(c.color_secundario)) +
-        field("folder2", "Carpeta", esc(c.carpeta)) +
-        field("graph-up", "Medición", [c.ga4 ? "Analytics " + esc(c.ga4) : "", c.gtm ? "Tag Manager " + esc(c.gtm) : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean).join(" · ") +
-          ((c.ga4 || c.gtm || c.meta_pixel) && c.plan_estado && c.plan_estado.plan && !c.plan_estado.medicion ? ' <b class="pf-missing">No se carga: el plan no la incluye</b>' : "")) +
-        "</dl>" +
-        (c.notas ? '<div class="pf-notes"><strong>Notas internas</strong><p>' + esc(c.notas) + "</p></div>" : "") +
-        '<section class="pf-admin"><h2>Administración</h2>' +
-        '<p class="pf-admin-line">Alta: ' + (c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—") + "</p>" +
-        '<h3 id="pf-plan" class="h6">Plan</h3>' +
-        '<form class="pf-admin-form" data-pf-plan>' +
-        '<label>Plan <select name="plan"><option value="">Sin plan</option>' + PLANS.map(function (p) {
-          return '<option value="' + esc(p.id) + '">' + esc(p.nombre) + "</option>";
-        }).join("") + "</select></label>" +
-        '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
-        '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
-        (planInfo(c.plan) ? '<p class="pf-admin-line">' + esc(planInfo(c.plan)) + "</p>" : '<p class="pf-admin-line">Sin plan: no tiene límites. Usalo para demos y pruebas.</p>') +
-        '<h2 id="pf-cambios">Pedidos de cambios</h2>' +
-        '<p class="pf-admin-line"><strong>Este mes: ' + (ps.cambios_usados || 0) + (ps.cambios_mes ? " de " + ps.cambios_mes : "") + "</strong>" +
-        (ps.cambios_mes ? (ps.cambios_restantes ? " · le quedan " + ps.cambios_restantes : " · no le quedan pedidos este mes") : "") + ".</p>" +
-        '<form class="pf-admin-form" data-pf-pedido><label>Qué pidió <input name="nota" maxlength="300" placeholder="Por ejemplo: nuevo precio del corte y foto del local"></label>' +
-        '<button class="btn-nx btn-sm" type="submit">Registrar pedido</button></form>' +
-        (requests.length ? '<ul class="pf-requests">' + requests.slice(0, 12).map(function (r) {
-          var d = new Date(r.fecha);
-          return "<li" + (d.toISOString().slice(0, 7) === month ? ' class="is-month"' : "") + ">" + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) +
-            (r.nota ? " · " + esc(r.nota) : "") + ' <button class="lb-act" type="button" data-pf-quitar-pedido="' + r.fecha + '">Quitar</button></li>';
-        }).join("") + "</ul>" : "") +
-        '<h2 id="pf-acceso">Acceso al portal</h2>' +
-        '<p class="pf-admin-line">El cliente entra a ' + esc(c.editor) + ' con su usuario y contraseña. Ahí ve su web y te manda los pedidos de cambios.</p>' +
-        (c.portal_usuario
-          ? '<dl class="pf-acceso-actual"><div><dt>Usuario</dt><dd>' + esc(c.portal_usuario) + "</dd></div>" +
-            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : '<span class="pf-acceso-nota">No se puede mostrar: guardá una nueva.</span>') + "</dd></div></dl>" +
-            '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button> ' +
-            '<a class="btn-nx-outline btn-sm" href="' + esc(c.editor) + '" target="_blank" rel="noopener">Abrir portal</a></p>'
-          : '<p class="pf-admin-line">Todavía no tiene acceso.</p>') +
-        '<form class="pf-admin-form" data-pf-acceso>' +
-        '<label>Usuario <input name="usuario" required minlength="3" maxlength="60" autocomplete="off" value="' + esc(c.portal_usuario || c.slug) + '"></label>' +
-        '<label>Contraseña nueva <input name="clave" type="text" minlength="8" maxlength="128" autocomplete="off" placeholder="Vacía: se crea una sola"></label>' +
-        '<button class="btn-nx btn-sm" type="submit">' + (c.portal_usuario ? "Guardar acceso" : "Crear acceso") + "</button></form>" +
-        '<p data-pf-editor-estado role="status"></p></section>';
+        (planAlert(c) ? '<div class="cf-alert" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong> " +
+          (ps.vencido || (ps.dias != null && ps.dias <= 15) ? "Avisale para renovarlo y actualizá la fecha." : "Un pedido más se cobra aparte o pasa al mes que viene.") + "</p></div>" : "") +
+
+        '<header class="cf-hero" style="--c1:' + esc(c.color_primario) + ";--c2:" + esc(c.color_secundario) + '">' +
+          '<div class="cf-hero-main">' + avatar(c, "xl") +
+            '<div class="cf-hero-text">' +
+              '<p class="cf-kicker">' + esc(c.rubro || "Cliente") + "</p>" +
+              "<h1>" + esc(c.nombre) + "</h1>" +
+              '<p class="cf-hero-meta">' + status(c) +
+                '<span class="cf-pill' + (plan ? " is-plan" : "") + '"><i class="bi bi-stars" aria-hidden="true"></i> ' + esc(plan ? "Plan " + plan.nombre : "Sin plan") + "</span>" +
+                '<span class="cf-pill"><i class="bi bi-' + (c.tipo_cliente === "demo" ? "easel" : "patch-check") + '" aria-hidden="true"></i> ' + (c.tipo_cliente === "demo" ? "Demo" : "Cliente real") + "</span>" +
+                (since ? '<span class="cf-since">Cliente desde ' + esc(since) + "</span>" : "") +
+              "</p>" +
+            "</div>" +
+          "</div>" +
+          '<div class="cf-hero-actions">' +
+            '<a class="btn-nx" href="' + esc(portalUrl) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Abrir portal</a>' +
+            '<button class="btn-nx-outline" type="button" data-pf-edit><i class="bi bi-pencil" aria-hidden="true"></i> Editar datos</button>' +
+          "</div>" +
+        "</header>" +
+
+        '<div class="cf-grid">' +
+        '<div class="cf-col">' +
+
+          '<section class="cf-card cf-portal" aria-labelledby="pf-acceso">' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-door-open" aria-hidden="true"></i></span><div><h2 id="pf-acceso">Portal del cliente</h2>' +
+            "<p>Ahí ve su web, su plan y te manda los pedidos de cambios.</p></div></div>" +
+            '<div class="cf-link"><i class="bi bi-link-45deg" aria-hidden="true"></i><a href="' + esc(portalUrl) + '" target="_blank" rel="noopener">' + esc(portalShort) + "</a>" +
+              '<button class="cf-icon-btn" type="button" data-pf-copiar-link aria-label="Copiar link del portal" title="Copiar link"><i class="bi bi-copy" aria-hidden="true"></i></button></div>' +
+            (c.portal_usuario
+              ? '<dl class="cf-access">' +
+                  '<div><dt>Usuario</dt><dd><code>' + esc(c.portal_usuario) + "</code></dd></div>" +
+                  "<div><dt>Contraseña</dt><dd>" + (c.portal_clave
+                    ? '<code data-pf-clave hidden>' + esc(c.portal_clave) + '</code><code data-pf-clave-oculta aria-hidden="true">••••••••••</code>' +
+                      '<button class="cf-icon-btn" type="button" data-pf-ver-clave aria-pressed="false" aria-label="Mostrar contraseña" title="Mostrar"><i class="bi bi-eye" aria-hidden="true"></i></button>'
+                    : '<span class="cf-muted">No se puede mostrar: guardá una nueva.</span>') + "</dd></div>" +
+                "</dl>" +
+                '<button class="btn-nx btn-sm cf-wide" type="button" data-pf-copiar-acceso><i class="bi bi-whatsapp" aria-hidden="true"></i> Copiar acceso para mandárselo</button>'
+              : '<p class="cf-empty"><i class="bi bi-lock" aria-hidden="true"></i> Todavía no tiene usuario. Creale uno abajo.</p>') +
+            "<details" + (c.portal_usuario ? "" : " open") + ' class="cf-details"><summary>' + (c.portal_usuario ? "Cambiar usuario o contraseña" : "Crear acceso") + "</summary>" +
+              '<form class="cf-form" data-pf-acceso>' +
+                '<label>Usuario <input name="usuario" required minlength="3" maxlength="60" autocomplete="off" value="' + esc(c.portal_usuario || c.slug) + '"></label>' +
+                '<label>Contraseña <input name="clave" type="text" minlength="8" maxlength="128" autocomplete="off" placeholder="Vacía: se crea una sola"></label>' +
+                '<button class="btn-nx btn-sm" type="submit">' + (c.portal_usuario ? "Guardar" : "Crear acceso") + "</button>" +
+              "</form></details>" +
+            '<p class="cf-status" data-pf-editor-estado role="status"></p>' +
+          "</section>" +
+
+          '<section class="cf-card" aria-labelledby="pf-cambios">' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-chat-square-text" aria-hidden="true"></i></span><div><h2 id="pf-cambios">Pedidos de cambios</h2>' +
+            "<p>" + (limit ? "Este mes usó " + used + " de " + limit + "." : used ? "Este mes: " + plural(used, "pedido", "pedidos") + "." : "Registrá cada pedido que aplicás.") + "</p></div></div>" +
+            (limit ? '<div class="cf-meter' + (used >= limit ? " is-full" : "") + '" role="img" aria-label="' + used + " de " + limit + ' pedidos usados"><span style="width:' + pct + '%"></span></div>' +
+              '<p class="cf-meter-note">' + (ps.cambios_restantes ? "Le " + (ps.cambios_restantes === 1 ? "queda 1 pedido" : "quedan " + ps.cambios_restantes + " pedidos") + " este mes." : "No le quedan pedidos este mes.") + "</p>" : "") +
+            '<form class="cf-form cf-inline" data-pf-pedido><label class="cf-grow">Qué pidió <input name="nota" maxlength="300" placeholder="Por ejemplo: precio nuevo del corte"></label>' +
+              '<button class="btn-nx btn-sm" type="submit"><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar</button></form>' +
+            (requests.length ? '<ol class="cf-timeline">' + requests.slice(0, 8).map(function (r) {
+              var d = new Date(r.fecha);
+              return '<li class="' + (d.toISOString().slice(0, 7) === month ? "is-month" : "") + '"><time>' + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</time>" +
+                "<span>" + esc(r.nota || "Pedido sin detalle") + "</span>" +
+                '<button class="cf-icon-btn" type="button" data-pf-quitar-pedido="' + r.fecha + '" aria-label="Quitar pedido del ' + esc(d.toLocaleDateString("es-AR")) + '" title="Quitar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></li>';
+            }).join("") + "</ol>" : "") +
+          "</section>" +
+
+        "</div>" +
+        '<div class="cf-col">' +
+
+          '<section class="cf-card cf-plan" aria-labelledby="pf-plan">' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-stars" aria-hidden="true"></i></span><div><h2 id="pf-plan">Plan</h2>' +
+            "<p>" + esc(venceText) + "</p></div></div>" +
+            (plan
+              ? '<div class="cf-plan-name"><strong>' + esc(plan.nombre) + "</strong>" + (plan.mensual ? "<span>" + esc(money(plan.mensual)) + " / mes</span>" : "") + "</div>" +
+                '<ul class="cf-features">' +
+                  "<li><i class=\"bi bi-layout-text-window\" aria-hidden=\"true\"></i> Hasta " + (plan.secciones || "—") + " secciones</li>" +
+                  "<li><i class=\"bi bi-chat-square-text\" aria-hidden=\"true\"></i> " + plural(plan.cambiosPorMes || 0, "pedido", "pedidos") + " de cambios por mes</li>" +
+                  '<li class="' + (plan.turnos ? "" : "is-off") + '"><i class="bi bi-' + (plan.turnos ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Reserva de turnos</li>' +
+                  '<li class="' + (plan.medicion ? "" : "is-off") + '"><i class="bi bi-' + (plan.medicion ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Analytics y Píxel de Meta</li>' +
+                "</ul>"
+              : '<p class="cf-empty">Sin plan: no tiene límites. Sirve para demos y pruebas.</p>') +
+            '<details class="cf-details"><summary>Cambiar plan o vencimiento</summary>' +
+              '<form class="cf-form" data-pf-plan>' +
+                '<label>Plan <select name="plan"><option value="">Sin plan</option>' + PLANS.map(function (p) {
+                  return '<option value="' + esc(p.id) + '">' + esc(p.nombre) + "</option>";
+                }).join("") + "</select></label>" +
+                '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
+                '<button class="btn-nx btn-sm" type="submit">Guardar plan</button>' +
+              "</form></details>" +
+          "</section>" +
+
+          '<section class="cf-card" aria-labelledby="cf-contacto">' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></span><div><h2 id="cf-contacto">Contacto</h2></div></div>' +
+            '<dl class="cf-rows">' +
+              row("person", "Contacto", esc(c.contacto)) +
+              row("envelope", "Email", c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + "</a>" : "") +
+              row("telephone", "Teléfono", c.telefono ? '<a href="https://wa.me/' + esc(c.telefono.replace(/\D/g, "")) + '" target="_blank" rel="noopener">' + esc(c.telefono) + "</a>" : "") +
+              row("globe2", "Sitio web", site) +
+              row("geo-alt", "Dirección", esc(c.direccion)) +
+              row("clock", "Horario", esc(c.horario)) +
+            "</dl>" +
+            (socials ? '<div class="cf-chips">' + socials + "</div>" : "") +
+            (!c.contacto && !c.email && !c.telefono ? '<p class="cf-empty">Sin datos de contacto. Cargalos con «Editar datos».</p>' : "") +
+          "</section>" +
+
+          '<section class="cf-card" aria-labelledby="cf-marca">' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-palette" aria-hidden="true"></i></span><div><h2 id="cf-marca">Marca y medición</h2></div></div>' +
+            '<div class="cf-swatches">' +
+              '<span class="cf-swatch"><i style="background:' + esc(c.color_primario) + '"></i><small>Principal</small><code>' + esc(c.color_primario) + "</code></span>" +
+              '<span class="cf-swatch"><i style="background:' + esc(c.color_secundario) + '"></i><small>Secundario</small><code>' + esc(c.color_secundario) + "</code></span>" +
+            "</div>" +
+            '<dl class="cf-rows">' +
+              row("graph-up", "Medición", tracking.length ? esc(tracking.join(" · ")) + (trackingOff ? ' <b class="pf-missing">No se carga: el plan no la incluye</b>' : "") : '<span class="cf-muted">Sin códigos</span>') +
+              row("folder2", "Carpeta", "<code>" + esc(c.carpeta) + "</code>") +
+            "</dl>" +
+          "</section>" +
+
+          (c.notas ? '<section class="cf-card cf-notes" aria-labelledby="cf-notas"><h2 id="cf-notas"><i class="bi bi-sticky" aria-hidden="true"></i> Notas internas</h2><p>' + esc(c.notas) + "</p></section>" : "") +
+
+        "</div>" +
+        "</div>";
+
+      var reveal = profile.querySelector("[data-pf-ver-clave]");
+      if (reveal) reveal.addEventListener("click", function () {
+        var on = reveal.getAttribute("aria-pressed") !== "true";
+        reveal.setAttribute("aria-pressed", String(on));
+        reveal.setAttribute("aria-label", on ? "Ocultar contraseña" : "Mostrar contraseña");
+        reveal.innerHTML = '<i class="bi bi-' + (on ? "eye-slash" : "eye") + '" aria-hidden="true"></i>';
+        profile.querySelector("[data-pf-clave]").hidden = !on;
+        profile.querySelector("[data-pf-clave-oculta]").hidden = on;
+      });
+      profile.querySelector("[data-pf-copiar-link]").addEventListener("click", function () {
+        navigator.clipboard.writeText(portalUrl).then(function () { say(profile.querySelector("[data-pf-editor-estado]"), "Link del portal copiado.", "ok"); },
+          function () { window.prompt("Copiá el link del portal:", portalUrl); });
+      });
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
       planForm.addEventListener("submit", function (e) {
@@ -556,7 +651,7 @@
       var accessText = "Tu portal de Lanzate: " + c.editor + "\nUsuario: " + c.portal_usuario + "\nContraseña: " + c.portal_clave;
       profile.querySelectorAll("[data-pf-copiar-acceso]").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          navigator.clipboard.writeText(accessText).then(function () { say(accessOut, "Copiado: link, usuario y contraseña. Pegalo en WhatsApp o en un mail.", "ok"); say(msg, "Acceso copiado.", "ok"); },
+          navigator.clipboard.writeText(accessText).then(function () { say(accessOut, "Copiado: link, usuario y contraseña. Pegalo en WhatsApp o en un mail.", "ok"); },
             function () { window.prompt("Copiá el acceso:", accessText); });
         });
       });
