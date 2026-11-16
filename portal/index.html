@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Tu portal · Lanzate</title>
+  <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/maquetas/css/fonts.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    :root { --ink: #17352c; --muted: #4f625a; --line: #d7e3dc; --soft: #f3f7f5; --brand: #1b5e42; --brand-deep: #134531; --warn: #8a4b00; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; font: 16px/1.5 "Manrope", system-ui, sans-serif; color: var(--ink); background: var(--soft); }
+    a { color: var(--brand); }
+    .skip { position: absolute; left: -999px; top: 8px; background: #fff; padding: 8px 12px; border-radius: 8px; }
+    .skip:focus { left: 8px; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 24px; background: #fff; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+    .brand img { width: 28px; height: 28px; }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .card.narrow { max-width: 420px; margin: 40px auto; }
+    h1 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    p { margin: 0 0 12px; text-wrap: pretty; }
+    .muted { color: var(--muted); }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; }
+    input { width: 100%; font: inherit; font-size: 16px; padding: 12px 14px; min-height: 48px; border: 1px solid #9fb3aa; border-radius: 10px; }
+    input:focus-visible, .btn:focus-visible, .link:focus-visible, a:focus-visible { outline: 3px solid #2358a0; outline-offset: 2px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--brand); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; background: #fff; color: var(--brand); }
+    .btn-main { background: var(--brand); color: #fff; width: 100%; margin-top: 18px; }
+    .btn-main:hover { background: var(--brand-deep); }
+    .btn[disabled] { opacity: .6; cursor: wait; }
+    .link { background: none; border: 0; padding: 12px 0; min-height: 44px; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
+    [role="status"] { min-height: 1.5em; margin: 12px 0 0; }
+    .is-warn { color: var(--warn); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0; }
+    .stats div { background: var(--soft); border-radius: 12px; padding: 12px 14px; }
+    .stats dt { font-size: 14px; color: var(--muted); }
+    .stats dd { margin: 2px 0 0; font-weight: 700; font-size: 18px; }
+    .alert { background: #fff4e5; border: 1px solid #f0c48a; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+    ul.sites { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    ul.sites li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    ul.sites .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header>
+    <span class="brand"><img src="/assets/favicon-lanzate.svg" alt=""> Lanzate</span>
+    <button class="btn" type="button" data-logout hidden><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir</button>
+  </header>
+  <main id="contenido" tabindex="-1">
+
+    <section class="card narrow" data-login hidden aria-labelledby="ingreso">
+      <h1 id="ingreso">Entrá a tu portal</h1>
+      <p class="muted">Desde acá ves tu web y nos pedís cambios.</p>
+      <form data-login-form>
+        <label for="usuario">Usuario</label>
+        <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" required>
+        <label for="clave">Contraseña</label>
+        <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+        <button class="btn btn-main" type="submit">Entrar</button>
+      </form>
+      <button class="link" type="button" data-forgot-open>Me olvidé la contraseña</button>
+      <form data-forgot-form hidden>
+        <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te mandamos tu contraseña por WhatsApp o mail.</p>
+        <label for="usuario-olvido">Usuario</label>
+        <input id="usuario-olvido" name="usuario" autocomplete="username" autocapitalize="none" required>
+        <button class="btn btn-main" type="submit">Pedir mi contraseña</button>
+      </form>
+      <p role="status" data-login-msg></p>
+    </section>
+
+    <div data-home hidden>
+      <section class="card" aria-labelledby="hola">
+        <h1 id="hola" tabindex="-1" data-name></h1>
+        <p class="muted" data-rubro></p>
+        <div class="alert" data-alert hidden role="status"></div>
+        <dl class="stats" data-stats></dl>
+      </section>
+      <section class="card" aria-labelledby="mis-webs">
+        <h2 id="mis-webs">Tus páginas</h2>
+        <ul class="sites" data-sites></ul>
+        <p class="muted" data-empty hidden>Todavía no hay páginas publicadas.</p>
+      </section>
+      <section class="card" aria-labelledby="ayuda">
+        <h2 id="ayuda">¿Necesitás algo más?</h2>
+        <p>Escribinos y lo vemos juntos.</p>
+        <a class="btn" data-wa href="#" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Escribir por WhatsApp</a>
+      </section>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+    var $ = function (s) { return document.querySelector(s); };
+    var msg = $("[data-login-msg]");
+    var volver = new URLSearchParams(location.search).get("volver") || "";
+    if (!/^\/portal\/editar\/\?l=[\w%\/.-]+$/.test(volver)) volver = "";
+
+    function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+    function say(text, warn) { msg.textContent = text || ""; msg.className = warn ? "is-warn" : ""; }
+    function post(url, body) {
+      return fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || "No se pudo completar."); return d; }); });
+    }
+    function date(iso) { return String(iso).split("-").reverse().join("/"); }
+
+    function showLogin() {
+      $("[data-login]").hidden = false;
+      $("[data-home]").hidden = true;
+      $("[data-logout]").hidden = true;
+      $("#usuario").focus();
+    }
+
+    function showHome(d) {
+      $("[data-login]").hidden = true;
+      $("[data-home]").hidden = false;
+      $("[data-logout]").hidden = false;
+      document.title = d.nombre + " · Lanzate";
+      $("[data-name]").textContent = "Hola, " + d.nombre;
+      $("[data-rubro]").textContent = d.rubro;
+      var p = d.plan || {};
+      var stats = [];
+      if (p.plan) stats.push(["Tu plan", p.plan]);
+      if (p.cambios_mes) stats.push(["Pedidos de cambios este mes", (p.cambios_restantes || 0) + " de " + p.cambios_mes + " disponibles"]);
+      if (d.plan_vence) stats.push(["Vence", date(d.plan_vence)]);
+      $("[data-stats]").innerHTML = stats.map(function (s) { return "<div><dt>" + esc(s[0]) + "</dt><dd>" + esc(s[1]) + "</dd></div>"; }).join("");
+      var alert = "";
+      if (p.vencido) alert = "Tu plan venció el " + date(d.plan_vence) + ". Escribinos para renovarlo.";
+      else if (p.dias != null && p.dias <= 15) alert = "Tu plan vence " + (p.dias === 0 ? "hoy" : p.dias === 1 ? "mañana" : "en " + p.dias + " días") + ".";
+      else if (p.cambios_mes && !p.cambios_restantes) alert = "Ya usaste los pedidos de cambios de este mes. Si necesitás otro, te contamos cuánto cuesta.";
+      $("[data-alert]").hidden = !alert;
+      $("[data-alert]").textContent = alert;
+      $("[data-sites]").innerHTML = d.landings.map(function (l) {
+        return "<li><strong>" + esc(l.nombre) + '</strong><span class="actions">' +
+          '<a class="btn" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-eye" aria-hidden="true"></i> Ver mi web</a>' +
+          '<a class="btn" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a></span></li>';
+      }).join("");
+      $("[data-empty]").hidden = d.landings.length > 0;
+      var wa = $("[data-wa]");
+      if (d.whatsapp) wa.href = "https://wa.me/" + d.whatsapp + "?text=" + encodeURIComponent("Hola, soy " + d.nombre + ".");
+      else wa.hidden = true;
+      $("[data-name]").focus();
+    }
+
+    function load() {
+      return fetch("/api/portal/inicio", { credentials: "same-origin", cache: "no-store" }).then(function (r) {
+        if (r.status === 401) { showLogin(); return; }
+        return r.json().then(function (d) {
+          if (!r.ok) throw new Error(d.error);
+          if (volver) { location.replace(volver); return; }
+          showHome(d);
+        });
+      }).catch(function () { showLogin(); say("No pudimos conectarnos. Probá de nuevo en un rato.", true); });
+    }
+
+    $("[data-login-form]").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = e.target.querySelector("button");
+      btn.disabled = true;
+      say("");
+      post("/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value })
+        .then(load)
+        .catch(function (err) { say(err.message, true); })
+        .then(function () { btn.disabled = false; });
+    });
+
+    $("[data-forgot-open]").addEventListener("click", function () {
+      $("[data-forgot-form]").hidden = false;
+      $("[data-forgot-open]").hidden = true;
+      $("#usuario-olvido").value = $("#usuario").value;
+      $("#usuario-olvido").focus();
+    });
+    $("[data-forgot-form]").addEventListener("submit", function (e) {
+      e.preventDefault();
+      post("/api/portal/olvide", { usuario: e.target.elements.usuario.value })
+        .then(function (d) { say(d.mensaje); e.target.hidden = true; })
+        .catch(function (err) { say(err.message, true); });
+    });
+
+    $("[data-logout]").addEventListener("click", function () {
+      post("/api/portal/logout").then(function () { location.href = "/portal/"; });
+    });
+
+    load();
+  })();
+  </script>
+</body>
+</html>

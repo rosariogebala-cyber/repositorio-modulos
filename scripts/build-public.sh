@@ -4,7 +4,7 @@
 set -e
 rm -rf public
 mkdir public
-cp -R index.html 404.html css js assets maquetas editar Proyectos public/
+cp -R index.html 404.html css js assets maquetas portal Proyectos public/
 mkdir -p public/data
 cp data/modules.js data/modules.json public/data/
 for page in constructor landings clientes cliente reglas; do

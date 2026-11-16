@@ -315,7 +315,7 @@
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
-      icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link del editor para el cliente") +
+      icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
@@ -341,7 +341,7 @@
       }
       if (act === "editor") {
         navigator.clipboard.writeText(lp.editor).then(function () {
-          report("Link copiado. Pasáselo al cliente: ahí marca los cambios y te los manda por WhatsApp.", "ok");
+          report("Link copiado. El cliente lo abre con su usuario y contraseña del portal.", "ok");
         }, function () { window.prompt("Copiá el link del editor:", lp.editor); });
       }
       if (act === "duplicate") {
@@ -396,6 +396,7 @@
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
+          (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
           (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
@@ -466,6 +467,10 @@
       var month = new Date().toISOString().slice(0, 7);
       var requests = (c.pedidos || []).slice().reverse();
       profile.innerHTML =
+        (c.pidio_clave ? '<div class="pf-pending-banner" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i><p><strong>' + esc(c.nombre) +
+          " pidió su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Copiá el acceso y mandáselo.</p>" +
+          '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso>Copiar acceso</button>' +
+          '<button class="btn-nx-outline btn-sm" type="button" data-pf-clave-enviada>Ya se la mandé</button></div>' : "") +
         (planAlert(c) ? '<div class="pf-pending-banner" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong>" +
           (ps.vencido || (ps.dias != null && ps.dias <= 15) ? " Avisale para renovarlo y actualizá la fecha de vencimiento." : " Un pedido más se cobra aparte o pasa al mes que viene.") + "</p></div>" : "") +
         '<div class="pf-profile-head">' + avatar(c, "lg") +
@@ -508,9 +513,18 @@
           return "<li" + (d.toISOString().slice(0, 7) === month ? ' class="is-month"' : "") + ">" + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) +
             (r.nota ? " · " + esc(r.nota) : "") + ' <button class="lb-act" type="button" data-pf-quitar-pedido="' + r.fecha + '">Quitar</button></li>';
         }).join("") + "</ul>" : "") +
-        '<p class="pf-admin-line">El cliente no tiene usuario ni contraseña. Le pasás este link: ahí marca los textos, fotos o links que quiere cambiar y te los manda por WhatsApp. Vos los aplicás en el constructor y publicás.</p>' +
-        '<p><a class="btn-nx-outline btn-sm" href="' + esc(c.editor) + '" target="_blank" rel="noopener">Abrir editor del cliente</a> ' +
-        '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-editor><i class="bi bi-copy" aria-hidden="true"></i> Copiar link</button></p>' +
+        '<h2 id="pf-acceso">Acceso al portal</h2>' +
+        '<p class="pf-admin-line">El cliente entra a ' + esc(c.editor) + ' con su usuario y contraseña. Ahí ve su web y te manda los pedidos de cambios.</p>' +
+        (c.portal_usuario
+          ? '<dl class="pf-acceso-actual"><div><dt>Usuario</dt><dd>' + esc(c.portal_usuario) + "</dd></div>" +
+            "<div><dt>Contraseña</dt><dd>" + (c.portal_clave ? esc(c.portal_clave) : '<span class="pf-acceso-nota">No se puede mostrar: guardá una nueva.</span>') + "</dd></div></dl>" +
+            '<p><button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button> ' +
+            '<a class="btn-nx-outline btn-sm" href="' + esc(c.editor) + '" target="_blank" rel="noopener">Abrir portal</a></p>'
+          : '<p class="pf-admin-line">Todavía no tiene acceso.</p>') +
+        '<form class="pf-admin-form" data-pf-acceso>' +
+        '<label>Usuario <input name="usuario" required minlength="3" maxlength="60" autocomplete="off" value="' + esc(c.portal_usuario || c.slug) + '"></label>' +
+        '<label>Contraseña nueva <input name="clave" type="text" minlength="8" maxlength="128" autocomplete="off" placeholder="Vacía: se crea una sola"></label>' +
+        '<button class="btn-nx btn-sm" type="submit">' + (c.portal_usuario ? "Guardar acceso" : "Crear acceso") + "</button></form>" +
         '<p data-pf-editor-estado role="status"></p></section>';
       var planForm = profile.querySelector("[data-pf-plan]");
       planForm.elements.plan.value = c.plan || "";
@@ -538,11 +552,34 @@
             .catch(function (err) { say(msg, err.message, "warn"); });
         });
       });
-      profile.querySelector("[data-pf-copiar-editor]").addEventListener("click", function () {
-        var out = profile.querySelector("[data-pf-editor-estado]");
-        navigator.clipboard.writeText(c.editor).then(function () { say(out, "Link copiado.", "ok"); },
-          function () { say(out, c.editor, ""); });
+      var accessOut = profile.querySelector("[data-pf-editor-estado]");
+      var accessText = "Tu portal de Lanzate: " + c.editor + "\nUsuario: " + c.portal_usuario + "\nContraseña: " + c.portal_clave;
+      profile.querySelectorAll("[data-pf-copiar-acceso]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          navigator.clipboard.writeText(accessText).then(function () { say(accessOut, "Copiado: link, usuario y contraseña. Pegalo en WhatsApp o en un mail.", "ok"); say(msg, "Acceso copiado.", "ok"); },
+            function () { window.prompt("Copiá el acceso:", accessText); });
+        });
       });
+      var sentBtn = profile.querySelector("[data-pf-clave-enviada]");
+      if (sentBtn) sentBtn.addEventListener("click", function () {
+        api("POST", "/api/clientes/" + c.id + "/clave-enviada", {}).then(function () { say(msg, "Listo, se sacó el aviso.", "ok"); load(); })
+          .catch(function (err) { say(msg, err.message, "warn"); });
+      });
+      profile.querySelector("[data-pf-acceso]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var btn = f.querySelector("button");
+        btn.disabled = true;
+        api("POST", "/api/clientes/" + c.id + "/acceso", { usuario: f.elements.usuario.value, clave: f.elements.clave.value })
+          .then(function () { say(msg, "Acceso guardado. Tocá «Copiar acceso» para mandárselo.", "ok"); return load(); })
+          .catch(function (err) { say(accessOut, err.message, "warn"); })
+          .then(function () { btn.disabled = false; });
+      });
+      if (location.hash === "#pf-acceso") {
+        history.replaceState(null, "", location.pathname + location.search);
+        var target = profile.querySelector("#pf-acceso");
+        if (target) target.scrollIntoView({ block: "start" });
+      }
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
         clientForm(c).then(function (saved) {
           if (!saved) return;

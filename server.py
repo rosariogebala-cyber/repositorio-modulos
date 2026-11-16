@@ -16,6 +16,7 @@ Uso:
 """
 
 import base64
+import secrets
 import hashlib
 import hmac
 import json
@@ -83,9 +84,19 @@ ROUTES = [
     (re.compile(r"^/api/ia$"), "ia"),
     (re.compile(r"^/api/sesion$"), "sesion"),
     (re.compile(r"^/api/login$"), "login"),
+    (re.compile(r"^/api/clientes/(\d+)/acceso$"), "acceso"),
+    (re.compile(r"^/api/clientes/(\d+)/clave-enviada$"), "clave-enviada"),
+    (re.compile(r"^/api/portal/login$"), "portal-login"),
+    (re.compile(r"^/api/portal/logout$"), "portal-logout"),
+    (re.compile(r"^/api/portal/sesion$"), "portal-sesion"),
+    (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
+    (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
+    (re.compile(r"^/api/portal/datos\.js$"), "portal-datos"),
     (re.compile(r"^/api/logout$"), "logout"),
 ]
-PUBLIC_ROUTES = ("sesion", "login", "logout")
+PUBLIC_ROUTES = ("sesion", "login", "logout", "portal-login", "portal-logout", "portal-sesion", "portal-olvide",
+                 "portal-inicio", "portal-datos")
+PORTAL_COOKIE = "lz_portal"
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
 COOKIE = "lz_sesion"
 SESSION_DAYS = 30
@@ -328,6 +339,7 @@ DEFAULT_CONFIG = {
     "whatsapp": "",
     "email": "",
     "urlPublica": "https://rosariogebala-cyber.github.io/repositorio-modulos",
+    "urlPanel": "https://lanzate-mu.vercel.app",
 }
 _lock = threading.RLock()
 
@@ -432,6 +444,161 @@ def valid_session(value):
         return hmac.compare_digest(sig, good) and int(expires) > time.time()
     except (ValueError, AttributeError):
         return False
+
+
+# --- Acceso de cada cliente a su portal ----------------------------------------------
+# El repo es público: la contraseña se guarda como hash con un secreto que no está en el repo (LANZATE_SECRETO),
+# y una copia cifrada con ese mismo secreto para que el equipo la pueda ver y reenviar.
+
+def portal_secret():
+    return hmac.new(session_secret(), b"portal", hashlib.sha256).digest()
+
+
+def hash_portal_password(password, salt=None):
+    salt = salt or secrets.token_hex(16)
+    peppered = hmac.new(portal_secret(), password.encode("utf-8"), hashlib.sha256).digest()
+    digest = hashlib.scrypt(peppered, salt=bytes.fromhex(salt), n=2 ** 14, r=8, p=1).hex()
+    return "scrypt$%s$%s" % (salt, digest)
+
+
+def check_portal_password(stored, password):
+    try:
+        _, salt, _ = stored.split("$", 2)
+    except (ValueError, AttributeError):
+        return False
+    return len(password) <= 128 and hmac.compare_digest(hash_portal_password(password, salt), stored)
+
+
+def _keystream(key, nonce, size):
+    out, counter = b"", 0
+    while len(out) < size:
+        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
+        counter += 1
+    return out[:size]
+
+
+def seal_password(password):
+    key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+    nonce = secrets.token_bytes(16)
+    plain = password.encode("utf-8")
+    sealed = bytes(a ^ b for a, b in zip(plain, _keystream(key, nonce, len(plain))))
+    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
+    return base64.urlsafe_b64encode(nonce + tag + sealed).decode()
+
+
+def open_password(stored):
+    try:
+        raw = base64.urlsafe_b64decode((stored or "").encode())
+        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
+        key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+        if not sealed or not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
+            return ""
+        return bytes(a ^ b for a, b in zip(sealed, _keystream(key, nonce, len(sealed)))).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+
+
+def set_portal_access(client_id, data):
+    usuario = re.sub(r"\s+", "", str(data.get("usuario") or "")).lower()
+    if not re.fullmatch(r"[a-z0-9._@-]{3,60}", usuario):
+        raise ApiError(400, "El usuario usa letras, números, punto, guion o arroba, de 3 a 60 caracteres.")
+    clave = str(data.get("clave") or "").strip()
+    if not clave:
+        clave = "-".join(secrets.choice(PASSWORD_WORDS) for _ in range(3)) + str(secrets.randbelow(90) + 10)
+    elif not 8 <= len(clave) <= 128:
+        raise ApiError(400, "La contraseña tiene que tener entre 8 y 128 caracteres.")
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        if any(c["id"] != client_id and (c.get("portal") or {}).get("usuario") == usuario for c in db["clientes"]):
+            raise ApiError(409, "Ese usuario ya lo tiene otro cliente. Elegí otro.")
+        version = (row.get("portal") or {}).get("version", 0) + 1
+        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "clave": seal_password(clave),
+                         "version": version, "pidio_clave": 0}
+    return get_client(client_id)
+
+
+def clear_password_request(client_id):
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        if row.get("portal"):
+            row["portal"]["pidio_clave"] = 0
+    return get_client(client_id)
+
+
+PASSWORD_WORDS = ("sol", "mar", "luna", "rio", "pino", "faro", "nube", "lima", "roble", "trigo", "vela", "cielo",
+                  "brisa", "coral", "menta", "arena", "selva", "norte", "lago", "olivo")
+
+
+def portal_token(client_id, version):
+    expires = int(time.time()) + 30 * 86400
+    payload = "%d.%d.%d" % (client_id, expires, version)
+    return payload + "." + hmac.new(portal_secret(), payload.encode(), hashlib.sha256).hexdigest()
+
+
+def portal_client(value):
+    """El cliente de la sesión del portal, o None."""
+    try:
+        client_id, expires, version, sig = value.split(".")
+        payload = "%s.%s.%s" % (client_id, expires, version)
+        if int(expires) <= time.time() or not hmac.compare_digest(
+                sig, hmac.new(portal_secret(), payload.encode(), hashlib.sha256).hexdigest()):
+            return None
+    except (ValueError, AttributeError):
+        return None
+    for row in read_data("clientes", []):
+        if row["id"] == int(client_id) and (row.get("portal") or {}).get("version") == int(version):
+            return row
+    return None
+
+
+def portal_login(usuario, clave):
+    usuario = str(usuario or "").strip().lower()
+    for row in read_data("clientes", []):
+        access = row.get("portal") or {}
+        if usuario and access.get("usuario") == usuario and check_portal_password(access.get("hash"), str(clave or "")):
+            if row.get("estado") == "pausado":
+                raise ApiError(403, "Tu cuenta está pausada. Escribinos para reactivarla.")
+            return row
+    time.sleep(1)
+    raise ApiError(401, "El usuario o la contraseña no son correctos.")
+
+
+def request_password(usuario):
+    """El cliente avisa que se olvidó la contraseña: queda marcado en el panel para que el equipo se la reenvíe."""
+    usuario = str(usuario or "").strip().lower()
+    with store("clientes") as db:
+        for row in db["clientes"]:
+            access = row.get("portal") or {}
+            if usuario and access.get("usuario") == usuario:
+                if now_ms() - (access.get("pidio_clave") or 0) > 10 * 60000:
+                    access["pidio_clave"] = now_ms()
+                break
+    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate y te mandamos tu contraseña por WhatsApp o mail."}
+
+
+def portal_home(client):
+    landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
+    origin = read_config()["urlPublica"]
+    status = plan_status(client)
+    return {
+        "nombre": client["nombre"], "rubro": client.get("rubro") or "", "usuario": (client.get("portal") or {}).get("usuario"),
+        "plan": status, "plan_vence": client.get("plan_vence") or "",
+        "landings": [{"nombre": l["nombre"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
+                      "editor": "/portal/editar/?l=" + quote(client["slug"] + "/" + l["slug"]),
+                      "actualizado": l["actualizado"]} for l in sorted(landings, key=lambda l: -l["actualizado"])],
+        "whatsapp": re.sub(r"\D", "", read_config().get("whatsapp") or ""),
+    }
+
+
+def portal_data_js(client):
+    """Los datos que usa el editor del cliente: solo los suyos y sin datos de acceso."""
+    safe = {k: v for k, v in client.items() if k not in ("portal", "notas")}
+    landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
+    landings = [{k: l[k] for k in ("id", "cliente_id", "nombre", "slug", "actualizado")} | {"html": True} for l in landings]
+    config = {k: v for k, v in read_config().items()}
+    parts = [("LANZATE_CONFIG", config), ("LANZATE_PLANES", read_data("planes", {})),
+             ("LANZATE_CLIENTES", [safe]), ("LANZATE_LANDINGS", landings)]
+    return "".join("window.%s = %s;\n" % (name, json.dumps(value, ensure_ascii=False)) for name, value in parts)
 
 
 # --- Planes: los mismos del sitio de venta ---------------------------------------
@@ -668,7 +835,11 @@ def find_client(db, client_id):
 
 
 def client_dict(row, count=None):
-    data = dict(row)
+    data = {k: v for k, v in row.items() if k != "portal"}
+    access = row.get("portal") or {}
+    data["portal_usuario"] = access.get("usuario") or ""
+    data["portal_clave"] = open_password(access.get("clave")) if access else ""
+    data["pidio_clave"] = access.get("pidio_clave") or 0
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row)
     data["carpeta"] = "/l/" + row["slug"] + "/"
@@ -899,10 +1070,10 @@ def get_landing(landing_id):
 
 def editor_url(client, landing=None):
     """Página donde el cliente arma su pedido de cambios (estática, sin login)."""
-    base = read_config()["urlPublica"]
+    base = read_config().get("urlPanel") or ""
     if landing is None:
-        return base + "/editar/?c=" + quote(client["slug"])
-    return base + "/editar/?l=" + quote(client["slug"] + "/" + landing["slug"])
+        return base + "/portal/"
+    return base + "/portal/editar/?l=" + quote(client["slug"] + "/" + landing["slug"])
 
 
 def fill_image_alts(document):
@@ -1232,7 +1403,7 @@ def write_site_files():
         examples = public_examples(db, origin)
     FILES.write("modulos", "sitemap.xml", sitemap_xml(origin, sorted(real)))
     FILES.write("modulos", "robots.txt",
-                "User-agent: *\nDisallow: /maquetas/\nDisallow: /data/\nDisallow: /editar/\nSitemap: %s/sitemap.xml\n" % origin)
+                "User-agent: *\nDisallow: /maquetas/\nDisallow: /data/\nDisallow: /portal/\nSitemap: %s/sitemap.xml\n" % origin)
     for kind in ("privacidad", "terminos"):
         FILES.write("modulos", kind + "/index.html", legal_page(kind))
     if FILES.has("sitio"):
@@ -2059,7 +2230,8 @@ def not_found_page():
 
 ACTION_NAMES = {"clientes": "Alta de cliente", "cliente": "Actualiza cliente", "plan": "Actualiza plan",
                 "pedidos": "Registra pedido de cambios", "landings": "Crea landing", "landing": "Actualiza landing",
-                "duplicate": "Duplica landing", "reglas": "Actualiza reglas"}
+                "duplicate": "Duplica landing", "reglas": "Actualiza reglas", "acceso": "Actualiza acceso al portal",
+                "clave-enviada": "Marca contraseña enviada", "portal-olvide": "Cliente pide su contraseña"}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -2072,9 +2244,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return value
         return ""
 
-    def session_cookie(self, value, max_age):
+    def session_cookie(self, value, max_age, name=COOKIE):
         secure = "; Secure" if ON_VERCEL or self.headers.get("X-Forwarded-Proto") == "https" else ""
-        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
+        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (name, value, max_age, secure)
+
+    def portal_client(self):
+        return portal_client(self.cookie(PORTAL_COOKIE))
 
     def authorized(self):
         return not login_required() or valid_session(self.cookie(COOKIE))
@@ -2177,8 +2352,17 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ApiError(403, "Pedido rechazado.")
             if name not in PUBLIC_ROUTES and not self.authorized():
                 raise ApiError(401, "Ingresá con la clave del equipo.")
+            if name == "portal-datos":
+                client = self.portal_client()
+                if not client and self.authorized():
+                    slug = (query.get("c") or [""])[0]
+                    client = next((c for c in read_data("clientes", []) if c["slug"] == slug), None)
+                if not client:
+                    raise ApiError(401, "Ingresá a tu portal.")
+                self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
+                return True
             result = self.dispatch(method, name, ident, query)
-            if method != "GET" and name != "publicar":
+            if method != "GET" and name not in ("publicar", "portal-login", "portal-logout"):
                 action = "Borra " + ("cliente" if name == "cliente" else "landing") if method == "DELETE" else ACTION_NAMES.get(name, "Actualiza datos")
                 FILES.commit(action + " desde el panel")
         except ApiError as err:
@@ -2204,6 +2388,29 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ApiError(401, "El usuario o la contraseña no son correctos.")
             self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
             return {"ok": True}
+        if name == "acceso" and method == "POST":
+            return set_portal_access(ident, self.read_json())
+        if name == "clave-enviada" and method == "POST":
+            return clear_password_request(ident)
+        if name == "portal-login" and method == "POST":
+            data = self.read_json()
+            client = portal_login(data.get("usuario"), data.get("clave"))
+            token = portal_token(client["id"], client["portal"]["version"])
+            self.extra_headers = (("Set-Cookie", self.session_cookie(token, 30 * 86400, PORTAL_COOKIE)),)
+            return {"ok": True}
+        if name == "portal-logout" and method == "POST":
+            self.extra_headers = (("Set-Cookie", self.session_cookie("", 0, PORTAL_COOKIE)),)
+            return {"ok": True}
+        if name == "portal-sesion" and method == "GET":
+            client = self.portal_client()
+            return {"ok": bool(client), "nombre": client["nombre"] if client else ""}
+        if name == "portal-olvide" and method == "POST":
+            return request_password(self.read_json().get("usuario"))
+        if name == "portal-inicio" and method == "GET":
+            client = self.portal_client()
+            if not client:
+                raise ApiError(401, "Ingresá a tu portal.")
+            return portal_home(client)
         if name == "logout" and method == "POST":
             self.extra_headers = (("Set-Cookie", self.session_cookie("", 0)),)
             return {"ok": True}

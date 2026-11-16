@@ -78,11 +78,19 @@ Cada landing guarda sus módulos (`items`: qué módulo, textos, fotos y links).
 todas las landings en el constructor con las plantillas actuales de `maquetas/` y los datos actuales de cada cliente,
 y recién después sube los cambios. Si arreglás un módulo o cambiás el teléfono de un cliente, se refleja en todas sus landings.
 
-## Cambios que pide el cliente
+## Portal del cliente
 
-El cliente no tiene usuario. Desde la ficha copiás el link del editor (`/editar/?l=<cliente>/<landing>`) y se lo pasás.
-Ahí toca los textos de su web y escribe encima, marca las fotos o botones a cambiar, y te lo manda por WhatsApp
-al número de `data/config.js`. Vos aplicás los cambios en el constructor y publicás.
+Cada cliente entra a https://lanzate-mu.vercel.app/portal/ con su usuario y contraseña. Ahí ve su plan, cuántos
+pedidos de cambios le quedan en el mes y sus páginas. Desde «Pedir cambios» toca los textos de su web, marca fotos
+o botones a cambiar y te lo manda por WhatsApp. Vos aplicás los cambios en el constructor.
+
+- **Usuario y contraseña:** los definís en la ficha del cliente («Acceso al portal»). Si dejás la contraseña vacía,
+  se crea una sola. «Copiar acceso» copia el link, el usuario y la contraseña para mandárselos.
+- **Si se olvida la contraseña:** toca «Me olvidé la contraseña» en el portal. En el panel aparece «Pidió su contraseña»
+  en la lista de clientes y en su ficha. Copiás el acceso, se lo mandás y tocás «Ya se la mandé».
+- **Seguridad:** el repo es público, así que la contraseña no se guarda tal cual. Queda un hash y una copia cifrada con
+  `LANZATE_SECRETO`, que solo está en Vercel y en tu computadora. Creá los accesos desde el panel online: si el secreto
+  de tu computadora no es el mismo que el de Vercel, un acceso creado en tu computadora no sirve online.
 
 ## Formularios de las landings
 
