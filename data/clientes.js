@@ -123,7 +123,14 @@ window.LANZATE_CLIENTES = [
     "plan_vence": "",
     "creado": 1793480398689,
     "actualizado": 1794863630347,
-    "logo": ""
+    "logo": "",
+    "portal": {
+      "usuario": "alma-estetica",
+      "hash": "scrypt$cf8596194db47ee0ec3669e1210eff9c$3dc5ede31a490694a7cff19753d605deab8f7080f782fcf334ce74f2256722e0d8cbb28b9b006b5181c8f1de8a9702fe9ba87890cc112db9a2f4bc3d57fbe24b",
+      "clave": "-BqFt3in2r5WmZAhY0VxYoUre0dJgN4TMjbacrZ8T2zVY0kLhpmznpECoL0v",
+      "version": 1,
+      "pidio_clave": 0
+    }
   },
   {
     "nombre": "Rumbo Viajes",
