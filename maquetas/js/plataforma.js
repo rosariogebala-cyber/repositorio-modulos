@@ -82,6 +82,10 @@
     return '<span class="pf-avatar' + (c.logo_url ? " has-logo" : "") + (size ? " is-" + size : "") + '" style="' + style + '">' + inner + "</span>";
   }
 
+  function pendingCount(c) {
+    return (c.pedidos || []).filter(function (r) { return r.estado === "pendiente"; }).length;
+  }
+
   /* Aviso del plan: vencido, por vencer o sin pedidos de cambios disponibles */
   function planAlert(c) {
     var p = c.plan_estado || {};
@@ -396,6 +400,8 @@
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
+          (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-cambios"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
+            (pendingCount(c) === 1 ? "Mandó un pedido de cambios" : "Mandó " + pendingCount(c) + " pedidos de cambios") + "</a>" : "") +
           (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
           (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
           '<ul class="pf-client-data">' +
@@ -461,6 +467,52 @@
 
     function money(n) { return n ? "$" + Number(n).toLocaleString("es-AR") : ""; }
 
+    function requestSummary(r) {
+      if (r.nota) return r.nota;
+      var n = (r.cambios || []).length;
+      return n ? plural(n, "cambio", "cambios") + (r.landing ? " en " + r.landing : "") : "Pedido sin detalle";
+    }
+
+    function requestCard(r) {
+      var id = esc(r.id || r.fecha);
+      var changes = (r.cambios || []).map(function (ch) {
+        if (ch.tipo === "texto") return "<li><b>" + esc(ch.seccion) + ':</b> <s>' + esc(ch.antes) + "</s> → " + esc(ch.despues) + "</li>";
+        if (ch.tipo === "foto") return "<li><b>" + esc(ch.seccion) + ":</b> cambiar la foto «" + esc(ch.antes) + "»" + (ch.detalle ? " — " + esc(ch.detalle) : "") + "</li>";
+        return "<li><b>" + esc(ch.seccion) + ":</b> el botón «" + esc(ch.antes) + "» que lleve a " + esc(ch.despues) + "</li>";
+      }).join("");
+      var photos = (r.fotos || []).map(function (f) {
+        return '<a href="' + esc(f.ruta) + '" target="_blank" rel="noopener" download><img src="' + esc(f.ruta) + '" alt="' + esc(f.nota || "Foto del pedido") + '"></a>';
+      }).join("");
+      return '<li class="cf-request" data-pf-request="' + id + '"><div class="cf-request-head"><b class="cf-state is-pendiente">Para revisar</b><time>' +
+        esc(new Date(r.fecha).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + "</time>" +
+        (r.landing ? '<span class="cf-muted">' + esc(r.landing) + "</span>" : "") + "</div>" +
+        (r.nota ? '<p class="cf-request-note">' + esc(r.nota) + "</p>" : "") +
+        (changes ? '<ul class="cf-request-list">' + changes + "</ul>" : "") +
+        (photos ? '<div class="cf-request-photos">' + photos + "</div>" : "") +
+        '<label class="cf-request-reply">Respuesta para el cliente (opcional) <input name="comentario" maxlength="600" placeholder="Por ejemplo: ¡Listo! Ya está publicado."></label>' +
+        '<div class="cf-request-actions"><button class="btn-nx btn-sm" type="button" data-pf-decidir="aceptado"><i class="bi bi-check2" aria-hidden="true"></i> Aceptar</button>' +
+        '<button class="btn-nx-outline btn-sm" type="button" data-pf-decidir="rechazado"><i class="bi bi-x-lg" aria-hidden="true"></i> Rechazar</button></div></li>';
+    }
+
+    function loadStats(c) {
+      var box = profile.querySelector("[data-pf-stats-body]");
+      if (!box) return;
+      api("GET", "/api/clientes/" + c.id + "/estadisticas").then(function (d) {
+        if (!d.registro) { box.textContent = "Falta conectar el registro de visitas y consultas (Upstash Redis en Vercel)."; return; }
+        var st = d.estadisticas;
+        var max = Math.max(1, Math.max.apply(null, st.serie.map(function (x) { return x.visitas; })));
+        var spark = st.serie.map(function (x) { return '<span style="height:' + Math.max(6, Math.round(x.visitas / max * 100)) + '%" title="' + esc(x.dia + ": " + x.visitas) + '"></span>'; }).join("");
+        var leads = d.consultas.slice(0, 4);
+        box.outerHTML = '<div class="cf-stat-row"><div><strong>' + st.total + "</strong><span>visitas</span></div><div><strong>" + st.consultas_periodo +
+          "</strong><span>consultas</span></div><div><strong>" + st.consultas_nuevas + '</strong><span>sin atender</span></div></div>' +
+          '<div class="cf-spark" aria-hidden="true">' + spark + "</div>" +
+          (leads.length ? '<ul class="cf-leads">' + leads.map(function (l) {
+            return '<li><b class="cf-state is-' + (l.estado === "nueva" ? "pendiente" : "aceptado") + '">' + (l.estado === "nueva" ? "Nueva" : "Atendida") + "</b> " +
+              esc((l.datos && l.datos.nombre) || "Consulta") + ' <span class="cf-muted">· ' + esc(new Date(l.fecha).toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</span></li>";
+          }).join("") + "</ul>" : '<p class="cf-muted">Todavía no hay consultas.</p>');
+      }).catch(function (err) { box.textContent = err.message; });
+    }
+
     function render(c) {
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
@@ -468,7 +520,9 @@
       var ps = c.plan_estado || {};
       var plan = PLANS.filter(function (p) { return p.id === c.plan; })[0];
       var month = new Date().toISOString().slice(0, 7);
-      var requests = (c.pedidos || []).slice().reverse();
+      var requests = (c.pedidos || []).slice().sort(function (a, b) { return b.fecha - a.fecha; });
+      var pendingRequests = requests.filter(function (r) { return r.estado === "pendiente"; });
+      var doneRequests = requests.filter(function (r) { return r.estado !== "pendiente"; });
       var portalUrl = c.editor;
       var portalShort = portalUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
       var used = ps.cambios_usados || 0;
@@ -539,16 +593,21 @@
 
           '<section class="cf-card" aria-labelledby="pf-cambios">' +
             '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-chat-square-text" aria-hidden="true"></i></span><div><h2 id="pf-cambios">Pedidos de cambios</h2>' +
-            "<p>" + (limit ? "Este mes usó " + used + " de " + limit + "." : used ? "Este mes: " + plural(used, "pedido", "pedidos") + "." : "Registrá cada pedido que aplicás.") + "</p></div></div>" +
+            "<p>" + (pendingRequests.length ? "<b>" + plural(pendingRequests.length, "pedido para revisar", "pedidos para revisar") + ".</b> " : "") +
+              (limit ? "Este mes usó " + used + " de " + limit + "." : used ? "Este mes: " + plural(used, "pedido", "pedidos") + "." : "Los pedidos del portal llegan acá.") + "</p></div></div>" +
             (limit ? '<div class="cf-meter' + (used >= limit ? " is-full" : "") + '" role="img" aria-label="' + used + " de " + limit + ' pedidos usados"><span style="width:' + pct + '%"></span></div>' +
               '<p class="cf-meter-note">' + (ps.cambios_restantes ? "Le " + (ps.cambios_restantes === 1 ? "queda 1 pedido" : "quedan " + ps.cambios_restantes + " pedidos") + " este mes." : "No le quedan pedidos este mes.") + "</p>" : "") +
+            (pendingRequests.length ? '<ul class="cf-requests">' + pendingRequests.map(requestCard).join("") + "</ul>" : "") +
+            '<details class="cf-details"><summary>Anotar un pedido que llegó por otro lado</summary>' +
             '<form class="cf-form cf-inline" data-pf-pedido><label class="cf-grow">Qué pidió <input name="nota" maxlength="300" placeholder="Por ejemplo: precio nuevo del corte"></label>' +
-              '<button class="btn-nx btn-sm" type="submit"><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar</button></form>' +
-            (requests.length ? '<ol class="cf-timeline">' + requests.slice(0, 8).map(function (r) {
+              '<button class="btn-nx btn-sm" type="submit"><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar</button></form></details>' +
+            (doneRequests.length ? '<h3 class="cf-sub">Historial</h3><ol class="cf-timeline">' + doneRequests.slice(0, 10).map(function (r) {
               var d = new Date(r.fecha);
+              var estado = r.estado || "aceptado";
               return '<li class="' + (d.toISOString().slice(0, 7) === month ? "is-month" : "") + '"><time>' + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</time>" +
-                "<span>" + esc(r.nota || "Pedido sin detalle") + "</span>" +
-                '<button class="cf-icon-btn" type="button" data-pf-quitar-pedido="' + r.fecha + '" aria-label="Quitar pedido del ' + esc(d.toLocaleDateString("es-AR")) + '" title="Quitar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></li>';
+                '<span><b class="cf-state is-' + esc(estado) + '">' + (estado === "rechazado" ? "Rechazado" : "Aceptado") + "</b> " + esc(requestSummary(r)) + "</span>" +
+                (r.origen === "cliente" ? '<button class="cf-icon-btn" type="button" data-pf-reabrir="' + esc(r.id || r.fecha) + '" aria-label="Volver a pendiente" title="Volver a pendiente"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>'
+                  : '<button class="cf-icon-btn" type="button" data-pf-quitar-pedido="' + r.fecha + '" aria-label="Quitar pedido del ' + esc(d.toLocaleDateString("es-AR")) + '" title="Quitar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>') + "</li>";
             }).join("") + "</ol>" : "") +
           "</section>" +
 
@@ -575,6 +634,11 @@
                 '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
                 '<button class="btn-nx btn-sm" type="submit">Guardar plan</button>' +
               "</form></details>" +
+          "</section>" +
+
+          '<section class="cf-card" aria-labelledby="cf-stats" data-pf-stats>' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-graph-up" aria-hidden="true"></i></span><div><h2 id="cf-stats">Visitas y consultas</h2><p>Últimos 30 días</p></div></div>' +
+            '<p class="cf-muted" data-pf-stats-body>Cargando…</p>' +
           "</section>" +
 
           '<section class="cf-card" aria-labelledby="cf-contacto">' +
@@ -608,6 +672,26 @@
         "</div>" +
         "</div>";
 
+      profile.querySelectorAll("[data-pf-decidir]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var card = btn.closest("[data-pf-request]");
+          var estado = btn.getAttribute("data-pf-decidir");
+          var comentario = card.querySelector("[name=comentario]").value;
+          if (estado === "rechazado" && !comentario.trim() && !window.confirm("¿Rechazar sin explicarle el motivo al cliente?")) return;
+          card.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+          api("PUT", "/api/clientes/" + c.id + "/pedidos/" + encodeURIComponent(card.getAttribute("data-pf-request")), { estado: estado, comentario: comentario })
+            .then(function () { say(msg, estado === "aceptado" ? "Pedido aceptado. El cliente lo ve en su portal." : "Pedido rechazado. El cliente ve tu respuesta en su portal.", "ok"); load(); })
+            .catch(function (err) { card.querySelectorAll("button").forEach(function (b) { b.disabled = false; }); say(msg, err.message, "warn"); });
+        });
+      });
+      profile.querySelectorAll("[data-pf-reabrir]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          api("PUT", "/api/clientes/" + c.id + "/pedidos/" + encodeURIComponent(btn.getAttribute("data-pf-reabrir")), { estado: "pendiente" })
+            .then(function () { say(msg, "El pedido volvió a «para revisar».", "ok"); load(); })
+            .catch(function (err) { say(msg, err.message, "warn"); });
+        });
+      });
+      loadStats(c);
       var reveal = profile.querySelector("[data-pf-ver-clave]");
       if (reveal) reveal.addEventListener("click", function () {
         var on = reveal.getAttribute("aria-pressed") !== "true";
@@ -670,9 +754,9 @@
           .catch(function (err) { say(accessOut, err.message, "warn"); })
           .then(function () { btn.disabled = false; });
       });
-      if (location.hash === "#pf-acceso") {
+      if (location.hash === "#pf-acceso" || location.hash === "#pf-cambios") {
+        var target = profile.querySelector(location.hash);
         history.replaceState(null, "", location.pathname + location.search);
-        var target = profile.querySelector("#pf-acceso");
         if (target) target.scrollIntoView({ block: "start" });
       }
       profile.querySelector("[data-pf-edit]").addEventListener("click", function () {

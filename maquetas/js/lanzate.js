@@ -3,6 +3,19 @@
 
   /* En una landing publicada los formularios envían la consulta; en las maquetas y la vista previa son de muestra */
   var leadMeta = document.querySelector('meta[name="lz-landing"]');
+  var apiMeta = document.querySelector('meta[name="lz-api"]');
+  /* Visitas y consultas se registran en el panel (Vercel) para el portal del cliente */
+  function beacon(path, payload) {
+    if (!apiMeta || !apiMeta.content) return;
+    var body = JSON.stringify(payload);
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(apiMeta.content + path, new Blob([body], { type: "text/plain" }))) return;
+    } catch (e) {}
+    try { fetch(apiMeta.content + path, { method: "POST", body: body, keepalive: true, mode: "no-cors" }); } catch (e) {}
+  }
+  if (leadMeta && window.top === window && !/[?&]lzvista=/.test(location.search)) {
+    beacon("/api/visita", { l: Number(leadMeta.content), r: document.referrer || "" });
+  }
   if (leadMeta) {
     document.querySelectorAll(".nx-footer h2.h6").forEach(function (heading) {
       var label = document.createElement("p");
@@ -44,6 +57,7 @@
     var trap = form.querySelector('[name="web"]');
     if (trap && trap.value) return Promise.resolve(true);
     var data = leadData(form, extra);
+    beacon("/api/consultas/nueva", { l: Number(leadMeta.content), tipo: tipo, datos: data, web: trap ? trap.value : "" });
     var lines = [tipo === "turno" ? "Hola, quiero reservar un turno:" : "Hola, quiero hacer una consulta:"];
     Object.keys(data).forEach(function (k) {
       var value = data[k];

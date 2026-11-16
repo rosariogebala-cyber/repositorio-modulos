@@ -1,5 +1,5 @@
 User-agent: *
 Disallow: /maquetas/
 Disallow: /data/
-Disallow: /editar/
+Disallow: /portal/
 Sitemap: https://rosariogebala-cyber.github.io/repositorio-modulos/sitemap.xml

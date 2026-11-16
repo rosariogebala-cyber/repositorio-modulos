@@ -92,10 +92,19 @@ ROUTES = [
     (re.compile(r"^/api/portal/olvide$"), "portal-olvide"),
     (re.compile(r"^/api/portal/inicio$"), "portal-inicio"),
     (re.compile(r"^/api/portal/datos\.js$"), "portal-datos"),
+    (re.compile(r"^/api/portal/pedidos$"), "portal-pedidos"),
+    (re.compile(r"^/api/portal/consultas/([\w-]+)$"), "portal-consulta"),
+    (re.compile(r"^/api/portal/clave$"), "portal-clave"),
+    (re.compile(r"^/api/clientes/(\d+)/pedidos/([\w-]+)$"), "pedido"),
+    (re.compile(r"^/api/clientes/(\d+)/estadisticas$"), "estadisticas"),
+    (re.compile(r"^/api/clientes/(\d+)/consultas/([\w-]+)$"), "consulta"),
+    (re.compile(r"^/api/visita$"), "visita"),
+    (re.compile(r"^/api/consultas/nueva$"), "consulta-nueva"),
     (re.compile(r"^/api/logout$"), "logout"),
 ]
 PUBLIC_ROUTES = ("sesion", "login", "logout", "portal-login", "portal-logout", "portal-sesion", "portal-olvide",
-                 "portal-inicio", "portal-datos")
+                 "portal-inicio", "portal-datos", "portal-pedidos", "portal-consulta", "portal-clave", "visita", "consulta-nueva")
+CROSS_SITE_ROUTES = ("visita", "consulta-nueva")
 PORTAL_COOKIE = "lz_portal"
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
 COOKIE = "lz_sesion"
@@ -320,6 +329,100 @@ class GitHubFiles:
 
 
 FILES = GitHubFiles(GITHUB_TOKEN) if GITHUB_TOKEN else LocalFiles()
+
+
+# --- Registro privado: visitas y consultas -------------------------------------------
+# Online: Upstash Redis (se conecta desde Vercel → Storage; deja KV_REST_API_URL y KV_REST_API_TOKEN).
+# En tu computadora, sin Redis: ~/.lanzate/registro.json. Nunca en el repo, que es público.
+
+REDIS_URL = (os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL") or "").rstrip("/")
+REDIS_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN") or ""
+LOCAL_RECORD = os.path.join(CONFIG_DIR, "registro.json")
+
+
+class Record:
+    """Lo mínimo que hace falta: contadores (hash) y un hash de consultas por cliente."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+
+    @property
+    def online(self):
+        return bool(REDIS_URL and REDIS_TOKEN)
+
+    def available(self):
+        return self.online or not ON_VERCEL
+
+    def redis(self, commands):
+        req = Request(REDIS_URL + "/pipeline", method="POST", data=json.dumps(commands).encode("utf-8"),
+                      headers={"Authorization": "Bearer " + REDIS_TOKEN, "Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10) as resp:
+                out = json.loads(resp.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, ValueError) as err:
+            raise ApiError(502, "No se pudo leer el registro de visitas y consultas: %s" % err)
+        return [item.get("result") for item in out]
+
+    def local(self, fn):
+        with self.lock:
+            try:
+                with open(LOCAL_RECORD, encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except (OSError, ValueError):
+                data = {}
+            result = fn(data)
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(LOCAL_RECORD + ".tmp", "w", encoding="utf-8") as fh:
+                json.dump(data, fh)
+            os.replace(LOCAL_RECORD + ".tmp", LOCAL_RECORD)
+            return result
+
+    def hincr(self, items):
+        """items: [(clave, campo, cantidad)]"""
+        if not self.available():
+            return
+        if self.online:
+            self.redis([["HINCRBY", k, f, n] for k, f, n in items])
+            return
+
+        def fn(data):
+            for k, f, n in items:
+                data.setdefault(k, {})[f] = data.setdefault(k, {}).get(f, 0) + n
+        self.local(fn)
+
+    def hgetall(self, keys):
+        if not self.available():
+            return [{} for _ in keys]
+        if self.online:
+            out = []
+            for flat in self.redis([["HGETALL", k] for k in keys]):
+                flat = flat or []
+                out.append({flat[i]: flat[i + 1] for i in range(0, len(flat), 2)})
+            return out
+        return self.local(lambda data: [dict(data.get(k) or {}) for k in keys])
+
+    def hset(self, key, field, value):
+        if not self.available():
+            raise ApiError(503, "Falta conectar el registro (Upstash Redis) en Vercel.")
+        if self.online:
+            self.redis([["HSET", key, field, value]])
+            return
+
+        def fn(data):
+            data.setdefault(key, {})[field] = value
+        self.local(fn)
+
+    def hdel(self, key, field):
+        if self.online:
+            self.redis([["HDEL", key, field]])
+            return
+
+        def fn(data):
+            (data.get(key) or {}).pop(field, None)
+        self.local(fn)
+
+
+RECORD = Record()
 
 
 def read_text(repo, path):
@@ -578,16 +681,52 @@ def request_password(usuario):
 
 def portal_home(client):
     landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
-    origin = read_config()["urlPublica"]
+    config = read_config()
+    origin = config["urlPublica"]
     status = plan_status(client)
+    plan = client_plan(client)
+    requests = []
+    for p in sorted(client.get("pedidos") or [], key=lambda p: -p.get("fecha", 0))[:40]:
+        requests.append({k: p.get(k) for k in ("id", "fecha", "estado", "origen", "landing", "nota", "cambios", "fotos",
+                                                "comentario", "resuelto")} | {"estado": p.get("estado", "aceptado"),
+                                                                              "id": str(p.get("id") or p.get("fecha"))})
+    tracking = not plan or plan.get("medicion")
     return {
-        "nombre": client["nombre"], "rubro": client.get("rubro") or "", "usuario": (client.get("portal") or {}).get("usuario"),
+        "nombre": client["nombre"], "rubro": client.get("rubro") or "", "slug": client["slug"],
+        "usuario": (client.get("portal") or {}).get("usuario"),
+        "logo": logo_ref(client), "colores": [client.get("color_primario"), client.get("color_secundario")],
+        "contacto": {k: client.get(k) or "" for k in ("contacto", "email", "telefono", "direccion", "horario", "sitio",
+                                                     "instagram", "facebook", "linkedin")},
+        "medicion": {"incluida": bool(tracking), "ga4": client.get("ga4") or "", "gtm": client.get("gtm") or "",
+                     "meta_pixel": bool(client.get("meta_pixel"))},
         "plan": status, "plan_vence": client.get("plan_vence") or "",
-        "landings": [{"nombre": l["nombre"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
+        "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
+                                                  "turnos", "medicion")} if plan else None,
+        "landings": [{"nombre": l["nombre"], "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
                       "editor": "/portal/editar/?l=" + quote(client["slug"] + "/" + l["slug"]),
+                      "portada": (origin + l["portada"]) if l.get("portada") else "",
                       "actualizado": l["actualizado"]} for l in sorted(landings, key=lambda l: -l["actualizado"])],
-        "whatsapp": re.sub(r"\D", "", read_config().get("whatsapp") or ""),
+        "pedidos": requests,
+        "estadisticas": client_stats(client),
+        "consultas": client_leads(client["id"])[:200] if RECORD.available() else [],
+        "registro": RECORD.available(),
+        "lanzate": {"whatsapp": re.sub(r"\D", "", config.get("whatsapp") or ""), "email": config.get("email") or ""},
+        "whatsapp": re.sub(r"\D", "", config.get("whatsapp") or ""),
     }
+
+
+def change_portal_password(client_id, data):
+    actual, nueva = str(data.get("actual") or ""), str(data.get("nueva") or "")
+    if not 8 <= len(nueva) <= 128:
+        raise ApiError(400, "La contraseña nueva tiene que tener entre 8 y 128 caracteres.")
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        access = row.get("portal") or {}
+        if not check_portal_password(access.get("hash"), actual):
+            time.sleep(1)
+            raise ApiError(400, "La contraseña actual no es correcta.")
+        access.update(hash=hash_portal_password(nueva), clave=seal_password(nueva), version=access.get("version", 0) + 1)
+        return access["version"]
 
 
 def portal_data_js(client):
@@ -599,6 +738,120 @@ def portal_data_js(client):
     parts = [("LANZATE_CONFIG", config), ("LANZATE_PLANES", read_data("planes", {})),
              ("LANZATE_CLIENTES", [safe]), ("LANZATE_LANDINGS", landings)]
     return "".join("window.%s = %s;\n" % (name, json.dumps(value, ensure_ascii=False)) for name, value in parts)
+
+
+# --- Visitas y consultas de las landings ------------------------------------------
+
+BOT_RE = re.compile(r"bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|headless|lighthouse", re.I)
+
+
+def traffic_source(referrer):
+    host = (urlsplit(referrer or "").hostname or "").lower()
+    if not host:
+        return "directo"
+    for name, words in (("google", ("google.",)), ("instagram", ("instagram.",)), ("facebook", ("facebook.", "fb.")),
+                        ("whatsapp", ("whatsapp.", "wa.me")), ("tiktok", ("tiktok.",)), ("bing", ("bing.",))):
+        if any(w in host for w in words):
+            return name
+    return "otros"
+
+
+def landing_owner(landing_id):
+    for row in read_data("landings", []):
+        if row["id"] == landing_id:
+            return row
+    return None
+
+
+def record_visit(data, user_agent):
+    if BOT_RE.search(user_agent or ""):
+        return {"ok": True}
+    try:
+        landing_id = int(data.get("l") or 0)
+    except (TypeError, ValueError):
+        landing_id = 0
+    landing = landing_owner(landing_id)
+    if not landing or not RECORD.available():
+        return {"ok": True}
+    day = time.strftime("%Y-%m-%d")
+    source = traffic_source(str(data.get("r") or ""))
+    RECORD.hincr([("lz:v:%d" % landing_id, day, 1), ("lz:f:%d" % landing_id, source, 1),
+                  ("lz:vc:%d" % landing["cliente_id"], day, 1)])
+    return {"ok": True}
+
+
+def record_lead(data, ip=""):
+    if str(data.get("web") or "").strip():
+        return {"ok": True}
+    try:
+        landing_id = int(data.get("l") or 0)
+    except (TypeError, ValueError):
+        landing_id = 0
+    landing = landing_owner(landing_id)
+    if not landing:
+        raise ApiError(404, "La página no existe.")
+    fields = data.get("datos") if isinstance(data.get("datos"), dict) else {}
+    clean = {}
+    for key, value in list(fields.items())[:20]:
+        key = re.sub(r"[^\w-]", "", str(key))[:40]
+        if key and value not in (None, "", False):
+            clean[key] = str(value)[:1000] if not isinstance(value, bool) else "Sí"
+    if not clean:
+        raise ApiError(400, "La consulta está vacía.")
+    lead_id = "%d-%s" % (now_ms(), secrets.token_hex(3))
+    lead = {"id": lead_id, "fecha": now_ms(), "landing": landing["nombre"], "landing_id": landing_id,
+            "tipo": "turno" if data.get("tipo") == "turno" else "contacto", "datos": clean, "estado": "nueva"}
+    RECORD.hset("lz:c:%d" % landing["cliente_id"], lead_id, json.dumps(lead, ensure_ascii=False))
+    return {"ok": True}
+
+
+def client_leads(client_id):
+    raw = RECORD.hgetall(["lz:c:%d" % client_id])[0]
+    leads = []
+    for value in raw.values():
+        try:
+            leads.append(json.loads(value))
+        except (TypeError, ValueError):
+            continue
+    return sorted(leads, key=lambda x: -x.get("fecha", 0))
+
+
+def set_lead_status(client_id, lead_id, status):
+    if status not in ("nueva", "atendida"):
+        raise ApiError(400, "Estado inválido.")
+    leads = {l["id"]: l for l in client_leads(client_id)}
+    lead = leads.get(str(lead_id))
+    if not lead:
+        raise ApiError(404, "No encontramos esa consulta.")
+    lead["estado"] = status
+    RECORD.hset("lz:c:%d" % client_id, lead["id"], json.dumps(lead, ensure_ascii=False))
+    return lead
+
+
+def client_stats(client, days=30):
+    """Visitas por día, por página y por fuente de los últimos días, más el resumen de consultas."""
+    landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
+    keys = ["lz:vc:%d" % client["id"]] + ["lz:v:%d" % l["id"] for l in landings] + ["lz:f:%d" % l["id"] for l in landings]
+    values = RECORD.hgetall(keys) if RECORD.available() else [{} for _ in keys]
+    total_by_day = values[0]
+    today = time.time()
+    serie = []
+    for i in range(days - 1, -1, -1):
+        day = time.strftime("%Y-%m-%d", time.localtime(today - i * 86400))
+        serie.append({"dia": day, "visitas": int(total_by_day.get(day) or 0)})
+    per_page, sources = [], {}
+    for index, landing in enumerate(landings):
+        by_day = values[1 + index]
+        count = sum(int(by_day.get(d["dia"]) or 0) for d in serie)
+        per_page.append({"nombre": landing["nombre"], "visitas": count})
+        for source, n in values[1 + len(landings) + index].items():
+            sources[source] = sources.get(source, 0) + int(n or 0)
+    leads = client_leads(client["id"]) if RECORD.available() else []
+    cutoff = (today - days * 86400) * 1000
+    return {"activo": RECORD.available(), "dias": days, "serie": serie, "total": sum(d["visitas"] for d in serie),
+            "paginas": per_page, "fuentes": sources,
+            "consultas_nuevas": sum(1 for l in leads if l.get("estado") == "nueva"),
+            "consultas_periodo": sum(1 for l in leads if l.get("fecha", 0) >= cutoff)}
 
 
 # --- Planes: los mismos del sitio de venta ---------------------------------------
@@ -738,8 +991,10 @@ def month_key(ms=None):
 
 
 def changes_this_month(client):
+    """Pedidos del mes que cuentan para el plan: los pendientes y los aceptados (los rechazados no)."""
     current = month_key()
-    return [p for p in client.get("pedidos") or [] if month_key(p.get("fecha")) == current]
+    return [p for p in client.get("pedidos") or []
+            if month_key(p.get("fecha")) == current and p.get("estado", "aceptado") != "rechazado"]
 
 
 def plan_status(client):
@@ -778,11 +1033,64 @@ def plan_errors(client, items):
 
 
 def add_change_request(client_id, data):
+    """El equipo anota un pedido que le llegó por otro lado (ya aplicado)."""
     nota = " ".join(str(data.get("nota") or "").split())[:300]
     with store("clientes") as db:
         row = find_client(db, client_id)
-        row.setdefault("pedidos", []).append({"fecha": now_ms(), "nota": nota})
-        row["pedidos"] = row["pedidos"][-60:]
+        stamp = now_ms()
+        row.setdefault("pedidos", []).append({"id": str(stamp), "fecha": stamp, "nota": nota, "estado": "aceptado",
+                                              "origen": "equipo", "resuelto": stamp})
+        row["pedidos"] = row["pedidos"][-80:]
+    return get_client(client_id)
+
+
+MAX_REQUEST_PHOTO = 3 * 1024 * 1024
+
+
+def submit_client_request(client_id, data):
+    """El cliente manda su pedido desde el portal: queda pendiente hasta que el equipo lo acepta o lo rechaza."""
+    landing_slug = str(data.get("landing") or "")
+    nota = " ".join(str(data.get("nota") or "").split())[:1000]
+    changes = []
+    for item in (data.get("cambios") or [])[:60]:
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("tipo") if item.get("tipo") in ("texto", "foto", "link") else "texto"
+        changes.append({"tipo": kind, **{k: " ".join(str(item.get(k) or "").split())[:600]
+                                         for k in ("seccion", "antes", "despues", "detalle")}})
+    photos = [p for p in (data.get("fotos") or []) if isinstance(p, dict)][:8]
+    if not changes and not nota and not photos:
+        raise ApiError(400, "El pedido está vacío. Marcá algún cambio o escribí qué necesitás.")
+    stamp = now_ms()
+    request_id = "%d-%s" % (stamp, secrets.token_hex(2))
+    with store("clientes", "landings") as db:
+        row = find_client(db, client_id)
+        landing = next((l for l in db["landings"] if l["cliente_id"] == client_id and l["slug"] == landing_slug), None)
+        saved_photos = []
+        for index, photo in enumerate(photos, 1):
+            ext, raw = decode_image(photo.get("data"), MAX_REQUEST_PHOTO)
+            path = "pedidos/%s/%s-%d.%s" % (row["slug"], request_id, index, ext)
+            FILES.write("modulos", path, raw)
+            saved_photos.append({"ruta": "/" + path, "nota": " ".join(str(photo.get("nota") or "").split())[:300]})
+        row.setdefault("pedidos", []).append({
+            "id": request_id, "fecha": stamp, "estado": "pendiente", "origen": "cliente",
+            "landing": landing["nombre"] if landing else "", "landing_slug": landing_slug if landing else "",
+            "nota": nota, "cambios": changes, "fotos": saved_photos})
+        row["pedidos"] = row["pedidos"][-80:]
+    return {"ok": True, "id": request_id}
+
+
+def decide_request(client_id, request_id, data):
+    estado = data.get("estado")
+    if estado not in ("aceptado", "rechazado", "pendiente"):
+        raise ApiError(400, "Elegí aceptar o rechazar.")
+    comentario = " ".join(str(data.get("comentario") or "").split())[:600]
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        request = next((p for p in row.get("pedidos") or [] if str(p.get("id") or p.get("fecha")) == str(request_id)), None)
+        if not request:
+            raise ApiError(404, "No encontramos ese pedido.")
+        request.update(estado=estado, comentario=comentario, resuelto=now_ms() if estado != "pendiente" else 0)
     return get_client(client_id)
 
 
@@ -926,6 +1234,19 @@ def unique_client_slug(db, nombre, exclude_id=0):
     while slug in taken:
         slug, n = "%s-%d" % (base, n), n + 1
     return slug
+
+
+def decode_image(data_url, limit):
+    match = re.match(r"^data:([\w/+.-]+);base64,(.+)$", data_url or "", re.S)
+    if not match or match.group(1) not in ("image/png", "image/jpeg", "image/webp"):
+        raise ApiError(400, "Las fotos tienen que ser JPG, PNG o WEBP.")
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except ValueError:
+        raise ApiError(400, "No se pudo leer una de las fotos.")
+    if len(raw) > limit:
+        raise ApiError(400, "Una de las fotos pesa más de %d MB." % (limit // (1024 * 1024)))
+    return LOGO_TYPES[match.group(1)], raw
 
 
 def decode_logo(data_url):
@@ -1318,6 +1639,9 @@ def landing_page(row, client):
                 meta_pixel=(client.get("meta_pixel") or "") if tracking else "",
                 slug_cliente=client["slug"])
     head = '<meta name="lz-landing" content="%d">' % row["id"]
+    panel = read_config().get("urlPanel") or ""
+    if panel:
+        head += '<meta name="lz-api" content="%s">' % escape(panel.rstrip("/"), quote=True)
     number = whatsapp_number(client)
     if number:
         head += '<meta name="lz-whatsapp" content="%s">' % number
@@ -2231,7 +2555,9 @@ def not_found_page():
 ACTION_NAMES = {"clientes": "Alta de cliente", "cliente": "Actualiza cliente", "plan": "Actualiza plan",
                 "pedidos": "Registra pedido de cambios", "landings": "Crea landing", "landing": "Actualiza landing",
                 "duplicate": "Duplica landing", "reglas": "Actualiza reglas", "acceso": "Actualiza acceso al portal",
-                "clave-enviada": "Marca contraseña enviada", "portal-olvide": "Cliente pide su contraseña"}
+                "clave-enviada": "Marca contraseña enviada", "portal-olvide": "Cliente pide su contraseña",
+                "portal-pedidos": "Cliente envía pedido de cambios", "pedido": "Responde pedido de cambios",
+                "portal-clave": "Cliente cambia su contraseña"}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -2278,7 +2604,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_body(200, Path(ROOT, path.lstrip("/")).read_bytes(), "text/html; charset=utf-8")
                 return True
             return False
-        if FILES.online and (path.startswith("/l/") or re.match(r"^/data/[a-z]+\.js$", path)):
+        if FILES.online and (path.startswith("/l/") or path.startswith("/pedidos/") or re.match(r"^/data/[a-z]+\.js$", path)):
             rel = path.lstrip("/")
             if rel.endswith("/") or rel.count("/") == 2 and "." not in rel.rsplit("/", 1)[-1]:
                 rel = rel.rstrip("/") + "/index.html"
@@ -2345,10 +2671,13 @@ class Handler(SimpleHTTPRequestHandler):
                 return True
             return False
         token = match.group(1) if match.groups() else ""
+        self.route_token = match.group(2) if len(match.groups()) > 1 else (token if name == "portal-consulta" else "")
         ident = int(token) if str(token).isdigit() else None
         FILES.begin()
         try:
-            if method != "GET" and not self.same_origin():
+            if name in CROSS_SITE_ROUTES:
+                self.extra_headers = (("Access-Control-Allow-Origin", "*"),)
+            elif method != "GET" and not self.same_origin():
                 raise ApiError(403, "Pedido rechazado.")
             if name not in PUBLIC_ROUTES and not self.authorized():
                 raise ApiError(401, "Ingresá con la clave del equipo.")
@@ -2406,6 +2735,31 @@ class Handler(SimpleHTTPRequestHandler):
             return {"ok": bool(client), "nombre": client["nombre"] if client else ""}
         if name == "portal-olvide" and method == "POST":
             return request_password(self.read_json().get("usuario"))
+        if name == "visita" and method == "POST":
+            return record_visit(self.read_json(), self.headers.get("User-Agent"))
+        if name == "consulta-nueva" and method == "POST":
+            return record_lead(self.read_json())
+        if name in ("portal-pedidos", "portal-consulta", "portal-clave"):
+            client = self.portal_client()
+            if not client:
+                raise ApiError(401, "Ingresá a tu portal.")
+            if name == "portal-pedidos" and method == "POST":
+                return submit_client_request(client["id"], self.read_json())
+            if name == "portal-consulta" and method == "PUT":
+                return set_lead_status(client["id"], self.route_token, self.read_json().get("estado"))
+            if name == "portal-clave" and method == "POST":
+                version = change_portal_password(client["id"], self.read_json())
+                self.extra_headers = (("Set-Cookie", self.session_cookie(portal_token(client["id"], version), 30 * 86400, PORTAL_COOKIE)),)
+                return {"ok": True}
+        if name == "pedido" and method == "PUT":
+            return decide_request(ident, self.route_token, self.read_json())
+        if name == "estadisticas" and method == "GET":
+            client = get_client(ident)
+            row = next(c for c in read_data("clientes", []) if c["id"] == ident)
+            return {"estadisticas": client_stats(row), "consultas": client_leads(ident)[:200] if RECORD.available() else [],
+                    "registro": RECORD.available(), "nombre": client["nombre"]}
+        if name == "consulta" and method == "PUT":
+            return set_lead_status(ident, self.route_token, self.read_json().get("estado"))
         if name == "portal-inicio" and method == "GET":
             client = self.portal_client()
             if not client:
@@ -2504,6 +2858,14 @@ class Handler(SimpleHTTPRequestHandler):
     def do_PUT(self):
         if not self.serve_lanzate("PUT"):
             self.send_json(404, {"error": "Ruta inexistente"})
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_DELETE(self):
         if not self.serve_lanzate("DELETE"):

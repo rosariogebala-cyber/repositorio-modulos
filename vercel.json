@@ -27,6 +27,10 @@
       "destination": "/api/index?__path=/l/:path*"
     },
     {
+      "source": "/pedidos/:path*",
+      "destination": "/api/index?__path=/pedidos/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index?__path=/api/:path*"
     }

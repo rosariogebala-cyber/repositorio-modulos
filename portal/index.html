@@ -6,57 +6,184 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Tu portal · Lanzate</title>
   <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/maquetas/css/fonts.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    :root { --ink: #17352c; --muted: #4f625a; --line: #d7e3dc; --soft: #f3f7f5; --brand: #1b5e42; --brand-deep: #134531; --warn: #8a4b00; }
+    :root {
+      --brand: #5a3df2; --brand-deep: #4128d1; --brand-soft: #f1effb; --ink: #0e1130; --muted: #5d627c;
+      --line: #ece9e1; --bg: #f7f6f2; --ok: #157347; --ok-soft: #e7f6ee; --warn: #9a4b00; --warn-soft: #fff4e5;
+      --bad: #b42318; --bad-soft: #fdecea; --radius: 18px;
+    }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
-    body { margin: 0; min-height: 100vh; font: 16px/1.5 "Manrope", system-ui, sans-serif; color: var(--ink); background: var(--soft); }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-height: 100vh; font: 16px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
     a { color: var(--brand); }
-    .skip { position: absolute; left: -999px; top: 8px; background: #fff; padding: 8px 12px; border-radius: 8px; }
-    .skip:focus { left: 8px; }
-    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 24px; background: #fff; border-bottom: 1px solid var(--line); }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
-    .brand img { width: 28px; height: 28px; }
-    main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
-    .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
-    .card.narrow { max-width: 420px; margin: 40px auto; }
-    h1 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
-    h2 { font-size: 18px; margin: 0 0 12px; }
+    h1, h2, h3 { text-wrap: balance; }
     p { margin: 0 0 12px; text-wrap: pretty; }
+    :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+    .skip { position: absolute; left: -999px; top: 8px; z-index: 50; background: #fff; padding: 8px 12px; border-radius: 8px; }
+    .skip:focus { left: 8px; }
     .muted { color: var(--muted); }
-    label { display: block; font-weight: 600; margin: 14px 0 6px; }
-    input { width: 100%; font: inherit; font-size: 16px; padding: 12px 14px; min-height: 48px; border: 1px solid #9fb3aa; border-radius: 10px; }
-    input:focus-visible, .btn:focus-visible, .link:focus-visible, a:focus-visible { outline: 3px solid #2358a0; outline-offset: 2px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--brand); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; background: #fff; color: var(--brand); }
-    .btn-main { background: var(--brand); color: #fff; width: 100%; margin-top: 18px; }
-    .btn-main:hover { background: var(--brand-deep); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--brand); font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; background: #fff; color: var(--brand); }
+    .btn:hover { background: var(--brand-soft); }
+    .btn-main { background: var(--brand); color: #fff; }
+    .btn-main:hover { background: var(--brand-deep); color: #fff; }
+    .btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }
     .btn[disabled] { opacity: .6; cursor: wait; }
-    .link { background: none; border: 0; padding: 12px 0; min-height: 44px; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
-    [role="status"] { min-height: 1.5em; margin: 12px 0 0; }
+    input, textarea, select { width: 100%; font: inherit; font-size: 16px; padding: 10px 14px; min-height: 46px; border: 1px solid #cfccd9; border-radius: 12px; background: #fff; color: var(--ink); }
+    textarea { min-height: 96px; resize: vertical; }
+    label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 6px; }
+
+    /* Ingreso */
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(80% 60% at 100% 0%, #e6e0ff 0%, transparent 60%), radial-gradient(60% 60% at 0% 100%, #fff0d9 0%, transparent 60%), var(--bg); }
+    .login { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--line); border-radius: 24px; padding: 32px; box-shadow: 0 24px 60px rgba(14, 17, 48, .08); }
+    .login .logo { display: flex; align-items: center; gap: 10px; font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 18px; }
+    .login .logo img { width: 32px; height: 32px; }
+    .login h1 { font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: 28px; line-height: 1.1; margin: 0 0 6px; }
+    .login .btn-main { width: 100%; margin-top: 18px; min-height: 48px; }
+    .link { background: none; border: 0; padding: 10px 0; min-height: 44px; font: inherit; font-size: 15px; color: var(--brand); text-decoration: underline; cursor: pointer; }
+    [role="status"] { min-height: 1.4em; margin: 10px 0 0; font-size: 15px; }
     .is-warn { color: var(--warn); }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0; }
-    .stats div { background: var(--soft); border-radius: 12px; padding: 12px 14px; }
-    .stats dt { font-size: 14px; color: var(--muted); }
-    .stats dd { margin: 2px 0 0; font-weight: 700; font-size: 18px; }
-    .alert { background: #fff4e5; border: 1px solid #f0c48a; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
-    ul.sites { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-    ul.sites li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-    ul.sites .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .is-ok { color: var(--ok); }
+
+    /* App */
+    .app { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+    .side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 22px 16px; background: #fff; border-right: 1px solid var(--line); overflow-y: auto; }
+    .side-client { display: flex; align-items: center; gap: 12px; padding: 4px 8px 18px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+    .avatar { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; overflow: hidden; background: var(--c1, var(--brand)); color: #fff; font-weight: 700; }
+    .avatar img { width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 4px; }
+    .side-client strong { display: block; line-height: 1.2; }
+    .side-client small { color: var(--muted); }
+    .nav a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #3a3f5c; text-decoration: none; font-weight: 500; font-size: 15px; }
+    .nav a i { font-size: 18px; width: 20px; text-align: center; color: #8a8fa8; }
+    .nav a:hover { background: var(--bg); }
+    .nav a[aria-current="page"] { background: var(--brand-soft); color: var(--brand-deep); font-weight: 600; }
+    .nav a[aria-current="page"] i { color: var(--brand); }
+    .nav .count { margin-left: auto; min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 12px; font-weight: 700; text-align: center; line-height: 22px; }
+    .side-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+    .side-foot .brand { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; color: var(--muted); }
+    .side-foot .brand img { width: 20px; height: 20px; }
+    .content { padding: 32px clamp(18px, 4vw, 48px) 80px; max-width: 1100px; width: 100%; }
+    .page-head { margin-bottom: 22px; }
+    .page-head h1 { margin: 0 0 4px; font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: clamp(28px, 3.6vw, 38px); line-height: 1.1; letter-spacing: -.01em; }
+    .page-head p { margin: 0; color: var(--muted); }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; }
+    .card h2 { margin: 0 0 4px; font-size: 18px; }
+    .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .card-head p { margin: 0; color: var(--muted); font-size: 14px; }
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; text-decoration: none; color: inherit; display: block; }
+    .stat:hover { border-color: #d6cffb; }
+    .stat i { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); font-size: 18px; margin-bottom: 12px; }
+    .stat strong { display: block; font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: 30px; line-height: 1; }
+    .stat span { font-size: 14px; color: var(--muted); }
+    .alert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--warn-soft); border: 1px solid #f0c48a; margin-bottom: 18px; color: #3d1f05; }
+    .alert i { font-size: 20px; color: var(--warn); }
+    .alert p { margin: 0; }
+    .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+    .empty i { display: block; font-size: 30px; color: #b9bccb; margin-bottom: 6px; }
+
+    .sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .site { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+    .site-shot { aspect-ratio: 16 / 9; background: var(--brand-soft) center / cover no-repeat; }
+    .site-body { padding: 16px; display: grid; gap: 12px; flex: 1; align-content: space-between; }
+    .site-body strong { font-size: 17px; }
+    .site-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .badge.pendiente { background: #fff4d6; color: #7a5300; }
+    .badge.aceptado { background: var(--ok-soft); color: var(--ok); }
+    .badge.rechazado { background: var(--bad-soft); color: var(--bad); }
+    .badge.nueva { background: var(--brand-soft); color: var(--brand-deep); }
+    .badge.atendida { background: #eef0f4; color: #4a5077; }
+    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    .item { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: #fff; }
+    .item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .item-head time { font-size: 13px; color: var(--muted); }
+    .item-head .grow { flex: 1; min-width: 160px; font-weight: 600; }
+    .item details { margin-top: 8px; }
+    .item summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--brand); min-height: 32px; display: inline-flex; align-items: center; }
+    .changes { margin: 8px 0 0; padding-left: 20px; font-size: 14px; display: grid; gap: 6px; }
+    .changes .before { color: var(--muted); text-decoration: line-through; }
+    .photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .photos img { width: 96px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+    .reply { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); font-size: 14px; }
+    .reply strong { display: block; font-size: 12px; color: var(--muted); }
+    .lead-data { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 10px 0 0; font-size: 14px; }
+    .lead-data dt { color: var(--muted); }
+    .lead-data dd { margin: 0; overflow-wrap: anywhere; }
+    .lead-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .filters { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--bg); }
+    .filters button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: #4a5077; cursor: pointer; }
+    .filters button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(14, 17, 48, .12); }
+
+    .chart { width: 100%; height: auto; aspect-ratio: 720 / 220; display: block; }
+    .chart .bar { fill: var(--brand); }
+    .chart .bar.is-zero { fill: #e7e4f5; }
+    .chart text { font: 11px Inter, sans-serif; fill: #8a8fa8; }
+    .bars { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+    .bars li { display: grid; grid-template-columns: 120px 1fr 48px; align-items: center; gap: 10px; font-size: 14px; }
+    .bars .track { height: 10px; border-radius: 999px; background: #efedf6; overflow: hidden; }
+    .bars .track span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #8f7bff); border-radius: inherit; }
+    .bars b { text-align: right; }
+
+    .plan-hero { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; padding: 22px; border-radius: var(--radius); color: #fff; background: linear-gradient(135deg, #0e1130 0%, #2b1f7a 60%, var(--brand) 100%); margin-bottom: 18px; }
+    .plan-hero small { opacity: .8; }
+    .plan-hero strong { display: block; font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: 40px; line-height: 1; }
+    .plan-hero .price { font-size: 18px; font-weight: 600; }
+    .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .checks li { display: flex; gap: 10px; align-items: flex-start; }
+    .checks i { color: var(--ok); margin-top: 2px; }
+    .meter { height: 12px; border-radius: 999px; background: #efedf6; overflow: hidden; margin: 10px 0 6px; }
+    .meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #8f7bff); }
+    .meter.is-full span { background: linear-gradient(90deg, #d0702b, #e9a23b); }
+
+    .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+    .swatch { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border: 1px solid var(--line); border-radius: 14px; }
+    .swatch i { width: 40px; height: 40px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(14, 17, 48, .1); }
+    .logo-box { display: grid; place-items: center; height: 140px; border: 1px dashed #d9d6e3; border-radius: 14px; background: #fff; padding: 16px; }
+    .logo-box img { max-height: 100%; max-width: 100%; }
+    .rows { margin: 0; display: grid; }
+    .rows > div { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f2f0ea; font-size: 15px; }
+    .rows > div:last-child { border-bottom: 0; }
+    .rows dt { color: var(--muted); }
+    .rows dd { margin: 0; overflow-wrap: anywhere; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--bg); font-size: 13px; font-weight: 600; }
+    .tag.on { background: var(--ok-soft); color: var(--ok); }
+    .tag.off { background: #eef0f4; color: #6b7090; }
+
+    .mobile-top { display: none; }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .side { position: sticky; top: 0; z-index: 20; height: auto; flex-direction: row; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+      .side-client, .side-foot .brand { display: none; }
+      .nav { display: flex; gap: 4px; }
+      .nav a { white-space: nowrap; padding: 0 12px; }
+      .side-foot { margin: 0 0 0 auto; padding: 0; border: 0; display: flex; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .content { padding-top: 20px; }
+    }
+    @media (max-width: 520px) {
+      .bars li { grid-template-columns: 90px 1fr 40px; }
+      .rows > div { grid-template-columns: 1fr; gap: 2px; }
+    }
   </style>
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
-  <header>
-    <span class="brand"><img src="/assets/favicon-lanzate.svg" alt=""> Lanzate</span>
-    <button class="btn" type="button" data-logout hidden><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir</button>
-  </header>
-  <main id="contenido" tabindex="-1">
 
-    <section class="card narrow" data-login hidden aria-labelledby="ingreso">
+  <!-- Ingreso -->
+  <div class="login-wrap" data-login hidden>
+    <section class="login" aria-labelledby="ingreso">
+      <div class="logo"><img src="/assets/favicon-lanzate.svg" alt=""> Lanzate</div>
       <h1 id="ingreso">Entrá a tu portal</h1>
-      <p class="muted">Desde acá ves tu web y nos pedís cambios.</p>
+      <p class="muted">Tu web, tus consultas y tus visitas en un solo lugar.</p>
       <form data-login-form>
         <label for="usuario">Usuario</label>
         <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" required>
@@ -73,103 +200,69 @@
       </form>
       <p role="status" data-login-msg></p>
     </section>
+  </div>
 
-    <div data-home hidden>
-      <section class="card" aria-labelledby="hola">
-        <h1 id="hola" tabindex="-1" data-name></h1>
-        <p class="muted" data-rubro></p>
-        <div class="alert" data-alert hidden role="status"></div>
-        <dl class="stats" data-stats></dl>
-      </section>
-      <section class="card" aria-labelledby="mis-webs">
-        <h2 id="mis-webs">Tus páginas</h2>
-        <ul class="sites" data-sites></ul>
-        <p class="muted" data-empty hidden>Todavía no hay páginas publicadas.</p>
-      </section>
-      <section class="card" aria-labelledby="ayuda">
-        <h2 id="ayuda">¿Necesitás algo más?</h2>
-        <p>Escribinos y lo vemos juntos.</p>
-        <a class="btn" data-wa href="#" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Escribir por WhatsApp</a>
-      </section>
-    </div>
-  </main>
+  <!-- Portal -->
+  <div class="app" data-app hidden>
+    <aside class="side">
+      <div class="side-client" data-side-client></div>
+      <nav class="nav" aria-label="Secciones del portal" data-nav>
+        <a href="#resumen" data-tab="resumen"><i class="bi bi-house" aria-hidden="true"></i> Resumen</a>
+        <a href="#web" data-tab="web"><i class="bi bi-window" aria-hidden="true"></i> Mi web</a>
+        <a href="#pedidos" data-tab="pedidos"><i class="bi bi-pencil-square" aria-hidden="true"></i> Pedidos de cambios <span class="count" data-count-pedidos hidden></span></a>
+        <a href="#visitas" data-tab="visitas"><i class="bi bi-graph-up" aria-hidden="true"></i> Visitas</a>
+        <a href="#consultas" data-tab="consultas"><i class="bi bi-chat-dots" aria-hidden="true"></i> Consultas <span class="count" data-count-consultas hidden></span></a>
+        <a href="#plan" data-tab="plan"><i class="bi bi-stars" aria-hidden="true"></i> Plan</a>
+        <a href="#marca" data-tab="marca"><i class="bi bi-palette" aria-hidden="true"></i> Marca y medición</a>
+        <a href="#contacto" data-tab="contacto"><i class="bi bi-person-lines-fill" aria-hidden="true"></i> Contacto</a>
+        <a href="#cuenta" data-tab="cuenta"><i class="bi bi-shield-lock" aria-hidden="true"></i> Mi cuenta</a>
+      </nav>
+      <div class="side-foot">
+        <button class="btn btn-sm" type="button" data-logout><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir</button>
+        <span class="brand"><img src="/assets/favicon-lanzate.svg" alt=""> Hecho con Lanzate</span>
+      </div>
+    </aside>
+    <main class="content" id="contenido" tabindex="-1" data-view></main>
+  </div>
 
   <script>
   (function () {
     "use strict";
-    var $ = function (s) { return document.querySelector(s); };
+    var $ = function (s, root) { return (root || document).querySelector(s); };
+    var DATA = null;
+    var leadFilter = "nueva";
     var msg = $("[data-login-msg]");
-    var volver = new URLSearchParams(location.search).get("volver") || "";
-    if (!/^\/portal\/editar\/\?l=[\w%\/.-]+$/.test(volver)) volver = "";
+    var TABS = ["resumen", "web", "pedidos", "visitas", "consultas", "plan", "marca", "contacto", "cuenta"];
 
     function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-    function say(text, warn) { msg.textContent = text || ""; msg.className = warn ? "is-warn" : ""; }
-    function post(url, body) {
-      return fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || "No se pudo completar."); return d; }); });
+    function say(el, text, tone) { el.textContent = text || ""; el.className = tone ? "is-" + tone : ""; }
+    function api(method, url, body) {
+      return fetch(url, { method: method, credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || "No se pudo completar."); e.status = r.status; throw e; } return d; }); });
     }
-    function date(iso) { return String(iso).split("-").reverse().join("/"); }
+    function date(iso) { return String(iso || "").split("-").reverse().join("/"); }
+    function when(ms) { return new Date(ms).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : "numeric" }); }
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    function money(n) { return n ? "$" + Number(n).toLocaleString("es-AR") : ""; }
+    var STATE = { pendiente: "Pendiente", aceptado: "Aceptado", rechazado: "Rechazado" };
+    var LABELS = { nombre: "Nombre", email: "Email", telefono: "Teléfono", servicio: "Servicio", profesional: "Con quién", dia: "Día", horario: "Horario", notas: "Mensaje", mensaje: "Mensaje", duracion: "Duración" };
 
+    /* ---------- Ingreso ---------- */
     function showLogin() {
       $("[data-login]").hidden = false;
-      $("[data-home]").hidden = true;
-      $("[data-logout]").hidden = true;
+      $("[data-app]").hidden = true;
       $("#usuario").focus();
     }
-
-    function showHome(d) {
-      $("[data-login]").hidden = true;
-      $("[data-home]").hidden = false;
-      $("[data-logout]").hidden = false;
-      document.title = d.nombre + " · Lanzate";
-      $("[data-name]").textContent = "Hola, " + d.nombre;
-      $("[data-rubro]").textContent = d.rubro;
-      var p = d.plan || {};
-      var stats = [];
-      if (p.plan) stats.push(["Tu plan", p.plan]);
-      if (p.cambios_mes) stats.push(["Pedidos de cambios este mes", (p.cambios_restantes || 0) + " de " + p.cambios_mes + " disponibles"]);
-      if (d.plan_vence) stats.push(["Vence", date(d.plan_vence)]);
-      $("[data-stats]").innerHTML = stats.map(function (s) { return "<div><dt>" + esc(s[0]) + "</dt><dd>" + esc(s[1]) + "</dd></div>"; }).join("");
-      var alert = "";
-      if (p.vencido) alert = "Tu plan venció el " + date(d.plan_vence) + ". Escribinos para renovarlo.";
-      else if (p.dias != null && p.dias <= 15) alert = "Tu plan vence " + (p.dias === 0 ? "hoy" : p.dias === 1 ? "mañana" : "en " + p.dias + " días") + ".";
-      else if (p.cambios_mes && !p.cambios_restantes) alert = "Ya usaste los pedidos de cambios de este mes. Si necesitás otro, te contamos cuánto cuesta.";
-      $("[data-alert]").hidden = !alert;
-      $("[data-alert]").textContent = alert;
-      $("[data-sites]").innerHTML = d.landings.map(function (l) {
-        return "<li><strong>" + esc(l.nombre) + '</strong><span class="actions">' +
-          '<a class="btn" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-eye" aria-hidden="true"></i> Ver mi web</a>' +
-          '<a class="btn" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a></span></li>';
-      }).join("");
-      $("[data-empty]").hidden = d.landings.length > 0;
-      var wa = $("[data-wa]");
-      if (d.whatsapp) wa.href = "https://wa.me/" + d.whatsapp + "?text=" + encodeURIComponent("Hola, soy " + d.nombre + ".");
-      else wa.hidden = true;
-      $("[data-name]").focus();
-    }
-
-    function load() {
-      return fetch("/api/portal/inicio", { credentials: "same-origin", cache: "no-store" }).then(function (r) {
-        if (r.status === 401) { showLogin(); return; }
-        return r.json().then(function (d) {
-          if (!r.ok) throw new Error(d.error);
-          if (volver) { location.replace(volver); return; }
-          showHome(d);
-        });
-      }).catch(function () { showLogin(); say("No pudimos conectarnos. Probá de nuevo en un rato.", true); });
-    }
-
     $("[data-login-form]").addEventListener("submit", function (e) {
       e.preventDefault();
       var btn = e.target.querySelector("button");
       btn.disabled = true;
-      say("");
-      post("/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value })
-        .then(load)
-        .catch(function (err) { say(err.message, true); })
+      say(msg, "");
+      api("POST", "/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value })
+        .then(function () { return load(); })
+        .catch(function (err) { say(msg, err.message, "warn"); })
         .then(function () { btn.disabled = false; });
     });
-
     $("[data-forgot-open]").addEventListener("click", function () {
       $("[data-forgot-form]").hidden = false;
       $("[data-forgot-open]").hidden = true;
@@ -178,14 +271,285 @@
     });
     $("[data-forgot-form]").addEventListener("submit", function (e) {
       e.preventDefault();
-      post("/api/portal/olvide", { usuario: e.target.elements.usuario.value })
-        .then(function (d) { say(d.mensaje); e.target.hidden = true; })
-        .catch(function (err) { say(err.message, true); });
+      api("POST", "/api/portal/olvide", { usuario: e.target.elements.usuario.value })
+        .then(function (d) { say(msg, d.mensaje, "ok"); e.target.hidden = true; })
+        .catch(function (err) { say(msg, err.message, "warn"); });
+    });
+    $("[data-logout]").addEventListener("click", function () {
+      api("POST", "/api/portal/logout").then(function () { location.href = "/portal/"; });
     });
 
-    $("[data-logout]").addEventListener("click", function () {
-      post("/api/portal/logout").then(function () { location.href = "/portal/"; });
-    });
+    /* ---------- Datos ---------- */
+    function load() {
+      return api("GET", "/api/portal/inicio").then(function (d) {
+        var volver = new URLSearchParams(location.search).get("volver") || "";
+        if (/^\/portal\/editar\/\?l=[\w%\/.-]+$/.test(volver)) { location.replace(volver); return; }
+        DATA = d;
+        $("[data-login]").hidden = true;
+        $("[data-app]").hidden = false;
+        document.title = d.nombre + " · Tu portal";
+        renderSide();
+        route();
+      }).catch(function (err) {
+        if (err.status === 401) showLogin();
+        else { showLogin(); say(msg, "No pudimos conectarnos. Probá de nuevo en un rato.", "warn"); }
+      });
+    }
+
+    function renderSide() {
+      var d = DATA;
+      var initials = d.nombre.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join("").toUpperCase();
+      $("[data-side-client]").innerHTML = '<span class="avatar" style="--c1:' + esc(d.colores[0]) + '">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt="">' : esc(initials)) + "</span>" +
+        "<span><strong>" + esc(d.nombre) + "</strong><small>" + esc(d.rubro || "Tu portal") + "</small></span>";
+      var pending = d.pedidos.filter(function (p) { return p.estado === "pendiente"; }).length;
+      var fresh = d.consultas.filter(function (c) { return c.estado === "nueva"; }).length;
+      var cp = $("[data-count-pedidos]"); cp.hidden = !pending; cp.textContent = pending;
+      var cc = $("[data-count-consultas]"); cc.hidden = !fresh; cc.textContent = fresh;
+    }
+
+    function route() {
+      if (!DATA) return;
+      var tab = location.hash.replace("#", "");
+      if (TABS.indexOf(tab) < 0) tab = "resumen";
+      document.querySelectorAll("[data-tab]").forEach(function (a) {
+        if (a.getAttribute("data-tab") === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      });
+      var view = $("[data-view]");
+      view.innerHTML = VIEWS[tab]();
+      if (BIND[tab]) BIND[tab](view);
+      view.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener("hashchange", route);
+
+    function head(title, text) { return '<header class="page-head"><h1>' + esc(title) + "</h1>" + (text ? "<p>" + text + "</p>" : "") + "</header>"; }
+    function waLanzate(text) { return DATA.lanzate.whatsapp ? "https://wa.me/" + DATA.lanzate.whatsapp + "?text=" + encodeURIComponent(text) : ""; }
+    function planAlert() {
+      var p = DATA.plan || {};
+      if (p.vencido) return "Tu plan venció el " + date(DATA.plan_vence) + ". Escribinos para renovarlo.";
+      if (p.dias != null && p.dias <= 15) return "Tu plan vence " + (p.dias === 0 ? "hoy" : p.dias === 1 ? "mañana" : "en " + p.dias + " días") + ".";
+      if (p.cambios_mes && !p.cambios_restantes) return "Ya usaste los pedidos de cambios de este mes. Si necesitás otro, te contamos cuánto cuesta.";
+      return "";
+    }
+
+    function chart(serie) {
+      var w = 720, h = 220, pad = 24, max = Math.max(1, Math.max.apply(null, serie.map(function (d) { return d.visitas; })));
+      var bw = (w - pad) / serie.length;
+      var bars = serie.map(function (d, i) {
+        var bh = d.visitas ? Math.max(3, (h - 40) * d.visitas / max) : 3;
+        var label = new Date(d.dia + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+        return '<rect class="bar' + (d.visitas ? "" : " is-zero") + '" x="' + (pad + i * bw + 2) + '" y="' + (h - 22 - bh) + '" width="' + Math.max(2, bw - 4) + '" height="' + bh + '" rx="3"><title>' + esc(label + ": " + plural(d.visitas, "visita", "visitas")) + "</title></rect>" +
+          ((serie.length - 1 - i) % 7 === 0 ? '<text x="' + (pad + i * bw + bw / 2) + '" y="' + (h - 6) + '" text-anchor="middle">' + esc(label) + "</text>" : "");
+      }).join("");
+      return '<svg class="chart" viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="Visitas por día en los últimos ' + serie.length + ' días"><text x="0" y="12">' + max + "</text>" + bars + "</svg>";
+    }
+
+    function requestItem(p) {
+      var changes = (p.cambios || []).map(function (c) {
+        if (c.tipo === "texto") return "<li><b>" + esc(c.seccion) + ":</b> <span class=\"before\">" + esc(c.antes) + "</span> → " + esc(c.despues) + "</li>";
+        if (c.tipo === "foto") return "<li><b>" + esc(c.seccion) + ":</b> cambiar la foto" + (c.detalle ? " — " + esc(c.detalle) : "") + "</li>";
+        return "<li><b>" + esc(c.seccion) + ":</b> el botón «" + esc(c.antes) + "» que lleve a " + esc(c.despues) + "</li>";
+      }).join("");
+      var photos = (p.fotos || []).map(function (f) { return '<a href="' + esc(f.ruta) + '" target="_blank" rel="noopener"><img src="' + esc(f.ruta) + '" alt="' + esc(f.nota || "Foto del pedido") + '"></a>'; }).join("");
+      var summary = p.nota || ((p.cambios || []).length ? plural(p.cambios.length, "cambio", "cambios") + (p.landing ? " en " + p.landing : "") : "Pedido");
+      return '<li class="item"><div class="item-head"><span class="badge ' + esc(p.estado) + '">' + esc(STATE[p.estado] || p.estado) + '</span><span class="grow">' + esc(summary) + "</span><time>" + esc(when(p.fecha)) + "</time></div>" +
+        (changes || photos || (p.nota && (p.cambios || []).length) ? "<details><summary>Ver detalle</summary>" + (p.nota && (p.cambios || []).length ? "<p>" + esc(p.nota) + "</p>" : "") + (changes ? '<ul class="changes">' + changes + "</ul>" : "") + (photos ? '<div class="photos">' + photos + "</div>" : "") + "</details>" : "") +
+        (p.comentario ? '<div class="reply"><strong>Respuesta de Lanzate</strong>' + esc(p.comentario) + "</div>" : "") +
+        (p.estado === "pendiente" ? '<p class="muted" style="margin:8px 0 0;font-size:14px">Lo estamos revisando.</p>' : "") + "</li>";
+    }
+
+    function leadItem(c) {
+      var rows = Object.keys(c.datos || {}).map(function (k) { return "<dt>" + esc(LABELS[k] || k) + "</dt><dd>" + esc(c.datos[k]) + "</dd>"; }).join("");
+      var phone = String((c.datos || {}).telefono || "").replace(/\D/g, "");
+      var mail = (c.datos || {}).email;
+      return '<li class="item"><div class="item-head"><span class="badge ' + esc(c.estado) + '">' + (c.estado === "nueva" ? "Nueva" : "Atendida") + '</span><span class="grow">' + esc((c.datos || {}).nombre || "Consulta") +
+        ' <span class="muted" style="font-weight:400">· ' + (c.tipo === "turno" ? "Pedido de turno" : "Consulta") + " desde " + esc(c.landing) + "</span></span><time>" + esc(new Date(c.fecha).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + "</time></div>" +
+        '<dl class="lead-data">' + rows + "</dl>" +
+        '<div class="lead-actions">' +
+        (phone ? '<a class="btn btn-sm" href="https://wa.me/' + esc(phone) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Responder por WhatsApp</a>' : "") +
+        (mail ? '<a class="btn btn-sm" href="mailto:' + esc(mail) + '"><i class="bi bi-envelope" aria-hidden="true"></i> Responder por mail</a>' : "") +
+        '<button class="btn btn-sm" type="button" data-lead="' + esc(c.id) + '" data-to="' + (c.estado === "nueva" ? "atendida" : "nueva") + '">' + (c.estado === "nueva" ? '<i class="bi bi-check2" aria-hidden="true"></i> Marcar como atendida' : "Marcar como nueva") + "</button></div></li>";
+    }
+
+    /* ---------- Vistas ---------- */
+    var VIEWS = {
+      resumen: function () {
+        var d = DATA, p = d.plan || {}, st = d.estadisticas || {};
+        var pending = d.pedidos.filter(function (x) { return x.estado === "pendiente"; }).length;
+        var alert = planAlert();
+        return head("Hola, " + d.nombre, "Así viene tu web en los últimos " + (st.dias || 30) + " días.") +
+          (alert ? '<div class="alert" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p>' + esc(alert) + "</p></div>" : "") +
+          '<div class="stats">' +
+            '<a class="stat" href="#visitas"><i class="bi bi-eye" aria-hidden="true"></i><strong>' + (d.registro ? st.total : "—") + "</strong><span>Visitas en 30 días</span></a>" +
+            '<a class="stat" href="#consultas"><i class="bi bi-chat-dots" aria-hidden="true"></i><strong>' + (d.registro ? st.consultas_nuevas : "—") + "</strong><span>Consultas nuevas</span></a>" +
+            '<a class="stat" href="#pedidos"><i class="bi bi-hourglass-split" aria-hidden="true"></i><strong>' + pending + "</strong><span>Pedidos en revisión</span></a>" +
+            '<a class="stat" href="#plan"><i class="bi bi-pencil-square" aria-hidden="true"></i><strong>' + (p.cambios_mes ? (p.cambios_restantes || 0) : "—") + "</strong><span>" + (p.cambios_mes ? "Pedidos disponibles este mes" : "Pedidos de cambios") + "</span></a>" +
+          "</div>" +
+          (d.registro ? '<section class="card"><div class="card-head"><div><h2>Visitas por día</h2><p>' + plural(st.total, "visita", "visitas") + " en total</p></div><a class=\"btn btn-sm\" href=\"#visitas\">Ver detalle</a></div>" + chart(st.serie) + "</section>" : "") +
+          '<section class="card"><div class="card-head"><div><h2>Tu web</h2></div><a class="btn btn-sm" href="#web">Ver todo</a></div>' +
+            (d.landings.length ? '<div class="site-actions">' + d.landings.map(function (l) {
+              return '<a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios en ' + esc(l.nombre) + "</a>" +
+                '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Ver ' + esc(l.nombre) + "</a>";
+            }).join("") + "</div>" : '<p class="muted">Todavía no hay páginas publicadas.</p>') +
+          "</section>";
+      },
+      web: function () {
+        var d = DATA;
+        return head("Mi web", "Tus páginas publicadas. Para cambiar algo, tocá «Pedir cambios» y marcalo directamente sobre la página.") +
+          (d.landings.length ? '<div class="sites">' + d.landings.map(function (l) {
+            return '<article class="site"><div class="site-shot" style="' + (l.portada ? "background-image:url('" + esc(l.portada) + "')" : "") + '" role="img" aria-label="Vista de ' + esc(l.nombre) + '"></div>' +
+              '<div class="site-body"><div><strong>' + esc(l.nombre) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p></div>" +
+              '<div class="site-actions"><a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a>' +
+              '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Ver mi web</a></div></div></article>';
+          }).join("") + "</div>" : '<div class="card empty"><i class="bi bi-window" aria-hidden="true"></i>Todavía no hay páginas publicadas.</div>');
+      },
+      pedidos: function () {
+        var d = DATA, p = d.plan || {};
+        return head("Pedidos de cambios", "Lo que nos pediste y si lo aceptamos o no.") +
+          '<section class="card"><div class="card-head"><div><h2>Nuevo pedido</h2><p>' + (p.cambios_mes ? "Te " + (p.cambios_restantes === 1 ? "queda 1 pedido" : "quedan " + (p.cambios_restantes || 0) + " pedidos") + " este mes." : "Marcá los cambios sobre tu web.") + "</p></div>" +
+            (d.landings.length === 1 ? '<a class="btn btn-main" href="' + esc(d.landings[0].editor) + '"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo pedido</a>' : "") + "</div>" +
+            (d.landings.length > 1 ? '<div class="site-actions">' + d.landings.map(function (l) { return '<a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-plus-lg" aria-hidden="true"></i> ' + esc(l.nombre) + "</a>"; }).join("") + "</div>" : "") +
+          "</section>" +
+          (d.pedidos.length ? '<ul class="list">' + d.pedidos.map(requestItem).join("") + "</ul>" : '<div class="card empty"><i class="bi bi-inbox" aria-hidden="true"></i>Todavía no mandaste pedidos.</div>');
+      },
+      visitas: function () {
+        var d = DATA, st = d.estadisticas || {}, m = d.medicion;
+        var ga = '<section class="card"><div class="card-head"><div><h2>Google Analytics</h2><p>' +
+          (m.incluida ? (m.ga4 ? "Tu web envía datos a Google Analytics (" + esc(m.ga4) + "). Ahí tenés el detalle completo." : "Tu plan incluye Google Analytics. Pedinos que lo conectemos.") : "Google Analytics y el Píxel de Meta vienen con el plan Pro.") +
+          "</p></div>" + (m.incluida && m.ga4 ? '<a class="btn" href="https://analytics.google.com/" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Abrir Google Analytics</a>' : "") + "</div></section>";
+        if (!d.registro) return head("Visitas") + '<div class="card empty"><i class="bi bi-graph-up" aria-hidden="true"></i>Muy pronto vas a ver acá las visitas de tu web.</div>' + ga;
+        var pages = st.paginas.slice().sort(function (a, b) { return b.visitas - a.visitas; });
+        var maxP = Math.max(1, Math.max.apply(null, pages.map(function (x) { return x.visitas; }).concat([0])));
+        var sources = Object.keys(st.fuentes).map(function (k) { return { k: k, n: st.fuentes[k] }; }).sort(function (a, b) { return b.n - a.n; });
+        var maxS = Math.max(1, Math.max.apply(null, sources.map(function (x) { return x.n; }).concat([0])));
+        var NAMES = { directo: "Directo", google: "Google", instagram: "Instagram", facebook: "Facebook", whatsapp: "WhatsApp", tiktok: "TikTok", bing: "Bing", otros: "Otros sitios" };
+        return head("Visitas", "Cuántas personas entraron a tu web en los últimos " + st.dias + " días.") +
+          '<div class="stats"><div class="stat"><i class="bi bi-eye" aria-hidden="true"></i><strong>' + st.total + '</strong><span>Visitas</span></div>' +
+            '<div class="stat"><i class="bi bi-calendar3" aria-hidden="true"></i><strong>' + Math.round(st.total / st.dias * 10) / 10 + '</strong><span>Por día, en promedio</span></div>' +
+            '<div class="stat"><i class="bi bi-chat-dots" aria-hidden="true"></i><strong>' + st.consultas_periodo + '</strong><span>Consultas</span></div>' +
+            '<div class="stat"><i class="bi bi-percent" aria-hidden="true"></i><strong>' + (st.total ? Math.round(st.consultas_periodo / st.total * 1000) / 10 + "%" : "—") + '</strong><span>Visitas que consultaron</span></div></div>' +
+          '<section class="card"><h2>Visitas por día</h2>' + chart(st.serie) + "</section>" +
+          '<div class="grid grid-2"><section class="card"><h2>De dónde llegan</h2>' +
+            (sources.length ? '<ul class="bars">' + sources.map(function (s) { return "<li><span>" + esc(NAMES[s.k] || s.k) + '</span><span class="track"><span style="width:' + Math.round(s.n / maxS * 100) + '%"></span></span><b>' + s.n + "</b></li>"; }).join("") + "</ul>" : '<p class="muted">Todavía no hay datos.</p>') +
+          '</section><section class="card"><h2>Por página</h2>' +
+            (pages.length ? '<ul class="bars">' + pages.map(function (s) { return "<li><span>" + esc(s.nombre) + '</span><span class="track"><span style="width:' + Math.round(s.visitas / maxP * 100) + '%"></span></span><b>' + s.visitas + "</b></li>"; }).join("") + "</ul>" : '<p class="muted">Todavía no hay datos.</p>') +
+          "</section></div>" + ga;
+      },
+      consultas: function () {
+        var d = DATA;
+        if (!d.registro) return head("Consultas") + '<div class="card empty"><i class="bi bi-chat-dots" aria-hidden="true"></i>Muy pronto vas a ver acá las consultas que te dejan en tu web.</div>';
+        var list = d.consultas.filter(function (c) { return leadFilter === "todas" || c.estado === leadFilter; });
+        var fresh = d.consultas.filter(function (c) { return c.estado === "nueva"; }).length;
+        return head("Consultas", "Lo que te escriben desde los formularios y las reservas de tu web. También te llegan por WhatsApp.") +
+          '<div class="card-head"><div class="filters" role="group" aria-label="Filtrar consultas">' +
+            '<button type="button" data-filter="nueva" aria-pressed="' + (leadFilter === "nueva") + '">Nuevas (' + fresh + ")</button>" +
+            '<button type="button" data-filter="atendida" aria-pressed="' + (leadFilter === "atendida") + '">Atendidas</button>' +
+            '<button type="button" data-filter="todas" aria-pressed="' + (leadFilter === "todas") + '">Todas</button></div></div>' +
+          (list.length ? '<ul class="list">' + list.map(leadItem).join("") + "</ul>" : '<div class="card empty"><i class="bi bi-inbox" aria-hidden="true"></i>' + (leadFilter === "nueva" ? "No tenés consultas nuevas." : "No hay consultas para mostrar.") + "</div>") +
+          '<p role="status" data-lead-msg></p>';
+      },
+      plan: function () {
+        var d = DATA, p = d.plan || {}, det = d.plan_detalle;
+        if (!det) return head("Plan") + '<div class="card empty"><i class="bi bi-stars" aria-hidden="true"></i>Todavía no tenés un plan asignado. Escribinos y lo vemos.</div>';
+        var used = p.cambios_usados || 0, limit = p.cambios_mes || 0;
+        var wa = waLanzate("Hola, soy " + d.nombre + ". Quiero consultar por mi plan " + det.nombre + ".");
+        return head("Tu plan") +
+          (planAlert() ? '<div class="alert" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p>' + esc(planAlert()) + "</p></div>" : "") +
+          '<div class="plan-hero"><div><small>Plan</small><strong>' + esc(det.nombre) + "</strong>" + (det.para ? '<p style="margin:8px 0 0;opacity:.85">' + esc(det.para) + "</p>" : "") + "</div>" +
+            '<div style="text-align:right">' + (det.mensual ? '<div class="price">' + esc(money(det.mensual)) + " / mes</div>" : "") + "<small>" + (d.plan_vence ? (p.vencido ? "Venció el " : "Vence el ") + esc(date(d.plan_vence)) : "Sin fecha de vencimiento") + "</small></div></div>" +
+          '<div class="grid grid-2"><section class="card"><h2>Qué incluye</h2><ul class="checks">' + (det.incluye || []).map(function (x) { return '<li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>' + esc(x) + "</li>"; }).join("") + "</ul></section>" +
+          '<section class="card"><h2>Pedidos de cambios</h2>' +
+            (limit ? "<p>Este mes usaste <b>" + used + " de " + limit + "</b>.</p>" + '<div class="meter' + (used >= limit ? " is-full" : "") + '"><span style="width:' + Math.min(100, Math.round(used / limit * 100)) + '%"></span></div>' +
+              '<p class="muted" style="font-size:14px">Los pedidos rechazados no cuentan. Se renuevan el 1 de cada mes.</p>' : "<p>Tu plan no tiene límite de pedidos.</p>") +
+            (wa ? '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Quiero cambiar de plan</a>' : "") +
+          "</section></div>";
+      },
+      marca: function () {
+        var d = DATA, m = d.medicion;
+        function tag(on, text) { return '<span class="tag ' + (on ? "on" : "off") + '"><i class="bi bi-' + (on ? "check-circle-fill" : "dash-circle") + '" aria-hidden="true"></i> ' + esc(text) + "</span>"; }
+        return head("Marca y medición", "Cómo se ve tu marca en la web y qué herramientas de medición tiene.") +
+          '<div class="grid grid-2"><section class="card"><h2>Logo</h2><div class="logo-box">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt="Logo de ' + esc(d.nombre) + '">' : '<span class="muted">Sin logo cargado</span>') + "</div></section>" +
+          '<section class="card"><h2>Colores</h2><div class="swatches">' +
+            '<span class="swatch"><i style="background:' + esc(d.colores[0]) + '"></i><span><small class="muted">Principal</small><br><code>' + esc(d.colores[0]) + "</code></span></span>" +
+            '<span class="swatch"><i style="background:' + esc(d.colores[1]) + '"></i><span><small class="muted">Secundario</small><br><code>' + esc(d.colores[1]) + "</code></span></span></div></section></div>" +
+          '<section class="card"><h2>Medición</h2>' +
+            (m.incluida ? '<dl class="rows"><div><dt>Google Analytics</dt><dd>' + (m.ga4 ? tag(true, m.ga4) : tag(false, "Sin conectar")) + "</dd></div>" +
+              "<div><dt>Tag Manager</dt><dd>" + (m.gtm ? tag(true, m.gtm) : tag(false, "Sin conectar")) + "</dd></div>" +
+              "<div><dt>Píxel de Meta</dt><dd>" + tag(m.meta_pixel, m.meta_pixel ? "Activo" : "Sin conectar") + "</dd></div></dl>" +
+              '<p class="muted" style="margin:12px 0 0;font-size:14px">¿Querés conectar alguno? Mandanos el código desde «Contacto».</p>'
+              : "<p>Google Analytics, Tag Manager y el Píxel de Meta vienen con el plan Pro.</p>") +
+          "</section>" +
+          '<p class="muted" style="font-size:14px">¿Cambiaste tu logo o tus colores? Pedinos que los actualicemos desde «Contacto».</p>';
+      },
+      contacto: function () {
+        var d = DATA, c = d.contacto;
+        var rows = [["Persona de contacto", c.contacto], ["Email", c.email], ["Teléfono", c.telefono], ["Dirección", c.direccion], ["Horario", c.horario], ["Sitio web", c.sitio],
+          ["Instagram", c.instagram], ["Facebook", c.facebook], ["LinkedIn", c.linkedin]].filter(function (r) { return r[1]; });
+        var wa = waLanzate("Hola, soy " + d.nombre + ".");
+        return head("Contacto", "Los datos de tu negocio que muestra tu web.") +
+          '<section class="card"><h2>Tus datos</h2>' + (rows.length ? '<dl class="rows">' + rows.map(function (r) { return "<div><dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd></div>"; }).join("") + "</dl>" : '<p class="muted">Todavía no cargamos tus datos.</p>') + "</section>" +
+          '<section class="card"><h2>¿Hay que actualizar algo?</h2><p class="muted">Contanos qué cambió (un teléfono, el horario, un código de Google Analytics…) y lo actualizamos. Se suma a tus pedidos de cambios.</p>' +
+            '<form data-contact-form><label for="dato">Qué cambió</label><textarea id="dato" name="nota" required maxlength="1000" placeholder="Por ejemplo: el nuevo horario es de lunes a sábado de 10 a 20 h"></textarea>' +
+            '<button class="btn btn-main" type="submit" style="margin-top:12px"><i class="bi bi-send" aria-hidden="true"></i> Enviar</button></form><p role="status" data-contact-msg></p></section>' +
+          '<section class="card"><h2>Hablar con Lanzate</h2><div class="site-actions">' +
+            (wa ? '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp</a>' : "") +
+            (d.lanzate.email ? '<a class="btn" href="mailto:' + esc(d.lanzate.email) + '"><i class="bi bi-envelope" aria-hidden="true"></i> ' + esc(d.lanzate.email) + "</a>" : "") +
+          "</div></section>";
+      },
+      cuenta: function () {
+        var d = DATA;
+        return head("Mi cuenta") +
+          '<section class="card"><dl class="rows"><div><dt>Usuario</dt><dd><code>' + esc(d.usuario) + "</code></dd></div></dl></section>" +
+          '<section class="card"><h2>Cambiar mi contraseña</h2><form data-pass-form autocomplete="on">' +
+            '<input type="text" name="username" value="' + esc(d.usuario) + '" autocomplete="username" hidden>' +
+            '<label for="actual">Contraseña actual</label><input id="actual" name="actual" type="password" autocomplete="current-password" required>' +
+            '<label for="nueva">Contraseña nueva</label><input id="nueva" name="nueva" type="password" autocomplete="new-password" minlength="8" required>' +
+            '<p class="muted" style="font-size:14px;margin:6px 0 0">Mínimo 8 caracteres.</p>' +
+            '<button class="btn btn-main" type="submit" style="margin-top:14px">Guardar contraseña</button></form><p role="status" data-pass-msg></p></section>';
+      }
+    };
+
+    var BIND = {
+      consultas: function (view) {
+        view.querySelectorAll("[data-filter]").forEach(function (b) {
+          b.addEventListener("click", function () { leadFilter = b.getAttribute("data-filter"); route(); });
+        });
+        view.querySelectorAll("[data-lead]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            b.disabled = true;
+            api("PUT", "/api/portal/consultas/" + encodeURIComponent(b.getAttribute("data-lead")), { estado: b.getAttribute("data-to") })
+              .then(function (lead) {
+                DATA.consultas.forEach(function (c) { if (c.id === lead.id) c.estado = lead.estado; });
+                DATA.estadisticas.consultas_nuevas = DATA.consultas.filter(function (c) { return c.estado === "nueva"; }).length;
+                renderSide();
+                route();
+              })
+              .catch(function (err) { b.disabled = false; say($("[data-lead-msg]"), err.message, "warn"); });
+          });
+        });
+      },
+      contacto: function (view) {
+        var form = $("[data-contact-form]", view);
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var out = $("[data-contact-msg]", view);
+          api("POST", "/api/portal/pedidos", { nota: form.elements.nota.value, cambios: [] })
+            .then(function () { form.reset(); say(out, "Listo, lo recibimos. Lo vas a ver en «Pedidos de cambios».", "ok"); return api("GET", "/api/portal/inicio"); })
+            .then(function (d) { DATA = d; renderSide(); })
+            .catch(function (err) { say(out, err.message, "warn"); });
+        });
+      },
+      cuenta: function (view) {
+        var form = $("[data-pass-form]", view);
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var out = $("[data-pass-msg]", view);
+          api("POST", "/api/portal/clave", { actual: form.elements.actual.value, nueva: form.elements.nueva.value })
+            .then(function () { form.reset(); say(out, "Listo, tu contraseña nueva ya funciona.", "ok"); })
+            .catch(function (err) { say(out, err.message, "warn"); });
+        });
+      }
+    };
 
     load();
   })();
