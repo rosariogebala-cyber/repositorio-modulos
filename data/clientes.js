@@ -25,10 +25,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "express",
     "plan_vence": "",
     "creado": 1793478859039,
-    "actualizado": 1793985198665,
+    "actualizado": 1794863630329,
     "logo": ""
   },
   {
@@ -56,10 +56,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "express",
     "plan_vence": "",
     "creado": 1793478976981,
-    "actualizado": 1793974594826,
+    "actualizado": 1794863630336,
     "logo": "logo.svg"
   },
   {
@@ -87,10 +87,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "pro",
     "plan_vence": "",
     "creado": 1793480398676,
-    "actualizado": 1794862602255,
+    "actualizado": 1794863630340,
     "logo": "",
     "pedidos": []
   },
@@ -119,10 +119,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "demo",
-    "plan": "",
+    "plan": "pro",
     "plan_vence": "",
     "creado": 1793480398689,
-    "actualizado": 1794434987988,
+    "actualizado": 1794863630347,
     "logo": ""
   },
   {
@@ -150,10 +150,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "express",
     "plan_vence": "",
     "creado": 1793480398697,
-    "actualizado": 1793981058677,
+    "actualizado": 1794863630353,
     "logo": ""
   },
   {
@@ -181,10 +181,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "pro",
     "plan_vence": "",
     "creado": 1793492159557,
-    "actualizado": 1793493004708,
+    "actualizado": 1794863630359,
     "logo": ""
   },
   {
@@ -212,10 +212,10 @@ window.LANZATE_CLIENTES = [
     "privacidad_url": "",
     "terminos_url": "",
     "tipo_cliente": "",
-    "plan": "",
+    "plan": "negocio",
     "plan_vence": "",
     "creado": 1793492159579,
-    "actualizado": 1793984954917,
+    "actualizado": 1794863630365,
     "logo": "logo.png"
   }
 ];
