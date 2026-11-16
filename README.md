@@ -15,8 +15,8 @@ todo vive en este repositorio y se publica con git en GitHub Pages.
 
 2. Entrá a http://127.0.0.1:8877/maquetas/clientes.html. El panel corre solo en tu computadora, sin usuario ni contraseña.
 3. Creá o editá clientes y landings. Al guardar, la landing queda lista en `l/<cliente>/<landing>/`.
-4. Tocá **Publicar** (arriba a la derecha). Hace commit y push de este repositorio y del sitio de venta
-   (`../Lanzate_site`). En un par de minutos se ve online.
+4. Tocá **Publicar** (arriba a la derecha). Rearma las landings con los módulos actuales y hace commit y push
+   de este repositorio y del sitio de venta (`../Lanzate_site`). En un par de minutos se ve online.
 
 ## Dónde está cada cosa
 
@@ -40,6 +40,24 @@ Los escribe el panel. Si los editás a mano, que el contenido siga siendo JSON v
 - **Planes:** se editan en `Lanzate_site/js/config.js`. El panel los copia a `data/planes.js` y los usa en la ficha del cliente.
 - **Proyectos:** en Landings, la estrella marca una landing como «Ejemplo en el sitio». El panel escribe
   `Lanzate_site/js/ejemplos.js` y el sitio muestra esas landings en la sección Proyectos.
+
+## Planes y límites
+
+Los planes y lo que incluye cada uno salen de la tabla «comparar» de `Lanzate_site/js/config.js`. El panel los aplica así:
+
+- **Secciones:** no deja guardar una landing con más secciones que las del plan (no cuentan la navegación, el footer ni el botón de WhatsApp).
+- **Reserva de turnos:** solo se puede usar si el plan la incluye (hoy, Pro).
+- **Analytics, Tag Manager y Píxel de Meta:** solo se cargan en la landing si el plan los incluye (hoy, Pro).
+- **Pedidos de cambios por mes:** en la ficha registrás cada pedido que aplicás. La ficha y el editor del cliente muestran cuántos le quedan en el mes.
+- **Vencimiento:** la lista de clientes y la ficha avisan cuando faltan 15 días o menos, o si ya venció. El editor del cliente también lo muestra.
+
+Un cliente sin plan no tiene límites: sirve para demos y pruebas.
+
+## Las landings se arman desde los módulos
+
+Cada landing guarda sus módulos (`items`: qué módulo, textos, fotos y links). Al tocar **Publicar**, el panel vuelve a armar
+todas las landings en el constructor con las plantillas actuales de `maquetas/` y los datos actuales de cada cliente,
+y recién después sube los cambios. Si arreglás un módulo o cambiás el teléfono de un cliente, se refleja en todas sus landings.
 
 ## Cambios que pide el cliente
 

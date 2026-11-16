@@ -69,6 +69,16 @@
     return '<span class="pf-avatar' + (c.logo_url ? " has-logo" : "") + (size ? " is-" + size : "") + '" style="' + style + '">' + inner + "</span>";
   }
 
+  /* Aviso del plan: vencido, por vencer o sin pedidos de cambios disponibles */
+  function planAlert(c) {
+    var p = c.plan_estado || {};
+    if (!c.plan) return "";
+    if (p.vencido) return "El plan " + p.plan + " venció el " + String(c.plan_vence).split("-").reverse().join("/") + ".";
+    if (p.dias != null && p.dias <= 15) return "El plan " + p.plan + " vence " + (p.dias === 0 ? "hoy" : p.dias === 1 ? "mañana" : "en " + p.dias + " días") + ".";
+    if (p.cambios_mes && p.cambios_restantes === 0) return "Ya usó los " + plural(p.cambios_mes, "pedido", "pedidos") + " de cambios de este mes.";
+    return "";
+  }
+
   function status(c) {
     return '<span class="pf-status is-' + esc(c.estado) + '">' + (c.estado === "pausado" ? "Pausado" : "Activo") + "</span>";
   }
@@ -271,6 +281,7 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
+    var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">No entra en el plan: ' + esc(lp.aviso_plan) + "</b></small>" : "";
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -284,7 +295,7 @@
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
       (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +
       "<small>" + meta.join(" · ") + "</small>" +
-      (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + "</span>" +
+      (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + planWarn + "</span>" +
       '<span class="lb-saved-actions">' +
       icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
       (opts.onEdit
@@ -372,6 +383,7 @@
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
+          (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
           (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
@@ -437,7 +449,12 @@
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio) + "</a>" : "";
+      var ps = c.plan_estado || {};
+      var month = new Date().toISOString().slice(0, 7);
+      var requests = (c.pedidos || []).slice().reverse();
       profile.innerHTML =
+        (planAlert(c) ? '<div class="pf-pending-banner" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong>" +
+          (ps.vencido || (ps.dias != null && ps.dias <= 15) ? " Avisale para renovarlo y actualizá la fecha de vencimiento." : " Un pedido más se cobra aparte o pasa al mes que viene.") + "</p></div>" : "") +
         '<div class="pf-profile-head">' + avatar(c, "lg") +
         '<div class="pf-profile-name"><p class="lb-kicker">' + esc(c.rubro || "Cliente") + "</p><h1>" + esc(c.nombre) + "</h1>" + status(c) + "</div>" +
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit><i class="bi bi-pencil"></i> Editar datos</button></div>' +
@@ -454,19 +471,30 @@
         }).join(" ")) +
         field("palette", "Colores", '<span class="pf-swatch" style="background:' + esc(c.color_primario) + '"></span><span class="pf-swatch" style="background:' + esc(c.color_secundario) + '"></span> ' + esc(c.color_primario) + " · " + esc(c.color_secundario)) +
         field("folder2", "Carpeta", esc(c.carpeta)) +
-        field("graph-up", "Medición", [c.ga4 ? "Analytics " + esc(c.ga4) : "", c.gtm ? "Tag Manager " + esc(c.gtm) : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean).join(" · ")) +
+        field("graph-up", "Medición", [c.ga4 ? "Analytics " + esc(c.ga4) : "", c.gtm ? "Tag Manager " + esc(c.gtm) : "", c.meta_pixel ? "Píxel de Meta" : ""].filter(Boolean).join(" · ") +
+          ((c.ga4 || c.gtm || c.meta_pixel) && c.plan_estado && c.plan_estado.plan && !c.plan_estado.medicion ? ' <b class="pf-missing">No se carga: el plan no la incluye</b>' : "")) +
         "</dl>" +
         (c.notas ? '<div class="pf-notes"><strong>Notas internas</strong><p>' + esc(c.notas) + "</p></div>" : "") +
         '<section class="pf-admin"><h2>Administración</h2>' +
         '<p class="pf-admin-line">Alta: ' + (c.creado ? new Date(c.creado).toLocaleDateString("es-AR") : "—") + "</p>" +
+        '<h3 id="pf-plan" class="h6">Plan</h3>' +
         '<form class="pf-admin-form" data-pf-plan>' +
         '<label>Plan <select name="plan"><option value="">Sin plan</option>' + PLANS.map(function (p) {
           return '<option value="' + esc(p.id) + '">' + esc(p.nombre) + "</option>";
         }).join("") + "</select></label>" +
         '<label>Vencimiento <input name="plan_vence" type="date" value="' + esc(c.plan_vence || "") + '"></label>' +
         '<button class="btn-nx btn-sm" type="submit">Guardar plan</button></form>' +
-        (planInfo(c.plan) ? '<p class="pf-admin-line">' + esc(planInfo(c.plan)) + "</p>" : "") +
+        (planInfo(c.plan) ? '<p class="pf-admin-line">' + esc(planInfo(c.plan)) + "</p>" : '<p class="pf-admin-line">Sin plan: no tiene límites. Usalo para demos y pruebas.</p>') +
         '<h2 id="pf-cambios">Pedidos de cambios</h2>' +
+        '<p class="pf-admin-line"><strong>Este mes: ' + (ps.cambios_usados || 0) + (ps.cambios_mes ? " de " + ps.cambios_mes : "") + "</strong>" +
+        (ps.cambios_mes ? (ps.cambios_restantes ? " · le quedan " + ps.cambios_restantes : " · no le quedan pedidos este mes") : "") + ".</p>" +
+        '<form class="pf-admin-form" data-pf-pedido><label>Qué pidió <input name="nota" maxlength="300" placeholder="Por ejemplo: nuevo precio del corte y foto del local"></label>' +
+        '<button class="btn-nx btn-sm" type="submit">Registrar pedido</button></form>' +
+        (requests.length ? '<ul class="pf-requests">' + requests.slice(0, 12).map(function (r) {
+          var d = new Date(r.fecha);
+          return "<li" + (d.toISOString().slice(0, 7) === month ? ' class="is-month"' : "") + ">" + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) +
+            (r.nota ? " · " + esc(r.nota) : "") + ' <button class="lb-act" type="button" data-pf-quitar-pedido="' + r.fecha + '">Quitar</button></li>';
+        }).join("") + "</ul>" : "") +
         '<p class="pf-admin-line">El cliente no tiene usuario ni contraseña. Le pasás este link: ahí marca los textos, fotos o links que quiere cambiar y te los manda por WhatsApp. Vos los aplicás en el constructor y publicás.</p>' +
         '<p><a class="btn-nx-outline btn-sm" href="' + esc(c.editor) + '" target="_blank" rel="noopener">Abrir editor del cliente</a> ' +
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-copiar-editor><i class="bi bi-copy" aria-hidden="true"></i> Copiar link</button></p>' +
@@ -480,6 +508,22 @@
           plan_vence: planForm.elements.plan_vence.value
         }).then(function () { say(msg, "Se guardó el plan.", "ok"); load(); })
           .catch(function (err) { say(msg, err.message, "warn"); });
+      });
+      profile.querySelector("[data-pf-pedido]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var over = ps.cambios_mes && !ps.cambios_restantes;
+        if (over && !window.confirm("Ya usó los pedidos de este mes. ¿Lo registrás igual (por ejemplo, como pedido cobrado aparte)?")) return;
+        api("POST", "/api/clientes/" + c.id + "/pedidos", { nota: f.elements.nota.value })
+          .then(function () { say(msg, "Pedido registrado.", "ok"); load(); })
+          .catch(function (err) { say(msg, err.message, "warn"); });
+      });
+      profile.querySelectorAll("[data-pf-quitar-pedido]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          api("DELETE", "/api/clientes/" + c.id + "/pedidos?fecha=" + btn.getAttribute("data-pf-quitar-pedido"))
+            .then(function () { say(msg, "Pedido quitado.", "ok"); load(); })
+            .catch(function (err) { say(msg, err.message, "warn"); });
+        });
       });
       profile.querySelector("[data-pf-copiar-editor]").addEventListener("click", function () {
         var out = profile.querySelector("[data-pf-editor-estado]");
@@ -573,11 +617,50 @@
     if (!p) return "";
     var parts = [];
     if (p.secciones) parts.push("hasta " + p.secciones + " secciones");
-    if (p.cambiosPorMes) parts.push(plural(p.cambiosPorMes, "cambio", "cambios") + " por mes");
-    return parts.length ? "Plan " + p.nombre + ": " + parts.join(" y ") + "." : "";
+    if (p.cambiosPorMes) parts.push(plural(p.cambiosPorMes, "pedido", "pedidos") + " de cambios por mes");
+    parts.push(p.turnos ? "con reserva de turnos" : "sin reserva de turnos");
+    parts.push(p.medicion ? "con Analytics y Píxel de Meta" : "sin Analytics ni Píxel");
+    return "Plan " + p.nombre + ": " + parts.join(", ") + ".";
   }
 
-  /* Publicar: guarda en git y sube a GitHub (las landings y el sitio de venta) */
+  /* Rearmar: cada landing se vuelve a armar en el constructor con sus módulos guardados y las plantillas actuales */
+  function rebuildOne(id) {
+    return new Promise(function (resolve) {
+      var frame = document.createElement("iframe");
+      frame.hidden = true;
+      frame.setAttribute("aria-hidden", "true");
+      var done = false;
+      function finish(data) {
+        if (done) return;
+        done = true;
+        window.removeEventListener("message", onMessage);
+        frame.remove();
+        resolve(data);
+      }
+      function onMessage(e) {
+        if (e.origin !== location.origin || !e.data || !e.data.lzRearmar || e.data.lzRearmar.id !== id) return;
+        finish(e.data.lzRearmar);
+      }
+      window.addEventListener("message", onMessage);
+      setTimeout(function () { finish({ id: id, ok: false, error: "El constructor tardó demasiado." }); }, 45000);
+      frame.src = "/maquetas/constructor.html?landing=" + id + "&rearmar=1";
+      document.body.appendChild(frame);
+    });
+  }
+
+  function rebuildAll(progress) {
+    return api("GET", "/api/landings").then(function (list) {
+      var results = [];
+      return list.reduce(function (chain, lp, i) {
+        return chain.then(function () {
+          if (progress) progress(i + 1, list.length);
+          return rebuildOne(lp.id).then(function (r) { r.nombre = r.nombre || lp.nombre; results.push(r); });
+        });
+      }, Promise.resolve()).then(function () { return results; });
+    });
+  }
+
+  /* Publicar: rearma las landings, guarda en git y sube a GitHub (las landings y el sitio de venta) */
   function addPublish() {
     var nav = document.querySelector(".lib-header nav");
     if (!nav || nav.querySelector("[data-pf-publish]") || !panelPage) return;
@@ -592,10 +675,22 @@
       if (note === null) return;
       btn.disabled = true;
       btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Publicando…';
-      api("POST", "/api/publicar", { mensaje: note }).then(function (out) {
+      var rebuilt = [];
+      rebuildAll(function (n, total) {
+        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Armando ' + n + " de " + total + "…";
+      }).then(function (results) {
+        rebuilt = results;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Subiendo…';
+        return api("POST", "/api/publicar", { mensaje: note });
+      }).then(function (out) {
+        var failed = rebuilt.filter(function (r) { return !r.ok; });
         var lines = out.resultados.map(function (r) { return (r.ok ? "✓ " : "✗ ") + r.carpeta + ": " + r.detalle; });
+        if (failed.length) {
+          lines.push("", "Estas landings no se pudieron rearmar y quedan como estaban:");
+          failed.forEach(function (r) { lines.push("• " + r.nombre + ": " + r.error); });
+        }
         var ok = out.resultados.every(function (r) { return r.ok; });
-        window.alert((ok ? "Listo. En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
+        window.alert((ok ? "Listo. Se armaron " + (rebuilt.length - failed.length) + " landings con los módulos actuales. En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
       }).catch(function (err) { window.alert(err.message); })
         .then(function () { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar'; });
     });
@@ -603,7 +698,7 @@
   }
   if (document.body.classList.contains("lib-page")) addPublish();
 
-  window.Lanzate = { api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
+  window.Lanzate = { rebuildAll: rebuildAll, api: api, esc: esc, socialUrl: socialUrl, say: say, clientForm: clientForm, landingRow: landingRow, plural: plural };
 
   var page = document.body.getAttribute("data-page");
   if (page === "clientes") pageClientes();

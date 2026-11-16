@@ -4358,3 +4358,6 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 :is(.mq, .lib-page) main[tabindex="-1"] { scroll-margin-top: var(--lib-offset, 96px); }
 .lib-page :is(.lb-fondo-note, .lb-contrast li:not(.is-bad), .lb-fondos-title, .pf-fact dt) { color: #555c77; }
 .lib-page .lb-contrast li.is-bad { color: #8b3927; }
+.pf-requests { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 4px; font-size: 14px; color: #5b6170; }
+.pf-requests li.is-month { color: #17192a; font-weight: 600; }
+.pf-requests .lb-act { min-height: 32px; font-size: 13px; }

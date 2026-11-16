@@ -19,6 +19,8 @@ sys.path.insert(0, ROOT)
 
 import server  # noqa: E402
 
+PRUEBAS_CLIENTES = {"gg", "qa-prueba-lanzate"}
+PRUEBAS_LANDINGS = {"prueba-ro", "promo-ghjgjhgjh", "mmm", "qa-prueba-de-modulos", "qa-accesibilidad-portada-temporal"}
 PLAN_ANTERIOR = {"Base": "express", "Pro": "pro"}
 CLIENT_KEYS = server.CLIENT_FIELDS + ("id", "slug", "privacidad_url", "terminos_url", "tipo_cliente",
                                       "plan", "plan_vence", "creado", "actualizado")
@@ -58,6 +60,11 @@ def main():
     else:
         data = from_supabase()
         print("Leyendo Supabase")
+
+    # Pruebas que ya se borraron: no se vuelven a traer.
+    data["clientes"] = [c for c in data["clientes"] if c["slug"] not in PRUEBAS_CLIENTES]
+    ids = {c["id"] for c in data["clientes"]}
+    data["landings"] = [l for l in data["landings"] if l["cliente_id"] in ids and l["slug"] not in PRUEBAS_LANDINGS]
 
     clients, logos = [], {}
     for row in data["clientes"]:

@@ -69,6 +69,7 @@ ABS_REF = re.compile(r"""(?<=["'(\s,=])/(?=(?:maquetas|assets|l|privacidad|termi
 ROUTES = [
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
+    (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
@@ -228,18 +229,34 @@ def site_plans():
     plans = site.get("planes")
     if not isinstance(plans, list):
         return None
-    compare = site.get("comparar") or []
-    changes = next((row for row in compare if str(row[0]).lower().startswith("cambios")), None)
-    sections = next((row for row in compare if str(row[0]).lower().startswith("secciones")), None)
+    compare = [row for row in site.get("comparar") or [] if isinstance(row, list) and row]
     out = []
     for index, plan in enumerate(plans):
         item = {k: plan.get(k) for k in ("id", "nombre", "para", "inicial", "mensual", "incluye")}
-        if changes and len(changes) > index + 1:
-            item["cambiosPorMes"] = int(re.sub(r"\D", "", str(changes[index + 1])) or 0)
-        if sections and len(sections) > index + 1:
-            item["secciones"] = int(re.sub(r"\D", "", str(sections[index + 1])) or 0)
+        # La tabla «Compará los planes» del sitio es la que define qué incluye cada plan.
+        features = {str(row[0]): row[index + 1] for row in compare if len(row) > index + 1}
+        item["caracteristicas"] = features
+        item["secciones"] = feature_number(features, "secciones")
+        item["cambiosPorMes"] = feature_number(features, "cambios")
+        item["turnos"] = feature_flag(features, "turno")
+        item["medicion"] = feature_flag(features, "analytics")
         out.append(item)
     return {"planes": out, "whatsapp": site.get("whatsapp") or "", "email": site.get("email") or ""}
+
+
+def feature_number(features, word):
+    for label, value in features.items():
+        if label.lower().startswith(word):
+            digits = re.sub(r"\D", "", str(value))
+            return int(digits) if digits else 0
+    return 0
+
+
+def feature_flag(features, word):
+    for label, value in features.items():
+        if word in label.lower():
+            return value is True or (isinstance(value, str) and value.strip().lower() not in ("", "no", "false", "-", "—"))
+    return True
 
 
 def sync_plans():
@@ -270,6 +287,95 @@ def plan_ids():
     return [p.get("id") for p in (read_data("planes", {}).get("planes") or []) if p.get("id")]
 
 
+def client_plan(client):
+    """El plan del cliente con sus límites, o None si no tiene (sin límites: demos y pruebas)."""
+    plan_id = client.get("plan") or ""
+    for plan in read_data("planes", {}).get("planes") or []:
+        if plan.get("id") == plan_id:
+            return plan
+    return None
+
+
+def plan_expired(client, today=None):
+    vence = client.get("plan_vence") or ""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vence):
+        return None
+    today = today or time.strftime("%Y-%m-%d")
+    return vence < today
+
+
+def plan_days_left(client):
+    vence = client.get("plan_vence") or ""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vence):
+        return None
+    end = time.mktime(time.strptime(vence, "%Y-%m-%d"))
+    start = time.mktime(time.strptime(time.strftime("%Y-%m-%d"), "%Y-%m-%d"))
+    return int(round((end - start) / 86400))
+
+
+def month_key(ms=None):
+    return time.strftime("%Y-%m", time.localtime((ms or now_ms()) / 1000))
+
+
+def changes_this_month(client):
+    current = month_key()
+    return [p for p in client.get("pedidos") or [] if month_key(p.get("fecha")) == current]
+
+
+def plan_status(client):
+    """Resumen del plan para el panel y el editor del cliente."""
+    plan = client_plan(client)
+    used = len(changes_this_month(client))
+    status = {"plan": plan["nombre"] if plan else "", "vencido": bool(plan_expired(client)),
+              "dias": plan_days_left(client), "cambios_usados": used}
+    if plan:
+        status.update(cambios_mes=plan.get("cambiosPorMes") or 0, secciones=plan.get("secciones") or 0,
+                      turnos=bool(plan.get("turnos")), medicion=bool(plan.get("medicion")))
+        if status["cambios_mes"]:
+            status["cambios_restantes"] = max(0, status["cambios_mes"] - used)
+    return status
+
+
+def content_sections(items):
+    """Secciones que cuenta el plan: todo menos la navegación, el footer y el botón de WhatsApp."""
+    groups = [str(it.get("id") or "").rsplit("-", 1)[0] for it in items if isinstance(it, dict)]
+    return [g for g in groups if g not in ("navegacion", "footer", "whatsapp")]
+
+
+def plan_errors(client, items):
+    plan = client_plan(client)
+    if not plan:
+        return []
+    errors = []
+    limit = plan.get("secciones") or 0
+    count = len(content_sections(items))
+    if limit and count > limit:
+        errors.append("el plan %s permite hasta %d secciones y esta landing tiene %d (sin contar navegación ni footer)"
+                      % (plan["nombre"], limit, count))
+    if not plan.get("turnos") and "reserva-turno" in content_sections(items):
+        errors.append("la reserva de turnos no está incluida en el plan %s" % plan["nombre"])
+    return errors
+
+
+def add_change_request(client_id, data):
+    nota = " ".join(str(data.get("nota") or "").split())[:300]
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        row.setdefault("pedidos", []).append({"fecha": now_ms(), "nota": nota})
+        row["pedidos"] = row["pedidos"][-60:]
+    return get_client(client_id)
+
+
+def remove_change_request(client_id, fecha):
+    with store("clientes") as db:
+        row = find_client(db, client_id)
+        before = len(row.get("pedidos") or [])
+        row["pedidos"] = [p for p in row.get("pedidos") or [] if p.get("fecha") != fecha]
+        if len(row["pedidos"]) == before:
+            raise ApiError(404, "No encontramos ese pedido.")
+    return get_client(client_id)
+
+
 def set_client_plan(client_id, data):
     plan = str(data.get("plan") or "")
     if plan and plan not in plan_ids():
@@ -280,6 +386,7 @@ def set_client_plan(client_id, data):
     with store("clientes") as db:
         row = find_client(db, client_id)
         row.update(plan=plan, plan_vence=vence, actualizado=now_ms())
+    render_client_landings(client_id)
     return get_client(client_id)
 
 
@@ -313,6 +420,7 @@ def client_dict(row, count=None):
     data["logo_url"] = logo_ref(row)
     data["carpeta"] = "/l/" + row["slug"] + "/"
     data["editor"] = editor_url(row)
+    data["plan_estado"] = plan_status(row)
     if count is not None:
         data["landings"] = count
     return data
@@ -506,6 +614,7 @@ def landing_dict(row, client, summary=False):
         "editor": editor_url(client, row),
         "disponible": bool(row.get("html")),
     }
+    data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or []))
     if summary:
         data["cantidad_modulos"] = len(row.get("items") or [])
     else:
@@ -681,6 +790,9 @@ def save_landing(data, landing_id=None):
         slug = slugify(nombre)
         if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
+        limits = plan_errors(client, items)
+        if limits:
+            raise ApiError(400, "No se puede guardar: " + "; ".join(limits) + ". Cambiá el plan en la ficha del cliente o sacá esas secciones.")
         html = publish_html(html, items, logo_ref(client))
         if (rules.get("general") or {}).get("bloquear"):
             final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
@@ -772,10 +884,13 @@ def landing_page(row, client):
         return None
     origin = read_config()["urlPublica"]
     path = "/l/%s/%s/" % (client["slug"], row["slug"])
+    plan = client_plan(client)
+    tracking = not plan or plan.get("medicion")
     meta = dict(row, cliente=client["nombre"], cliente_id=client["id"], cliente_actualizado=client.get("actualizado") or 0,
                 logo=client.get("logo"), direccion=client.get("direccion") or "", telefono=client.get("telefono") or "",
                 email=client.get("email") or "", tipo_cliente=client.get("tipo_cliente"),
-                ga4=client.get("ga4") or "", gtm=client.get("gtm") or "", meta_pixel=client.get("meta_pixel") or "",
+                ga4=(client.get("ga4") or "") if tracking else "", gtm=(client.get("gtm") or "") if tracking else "",
+                meta_pixel=(client.get("meta_pixel") or "") if tracking else "",
                 slug_cliente=client["slug"])
     head = '<meta name="lz-landing" content="%d">' % row["id"]
     number = whatsapp_number(client)
@@ -1765,6 +1880,11 @@ class Handler(SimpleHTTPRequestHandler):
             return read_data("planes", {}).get("planes") or []
         if name == "plan" and method == "PUT":
             return set_client_plan(ident, self.read_json())
+        if name == "pedidos":
+            if method == "POST":
+                return add_change_request(ident, self.read_json())
+            if method == "DELETE":
+                return remove_change_request(ident, int((query.get("fecha") or ["0"])[0] or 0))
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
         if name == "clientes":

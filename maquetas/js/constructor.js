@@ -74,7 +74,10 @@
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
   }
+  /* Modo «rearmar»: el panel abre el constructor oculto para volver a armar una landing con los módulos actuales */
+  var REBUILD = new URLSearchParams(location.search).get("rearmar") === "1";
   function saveDraft() {
+    if (REBUILD) return;
     var draft = Object.assign({}, state, { saved: savedSnapshot });
     try { localStorage.setItem(DRAFT, JSON.stringify(draft)); } catch (e) { /* cuota llena: el borrador queda en memoria */ }
   }
@@ -4407,15 +4410,29 @@
     return html;
   }
 
+  /* La página se arma siempre a partir de los módulos guardados (items) y de las plantillas actuales de maquetas/ */
+  function landingPayload() {
+    var html = buildDocument({ prefix: "" });
+    var estilo = stripLandingColors(state.estilo);
+    if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
+    return { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+  }
+
+  function rebuildLanding() {
+    var report = function (data) {
+      if (window.parent !== window) window.parent.postMessage({ lzRearmar: Object.assign({ id: state.landingId }, data) }, location.origin);
+    };
+    return api("PUT", "/api/landings/" + state.landingId, JSON.stringify(landingPayload()))
+      .then(function (saved) { report({ ok: true, nombre: saved.nombre }); },
+        function (err) { report({ ok: false, nombre: state.name, error: err.message }); });
+  }
+
   function createLanding() {
     var todo = missing();
     if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
     if (todo.length) { goTo(todo[0].key); return; }
-    var html = buildDocument({ prefix: "" });
     var editing = !!state.landingId;
-    var estilo = stripLandingColors(state.estilo);
-    if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
-    var body = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    var body = landingPayload();
     if (clientMode()) {
       body.modo = "sitio";
       body.base_revision = portalRevision && portalRevision.base;
@@ -4726,6 +4743,7 @@
       return api("GET", "/api/landings/" + landingId + (clientMode() ? "?modo=sitio" : "")).then(function (lp) {
         if (clientMode()) portalRevision = { base: lp.actualizado, token: lp.revision_token || null };
         loadLanding(lp);
+        if (REBUILD) { rebuildLanding(); return; }
         say(clientMode() && lp.revision_estado === "pendiente" ?
           "Hay cambios pendientes de aprobación. Podés actualizar la propuesta." :
           "Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");

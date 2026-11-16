@@ -160,8 +160,15 @@
     var plan = plans.filter(function (p) { return p.id === client.plan; })[0];
     if (plan) {
       var planBox = document.querySelector("[data-plan]");
+      var month = new Date().toISOString().slice(0, 7);
+      var used = (client.pedidos || []).filter(function (r) { return new Date(r.fecha).toISOString().slice(0, 7) === month; }).length;
+      var limit = plan.cambiosPorMes || 0;
+      var today = new Date().toISOString().slice(0, 10);
+      var text = "Tu plan " + plan.nombre + (limit ? " incluye " + limit + (limit === 1 ? " pedido de cambios" : " pedidos de cambios") + " por mes." : ".");
+      if (limit) text += used >= limit ? " Ya usaste los de este mes: si mandás otro, te contamos cuánto cuesta o lo hacemos el mes que viene." : " Te quedan " + (limit - used) + " este mes.";
+      if (client.plan_vence && client.plan_vence < today) text = "Tu plan " + plan.nombre + " venció el " + client.plan_vence.split("-").reverse().join("/") + ". Escribinos para renovarlo; mientras tanto podés mandarnos el pedido igual.";
       planBox.hidden = false;
-      planBox.textContent = "Tu plan " + plan.nombre + (plan.cambiosPorMes ? " incluye " + plan.cambiosPorMes + (plan.cambiosPorMes === 1 ? " pedido de cambios" : " pedidos de cambios") + " por mes." : ".");
+      planBox.textContent = text;
     }
 
     function sectionName(el) {

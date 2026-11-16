@@ -15,8 +15,23 @@ window.LANZATE_PLANES = {
         "Subdominio tunegocio.lanzate.com.ar",
         "1 cambio por mes"
       ],
+      "caracteristicas": {
+        "Entrega": "Rápida",
+        "Secciones": "Hasta 6",
+        "Dominio propio .com.ar": false,
+        "Hosting y SSL": true,
+        "Botón de WhatsApp": true,
+        "Formulario de contacto": false,
+        "Mapa y reseñas de Google": false,
+        "Alta en Google Maps": false,
+        "Reserva de turnos": false,
+        "Analytics y Píxel de Meta": false,
+        "Cambios por mes": "1"
+      },
+      "secciones": 6,
       "cambiosPorMes": 1,
-      "secciones": 6
+      "turnos": false,
+      "medicion": false
     },
     {
       "id": "negocio",
@@ -32,8 +47,23 @@ window.LANZATE_PLANES = {
         "Alta en Google Maps (perfil de empresa)",
         "3 cambios por mes"
       ],
+      "caracteristicas": {
+        "Entrega": "Rápida",
+        "Secciones": "Hasta 8",
+        "Dominio propio .com.ar": true,
+        "Hosting y SSL": true,
+        "Botón de WhatsApp": true,
+        "Formulario de contacto": true,
+        "Mapa y reseñas de Google": true,
+        "Alta en Google Maps": true,
+        "Reserva de turnos": false,
+        "Analytics y Píxel de Meta": false,
+        "Cambios por mes": "3"
+      },
+      "secciones": 8,
       "cambiosPorMes": 3,
-      "secciones": 8
+      "turnos": false,
+      "medicion": false
     },
     {
       "id": "pro",
@@ -50,8 +80,23 @@ window.LANZATE_PLANES = {
         "Informe mensual de visitas",
         "10 cambios por mes"
       ],
+      "caracteristicas": {
+        "Entrega": "Prioritaria",
+        "Secciones": "Hasta 12",
+        "Dominio propio .com.ar": true,
+        "Hosting y SSL": true,
+        "Botón de WhatsApp": true,
+        "Formulario de contacto": true,
+        "Mapa y reseñas de Google": true,
+        "Alta en Google Maps": true,
+        "Reserva de turnos": true,
+        "Analytics y Píxel de Meta": true,
+        "Cambios por mes": "10"
+      },
+      "secciones": 12,
       "cambiosPorMes": 10,
-      "secciones": 12
+      "turnos": true,
+      "medicion": true
     }
   ]
 };
