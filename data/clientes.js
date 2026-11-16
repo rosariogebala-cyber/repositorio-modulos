@@ -92,7 +92,14 @@ window.LANZATE_CLIENTES = [
     "creado": 1793480398676,
     "actualizado": 1794863630340,
     "logo": "",
-    "pedidos": []
+    "pedidos": [],
+    "portal": {
+      "usuario": "filo-barber-club",
+      "hash": "scrypt$421463257fc150b8c1f67c07d2daeb15$ca0856cef352d0c59030aa8ee218b2a8e831e71494fcef2b16a6de6ebc2dd64dbeb1535787dc39c4deb016e7f0f45bdde470a8205a668f2b3c2a9e48e93dac6a",
+      "clave": "VTicn93DKG0mdwyo3_DYDcCx5PIx72dvNBm7wwLQHN7jUqEtVSzUqBgV7pWByK3i",
+      "version": 1,
+      "pidio_clave": 0
+    }
   },
   {
     "nombre": "Alma Estética",
