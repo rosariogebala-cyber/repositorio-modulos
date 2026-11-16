@@ -335,8 +335,18 @@ FILES = GitHubFiles(GITHUB_TOKEN) if GITHUB_TOKEN else LocalFiles()
 # Online: Upstash Redis (se conecta desde Vercel → Storage; deja KV_REST_API_URL y KV_REST_API_TOKEN).
 # En tu computadora, sin Redis: ~/.lanzate/registro.json. Nunca en el repo, que es público.
 
-REDIS_URL = (os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL") or "").rstrip("/")
-REDIS_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN") or ""
+def find_redis():
+    """KV_REST_API_URL/TOKEN o UPSTASH_REDIS_REST_URL/TOKEN, con o sin prefijo (por ejemplo STORAGE_KV_REST_API_URL)."""
+    for url_name in sorted(os.environ):
+        for suffix, token_suffix in (("KV_REST_API_URL", "KV_REST_API_TOKEN"), ("REDIS_REST_URL", "REDIS_REST_TOKEN")):
+            if url_name.endswith(suffix):
+                token = os.environ.get(url_name[: -len(suffix)] + token_suffix)
+                if os.environ[url_name] and token:
+                    return os.environ[url_name].rstrip("/"), token
+    return "", ""
+
+
+REDIS_URL, REDIS_TOKEN = find_redis()
 LOCAL_RECORD = os.path.join(CONFIG_DIR, "registro.json")
 
 
