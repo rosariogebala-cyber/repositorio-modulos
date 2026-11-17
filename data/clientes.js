@@ -314,7 +314,7 @@ window.LANZATE_CLIENTES = [
       {
         "id": "1794910902417-f6e7",
         "fecha": 1794910902417,
-        "estado": "pendiente",
+        "estado": "parcial",
         "origen": "cliente",
         "landing": "odontologia",
         "landing_slug": "odontologia",
@@ -322,7 +322,7 @@ window.LANZATE_CLIENTES = [
         "cambios": [
           {
             "tipo": "foto",
-            "estado": "pendiente",
+            "estado": "rechazado",
             "seccion": "hero-full-imagen-dividida",
             "antes": "Profesional en un consultorio odontológico",
             "despues": "",
@@ -333,7 +333,7 @@ window.LANZATE_CLIENTES = [
           },
           {
             "tipo": "link",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "hero-full-imagen-dividida",
             "antes": "Solicitá un turno",
             "despues": "dsdsds",
@@ -343,43 +343,47 @@ window.LANZATE_CLIENTES = [
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "hero-full-imagen-dividida",
             "antes": "Turnos en el día",
             "despues": "dsdsd en el día",
             "detalle": "",
-            "modulo": "hero-full-imagen-dividida"
+            "modulo": "hero-full-imagen-dividida",
+            "aplicado": true
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "hero-full-imagen-dividida",
             "antes": "Obras sociales",
             "despues": "Obds sociales",
             "detalle": "",
-            "modulo": "hero-full-imagen-dividida"
+            "modulo": "hero-full-imagen-dividida",
+            "aplicado": true
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "Servicios",
             "antes": "Implantes",
             "despues": "dsdsds",
             "detalle": "",
-            "modulo": "servicios-productos-simple"
+            "modulo": "servicios-productos-simple",
+            "aplicado": true
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "Marcas",
             "antes": "Omint",
             "despues": "dsdsdsd",
             "detalle": "",
-            "modulo": "marcas-simple"
+            "modulo": "marcas-simple",
+            "aplicado": true
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "rechazado",
             "seccion": "Navegación",
             "antes": "Tu visita",
             "despues": "fdfd",
@@ -392,7 +396,9 @@ window.LANZATE_CLIENTES = [
             "ruta": "/pedidos/babel-idiomas/1794910902417-f6e7-1.jpg",
             "nota": "hero-full-imagen-dividida: fdfdf"
           }
-        ]
+        ],
+        "comentario": "",
+        "resuelto": 1794910961789
       }
     ]
   }
