@@ -175,7 +175,14 @@ window.LANZATE_CLIENTES = [
     "plan_vence": "",
     "creado": 1793480398697,
     "actualizado": 1794863630353,
-    "logo": ""
+    "logo": "",
+    "portal": {
+      "usuario": "rumbo-viajes",
+      "hash": "scrypt$ead3b1aa92fe6086986d1c986c9f244f$78306d84d8f50bd39b260fdbe16f6a9b008a9eec3e6e98b8e8b79ee6028cc45f1a1c5c134020c82de0daa31a9c849db0643266687a13046d9c97ea710c45a65e",
+      "clave": "grKN-U1_TrXmpbzGAnRISCzjBpHUilPdihEiZlq5bqm0BPCM-JD0PQFxlnY=",
+      "version": 1,
+      "pidio_clave": 0
+    }
   },
   {
     "nombre": "Umbral Propiedades",
