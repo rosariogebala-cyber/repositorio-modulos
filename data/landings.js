@@ -330,6 +330,6 @@ window.LANZATE_LANDINGS = [
     "actualizado": 1794874356067,
     "id": 9,
     "creado": 1794874356067,
-    "ejemplo": false
+    "ejemplo": true
   }
 ];
