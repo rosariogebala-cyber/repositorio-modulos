@@ -400,7 +400,7 @@
           '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
           "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
           "</div>" + status(c) + "</div>" +
-          (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-cambios"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
+          (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#cf-revisar"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
             (pendingCount(c) === 1 ? "Mandó un pedido de cambios" : "Mandó " + pendingCount(c) + " pedidos de cambios") + "</a>" : "") +
           (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
           (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
@@ -494,6 +494,147 @@
         '<button class="btn-nx-outline btn-sm" type="button" data-pf-decidir="rechazado"><i class="bi bi-x-lg" aria-hidden="true"></i> Rechazar</button></div></li>';
     }
 
+    function changeLine(ch) {
+      if (ch.tipo === "texto") return '<span class="cf-before">' + esc(ch.antes) + '</span><span class="cf-after">' + esc(ch.despues) + "</span>";
+      if (ch.tipo === "foto") return "Foto nueva" + (ch.detalle ? ": " + esc(ch.detalle) : "") + (ch.foto ? '<img class="cf-change-photo" src="' + esc(ch.foto) + '" alt="Foto nueva que mandó el cliente">' : "");
+      return 'Botón «' + esc(ch.antes) + '» → <span class="cf-after">' + esc(ch.despues) + "</span>";
+    }
+
+    var current = null;
+
+    /* Cada pedido es de una web (landing). Los que no tienen web (por ejemplo «actualizar un dato») son generales. */
+    function siteOf(r, c) {
+      if (r.landing_slug) return r.landing_slug;
+      if (r.landing) {
+        var byName = c.lista.filter(function (lp) { return lp.nombre === r.landing; })[0];
+        if (byName) return byName.slug;
+      }
+      return (r.cambios || []).length && c.lista.length === 1 ? c.lista[0].slug : "";
+    }
+
+    function historyList(items) {
+      return '<ol class="cf-timeline">' + items.slice(0, 12).map(function (r) {
+        var d = new Date(r.fecha);
+        var estado = r.estado || "aceptado";
+        var label = estado === "rechazado" ? "Rechazado" : estado === "parcial" ? "Aceptado en parte" : "Aceptado";
+        var detail = (r.cambios || []).map(function (ch) {
+          return '<li class="is-' + esc(ch.estado || "pendiente") + '">' + (ch.estado === "rechazado" ? '<i class="bi bi-x-lg" aria-label="Rechazado"></i>' : '<i class="bi bi-check-lg" aria-label="Aceptado"></i>') +
+            " <b>" + esc(ch.seccion) + ":</b> " + (ch.tipo === "texto" ? esc(ch.despues) : ch.tipo === "foto" ? "foto nueva" : "botón → " + esc(ch.despues)) + "</li>";
+        }).join("");
+        return '<li class="is-month"><time>' + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</time>" +
+          '<span><b class="cf-state is-' + esc(estado === "parcial" ? "aceptado" : estado) + '">' + label + "</b> " + esc(requestSummary(r)) +
+          (detail ? '<details class="cf-hist"><summary>Ver cambios</summary><ul>' + detail + "</ul>" + (r.comentario ? '<p class="cf-muted">Respuesta: ' + esc(r.comentario) + "</p>" : "") + "</details>" : "") + "</span>" +
+          (r.origen === "cliente" ? '<button class="cf-icon-btn" type="button" data-pf-reabrir="' + esc(r.id || r.fecha) + '" aria-label="Volver a revisar" title="Volver a revisar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>' : "<span></span>") + "</li>";
+      }).join("") + "</ol>";
+    }
+
+    function sitesSection(c, requests) {
+      var head = '<div class="cf-sites-head"><div><h2>Webs de ' + esc(c.nombre) + ' <span class="lb-badge">' + c.lista.length + "</span></h2>" +
+        "<p>Cada web con sus pedidos de cambios, su historial y sus visitas.</p></div>" +
+        '<a class="btn-nx btn-sm" href="constructor.html?cliente=' + c.id + '"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nueva landing</a></div>';
+      if (!c.lista.length) return '<section class="cf-sites">' + head + '<p class="cf-empty">Este cliente todavía no tiene webs. Creá la primera con «Nueva landing».</p></section>';
+      return '<section class="cf-sites" aria-label="Webs del cliente">' + head + c.lista.map(function (lp) {
+        var mine = requests.filter(function (r) { return siteOf(r, c) === lp.slug; });
+        var pending = mine.filter(function (r) { return r.estado === "pendiente" && (r.cambios || []).length; });
+        var done = mine.filter(function (r) { return r.estado !== "pendiente"; });
+        return '<article class="cf-site" id="web-' + esc(lp.slug) + '" data-site="' + esc(lp.slug) + '">' +
+          '<div class="cf-site-top"><ul class="lb-saved cf-site-card" data-site-row></ul>' +
+          '<div class="cf-site-info">' +
+            '<div class="cf-site-stats"><div><strong data-site-visitas>—</strong><span>visitas en 30 días</span></div>' +
+            "<div><strong>" + pending.length + "</strong><span>" + (pending.length === 1 ? "pedido para revisar" : "pedidos para revisar") + "</span></div>" +
+            "<div><strong>" + done.length + "</strong><span>" + (done.length === 1 ? "pedido resuelto" : "pedidos resueltos") + "</span></div></div>" +
+            '<div class="cf-spark" data-site-spark aria-hidden="true"></div>' +
+            '<p class="cf-site-links"><a href="' + esc(lp.editor) + '" target="_blank" rel="noopener"><i class="bi bi-pencil-square" aria-hidden="true"></i> Pedir cambios como el cliente</a></p>' +
+          "</div></div>" +
+          (pending.length ? '<div class="cf-review-wrap"><div class="cf-review-title"><span class="cf-icon"><i class="bi bi-eye" aria-hidden="true"></i></span><div><h3>Cambios para revisar en ' + esc(lp.nombre) + "</h3>" +
+            "<p>Los cambios que pidió, marcados en amarillo sobre esta web. Aceptá o rechazá cada uno: lo aceptado se aplica y se publica.</p></div></div>" +
+            pending.map(reviewBlock).join("") + "</div>" : "") +
+          (done.length ? '<details class="cf-site-history"' + (pending.length ? "" : " open") + "><summary>Historial de pedidos de esta web (" + done.length + ")</summary>" + historyList(done) + "</details>"
+            : (pending.length ? "" : '<p class="cf-muted cf-site-none">Sin pedidos de cambios para esta web.</p>')) +
+          "</article>";
+      }).join("") + "</section>";
+    }
+
+
+    function reviewBlock(r) {
+      var id = esc(r.id || r.fecha);
+      var icons = { texto: "fonts", foto: "image", link: "link-45deg" };
+      return '<article class="cf-review" data-pf-review="' + id + '">' +
+        '<header class="cf-review-head"><b class="cf-state is-pendiente">Para revisar</b><strong>' + esc(r.landing || "Pedido") + "</strong>" +
+        '<time class="cf-muted">' + esc(new Date(r.fecha).toLocaleString("es-AR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })) + "</time>" +
+        '<span class="cf-review-views" role="group" aria-label="Vista"><button type="button" data-pf-vista="compu" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Compu</button>' +
+        '<button type="button" data-pf-vista="celu" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button></span></header>' +
+        (r.nota ? '<p class="cf-review-note"><i class="bi bi-chat-quote" aria-hidden="true"></i> ' + esc(r.nota) + "</p>" : "") +
+        '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu"><iframe title="Web con los cambios pedidos" loading="lazy" src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div>' +
+        '<div class="cf-review-side"><ol class="cf-changes">' + r.cambios.map(function (ch, i) {
+          if (ch.estado && ch.estado !== "pendiente") return "";
+          return '<li class="cf-change" data-pf-cambio="' + i + '" data-decision="aceptado"><button class="cf-change-go" type="button" data-pf-ir="' + i + '" aria-label="Ver el cambio ' + (i + 1) + ' en la web">' +
+            '<span class="cf-change-num">' + (i + 1) + '</span><span class="cf-change-text"><small><i class="bi bi-' + (icons[ch.tipo] || "pencil") + '" aria-hidden="true"></i> ' + esc(ch.seccion) + "</small>" + changeLine(ch) + "</span></button>" +
+            '<span class="cf-change-actions" role="group" aria-label="Decisión del cambio ' + (i + 1) + '">' +
+            '<button type="button" class="cf-yes" data-pf-si aria-pressed="true" title="Aceptar"><i class="bi bi-check-lg" aria-hidden="true"></i><span>Aceptar</span></button>' +
+            '<button type="button" class="cf-no" data-pf-no aria-pressed="false" title="Rechazar"><i class="bi bi-x-lg" aria-hidden="true"></i><span>Rechazar</span></button></span></li>';
+        }).join("") + "</ol>" +
+        '<label class="cf-request-reply">Respuesta para el cliente (opcional) <input name="comentario" maxlength="600" placeholder="Por ejemplo: ¡Listo! Ya está publicado."></label>' +
+        '<div class="cf-review-actions"><button class="btn-nx btn-sm" type="button" data-pf-guardar-revision><i class="bi bi-check2-all" aria-hidden="true"></i> Guardar y publicar</button>' +
+        '<button class="btn-nx-outline btn-sm" type="button" data-pf-todo="aceptado">Aceptar todo</button>' +
+        '<button class="btn-nx-outline btn-sm" type="button" data-pf-todo="rechazado">Rechazar todo</button></div>' +
+        '<p class="cf-status" role="status" data-pf-review-msg></p></div></div></article>';
+    }
+
+    function bindReview(block) {
+      var frame = block.querySelector("iframe");
+      var stage = block.querySelector(".cf-review-stage");
+      function setDecision(li, value) {
+        li.setAttribute("data-decision", value);
+        li.querySelector("[data-pf-si]").setAttribute("aria-pressed", String(value === "aceptado"));
+        li.querySelector("[data-pf-no]").setAttribute("aria-pressed", String(value === "rechazado"));
+      }
+      block.querySelectorAll("[data-pf-vista]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          stage.setAttribute("data-vista", b.getAttribute("data-pf-vista"));
+          block.querySelectorAll("[data-pf-vista]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+        });
+      });
+      block.querySelectorAll("[data-pf-ir]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          block.querySelectorAll(".cf-change.is-focus").forEach(function (x) { x.classList.remove("is-focus"); });
+          b.closest(".cf-change").classList.add("is-focus");
+          frame.contentWindow.postMessage({ lzCambio: Number(b.getAttribute("data-pf-ir")) }, location.origin);
+        });
+      });
+      block.querySelectorAll(".cf-change").forEach(function (li) {
+        li.querySelector("[data-pf-si]").addEventListener("click", function () { setDecision(li, "aceptado"); });
+        li.querySelector("[data-pf-no]").addEventListener("click", function () { setDecision(li, "rechazado"); });
+      });
+      block.querySelectorAll("[data-pf-todo]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          block.querySelectorAll(".cf-change").forEach(function (li) { setDecision(li, b.getAttribute("data-pf-todo")); });
+        });
+      });
+      block.querySelector("[data-pf-guardar-revision]").addEventListener("click", function () {
+        var out = block.querySelector("[data-pf-review-msg]");
+        var decisions = {};
+        var rejected = 0;
+        block.querySelectorAll(".cf-change").forEach(function (li) {
+          decisions[li.getAttribute("data-pf-cambio")] = li.getAttribute("data-decision");
+          if (li.getAttribute("data-decision") === "rechazado") rejected += 1;
+        });
+        var comment = block.querySelector("[name=comentario]").value;
+        if (rejected && !comment.trim() && !window.confirm("Rechazás " + plural(rejected, "cambio", "cambios") + " sin explicarle el motivo al cliente. ¿Seguís?")) return;
+        block.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+        say(out, "Aplicando y publicando…", "");
+        api("PUT", "/api/clientes/" + current.id + "/pedidos/" + encodeURIComponent(block.getAttribute("data-pf-review")), { decisiones: decisions, comentario: comment })
+          .then(function (res) {
+            var manual = res.sin_aplicar || [];
+            say(msg, manual.length
+              ? "Listo. " + plural(manual.length, "cambio no se pudo aplicar solo", "cambios no se pudieron aplicar solos") + " (" + manual.map(function (m) { return m.seccion + ": " + (m.antes || m.tipo); }).join("; ") + "). Hacelos en el constructor."
+              : "Listo. Lo aceptado ya está aplicado y se publica en un par de minutos.", manual.length ? "warn" : "ok");
+            load();
+          })
+          .catch(function (err) { block.querySelectorAll("button").forEach(function (x) { x.disabled = false; }); say(out, err.message, "warn"); });
+      });
+    }
+
     function loadStats(c) {
       var box = profile.querySelector("[data-pf-stats-body]");
       if (!box) return;
@@ -502,6 +643,15 @@
         var st = d.estadisticas;
         var max = Math.max(1, Math.max.apply(null, st.serie.map(function (x) { return x.visitas; })));
         var spark = st.serie.map(function (x) { return '<span style="height:' + Math.max(6, Math.round(x.visitas / max * 100)) + '%" title="' + esc(x.dia + ": " + x.visitas) + '"></span>'; }).join("");
+        (st.paginas || []).forEach(function (pg) {
+          var site = profile.querySelector('[data-site="' + pg.slug + '"]');
+          if (!site) return;
+          site.querySelector("[data-site-visitas]").textContent = pg.visitas;
+          var m = Math.max(1, Math.max.apply(null, pg.serie || [0]));
+          site.querySelector("[data-site-spark]").innerHTML = (pg.serie || []).map(function (v) {
+            return '<span style="height:' + Math.max(6, Math.round(v / m * 100)) + '%"></span>';
+          }).join("");
+        });
         var leads = d.consultas.slice(0, 4);
         box.outerHTML = '<div class="cf-stat-row"><div><strong>' + st.total + "</strong><span>visitas</span></div><div><strong>" + st.consultas_periodo +
           "</strong><span>consultas</span></div><div><strong>" + st.consultas_nuevas + '</strong><span>sin atender</span></div></div>' +
@@ -514,6 +664,7 @@
     }
 
     function render(c) {
+      current = c;
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio.replace(/^https?:\/\//, "")) + "</a>" : "";
@@ -522,7 +673,9 @@
       var month = new Date().toISOString().slice(0, 7);
       var requests = (c.pedidos || []).slice().sort(function (a, b) { return b.fecha - a.fecha; });
       var pendingRequests = requests.filter(function (r) { return r.estado === "pendiente"; });
-      var doneRequests = requests.filter(function (r) { return r.estado !== "pendiente"; });
+      var reviewRequests = pendingRequests.filter(function (r) { return (r.cambios || []).length; });
+      var noteRequests = pendingRequests.filter(function (r) { return !(r.cambios || []).length; });
+      var doneRequests = requests.filter(function (r) { return r.estado !== "pendiente" && !siteOf(r, c); });
       var portalUrl = c.editor;
       var portalShort = portalUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
       var used = ps.cambios_usados || 0;
@@ -564,6 +717,8 @@
           "</div>" +
         "</header>" +
 
+        sitesSection(c, requests) +
+        '<h2 class="cf-section-title">Datos del cliente</h2>' +
         '<div class="cf-grid">' +
         '<div class="cf-col">' +
 
@@ -597,15 +752,19 @@
               (limit ? "Este mes usó " + used + " de " + limit + "." : used ? "Este mes: " + plural(used, "pedido", "pedidos") + "." : "Los pedidos del portal llegan acá.") + "</p></div></div>" +
             (limit ? '<div class="cf-meter' + (used >= limit ? " is-full" : "") + '" role="img" aria-label="' + used + " de " + limit + ' pedidos usados"><span style="width:' + pct + '%"></span></div>' +
               '<p class="cf-meter-note">' + (ps.cambios_restantes ? "Le " + (ps.cambios_restantes === 1 ? "queda 1 pedido" : "quedan " + ps.cambios_restantes + " pedidos") + " este mes." : "No le quedan pedidos este mes.") + "</p>" : "") +
-            (pendingRequests.length ? '<ul class="cf-requests">' + pendingRequests.map(requestCard).join("") + "</ul>" : "") +
+            c.lista.filter(function (lp) { return reviewRequests.some(function (r) { return siteOf(r, c) === lp.slug; }); }).map(function (lp) {
+              var n = reviewRequests.filter(function (r) { return siteOf(r, c) === lp.slug; }).length;
+              return '<a class="cf-review-link" href="#web-' + esc(lp.slug) + '"><i class="bi bi-eye" aria-hidden="true"></i> Revisar ' + plural(n, "pedido", "pedidos") + " de " + esc(lp.nombre) + "</a>";
+            }).join("") +
+            (noteRequests.length ? '<ul class="cf-requests">' + noteRequests.map(requestCard).join("") + "</ul>" : "") +
             '<details class="cf-details"><summary>Anotar un pedido que llegó por otro lado</summary>' +
             '<form class="cf-form cf-inline" data-pf-pedido><label class="cf-grow">Qué pidió <input name="nota" maxlength="300" placeholder="Por ejemplo: precio nuevo del corte"></label>' +
               '<button class="btn-nx btn-sm" type="submit"><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar</button></form></details>' +
-            (doneRequests.length ? '<h3 class="cf-sub">Historial</h3><ol class="cf-timeline">' + doneRequests.slice(0, 10).map(function (r) {
+            (doneRequests.length ? '<h3 class="cf-sub">Pedidos generales</h3><ol class="cf-timeline">' + doneRequests.slice(0, 10).map(function (r) {
               var d = new Date(r.fecha);
               var estado = r.estado || "aceptado";
               return '<li class="' + (d.toISOString().slice(0, 7) === month ? "is-month" : "") + '"><time>' + esc(d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</time>" +
-                '<span><b class="cf-state is-' + esc(estado) + '">' + (estado === "rechazado" ? "Rechazado" : "Aceptado") + "</b> " + esc(requestSummary(r)) + "</span>" +
+                '<span><b class="cf-state is-' + esc(estado === "parcial" ? "aceptado" : estado) + '">' + (estado === "rechazado" ? "Rechazado" : estado === "parcial" ? "Aceptado en parte" : "Aceptado") + "</b> " + esc(requestSummary(r)) + "</span>" +
                 (r.origen === "cliente" ? '<button class="cf-icon-btn" type="button" data-pf-reabrir="' + esc(r.id || r.fecha) + '" aria-label="Volver a pendiente" title="Volver a pendiente"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>'
                   : '<button class="cf-icon-btn" type="button" data-pf-quitar-pedido="' + r.fecha + '" aria-label="Quitar pedido del ' + esc(d.toLocaleDateString("es-AR")) + '" title="Quitar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>') + "</li>";
             }).join("") + "</ol>" : "") +
@@ -691,6 +850,7 @@
             .catch(function (err) { say(msg, err.message, "warn"); });
         });
       });
+      profile.querySelectorAll("[data-pf-review]").forEach(bindReview);
       loadStats(c);
       var reveal = profile.querySelector("[data-pf-ver-clave]");
       if (reveal) reveal.addEventListener("click", function () {
@@ -754,7 +914,7 @@
           .catch(function (err) { say(accessOut, err.message, "warn"); })
           .then(function () { btn.disabled = false; });
       });
-      if (location.hash === "#pf-acceso" || location.hash === "#pf-cambios") {
+      if (/^#(pf-acceso|pf-cambios|cf-revisar|web-[a-z0-9-]+)$/.test(location.hash)) {
         var target = profile.querySelector(location.hash);
         history.replaceState(null, "", location.pathname + location.search);
         if (target) target.scrollIntoView({ block: "start" });
@@ -767,12 +927,11 @@
           load();
         });
       });
-      list.innerHTML = "";
       c.lista.forEach(function (lp) {
-        list.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
+        var slot = profile.querySelector('[data-site="' + lp.slug + '"] [data-site-row]');
+        if (slot) slot.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
       });
-      countEl.textContent = c.lista.length;
-      empty.hidden = c.lista.length > 0;
+      if (list) list.closest("section").hidden = true;
     }
 
     function load() {

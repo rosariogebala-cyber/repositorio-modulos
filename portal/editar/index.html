@@ -179,6 +179,11 @@
       planBox.textContent = text;
     }
 
+    function moduleId(el) {
+      var section = el.closest("[data-module]");
+      return section ? section.getAttribute("data-module") : "";
+    }
+
     function sectionName(el) {
       var section = el.closest("[data-module]");
       if (!section) return "Página";
@@ -229,11 +234,12 @@
         var img = new Image();
         img.onload = function () {
           var scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+          if (img.width * scale > 1600) scale = 1600 / img.width;
           var canvas = document.createElement("canvas");
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
           canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-          photoCallback(canvas.toDataURL("image/jpeg", 0.85));
+          photoCallback(canvas.toDataURL("image/jpeg", 0.8));
           photoCallback = null;
         };
         img.onerror = function () { say("No pudimos abrir esa imagen. Probá con un JPG o PNG.", "warn"); };
@@ -251,7 +257,7 @@
       } else if (existing) {
         existing.despues = after;
       } else {
-        changes.push({ tipo: "texto", el: el, seccion: sectionName(el), antes: before, despues: after });
+        changes.push({ tipo: "texto", el: el, modulo: moduleId(el), seccion: sectionName(el), antes: before, despues: after });
         el.style.outline = "3px solid #e0a100";
       }
       render();
@@ -324,7 +330,7 @@
           pickPhoto(function (dataUrl) {
             var detail = window.prompt("¿Algo que tengamos que saber de esta foto? (opcional)", "") || "";
             img.style.outline = "4px solid #e0a100";
-            changes.push({ tipo: "foto", el: img, seccion: sectionName(img), antes: clean(img.getAttribute("alt")), detalle: clean(detail), data: dataUrl });
+            changes.push({ tipo: "foto", el: img, modulo: moduleId(img), src: img.getAttribute("src") || "", seccion: sectionName(img), antes: clean(img.getAttribute("alt")), detalle: clean(detail), data: dataUrl });
             render();
           });
         } else if (link) {
@@ -332,7 +338,7 @@
           var target = window.prompt("¿Adónde tiene que llevar «" + label + "»? Por ejemplo: tu Instagram, un número de WhatsApp o una página.", "");
           if (!target || !clean(target)) return;
           link.style.outline = "4px solid #e0a100";
-          changes.push({ tipo: "link", el: link, seccion: sectionName(link), antes: label, despues: clean(target) });
+          changes.push({ tipo: "link", el: link, modulo: moduleId(link), href: link.getAttribute("href") || "", seccion: sectionName(link), antes: label, despues: clean(target) });
           render();
         }
       }, true);
@@ -360,11 +366,12 @@
       var btn = buttons[0];
       btn.disabled = true;
       say("Enviando tu pedido…");
-      var photos = changes.filter(function (c) { return c.data; }).map(function (c) { return { data: c.data, nota: c.seccion + (c.detalle ? ": " + c.detalle : "") }; });
+      var photos = [];
+      changes.forEach(function (c, i) { if (c.data) photos.push({ data: c.data, cambio: i, nota: c.seccion + (c.detalle ? ": " + c.detalle : "") }); });
       fetch("/api/portal/pedidos?sitio=" + encodeURIComponent(client.slug), {
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ landing: landing.slug, nota: clean(note.value), fotos: photos,
-          cambios: changes.map(function (c) { return { tipo: c.tipo, seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) })
+          cambios: changes.map(function (c) { return { tipo: c.tipo, modulo: c.modulo || "", src: c.src || "", href: c.href || "", seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) })
       }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "No se pudo enviar."); return d; }); })
         .then(function () {
           changes = [];

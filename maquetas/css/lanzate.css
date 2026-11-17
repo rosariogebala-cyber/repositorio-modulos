@@ -4503,3 +4503,81 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .cf-spark { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin: 14px 0 6px; }
 .cf-spark span { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #8f7bff, var(--green)); min-height: 3px; }
 .cf-leads { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+
+/* Revisión de cambios del cliente */
+.cf-review-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 6px 0 4px; padding: 0 16px; border-radius: 999px; background: #fff4d6; color: #7a5300; font-weight: 700; font-size: 14px; text-decoration: none; }
+.cf-review-link:hover { background: #ffeab0; }
+.cf-review-wrap { margin: 20px 0 0; padding: 22px; border-radius: 22px; background: #fffaf0; border: 1px solid #f3dca2; scroll-margin-top: 90px; }
+.cf-review-title { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+.cf-review-title h2 { margin: 0; font-size: 20px; color: #0e1130; }
+.cf-review-title p { margin: 2px 0 0; color: #5d627c; font-size: 14px; }
+.cf-review-title .cf-icon { background: #ffeab0; color: #9a6400; }
+.cf-review { background: #fff; border: 1px solid #ece9e1; border-radius: 18px; padding: 16px; }
+.cf-review + .cf-review { margin-top: 16px; }
+.cf-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; font-size: 14px; }
+.cf-review-head strong { font-size: 16px; color: #0e1130; }
+.cf-review-views { margin-left: auto; display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #f7f6f2; }
+.cf-review-views button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #4a5077; cursor: pointer; }
+.cf-review-views button[aria-pressed="true"] { background: #fff; color: #0e1130; box-shadow: 0 1px 3px rgba(14, 17, 48, .12); }
+.cf-review-note { display: flex; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #f7f6f2; font-size: 15px; color: #0e1130; }
+.cf-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.cf-review-stage { height: 640px; border: 1px solid #ece9e1; border-radius: 14px; overflow: hidden; background: #f7f6f2; display: flex; justify-content: center; }
+.cf-review-stage iframe { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
+.cf-review-stage[data-vista="celu"] iframe { width: 390px; border-left: 1px solid #ece9e1; border-right: 1px solid #ece9e1; }
+.cf-review-side { display: flex; flex-direction: column; gap: 12px; max-height: 640px; }
+.cf-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; overflow-y: auto; }
+.cf-change { border: 1px solid #ece9e1; border-radius: 14px; background: #fff; transition: border-color .15s, background .15s; }
+.cf-change.is-focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(90, 61, 242, .15); }
+.cf-change[data-decision="rechazado"] { background: #fdf3f2; border-color: #f3c9c4; }
+.cf-change[data-decision="rechazado"] .cf-after { text-decoration: line-through; color: #8a8fa8; }
+.cf-change-go { display: flex; gap: 10px; width: 100%; padding: 12px 12px 6px; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
+.cf-change-num { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f0a500; color: #fff; font-size: 12px; font-weight: 700; }
+.cf-change-text { display: grid; gap: 3px; min-width: 0; font-size: 14px; color: #0e1130; }
+.cf-change-text small { color: #6b7090; font-weight: 600; }
+.cf-before { color: #8a8fa8; text-decoration: line-through; overflow-wrap: anywhere; }
+.cf-after { font-weight: 600; overflow-wrap: anywhere; }
+.cf-change-photo { display: block; width: 100%; max-height: 120px; object-fit: cover; margin-top: 6px; border-radius: 8px; }
+.cf-change-actions { display: flex; gap: 6px; padding: 4px 12px 12px 46px; }
+.cf-change-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #ddd9e8; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: #4a5077; cursor: pointer; }
+.cf-change-actions .cf-yes[aria-pressed="true"] { background: #e7f6ee; border-color: #9fd6b8; color: #157347; }
+.cf-change-actions .cf-no[aria-pressed="true"] { background: #fdecea; border-color: #f0b3ab; color: #b42318; }
+.cf-change-go:focus-visible, .cf-change-actions button:focus-visible, .cf-review-views button:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.cf-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 1000px) {
+  .cf-review-body { grid-template-columns: 1fr; }
+  .cf-review-stage { height: 520px; }
+  .cf-review-side { max-height: none; }
+}
+
+/* Ficha: webs del cliente */
+.cf-sites { margin: 28px 0 8px; }
+.cf-sites-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+.cf-sites-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 26px; color: #0e1130; }
+.cf-sites-head p { margin: 2px 0 0; color: #5d627c; font-size: 14px; }
+.cf-site { padding: 18px; margin-bottom: 18px; background: #fff; border: 1px solid #ece9e1; border-radius: 22px; scroll-margin-top: 90px; }
+.cf-site-top { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: stretch; }
+.cf-site-card { margin: 0; padding: 0; list-style: none; display: block !important; }
+.cf-site-card > li { height: 100%; }
+.cf-site-info { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+.cf-site-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cf-site-stats div { padding: 12px 14px; border-radius: 14px; background: #f7f6f2; }
+.cf-site-stats strong { display: block; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 26px; line-height: 1.1; color: #0e1130; }
+.cf-site-stats span { font-size: 13px; color: #6b7090; }
+.cf-site-links { margin: 0; font-size: 14px; }
+.cf-site-links a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; color: var(--green); font-weight: 600; text-decoration: none; }
+.cf-site .cf-review-wrap { margin: 16px 0 0; padding: 16px; }
+.cf-site .cf-review-title h3 { margin: 0; font-size: 17px; color: #0e1130; }
+.cf-site-history { margin-top: 14px; border-top: 1px solid #f2f0ea; padding-top: 8px; }
+.cf-site-history > summary { min-height: 40px; display: flex; align-items: center; cursor: pointer; font-weight: 600; color: #3a3f5c; }
+.cf-site-none { margin: 14px 0 0; }
+.cf-hist summary { cursor: pointer; font-size: 13px; color: var(--green); font-weight: 600; margin-top: 4px; }
+.cf-hist ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: #3a3f5c; }
+.cf-hist li.is-rechazado { color: #8a8fa8; text-decoration: line-through; }
+.cf-hist li i { color: #157347; }
+.cf-hist li.is-rechazado i { color: #b42318; }
+.cf-timeline li { align-items: start; }
+@media (max-width: 900px) {
+  .cf-site-top { grid-template-columns: 1fr; }
+  .cf-site-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.cf-section-title { margin: 28px 0 0; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 26px; color: #0e1130; }

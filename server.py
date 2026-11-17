@@ -64,7 +64,7 @@ COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 HTML_REF = re.compile(r'((?:src|href)=")((?:img|css|js)/[^"#?]+|\.\./assets/[^"#?]+)(")')
 URL_REF = re.compile(r"(url\(\s*(?:&quot;|['\"])?)((?:img|css|js)/[^'\")&]+|\.\./assets/[^'\")&]+)")
-COVER_RE = re.compile(r"""(?:src="|url\(\s*(?:&quot;|['"])?)(/(?:maquetas|assets)/(?!modulos/)[^"')&]+\.(?:jpe?g|png|webp))""", re.I)
+COVER_RE = re.compile(r"""(?:src="|url\(\s*(?:&quot;|['"])?)(/(?:maquetas|assets|l)/(?!modulos/)[^"')&]+\.(?:jpe?g|png|webp))""", re.I)
 IMG_TOKEN = re.compile(r"lzimg:(\d+):(\d+)")
 # Rutas absolutas del sitio (/maquetas/…, /assets/…, /l/…) que pasan a relativas en las páginas estáticas.
 ABS_REF = re.compile(r"""(?<=["'(\s,=])/(?=(?:maquetas|assets|l|privacidad|terminos)(?:/|["'?#\s)]))|(?<=&quot;)/(?=(?:maquetas|assets|l)/)""")
@@ -97,6 +97,7 @@ ROUTES = [
     (re.compile(r"^/api/portal/clave$"), "portal-clave"),
     (re.compile(r"^/api/portal/sitio/([a-z0-9-]+)$"), "portal-sitio"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos/([\w-]+)$"), "pedido"),
+    (re.compile(r"^/api/clientes/(\d+)/pedidos/([\w-]+)/vista$"), "pedido-vista"),
     (re.compile(r"^/api/clientes/(\d+)/estadisticas$"), "estadisticas"),
     (re.compile(r"^/api/clientes/(\d+)/consultas/([\w-]+)$"), "consulta"),
     (re.compile(r"^/api/visita$"), "visita"),
@@ -866,7 +867,8 @@ def client_stats(client, days=30):
     for index, landing in enumerate(landings):
         by_day = values[1 + index]
         count = sum(int(by_day.get(d["dia"]) or 0) for d in serie)
-        per_page.append({"nombre": landing["nombre"], "visitas": count})
+        per_page.append({"nombre": landing["nombre"], "slug": landing["slug"], "visitas": count,
+                         "serie": [int(by_day.get(d["dia"]) or 0) for d in serie]})
         for source, n in values[1 + len(landings) + index].items():
             sources[source] = sources.get(source, 0) + int(n or 0)
     leads = client_leads(client["id"]) if RECORD.available() else []
@@ -1079,8 +1081,13 @@ def submit_client_request(client_id, data):
         if not isinstance(item, dict):
             continue
         kind = item.get("tipo") if item.get("tipo") in ("texto", "foto", "link") else "texto"
-        changes.append({"tipo": kind, **{k: " ".join(str(item.get(k) or "").split())[:600]
-                                         for k in ("seccion", "antes", "despues", "detalle")}})
+        change = {"tipo": kind, "estado": "pendiente",
+                  **{k: " ".join(str(item.get(k) or "").split())[:600] for k in ("seccion", "antes", "despues", "detalle")}}
+        for key in ("modulo", "src", "href"):
+            value = str(item.get(key) or "")[:400]
+            if value:
+                change[key] = value
+        changes.append(change)
     photos = [p for p in (data.get("fotos") or []) if isinstance(p, dict)][:8]
     if not changes and not nota and not photos:
         raise ApiError(400, "El pedido está vacío. Marcá algún cambio o escribí qué necesitás.")
@@ -1095,6 +1102,9 @@ def submit_client_request(client_id, data):
             path = "pedidos/%s/%s-%d.%s" % (row["slug"], request_id, index, ext)
             FILES.write("modulos", path, raw)
             saved_photos.append({"ruta": "/" + path, "nota": " ".join(str(photo.get("nota") or "").split())[:300]})
+            target = photo.get("cambio")
+            if isinstance(target, int) and 0 <= target < len(changes) and changes[target]["tipo"] == "foto":
+                changes[target]["foto"] = "/" + path
         row.setdefault("pedidos", []).append({
             "id": request_id, "fecha": stamp, "estado": "pendiente", "origen": "cliente",
             "landing": landing["nombre"] if landing else "", "landing_slug": landing_slug if landing else "",
@@ -1103,18 +1113,260 @@ def submit_client_request(client_id, data):
     return {"ok": True, "id": request_id}
 
 
+# --- Aplicar los cambios que pide el cliente -----------------------------------------
+
+def norm_text(value):
+    return re.sub(r"[\s\u00a0]+", " ", value or "").strip()
+
+
+def image_key(src):
+    """Nombre de la foto sin carpeta, tamaño (-800, -1280…) ni extensión, para reconocerla en cualquier versión."""
+    name = urlsplit(src or "").path.rsplit("/", 1)[-1]
+    name = re.sub(r"\.(jpe?g|png|webp|avif)$", "", name, flags=re.I)
+    return re.sub(r"-(480|752|800|960|1280|1600)$", "", name)
+
+
+def text_owner(root, text):
+    """El elemento más chico cuyo texto completo es el que vio el cliente."""
+    best = None
+    for el in root.iter():
+        if not isinstance(el.tag, str) or el.tag in ("script", "style"):
+            continue
+        if norm_text(el.text_content()) == text:
+            best = el  # iter() recorre de afuera hacia adentro: queda el más interno
+    return best
+
+
+def link_target(value):
+    """Convierte lo que escribió el cliente en un link, si se puede. Si no, se aplica a mano."""
+    value = value.strip()
+    if re.match(r"^https?://", value, re.I):
+        return value
+    if re.match(r"^www\.", value, re.I):
+        return "https://" + value
+    if re.fullmatch(r"@[\w.]{2,40}", value):
+        return "https://instagram.com/" + value[1:]
+    if re.fullmatch(r"[\w.+-]+@[\w-]+\.[\w.]+", value):
+        return "mailto:" + value
+    digits = re.sub(r"\D", "", value)
+    if re.fullmatch(r"[+\d\s()-]{8,20}", value) and 8 <= len(digits) <= 15:
+        return "https://wa.me/" + digits
+    return ""
+
+
+def apply_change(root, change, photo_src="", mark=None):
+    """Aplica un cambio dentro de root (el módulo). Devuelve True si lo pudo aplicar."""
+    kind = change.get("tipo")
+    if kind == "texto":
+        el = text_owner(root, norm_text(change.get("antes")))
+        if el is None:
+            return False
+        for child in list(el):
+            el.remove(child)
+        el.text = change.get("despues") or ""
+        target = el
+    elif kind == "foto":
+        wanted = image_key(change.get("src"))
+        if not wanted or not photo_src:
+            return False
+        target = next((img for img in root.iter("img") if image_key(img.get("src")) == wanted), None)
+        if target is None:
+            # En la fuente, muchas fotos de portada son fondos (style="background-image:url(...)"); al publicar pasan a <img>.
+            for el in root.iter():
+                style = el.get("style") if isinstance(el.tag, str) else None
+                if not style or "url(" not in style:
+                    continue
+                urls = re.findall(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)", style)
+                hit = next((u for u in urls if image_key(u) == wanted), None)
+                if hit:
+                    el.set("style", style.replace(hit, photo_src))
+                    target = el
+                    break
+            if target is None:
+                return False
+            if mark is not None:
+                target.set("data-lz-cambio", str(mark))
+            return True
+        target.set("src", photo_src)
+        for attr in ("srcset", "sizes"):
+            if attr in target.attrib:
+                del target.attrib[attr]
+        picture = target.getparent()
+        if picture is not None and picture.tag == "picture":
+            for source in picture.findall("source"):
+                picture.remove(source)
+    elif kind == "link":
+        href = link_target(change.get("despues") or "")
+        if not href:
+            return False
+        wanted = norm_text(change.get("antes"))
+        target = next((a for a in root.iter("a") if norm_text(a.text_content()) == wanted
+                       or (change.get("href") and a.get("href") == change.get("href"))), None)
+        if target is None:
+            return False
+        target.set("href", href)
+    else:
+        return False
+    if mark is not None:
+        target.set("data-lz-cambio", str(mark))
+    return True
+
+
+def module_roots(doc, module_id):
+    return [el for el in doc.iter() if isinstance(el.tag, str) and el.get("data-module") == module_id]
+
+
+def apply_to_document(markup, changes, photos, mark=False):
+    """Aplica cambios a una página completa. Devuelve (html, índices aplicados)."""
+    doc = html_dom.document_fromstring(markup)
+    applied = []
+    for index, change in changes:
+        roots = module_roots(doc, change.get("modulo")) or [doc]
+        if any(apply_change(root, change, photos.get(index, ""), index if mark else None) for root in roots):
+            applied.append(index)
+    return "<!DOCTYPE html>\n" + html_dom.tostring(doc, encoding="unicode"), applied
+
+
+def apply_to_fragment(markup, changes, photos):
+    wrapper = html_dom.fragment_fromstring(markup or "", create_parent="div")
+    applied = []
+    for index, change in changes:
+        if apply_change(wrapper, change, photos.get(index, "")):
+            applied.append(index)
+    inner = (wrapper.text or "") + "".join(html_dom.tostring(child, encoding="unicode") for child in wrapper)
+    return inner, applied
+
+
+REVIEW_STYLE = """<style id="lz-revision">
+[data-lz-cambio]{outline:3px solid #f0a500!important;outline-offset:3px;border-radius:4px;position:relative;scroll-margin:120px}
+[data-lz-cambio].is-focus{outline-color:#5a3df2!important;box-shadow:0 0 0 8px rgba(90,61,242,.25)}
+img[data-lz-cambio]{outline-offset:-3px}
+</style>
+<script>
+addEventListener("message",function(e){if(e.origin!==location.origin||!e.data||e.data.lzCambio==null)return;
+document.querySelectorAll(".is-focus").forEach(function(x){x.classList.remove("is-focus")});
+var el=document.querySelector('[data-lz-cambio="'+e.data.lzCambio+'"]');if(el){el.classList.add("is-focus");el.scrollIntoView({behavior:"smooth",block:"center"});}});
+document.addEventListener("click",function(e){var a=e.target.closest("a,button");if(a){e.preventDefault();}},true);
+</script>"""
+
+
+def find_request(row, request_id):
+    request = next((p for p in row.get("pedidos") or [] if str(p.get("id") or p.get("fecha")) == str(request_id)), None)
+    if not request:
+        raise ApiError(404, "No encontramos ese pedido.")
+    return request
+
+
+def request_landing(landings, client_id, request):
+    slug = request.get("landing_slug") or ""
+    own = [l for l in landings if l["cliente_id"] == client_id]
+    return next((l for l in own if l["slug"] == slug), None) or (own[0] if len(own) == 1 else None)
+
+
+def review_page(client_id, request_id):
+    """La web del cliente con los cambios del pedido aplicados y marcados (vista previa para el equipo)."""
+    with store("clientes", "landings", save=False) as db:
+        client = find_client(db, client_id)
+        request = find_request(client, request_id)
+        landing = request_landing(db["landings"], client_id, request)
+    if not landing:
+        raise ApiError(404, "No encontramos la página de este pedido.")
+    page = landing_page(landing, client)
+    changes = [(i, c) for i, c in enumerate(request.get("cambios") or []) if c.get("estado", "pendiente") != "rechazado"]
+    photos = {i: c.get("foto") for i, c in changes if c.get("foto")}
+    page, applied = apply_to_document(page, changes, photos, mark=True)
+    page = page.replace("</head>", REVIEW_STYLE + "</head>", 1)
+    return page, applied
+
+
 def decide_request(client_id, request_id, data):
+    """Acepta o rechaza el pedido entero o cambio por cambio. Lo aceptado se aplica a la web y se publica."""
     estado = data.get("estado")
-    if estado not in ("aceptado", "rechazado", "pendiente"):
-        raise ApiError(400, "Elegí aceptar o rechazar.")
+    decisions = data.get("decisiones") if isinstance(data.get("decisiones"), dict) else {}
     comentario = " ".join(str(data.get("comentario") or "").split())[:600]
-    with store("clientes") as db:
+    if estado not in ("aceptado", "rechazado", "pendiente", None):
+        raise ApiError(400, "Elegí aceptar o rechazar.")
+    manual = []
+    with store("clientes", "landings") as db:
         row = find_client(db, client_id)
-        request = next((p for p in row.get("pedidos") or [] if str(p.get("id") or p.get("fecha")) == str(request_id)), None)
-        if not request:
-            raise ApiError(404, "No encontramos ese pedido.")
-        request.update(estado=estado, comentario=comentario, resuelto=now_ms() if estado != "pendiente" else 0)
-    return get_client(client_id)
+        request = find_request(row, request_id)
+        changes = request.get("cambios") or []
+        if estado == "pendiente":
+            request.update(estado="pendiente", comentario="", resuelto=0)
+            for change in changes:
+                change["estado"] = "pendiente"
+                change.pop("aplicado", None)
+            return get_client_after(client_id, db)
+        for index, change in enumerate(changes):
+            if change.get("estado", "pendiente") != "pendiente":
+                continue
+            choice = decisions.get(str(index)) or estado or "aceptado"
+            change["estado"] = "aceptado" if choice == "aceptado" else "rechazado"
+        accepted = [(i, c) for i, c in enumerate(changes) if c.get("estado") == "aceptado" and not c.get("aplicado")]
+        landing = request_landing(db["landings"], client_id, request) if accepted else None
+        if accepted and landing:
+            photos = {}
+            for index, change in accepted:
+                if change.get("tipo") == "foto" and change.get("foto"):
+                    raw = FILES.read("modulos", change["foto"].lstrip("/"))
+                    if raw is not None:
+                        name = "l/%s/media/%s" % (row["slug"], change["foto"].rsplit("/", 1)[-1])
+                        FILES.write("modulos", name, raw)
+                        photos[index] = "/" + name
+            html, done_doc = apply_to_document(landing["html"], accepted, photos)
+            items = landing.get("items") or []
+            done_items = set()
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                mine = [(i, c) for i, c in accepted if str(item.get("id")) == c.get("modulo")]
+                if not mine:
+                    continue
+                if item.get("html"):
+                    item["html"], done = apply_to_fragment(item["html"], mine, photos)
+                    done_items.update(done)
+                else:
+                    section = next(iter(module_roots(html_dom.document_fromstring(html), item.get("id"))), None)
+                    frame = section.find_class("mq-frame")[0] if section is not None and section.find_class("mq-frame") else section
+                    if frame is not None:
+                        item["html"] = (frame.text or "") + "".join(html_dom.tostring(ch, encoding="unicode") for ch in frame)
+                        item.pop("textos", None)
+                        done_items.update(i for i, _ in mine)
+            for index, change in accepted:
+                if index in done_doc:
+                    change["aplicado"] = True
+                else:
+                    manual.append(change)
+            landing["html"] = html
+            hero_photo = next((photos[i] for i, c in accepted if i in photos and i in done_doc
+                               and str(c.get("modulo") or "").startswith("hero")), "")
+            landing["portada"] = hero_photo or cover_of(html)
+            landing["actualizado"] = max(now_ms(), landing["actualizado"] + 1)
+        elif accepted:
+            manual.extend(c for _, c in accepted)
+        states = {c.get("estado") for c in changes} or {estado or "aceptado"}
+        if not changes:
+            request["estado"] = "rechazado" if estado == "rechazado" else "aceptado"
+        elif "pendiente" in states:
+            request["estado"] = "pendiente"
+        elif states == {"rechazado"}:
+            request["estado"] = "rechazado"
+        else:
+            request["estado"] = "aceptado" if states == {"aceptado"} else "parcial"
+        request.update(comentario=comentario, resuelto=now_ms() if request["estado"] != "pendiente" else 0)
+        client = dict(row)
+    if landing is not None and accepted:
+        render_landing(landing, client)
+        write_site_files()
+    result = get_client(client_id)
+    result["sin_aplicar"] = [{"seccion": c.get("seccion"), "tipo": c.get("tipo"), "antes": c.get("antes"),
+                              "despues": c.get("despues")} for c in manual]
+    return result
+
+
+def get_client_after(client_id, db):
+    row = find_client(db, client_id)
+    return client_dict(row)
 
 
 def remove_change_request(client_id, fecha):
@@ -2725,6 +2977,10 @@ class Handler(SimpleHTTPRequestHandler):
                 if not client:
                     raise ApiError(401, "Ingresá a tu portal.")
                 self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
+                return True
+            if name == "pedido-vista" and method == "GET":
+                page, _ = review_page(ident, self.route_token)
+                self.send_body(200, page.encode("utf-8"), "text/html; charset=utf-8")
                 return True
             result = self.dispatch(method, name, ident, query)
             if method != "GET" and name not in ("publicar", "portal-login", "portal-logout"):

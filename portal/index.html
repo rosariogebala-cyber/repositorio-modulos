@@ -249,7 +249,11 @@
     function when(ms) { return new Date(ms).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : "numeric" }); }
     function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
     function money(n) { return n ? "$" + Number(n).toLocaleString("es-AR") : ""; }
-    var STATE = { pendiente: "Pendiente", aceptado: "Aceptado", rechazado: "Rechazado" };
+    var STATE = { pendiente: "Pendiente", aceptado: "Aceptado", rechazado: "Rechazado", parcial: "Aceptado en parte" };
+    function changeState(c) {
+      var st = c.estado || "pendiente";
+      return ' <span class="badge ' + esc(st === "parcial" ? "aceptado" : st) + '">' + esc(STATE[st] || st) + "</span>";
+    }
     var LABELS = { nombre: "Nombre", email: "Email", telefono: "Teléfono", servicio: "Servicio", profesional: "Con quién", dia: "Día", horario: "Horario", notas: "Mensaje", mensaje: "Mensaje", duracion: "Duración" };
 
     /* ---------- Ingreso ---------- */
@@ -364,16 +368,18 @@
 
     function requestItem(p) {
       var changes = (p.cambios || []).map(function (c) {
-        if (c.tipo === "texto") return "<li><b>" + esc(c.seccion) + ":</b> <span class=\"before\">" + esc(c.antes) + "</span> → " + esc(c.despues) + "</li>";
-        if (c.tipo === "foto") return "<li><b>" + esc(c.seccion) + ":</b> cambiar la foto" + (c.detalle ? " — " + esc(c.detalle) : "") + "</li>";
-        return "<li><b>" + esc(c.seccion) + ":</b> el botón «" + esc(c.antes) + "» que lleve a " + esc(c.despues) + "</li>";
+        if (c.tipo === "texto") return "<li><b>" + esc(c.seccion) + ":</b> <span class=\"before\">" + esc(c.antes) + "</span> → " + esc(c.despues) + changeState(c) + "</li>";
+        if (c.tipo === "foto") return "<li><b>" + esc(c.seccion) + ":</b> cambiar la foto" + (c.detalle ? " — " + esc(c.detalle) : "") + changeState(c) +
+          (c.foto ? '<br><img src="' + esc(c.foto) + '" alt="Foto nueva" style="width:120px;height:80px;object-fit:cover;border-radius:8px;margin-top:6px">' : "") + "</li>";
+        return "<li><b>" + esc(c.seccion) + ":</b> el botón «" + esc(c.antes) + "» que lleve a " + esc(c.despues) + changeState(c) + "</li>";
       }).join("");
       var photos = (p.fotos || []).map(function (f) { return '<a href="' + esc(f.ruta) + '" target="_blank" rel="noopener"><img src="' + esc(f.ruta) + '" alt="' + esc(f.nota || "Foto del pedido") + '"></a>'; }).join("");
       var summary = p.nota || ((p.cambios || []).length ? plural(p.cambios.length, "cambio", "cambios") + (p.landing ? " en " + p.landing : "") : "Pedido");
-      return '<li class="item"><div class="item-head"><span class="badge ' + esc(p.estado) + '">' + esc(STATE[p.estado] || p.estado) + '</span><span class="grow">' + esc(summary) + "</span><time>" + esc(when(p.fecha)) + "</time></div>" +
+      return '<li class="item"><div class="item-head"><span class="badge ' + esc(p.estado === "parcial" ? "aceptado" : p.estado) + '">' + esc(STATE[p.estado] || p.estado) + '</span><span class="grow">' + esc(summary) + "</span><time>" + esc(when(p.fecha)) + "</time></div>" +
         (changes || photos || (p.nota && (p.cambios || []).length) ? "<details><summary>Ver detalle</summary>" + (p.nota && (p.cambios || []).length ? "<p>" + esc(p.nota) + "</p>" : "") + (changes ? '<ul class="changes">' + changes + "</ul>" : "") + (photos ? '<div class="photos">' + photos + "</div>" : "") + "</details>" : "") +
         (p.comentario ? '<div class="reply"><strong>Respuesta de Lanzate</strong>' + esc(p.comentario) + "</div>" : "") +
-        (p.estado === "pendiente" ? '<p class="muted" style="margin:8px 0 0;font-size:14px">Lo estamos revisando.</p>' : "") + "</li>";
+        (p.estado === "pendiente" ? '<p class="muted" style="margin:8px 0 0;font-size:14px">Lo estamos revisando.</p>' : "") +
+        (p.estado === "aceptado" || p.estado === "parcial" ? '<p class="muted" style="margin:8px 0 0;font-size:14px"><i class="bi bi-check2-circle" aria-hidden="true"></i> Lo aceptado ya está en tu web.</p>' : "") + "</li>";
     }
 
     function leadItem(c) {
