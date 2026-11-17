@@ -561,6 +561,69 @@
     ]
   },
   {
+    "id": "contacto",
+    "nombre": "Contacto",
+    "categoria": "informacion",
+    "numero": "CO",
+    "descripcion": "Datos de contacto y botones para escribir por WhatsApp, email o teléfono.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/contacto/simple.png",
+        "ancho": 800,
+        "alto": 353
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/contacto/media.png",
+        "ancho": 800,
+        "alto": 345
+      }
+    ]
+  },
+  {
+    "id": "antes-despues",
+    "nombre": "Antes y después",
+    "categoria": "confianza",
+    "numero": "AD",
+    "descripcion": "Comparador de fotos para mostrar resultados.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/antes-despues/simple.png",
+        "ancho": 800,
+        "alto": 627
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/antes-despues/media.png",
+        "ancho": 800,
+        "alto": 418
+      }
+    ]
+  },
+  {
+    "id": "linea-tiempo",
+    "nombre": "Línea de tiempo",
+    "categoria": "contenido",
+    "numero": "LT",
+    "descripcion": "Hitos de la historia del negocio, en vertical o en horizontal.",
+    "variantes": [
+      {
+        "nombre": "Simple",
+        "imagen": "assets/modulos/linea-tiempo/simple.png",
+        "ancho": 800,
+        "alto": 477
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/linea-tiempo/media.png",
+        "ancho": 800,
+        "alto": 285
+      }
+    ]
+  },
+  {
     "id": "footer",
     "nombre": "Footer",
     "categoria": "estructura",

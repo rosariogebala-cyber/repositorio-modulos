@@ -750,11 +750,16 @@
       "llamado": "llamado",
       "marcas": "marcas",
       "agenda": "agenda",
+      "contacto": "escribinos",
+      "antes-despues": "resultados",
+      "linea-tiempo": "trayectoria",
       "footer": "contacto"
     };
-    var CONTACT = ["footer", "donde-nos-encontramos", "reserva-turno"];
+    var CONTACT = ["contacto", "footer", "donde-nos-encontramos", "reserva-turno"];
     var LINK_RULES = [
       [/^(inicio|home)$|volver arriba/, ["navegacion"]],
+      [/trayectoria|recorrido|hitos|linea de tiempo/, ["linea-tiempo"]],
+      [/antes y despues|resultados|transformacion/, ["antes-despues"]],
       [/fechas|eventos|cartelera|programacion|proximas/, ["agenda"]],
       [/reserv|turno|agend/, ["reserva-turno"]],
       [/contact|escrib|hablemos|consult|presupuesto|tasa|cotiz|whatsapp|@/, CONTACT],
@@ -770,7 +775,7 @@
       [/servicio|tratamiento|curso|corte/, ["servicios-productos", "planes", "productos"]],
       [/beneficio|por que/, ["beneficios"]],
       [/video/, ["video-destacado"]],
-      [/nosotros|quienes somos|historia|sobre/, ["quienes-somos", "imagen-texto", "beneficios"]]
+      [/nosotros|quienes somos|historia|sobre/, ["quienes-somos", "imagen-texto", "linea-tiempo", "beneficios"]]
     ];
     var groupOf = function (section) {
       var mod = section.getAttribute("data-module");
@@ -1424,4 +1429,13 @@
     }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "hidden", "open"] });
     window.addEventListener("resize", later);
   })();
+
+  /* Antes y después: el control deslizante mueve la línea de comparación. */
+  [].forEach.call(document.querySelectorAll(".ba"), function (box) {
+    var range = box.querySelector(".ba-range");
+    if (!range) return;
+    function set() { box.style.setProperty("--pos", range.value + "%"); }
+    range.addEventListener("input", set);
+    set();
+  });
 })();
