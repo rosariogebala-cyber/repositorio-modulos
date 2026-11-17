@@ -24,14 +24,14 @@ window.LANZATE_MODULES = [
       {
         "nombre": "Simple",
         "imagen": "assets/modulos/navegacion/simple.png",
-        "ancho": 800,
-        "alto": 54
+        "ancho": 758,
+        "alto": 61
       },
       {
         "nombre": "Media",
         "imagen": "assets/modulos/navegacion/media.png",
         "ancho": 800,
-        "alto": 145
+        "alto": 54
       },
       {
         "nombre": "Compleja",
@@ -153,20 +153,20 @@ window.LANZATE_MODULES = [
       {
         "nombre": "Simple",
         "imagen": "assets/modulos/servicios-productos/simple.png",
-        "ancho": 800,
-        "alto": 400
+        "ancho": 1710,
+        "alto": 919
       },
       {
         "nombre": "Media",
         "imagen": "assets/modulos/servicios-productos/media.png",
-        "ancho": 800,
-        "alto": 397
+        "ancho": 1460,
+        "alto": 1078
       },
       {
         "nombre": "Compleja",
         "imagen": "assets/modulos/servicios-productos/compleja.png",
-        "ancho": 800,
-        "alto": 317
+        "ancho": 1391,
+        "alto": 1131
       }
     ]
   },
@@ -262,7 +262,7 @@ window.LANZATE_MODULES = [
         "nombre": "Simple",
         "imagen": "assets/modulos/carrusel-imagenes/simple.png",
         "ancho": 800,
-        "alto": 333
+        "alto": 384
       },
       {
         "nombre": "Media",
@@ -409,7 +409,7 @@ window.LANZATE_MODULES = [
         "nombre": "Compleja",
         "imagen": "assets/modulos/proceso/compleja.png",
         "ancho": 800,
-        "alto": 750
+        "alto": 469
       }
     ]
   },
