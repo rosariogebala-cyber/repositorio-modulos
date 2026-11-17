@@ -518,6 +518,7 @@
       inherited[key] = current[key] ? fields[key][3] : inheritedColor(fields[key]);
     });
 
+    var cutValue = item.corte || "";
     var touched = new Map();
     function restoreLive() {
       touched.forEach(function (style, element) {
@@ -580,6 +581,23 @@
       quickLabel.textContent = "Fondo de esta sección";
       list.appendChild(quickLabel);
       list.appendChild(quickBackgrounds());
+      if (state.items.indexOf(item) < state.items.length - 1 && !isMenu(item) && byId[item.id].groupId !== "whatsapp") {
+        var cutLabel = document.createElement("p");
+        cutLabel.className = "lb-label";
+        cutLabel.textContent = "Borde inferior";
+        list.appendChild(cutLabel);
+        var cutBox = document.createElement("div");
+        cutBox.className = "lb-quick-bg lb-quick-cut";
+        cutBox.setAttribute("role", "group");
+        cutBox.setAttribute("aria-label", "Borde inferior de esta sección");
+        cutBox.innerHTML = [["", "Recto"], ["curva", "Curva"], ["ola", "Ola"], ["diagonal", "Diagonal"]].map(function (o) {
+          return '<button type="button" data-quick-cut="' + o[0] + '" aria-pressed="' + (cutValue === o[0]) + '">' + o[1] + "</button>";
+        }).join("");
+        cutBox.querySelectorAll("[data-quick-cut]").forEach(function (button) {
+          button.onclick = function () { cutValue = button.getAttribute("data-quick-cut"); render(); };
+        });
+        list.appendChild(cutBox);
+      }
       var more = document.createElement("details");
       more.className = "lb-more-colors";
       more.innerHTML = "<summary>Más colores</summary>";
@@ -659,7 +677,15 @@
       if (!event.submitter || event.submitter.value !== "apply") return;
       var previous = savedColors();
       var globalChanged = JSON.stringify(sharedModuleColors()) !== JSON.stringify(shared);
-      if (!globalChanged && JSON.stringify(previous) === JSON.stringify(current)) return;
+      var cutChanged = cutValue !== (item.corte || "");
+      if (cutChanged) {
+        if (cutValue) item.corte = cutValue; else delete item.corte;
+        if (state.colores) { delete state.colores.corte; }
+      }
+      if (!globalChanged && JSON.stringify(previous) === JSON.stringify(current)) {
+        if (cutChanged) update();
+        return;
+      }
       var landingColors = state.colores;
       if (globalChanged) {
         landingColors = effectiveColors();
@@ -890,6 +916,18 @@
     return vars.length ? ":root { " + vars.join("; ") + "; }" : "";
   }
 
+  /* Cortes entre secciones: la forma se dibuja con el color de la sección que sigue (lo resuelve lanzate.js). */
+  var CORTES = {
+    curva: { name: "Curva", path: "M0 80 L0 58 Q720 -6 1440 58 L1440 80 Z" },
+    ola: { name: "Ola", path: "M0 80 L0 44 C240 4 480 84 720 44 S1200 4 1440 44 L1440 80 Z" },
+    diagonal: { name: "Diagonal", path: "M0 80 L1440 14 L1440 80 Z" }
+  };
+  function corteMarkup(kind) {
+    return '<div class="lz-corte" aria-hidden="true"><svg viewBox="0 0 1440 80" preserveAspectRatio="none" focusable="false"><path d="' + CORTES[kind].path + '"/></svg></div>';
+  }
+  function corteAplica(it, i) {
+    return !!(it && CORTES[it.corte] && i < state.items.length - 1 && !isMenu(it) && byId[it.id] && byId[it.id].groupId !== "whatsapp");
+  }
   var COLOR_MARK = /\/\*lz-colores (\{[\s\S]*?\})\*\//;
 
   function channelLinear(channel) {
@@ -1570,7 +1608,7 @@
   function rememberPalette() {
     paletteUndo.push(JSON.stringify({
       colores: state.colores,
-      items: state.items.map(function (item) { return { fondo: item.fondo, coloresModulo: item.coloresModulo }; })
+      items: state.items.map(function (item) { return { fondo: item.fondo, coloresModulo: item.coloresModulo, corte: item.corte }; })
     }));
     if (paletteUndo.length > 30) paletteUndo.shift();
   }
@@ -1583,6 +1621,7 @@
       var prev = saved.items[i] || {};
       if (prev.fondo) item.fondo = prev.fondo; else delete item.fondo;
       if (prev.coloresModulo) item.coloresModulo = prev.coloresModulo; else delete item.coloresModulo;
+      if (prev.corte) item.corte = prev.corte; else delete item.corte;
     });
     moduleColorHistory = new WeakMap();
     update();
@@ -1593,14 +1632,66 @@
     var current = state.colores || {};
     var next = deriveColors(marca || current.marca || (currentClient() || {}).color_primario || current.acento, ambiente || current.ambiente || "claro");
     if (current.tipografia) next.tipografia = current.tipografia;
+    if (current.ritmo) next.ritmo = current.ritmo;
+    if (current.corte) next.corte = current.corte;
     rememberPalette();
     state.colores = next;
+    if (next.ritmo) applyRhythm(next.ritmo, next.corte || "", true);
     moduleColorHistory = new WeakMap();
     paintLandingColors();
     renderColors();
     renderMode();
     scheduleQa(600);
     saveDraft();
+  }
+
+
+  /* Ritmo de la página: alterna fondos (y cortes) entre módulos sin tocar los que ya tienen diseño propio. */
+  var RHYTHMS = {
+    parejo: { name: "Parejo", hint: "Todas las secciones con el mismo fondo", chips: ["", "", "", ""] },
+    alternado: { name: "Alternado", hint: "Un fondo suave cada dos secciones", chips: ["", "soft", "", "soft"] },
+    color: { name: "Con color", hint: "Bandas del color de la marca", chips: ["", "tint", "", "tint"] },
+    contraste: { name: "Contrastado", hint: "Suave, color y una sección oscura", chips: ["", "tint", "soft", "deep"] }
+  };
+  var RHYTHM_SKIP = /^(navegacion|hero-full-imagen|footer|whatsapp|llamado|cifras)/;
+  function rhythmEligible(it) {
+    return !!byId[it.id] && !RHYTHM_SKIP.test(byId[it.id].groupId);
+  }
+  function rhythmColor(kind, colors) {
+    var brand = colors.marca || colors.acento;
+    var dark = (AMBIENTES[colors.ambiente] || AMBIENTES.claro).dark;
+    if (kind === "soft") return dark ? "#1f1c18" : mix(brand, "#ffffff", 0.07);
+    if (kind === "tint") return dark ? mix(brand, "#0d0d0d", 0.3) : mix(brand, "#ffffff", 0.16);
+    if (kind === "deep") return mix(brand, "#0d0d0d", 0.28);
+    return "";
+  }
+  function applyRhythm(rhythm, cut, quiet, keepBackgrounds) {
+    var colors = effectiveColors();
+    var plan = (RHYTHMS[rhythm] || RHYTHMS.parejo).chips;
+    var n = 0;
+    state.items.forEach(function (item, i) {
+      if (rhythmEligible(item) && !keepBackgrounds) {
+        var color = rhythmColor(plan[n % plan.length], colors);
+        n++;
+        if (color) item.fondo = color; else delete item.fondo;
+        ["texto", "titulo", "etiqueta", "tarjetaTexto"].forEach(function (k) {
+          if (item.coloresModulo) delete item.coloresModulo[k];
+        });
+        if (item.coloresModulo && !Object.keys(item.coloresModulo).length) delete item.coloresModulo;
+        moduleColorHistory.delete(item);
+      }
+      if (cut && CORTES[cut] && !isMenu(item) && byId[item.id] && byId[item.id].groupId !== "whatsapp") item.corte = cut;
+      else delete item.corte;
+    });
+    state.colores = Object.assign({}, state.colores || colors);
+    if (!keepBackgrounds) state.colores.ritmo = rhythm;
+    if (cut) state.colores.corte = cut; else delete state.colores.corte;
+    if (!quiet) { update(); renderColors(); saveDraft(); }
+  }
+  function setRhythm(rhythm, cut) {
+    var current = state.colores || {};
+    rememberPalette();
+    applyRhythm(rhythm == null ? current.ritmo || "parejo" : rhythm, cut == null ? current.corte || "" : cut, false, rhythm == null && !current.ritmo);
   }
 
   function renderPaletteControls() {
@@ -1659,6 +1750,28 @@
           select.value = button.getAttribute("data-font");
           select.dispatchEvent(new Event("change"));
         };
+      });
+    }
+    var rhythms = document.querySelector("[data-rhythm]");
+    if (rhythms) {
+      var currentRhythm = colors.ritmo || "";
+      rhythms.innerHTML = Object.keys(RHYTHMS).map(function (key) {
+        return '<button type="button" class="lb-font lb-rhythm-btn" data-rhythm-key="' + key + '" aria-pressed="' + (currentRhythm === key) + '" title="' + RHYTHMS[key].hint + '"><span>' + RHYTHMS[key].name + '</span></button>';
+      }).join("");
+      rhythms.querySelectorAll("[data-rhythm-key]").forEach(function (button) {
+        button.onclick = function () { setRhythm(button.getAttribute("data-rhythm-key"), null); };
+      });
+    }
+    var cuts = document.querySelector("[data-cuts]");
+    if (cuts) {
+      var currentCut = colors.corte || "";
+      var cutNames = Object.assign({ "": { name: "Rectos" } }, CORTES);
+      cuts.innerHTML = Object.keys(cutNames).map(function (key) {
+        var shape = key ? '<svg viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true"><path d="' + CORTES[key].path + '"/></svg>' : '<svg viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true"><path d="M0 80 L0 40 L1440 40 L1440 80 Z"/></svg>';
+        return '<button type="button" class="lb-font lb-cut-btn" data-cut-key="' + key + '" aria-pressed="' + (currentCut === key) + '">' + shape + '<span>' + cutNames[key].name + '</span></button>';
+      }).join("");
+      cuts.querySelectorAll("[data-cut-key]").forEach(function (button) {
+        button.onclick = function () { setRhythm(null, button.getAttribute("data-cut-key")); };
       });
     }
     var undoButton = document.querySelector("[data-palette-undo]");
@@ -2093,7 +2206,8 @@
         .replace(/(src|href)="\.\.\/assets\//g, '$1="' + prefix + "../assets/")
         .replace(/url\((['"]?)(img\/|\.\.\/assets\/)/g, "url($1" + prefix + "$2");
     }
-    return '  <section class="mq-block" id="' + sectionAnchors()[i] + '" data-module="' + it.id + '" data-width="' + it.width + '">\n    <div class="mq-frame">' + html + "</div>" +
+    var cut = corteAplica(it, i);
+    return '  <section class="mq-block" id="' + sectionAnchors()[i] + '" data-module="' + it.id + '" data-width="' + it.width + '"' + (cut ? ' data-corte="' + it.corte + '"' : "") + '>\n    <div class="mq-frame">' + html + (cut ? corteMarkup(it.corte) : "") + "</div>" +
       (preview === true ? previewTools(it, i) : "") + "\n  </section>";
   }
 
@@ -4480,6 +4594,7 @@
           if (Object.keys(colors).length) item.coloresModulo = colors;
         }
         if (/^#[0-9a-f]{6}$/i.test(it.fondo || "")) item.fondo = it.fondo;
+        if (CORTES[it.corte]) item.corte = it.corte;
         return item;
       }),
       estilo: lp.estilo || "",

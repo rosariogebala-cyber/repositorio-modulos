@@ -919,6 +919,64 @@
   }
 
 
+
+  /* Cortes entre secciones: pinta cada forma con el color de la sección que sigue. */
+  (function cortes() {
+    var blocks = [].slice.call(document.querySelectorAll(".mq-block[data-corte]"));
+    if (!blocks.length) return;
+    function parse(c) {
+      var m = /rgba?\(([^)]+)\)/.exec(c || "");
+      if (!m) return null;
+      var p = m[1].split(",").map(parseFloat);
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    }
+    function paint(el) {
+      var st = getComputedStyle(el), c = parse(st.backgroundColor);
+      if (c && c.a > 0.5) return c;
+      if (/gradient/.test(st.backgroundImage)) {
+        var g = (st.backgroundImage.match(/rgba?\([^)]+\)/g) || []).map(parse).filter(function (x) { return x && x.a > 0.5; });
+        if (g.length) return g[0];
+      }
+      return null;
+    }
+    function next(block) {
+      var n = block.nextElementSibling;
+      while (n && !n.classList.contains("mq-block")) n = n.nextElementSibling;
+      return n;
+    }
+    function colorOf(block) {
+      var nx = block.querySelector(".mq-frame > .nx") || block.querySelector(".nx");
+      return (nx && paint(nx)) || paint(document.body) || { r: 255, g: 255, b: 255, a: 1 };
+    }
+    var same = function (a, b) { return Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b) < 6; };
+    var working = false;
+    function run() {
+      working = true;
+      blocks.forEach(function (block) {
+        var after = next(block);
+        if (!after) { block.classList.add("lz-corte-flat"); return; }
+        var fill = colorOf(after), own = colorOf(block);
+        var value = "rgb(" + Math.round(fill.r) + ", " + Math.round(fill.g) + ", " + Math.round(fill.b) + ")";
+        if (block.style.getPropertyValue("--lz-corte") !== value) block.style.setProperty("--lz-corte", value);
+        block.classList.toggle("lz-corte-flat", same(fill, own));
+      });
+      setTimeout(function () { working = false; }, 0);
+    }
+    var timer = null;
+    function later() { clearTimeout(timer); timer = setTimeout(run, 80); }
+    run();
+    window.addEventListener("load", run);
+    window.addEventListener("resize", later);
+    new MutationObserver(function (records) {
+      if (working) return;
+      for (var i = 0; i < records.length; i++) {
+        if (records[i].target.hasAttribute && records[i].target.hasAttribute("data-lz-c")) continue;
+        later();
+        return;
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ["style", "class"], subtree: true });
+  })();
+
   /* Heroes con movimiento (video, parallax, trazo, tipográfico).
      Respeta "reducir movimiento" del sistema y el interruptor Movimiento del constructor. */
   (function heroMotion() {

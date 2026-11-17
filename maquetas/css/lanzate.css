@@ -4739,3 +4739,18 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 @media (prefers-reduced-motion: reduce) {
   .hero-plx { inset: 0; transform: none !important; }
 }
+
+/* ── Ritmo: cortes entre secciones ── */
+.mq-block[data-corte] { position: relative; z-index: 1; }
+.mq-block[data-corte] > .mq-frame { position: relative; }
+.lz-corte { position: absolute; left: 0; right: 0; bottom: -1px; height: clamp(26px, 4.2vw, 58px); pointer-events: none; z-index: 2; line-height: 0; }
+.lz-corte svg { display: block; width: 100%; height: 100%; }
+.lz-corte path { fill: var(--lz-corte, var(--nx-bg, #fff)); }
+.mq-block[data-corte].lz-corte-flat .lz-corte { display: none; }
+/* Para que la forma no tape contenido: la sección suma su alto abajo */
+.mq-block[data-corte]:not(.lz-corte-flat) > .mq-frame > .nx:not(.nx-hero) { padding-bottom: calc(var(--lz-cut-pad, 0px) + 0px); }
+.mq-block[data-corte]:not(.lz-corte-flat) > .mq-frame > .nx:not(.nx-hero)::after { content: ""; display: block; height: clamp(18px, 3vw, 40px); }
+.lb-rhythm, .lb-cuts { grid-template-columns: repeat(4, 1fr); }
+.lb-cuts .lb-cut-btn svg { width: 100%; height: 16px; display: block; }
+.lb-cuts .lb-cut-btn path { fill: #8c91b6; }
+.lb-quick-cut button { padding: 7px 10px; }
