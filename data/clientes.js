@@ -187,7 +187,7 @@ window.LANZATE_CLIENTES = [
       {
         "id": "1794873792272-e159",
         "fecha": 1794873792272,
-        "estado": "pendiente",
+        "estado": "rechazado",
         "origen": "cliente",
         "landing": "Template agencia de viajes",
         "landing_slug": "template-agencia-de-viajes",
@@ -236,7 +236,9 @@ window.LANZATE_CLIENTES = [
             "detalle": ""
           }
         ],
-        "fotos": []
+        "fotos": [],
+        "comentario": "",
+        "resuelto": 1794873982825
       }
     ]
   },
