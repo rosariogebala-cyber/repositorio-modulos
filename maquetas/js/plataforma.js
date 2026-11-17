@@ -537,13 +537,14 @@
         var mine = requests.filter(function (r) { return siteOf(r, c) === lp.slug; });
         var pending = mine.filter(function (r) { return r.estado === "pendiente" && (r.cambios || []).length; });
         var done = mine.filter(function (r) { return r.estado !== "pendiente"; });
-        return '<article class="cf-site" id="web-' + esc(lp.slug) + '" data-site="' + esc(lp.slug) + '">' +
+        return '<article class="cf-site" id="web-' + esc(lp.slug) + '" data-site="' + esc(lp.slug) + '" data-site-id="' + lp.id + '">' +
           '<div class="cf-site-top"><ul class="lb-saved cf-site-card" data-site-row></ul>' +
           '<div class="cf-site-info">' +
             '<div class="cf-site-stats"><div><strong data-site-visitas>—</strong><span>visitas en 30 días</span></div>' +
             "<div><strong>" + pending.length + "</strong><span>" + (pending.length === 1 ? "pedido para revisar" : "pedidos para revisar") + "</span></div>" +
-            "<div><strong>" + done.length + "</strong><span>" + (done.length === 1 ? "pedido resuelto" : "pedidos resueltos") + "</span></div></div>" +
+            '<div><strong data-site-consultas>—</strong><span data-site-consultas-label>consultas en 30 días</span></div></div>' +
             '<div class="cf-spark" data-site-spark aria-hidden="true"></div>' +
+            '<ul class="cf-leads" data-site-leads></ul>' +
             '<p class="cf-site-links"><a href="' + esc(lp.editor) + '" target="_blank" rel="noopener"><i class="bi bi-pencil-square" aria-hidden="true"></i> Pedir cambios como el cliente</a></p>' +
           "</div></div>" +
           (pending.length ? '<div class="cf-review-wrap"><div class="cf-review-title"><span class="cf-icon"><i class="bi bi-eye" aria-hidden="true"></i></span><div><h3>Cambios para revisar en ' + esc(lp.nombre) + "</h3>" +
@@ -635,32 +636,40 @@
       });
     }
 
+    /* Visitas y consultas de cada web (últimos 30 días) */
     function loadStats(c) {
-      var box = profile.querySelector("[data-pf-stats-body]");
-      if (!box) return;
+      var sites = profile.querySelectorAll("[data-site]");
+      if (!sites.length) return;
       api("GET", "/api/clientes/" + c.id + "/estadisticas").then(function (d) {
-        if (!d.registro) { box.textContent = "Falta conectar el registro de visitas y consultas (Upstash Redis en Vercel)."; return; }
+        if (!d.registro) {
+          sites.forEach(function (site) {
+            site.querySelector("[data-site-leads]").outerHTML = '<p class="cf-muted">Falta conectar el registro de visitas y consultas (Upstash Redis en Vercel).</p>';
+          });
+          return;
+        }
         var st = d.estadisticas;
-        var max = Math.max(1, Math.max.apply(null, st.serie.map(function (x) { return x.visitas; })));
-        var spark = st.serie.map(function (x) { return '<span style="height:' + Math.max(6, Math.round(x.visitas / max * 100)) + '%" title="' + esc(x.dia + ": " + x.visitas) + '"></span>'; }).join("");
-        (st.paginas || []).forEach(function (pg) {
-          var site = profile.querySelector('[data-site="' + pg.slug + '"]');
-          if (!site) return;
+        var since = Date.now() - (st.dias || 30) * 86400000;
+        sites.forEach(function (site) {
+          var slug = site.getAttribute("data-site");
+          var id = Number(site.getAttribute("data-site-id"));
+          var pg = (st.paginas || []).filter(function (x) { return x.slug === slug; })[0] || { visitas: 0, serie: [] };
           site.querySelector("[data-site-visitas]").textContent = pg.visitas;
-          var m = Math.max(1, Math.max.apply(null, pg.serie || [0]));
-          site.querySelector("[data-site-spark]").innerHTML = (pg.serie || []).map(function (v) {
-            return '<span style="height:' + Math.max(6, Math.round(v / m * 100)) + '%"></span>';
+          var m = Math.max(1, Math.max.apply(null, (pg.serie || []).concat([0])));
+          site.querySelector("[data-site-spark]").innerHTML = (pg.serie || []).map(function (v, i) {
+            return '<span style="height:' + Math.max(6, Math.round(v / m * 100)) + '%" title="' + esc((st.serie[i] || {}).dia + ": " + v) + '"></span>';
+          }).join("");
+          var leads = d.consultas.filter(function (l) { return l.landing_id === id; });
+          var recent = leads.filter(function (l) { return l.fecha >= since; });
+          var fresh = leads.filter(function (l) { return l.estado === "nueva"; }).length;
+          site.querySelector("[data-site-consultas]").textContent = recent.length;
+          if (fresh) site.querySelector("[data-site-consultas-label]").textContent = "consultas en 30 días · " + fresh + " sin atender";
+          site.querySelector("[data-site-leads]").innerHTML = leads.slice(0, 3).map(function (l) {
+            return '<li><b class="cf-state is-' + (l.estado === "nueva" ? "pendiente" : "aceptado") + '">' + (l.estado === "nueva" ? "Nueva" : "Atendida") + "</b> " +
+              esc((l.datos && l.datos.nombre) || "Consulta") + ' <span class="cf-muted">· ' + (l.tipo === "turno" ? "turno · " : "") +
+              esc(new Date(l.fecha).toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</span></li>";
           }).join("");
         });
-        var leads = d.consultas.slice(0, 4);
-        box.outerHTML = '<div class="cf-stat-row"><div><strong>' + st.total + "</strong><span>visitas</span></div><div><strong>" + st.consultas_periodo +
-          "</strong><span>consultas</span></div><div><strong>" + st.consultas_nuevas + '</strong><span>sin atender</span></div></div>' +
-          '<div class="cf-spark" aria-hidden="true">' + spark + "</div>" +
-          (leads.length ? '<ul class="cf-leads">' + leads.map(function (l) {
-            return '<li><b class="cf-state is-' + (l.estado === "nueva" ? "pendiente" : "aceptado") + '">' + (l.estado === "nueva" ? "Nueva" : "Atendida") + "</b> " +
-              esc((l.datos && l.datos.nombre) || "Consulta") + ' <span class="cf-muted">· ' + esc(new Date(l.fecha).toLocaleDateString("es-AR", { day: "numeric", month: "short" })) + "</span></li>";
-          }).join("") + "</ul>" : '<p class="cf-muted">Todavía no hay consultas.</p>');
-      }).catch(function (err) { box.textContent = err.message; });
+      }).catch(function (err) { say(msg, err.message, "warn"); });
     }
 
     function render(c) {
@@ -795,10 +804,6 @@
               "</form></details>" +
           "</section>" +
 
-          '<section class="cf-card" aria-labelledby="cf-stats" data-pf-stats>' +
-            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-graph-up" aria-hidden="true"></i></span><div><h2 id="cf-stats">Visitas y consultas</h2><p>Últimos 30 días</p></div></div>' +
-            '<p class="cf-muted" data-pf-stats-body>Cargando…</p>' +
-          "</section>" +
 
           '<section class="cf-card" aria-labelledby="cf-contacto">' +
             '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></span><div><h2 id="cf-contacto">Contacto</h2></div></div>' +
