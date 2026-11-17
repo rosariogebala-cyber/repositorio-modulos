@@ -23,6 +23,10 @@
       "destination": "/api/index?__path=/data/reglas.json"
     },
     {
+      "source": "/l/:path*/",
+      "destination": "/api/index?__path=/l/:path*/"
+    },
+    {
       "source": "/l/:path*",
       "destination": "/api/index?__path=/l/:path*"
     },
