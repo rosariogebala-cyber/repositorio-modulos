@@ -262,19 +262,19 @@ window.LANZATE_MODULES = [
         "nombre": "Simple",
         "imagen": "assets/modulos/carrusel-imagenes/simple.png",
         "ancho": 800,
-        "alto": 384
+        "alto": 420
       },
       {
         "nombre": "Media",
         "imagen": "assets/modulos/carrusel-imagenes/media.png",
         "ancho": 800,
-        "alto": 332
+        "alto": 420
       },
       {
         "nombre": "Compleja",
         "imagen": "assets/modulos/carrusel-imagenes/compleja.png",
         "ancho": 800,
-        "alto": 333
+        "alto": 420
       }
     ]
   },
