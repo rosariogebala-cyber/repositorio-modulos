@@ -24,8 +24,8 @@ window.LANZATE_MODULES = [
       {
         "nombre": "Simple",
         "imagen": "assets/modulos/navegacion/simple.png",
-        "ancho": 758,
-        "alto": 61
+        "ancho": 800,
+        "alto": 39
       },
       {
         "nombre": "Media",
@@ -505,7 +505,7 @@ window.LANZATE_MODULES = [
         "nombre": "Simple",
         "imagen": "assets/modulos/lista-precios/simple.png",
         "ancho": 800,
-        "alto": 302
+        "alto": 385
       },
       {
         "nombre": "Media",
@@ -568,7 +568,13 @@ window.LANZATE_MODULES = [
         "nombre": "Simple",
         "imagen": "assets/modulos/marcas/simple.png",
         "ancho": 800,
-        "alto": 139
+        "alto": 110
+      },
+      {
+        "nombre": "Media",
+        "imagen": "assets/modulos/marcas/media.png",
+        "ancho": 800,
+        "alto": 340
       }
     ]
   },

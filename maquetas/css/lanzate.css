@@ -4098,7 +4098,9 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .price-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px 56px;
+  gap: 36px 72px;
+  max-width: 1040px;
+  margin-inline: auto;
 }
 .price-list.is-single { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .price-item {
@@ -4107,10 +4109,10 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   align-items: baseline;
   column-gap: 12px;
 }
-.price-item h3 { margin: 0; font-size: 1.12rem; font-weight: 700; }
-.price-dots { border-bottom: 2px dotted var(--line); transform: translateY(-4px); }
-.price-item .prod-price { margin: 0; font-weight: 700; color: var(--green); white-space: nowrap; }
-.price-item > p:last-child { grid-column: 1 / -1; margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; }
+.price-item h3 { margin: 0; font-size: clamp(1.25rem, 1.8vw, 1.5rem); font-weight: 700; }
+.price-dots { border-bottom: 2px dotted var(--line); transform: translateY(-6px); }
+.price-item .prod-price { margin: 0; font-weight: 800; font-size: clamp(1.3rem, 1.9vw, 1.6rem); color: var(--green); white-space: nowrap; }
+.price-item > p:last-child { grid-column: 1 / -1; margin: 8px 0 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; }
 .price-photo { aspect-ratio: 4 / 5; border-radius: 24px; }
 
 /* Cifras */
@@ -4192,6 +4194,32 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .brands-strip li:nth-child(3n + 1) { font-family: Fraunces, Georgia, serif; font-style: italic; font-weight: 520; }
 .brands-strip li:nth-child(3n + 2) { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; }
 .brands-strip li:nth-child(3n) { font-weight: 300; letter-spacing: 0.12em; text-transform: lowercase; }
+
+/* Marcas en tarjetas */
+.brands-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.brands-cards li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 26px 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.brands-cards strong { font-size: 1.25rem; line-height: 1.2; }
+.brands-cards span { font-size: 0.95rem; opacity: 0.72; }
+.brands-cards li:nth-child(3n + 1) strong { font-family: Fraunces, Georgia, serif; font-style: italic; font-weight: 520; }
+.brands-cards li:nth-child(3n + 2) strong { font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; font-size: 1.1rem; }
+.brands-cards li:nth-child(3n) strong { font-weight: 300; letter-spacing: 0.12em; text-transform: lowercase; }
+@media (max-width: 767.98px) { .brands-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .brands-cards { grid-template-columns: minmax(0, 1fr); } }
 
 /* Próximas fechas */
 .ev-list { border-top: 1px solid var(--line); }

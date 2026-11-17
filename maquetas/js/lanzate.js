@@ -887,6 +887,40 @@
     }
   }
 
+  /* Cifras que suben hasta su valor. Lee el texto tal como está escrito (+350, 4,9, 1.200, 48 h)
+     y vuelve siempre al texto original al terminar. */
+  function countUp(scope) {
+    [].forEach.call(scope.querySelectorAll(".stat-n, .hero-stats-row h3, .split-stat strong"), function (el) {
+      if (el.children.length || el.getAttribute("data-lz-counted")) return;
+      var txt = el.textContent, m = /^(\D*?)(\d[\d.,]*)(.*)$/.exec(txt);
+      if (!m) return;
+      var raw = m[2].replace(/[.,]+$/, ""), dec = 0, sep = ",";
+      var d = /([.,])(\d+)$/.exec(raw);
+      if (d && d[2].length !== 3) { dec = d[2].length; sep = d[1]; }
+      var thousands = dec ? (sep === "," ? "." : ",") : (/[.,]/.test(raw) ? raw.match(/[.,]/)[0] : "");
+      var clean = raw.split(thousands || "\u0000").join("");
+      if (dec) clean = clean.replace(sep, ".");
+      var target = parseFloat(clean);
+      if (!isFinite(target) || target <= 0) return;
+      el.setAttribute("data-lz-counted", "1");
+      el.setAttribute("aria-label", txt);
+      var t0 = null, dur = 1400;
+      function fmt(v) {
+        var out = v.toFixed(dec).split(".");
+        if (thousands) out[0] = out[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
+        return m[1] + out.join(dec ? sep : "") + m[3];
+      }
+      function tick(t) {
+        if (t0 === null) t0 = t;
+        var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        el.textContent = k >= 1 ? txt : fmt(target * e);
+        if (k < 1) requestAnimationFrame(tick);
+      }
+      el.textContent = fmt(0);
+      requestAnimationFrame(tick);
+    });
+  }
+
   var animMode = document.body.getAttribute("data-anim");
   if (animMode && !document.body.classList.contains("has-tools") && "IntersectionObserver" in window &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -912,6 +946,7 @@
         if (!en.isIntersecting) return;
         en.target.classList.remove("lz-pre");
         en.target.classList.add("lz-in");
+        countUp(en.target);
         animIo.unobserve(en.target);
       });
     }, { rootMargin: "0px 0px -8% 0px" });
