@@ -60,7 +60,14 @@ window.LANZATE_CLIENTES = [
     "plan_vence": "",
     "creado": 1793478976981,
     "actualizado": 1794863630336,
-    "logo": "logo.svg"
+    "logo": "logo.svg",
+    "portal": {
+      "usuario": "estudio-aurora",
+      "hash": "scrypt$f53eea00a54e39d897df9b14f6163d2e$e3007a15d9278d56bd2884bd9006d89808fff0d666613ee23e58cb637a7eb5fea6d53f06dc68db672686769e3bbf79432f4de05e0e9834994032a1d606a3fa16",
+      "clave": "EZmuzy9kBMHi7BwtUrJ1vBBpP5UiAbELsdk3CEGFgsiVxYTRZa0AWudwll6O8w==",
+      "version": 1,
+      "pidio_clave": 0
+    }
   },
   {
     "nombre": "Filo Barber Club",
