@@ -182,7 +182,63 @@ window.LANZATE_CLIENTES = [
       "clave": "grKN-U1_TrXmpbzGAnRISCzjBpHUilPdihEiZlq5bqm0BPCM-JD0PQFxlnY=",
       "version": 1,
       "pidio_clave": 0
-    }
+    },
+    "pedidos": [
+      {
+        "id": "1794873792272-e159",
+        "fecha": 1794873792272,
+        "estado": "pendiente",
+        "origen": "cliente",
+        "landing": "Template agencia de viajes",
+        "landing_slug": "template-agencia-de-viajes",
+        "nota": "",
+        "cambios": [
+          {
+            "tipo": "texto",
+            "seccion": "Navegación",
+            "antes": "+54 11 3456 7890",
+            "despues": "asdasdassadasd",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "seccion": "Galería de imágenes",
+            "antes": "Destinos más buscados",
+            "despues": "Destinos más dsadadasdsa",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "seccion": "Galería de imágenes",
+            "antes": "México · desde USD 1.150",
+            "despues": "México · dsadasdas USD 1.150",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "seccion": "Galería de imágenes",
+            "antes": "Santorini",
+            "despues": "dsadasdasd",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "seccion": "Galería de imágenes",
+            "antes": "Perú · desde USD 1.090",
+            "despues": "Perú · desde dsadasasdas 1.090",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "seccion": "Beneficios",
+            "antes": "Encontrá inspiración para tu próximo viaje",
+            "despues": "Encontrá inspiración para tu dsadasdasdas viaje",
+            "detalle": ""
+          }
+        ],
+        "fotos": []
+      }
+    ]
   },
   {
     "nombre": "Umbral Propiedades",
