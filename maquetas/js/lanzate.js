@@ -946,4 +946,216 @@
     openSection();
     window.addEventListener("hashchange", openSection);
   }
+  /* Contraste garantizado: cada vez que cambian los colores (paleta, colores por sección, menú abierto),
+     revisa el texto contra el fondo que tiene detrás y, si no llega a 4,5:1, lo corrige hasta ~7:1.
+     Los botones y etiquetas conservan su texto y se ajusta su fondo. No toca texto sobre fotos. */
+  (function contrastGuard() {
+    if (document.body.classList.contains("lib-page") || !document.querySelector(".nx, .landing-page, [data-module]")) return;
+    var MIN_TEXT = 4.5, GOAL_TEXT = 7, MIN_ICON = 3, GOAL_ICON = 4.5;
+    var SKIP = "script, style, noscript, svg, template, iframe, .visually-hidden, .lp-tools, .mq-caption, [data-lz-no-contrast]";
+    var CONTROL = ".btn-nx, .btn-nx-outline, .btn-nx-light, .nx-wa, .badge, .plan-badge, .tag, .chip, button, .btn";
+    var busy = false;
+
+    function rgba(value) {
+      var m = String(value || "").match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      var p = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    }
+    function lum(c) {
+      function ch(v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+      return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
+    }
+    function ratio(a, b) {
+      var x = lum(a), y = lum(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    }
+    function over(top, under) {
+      var a = top.a;
+      return { r: top.r * a + under.r * (1 - a), g: top.g * a + under.g * (1 - a), b: top.b * a + under.b * (1 - a), a: 1 };
+    }
+    function hex(c) {
+      return "#" + [c.r, c.g, c.b].map(function (v) { return Math.round(v).toString(16).padStart(2, "0"); }).join("");
+    }
+    function toward(c, target, t) {
+      return { r: c.r + (target.r - c.r) * t, g: c.g + (target.g - c.g) * t, b: c.b + (target.b - c.b) * t, a: 1 };
+    }
+    var BLACK = { r: 0, g: 0, b: 0, a: 1 }, WHITE = { r: 255, g: 255, b: 255, a: 1 };
+    /* Lleva "move" hacia negro o blanco (lo que más contraste dé contra "fixed") hasta llegar a goal. */
+    function adjust(move, fixed, goal) {
+      var end = ratio(BLACK, fixed) >= ratio(WHITE, fixed) ? BLACK : WHITE;
+      var lo = 0, hi = 1;
+      if (ratio(end, fixed) < goal) return end;
+      for (var i = 0; i < 18; i++) {
+        var mid = (lo + hi) / 2;
+        if (ratio(toward(move, end, mid), fixed) >= goal) hi = mid; else lo = mid;
+      }
+      return toward(move, end, hi);
+    }
+    function hasMedia(style) {
+      return /url\(/.test(style.backgroundImage);
+    }
+    function gradientColors(style) {
+      if (!/gradient/.test(style.backgroundImage)) return null;
+      var list = style.backgroundImage.match(/rgba?\([^)]+\)/g) || [];
+      return list.map(rgba).filter(Boolean);
+    }
+    /* Fondo real detrás del elemento: color sólido (mezclando transparencias) o null si hay foto/video. */
+    function backdrop(el) {
+      var layers = [], node = el, source = null;
+      while (node && node.nodeType === 1) {
+        var st = getComputedStyle(node);
+        if (hasMedia(st) || /^(IMG|VIDEO|PICTURE|CANVAS)$/.test(node.tagName)) return null;
+        var g = gradientColors(st);
+        if (g && g.length) {
+          var opaque = g.filter(function (c) { return c.a > 0.85; });
+          if (opaque.length) {
+            var worst = opaque.reduce(function (acc, c) { return lum(c) > lum(acc) ? c : acc; });
+            layers.push({ r: worst.r, g: worst.g, b: worst.b, a: 1 });
+            source = source || node;
+            break;
+          }
+        }
+        var c = rgba(st.backgroundColor);
+        if (c && c.a > 0) {
+          layers.push(c);
+          if (!source) source = node;
+          if (c.a > 0.95) break;
+        }
+        node = node.parentElement;
+      }
+      var base = WHITE;
+      for (var i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
+      return { color: base, source: source || document.body };
+    }
+    /* Algo absoluto con imagen (foto del hero, overlay) tapado por el texto: no se puede medir. */
+    function onPhoto(el, box) {
+      if (box.bottom > 0 && box.top < innerHeight && box.right > 0 && box.left < innerWidth) {
+        var x = Math.min(Math.max(box.left + box.width / 2, 0), innerWidth - 1);
+        var y = Math.min(Math.max(box.top + box.height / 2, 0), innerHeight - 1);
+        var stack = document.elementsFromPoint(x, y);
+        for (var i = 0; i < stack.length; i++) {
+          var n = stack[i];
+          if (n === el || el.contains(n)) continue;
+          if (n.contains(el)) {
+            var st = getComputedStyle(n);
+            if (hasMedia(st)) return true;
+            var bg = rgba(st.backgroundColor);
+            if (bg && bg.a > 0.95) return false;
+            continue;
+          }
+          if (/^(IMG|VIDEO|PICTURE|CANVAS)$/.test(n.tagName) || hasMedia(getComputedStyle(n))) return true;
+          var nb = rgba(getComputedStyle(n).backgroundColor);
+          if (nb && nb.a > 0.95) return false;
+        }
+        return false;
+      }
+      var section = el.closest("section, header, nav, footer, .nx");
+      if (!section) return false;
+      var media = section.querySelectorAll("img, video, picture, [style*='url(']");
+      for (var j = 0; j < media.length; j++) {
+        var m = media[j];
+        if (m.contains(el) || el.contains(m)) continue;
+        var pos = getComputedStyle(m).position;
+        var host = m.closest("[class*='hero'], [class*='media'], [class*='bg']");
+        if (pos !== "absolute" && pos !== "fixed" && !host) continue;
+        var r = m.getBoundingClientRect();
+        if (r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top) return true;
+      }
+      return false;
+    }
+    function ownText(el) {
+      for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.nodeValue.trim()) return true;
+      return /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+    }
+    function restore() {
+      document.querySelectorAll("[data-lz-c], [data-lz-bg]").forEach(function (el) {
+        ["c", "bg"].forEach(function (k) {
+          var key = "lz" + (k === "c" ? "C" : "Bg");
+          if (el.dataset[key] == null) return;
+          var prop = k === "c" ? "color" : "background-color";
+          var parts = el.dataset[key].split("|");
+          if (el.style.getPropertyValue(prop) === parts[2]) {
+            if (parts[0]) el.style.setProperty(prop, parts[0], parts[1]); else el.style.removeProperty(prop);
+          }
+          delete el.dataset[key];
+        });
+      });
+    }
+    function setFixed(el, prop, value) {
+      var key = prop === "color" ? "lzC" : "lzBg";
+      if (el.dataset[key] == null) el.dataset[key] = el.style.getPropertyValue(prop) + "|" + el.style.getPropertyPriority(prop) + "|";
+      el.style.setProperty(prop, value, "important");
+      var parts = el.dataset[key].split("|");
+      el.dataset[key] = parts[0] + "|" + parts[1] + "|" + el.style.getPropertyValue(prop);
+    }
+    function run() {
+      if (busy) return;
+      busy = true;
+      /* Sin transiciones mientras mide: si no, lee colores a mitad de animación. */
+      var still = document.createElement("style");
+      still.textContent = "*, *::before, *::after { transition: none !important; }";
+      document.head.appendChild(still);
+      try {
+        restore();
+        var fixedBg = new Set();
+        document.querySelectorAll("body *").forEach(function (el) {
+          if (el.closest(SKIP)) return;
+          var icon = el.classList.contains("bi");
+          if (!icon && !ownText(el)) return;
+          var st = getComputedStyle(el);
+          if (st.display === "none" || st.visibility === "hidden" || Number(st.opacity) < 0.1) return;
+          if (/text/.test(st.webkitBackgroundClip || st.backgroundClip || "")) return;
+          var box = el.getBoundingClientRect();
+          if (box.width < 1 || box.height < 1) return;
+          var fore = rgba(st.color);
+          if (!fore || fore.a === 0) return;
+          var back = backdrop(el);
+          if (!back || onPhoto(el, box)) return;
+          if (fore.a < 1) fore = over(fore, back.color);
+          var min = icon ? MIN_ICON : MIN_TEXT, goal = icon ? GOAL_ICON : GOAL_TEXT;
+          if (ratio(fore, back.color) >= min) return;
+          var src = back.source, sbox = src !== document.body && src.getBoundingClientRect();
+          var small = sbox && sbox.width * sbox.height < 40000 && !/^(SECTION|HEADER|NAV|FOOTER|MAIN|BODY)$/.test(src.tagName);
+          var control = src !== document.body && src.matches && (src.matches(CONTROL) || small) &&
+            (src === el || src.contains(el)) ? src : null;
+          if (control && !fixedBg.has(control)) {
+            var bg = adjust(back.color, fore, min + 0.6);
+            if (ratio(fore, bg) >= min) {
+              setFixed(control, "background-color", hex(bg));
+              control.style.setProperty("background-image", "none", "important");
+              fixedBg.add(control);
+              return;
+            }
+          }
+          /* Si el texto quedó del mismo lado que el fondo (oscuro sobre oscuro), pasa casi al extremo. */
+          var flipped = ratio(fore, back.color) < 2.5;
+          setFixed(el, "color", hex(adjust(fore, back.color, flipped ? 12 : goal)));
+        });
+      } finally {
+        still.remove();
+        setTimeout(function () { busy = false; }, 0);
+      }
+    }
+    var timer = null;
+    function later() {
+      if (busy) return;
+      clearTimeout(timer);
+      timer = setTimeout(run, 120);
+    }
+    window.LanzateContraste = run;
+    if (document.readyState === "complete") later(); else window.addEventListener("load", later);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(later);
+    new MutationObserver(function (records) {
+      if (busy) return;
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        if (r.type === "attributes" && r.attributeName === "style" && r.target.dataset &&
+            (r.target.dataset.lzC != null || r.target.dataset.lzBg != null) && busy) continue;
+        later();
+        return;
+      }
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "hidden", "open"] });
+    window.addEventListener("resize", later);
+  })();
 })();
