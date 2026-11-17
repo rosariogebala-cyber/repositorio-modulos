@@ -900,7 +900,7 @@
         [].forEach.call(row.children, function (c, i) { c.style.setProperty("--lz-i", Math.min(i, 8)); });
       });
       var texts = [].filter.call(b.querySelectorAll("h1, h2, .nx-display, .nx-kicker, .nx-lead"), function (el) {
-        return !el.closest(".accordion, .modal, .lz-txt");
+        return !el.closest(".accordion, .modal, .lz-txt, .hero-motion");
       });
       texts.forEach(function (el, i) {
         el.classList.add("lz-txt");
@@ -917,6 +917,150 @@
     }, { rootMargin: "0px 0px -8% 0px" });
     animBlocks.forEach(function (b) { animIo.observe(b); });
   }
+
+
+  /* Heroes con movimiento (video, parallax, trazo, tipográfico).
+     Respeta "reducir movimiento" del sistema y el interruptor Movimiento del constructor. */
+  (function heroMotion() {
+    var heroes = [].slice.call(document.querySelectorAll(".hero-motion"));
+    if (!heroes.length) return;
+    var body = document.body;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var tools = body.classList.contains("has-tools");
+    var wanted = !body.classList.contains("landing-page") || body.hasAttribute("data-anim");
+    var motion = wanted && !reduce;
+    var saveData = !!(navigator.connection && navigator.connection.saveData);
+    var small = window.matchMedia("(max-width: 700px)");
+
+    function words(el) {
+      var out = document.createDocumentFragment();
+      el.childNodes.forEach(function (node) {
+        if (node.nodeType === 3) {
+          node.nodeValue.split(/(\s+)/).forEach(function (part) {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { out.appendChild(document.createTextNode(" ")); return; }
+            out.appendChild(unit(document.createTextNode(part)));
+          });
+        } else if (node.nodeType === 1 && node.matches(".lz-rotate, .lz-draw")) {
+          out.appendChild(unit(node));
+        } else if (node.nodeType === 1 && !/^(svg|br)$/i.test(node.tagName)) {
+          var copy = node.cloneNode(false);
+          copy.appendChild(words(node));
+          out.appendChild(copy);
+        } else {
+          out.appendChild(node.cloneNode(true));
+        }
+      });
+      return out;
+    }
+    function unit(content) {
+      var outer = document.createElement("span"), inner = document.createElement("span");
+      outer.className = "lz-w"; inner.className = "lz-wi";
+      inner.appendChild(content); outer.appendChild(inner);
+      return outer;
+    }
+    function split(h) {
+      var frag = words(h), i = 0;
+      h.replaceChildren(frag);
+      h.querySelectorAll(".lz-wi").forEach(function (w) { w.style.setProperty("--i", i++); });
+    }
+    function rotate(el, hero, visible) {
+      var list = (el.getAttribute("data-words") || "").split("|").filter(Boolean);
+      if (list.length < 2) return;
+      var inner = document.createElement("span");
+      inner.className = "lz-rw"; inner.textContent = el.textContent.trim();
+      el.textContent = ""; el.appendChild(inner);
+      var widest = 0;
+      list.forEach(function (w) { inner.textContent = w; widest = Math.max(widest, inner.getBoundingClientRect().width); });
+      inner.textContent = list[0];
+      el.style.minWidth = Math.ceil(widest) + "px";
+      var n = 0;
+      setInterval(function () {
+        if (document.hidden || !visible() || !hero.classList.contains("lz-go")) return;
+        el.classList.add("lz-out");
+        setTimeout(function () {
+          n = (n + 1) % list.length;
+          inner.textContent = list[n];
+          el.classList.remove("lz-out");
+          el.classList.add("lz-in-start");
+          void el.offsetWidth;
+          el.classList.remove("lz-in-start");
+        }, 320);
+      }, 3000);
+    }
+
+    heroes.forEach(function (hero) {
+      var inView = true;
+      var io = "IntersectionObserver" in window ? new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { inView = en.isIntersecting; });
+      }, { threshold: 0.1 }) : null;
+      if (io) io.observe(hero);
+
+      /* Video: si no corresponde moverse o el visitante ahorra datos, queda la foto de portada. */
+      var video = hero.querySelector(".hero-video-bg");
+      var toggle = hero.querySelector(".hero-video-toggle");
+      if (video) {
+        if (!motion || saveData) {
+          video.remove();
+        } else {
+          var userPaused = false;
+          var vio = "IntersectionObserver" in window ? new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+              if (en.isIntersecting && !userPaused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
+              else video.pause();
+            });
+          }, { threshold: 0.05 }) : null;
+          if (vio) vio.observe(hero);
+          if (toggle) {
+            toggle.hidden = false;
+            toggle.addEventListener("click", function () {
+              userPaused = !userPaused;
+              if (userPaused) video.pause(); else video.play();
+              toggle.setAttribute("aria-pressed", String(userPaused));
+              toggle.setAttribute("aria-label", userPaused ? "Reproducir video" : "Pausar video");
+              toggle.firstElementChild.className = "bi " + (userPaused ? "bi-play-fill" : "bi-pause-fill");
+            });
+          }
+        }
+      }
+
+      /* Entradas de texto y líneas: no se tocan los textos mientras se edita. */
+      if (motion && !tools) {
+        hero.querySelectorAll(".lz-split").forEach(split);
+        hero.classList.add("lz-hero-on");
+        hero.querySelectorAll(".lz-rotate").forEach(function (el) { rotate(el, hero, function () { return inView; }); });
+        var go = function () { hero.classList.add("lz-go"); };
+        if ("IntersectionObserver" in window) {
+          var gio = new IntersectionObserver(function (entries) {
+            if (entries.some(function (e) { return e.isIntersecting; })) { go(); gio.disconnect(); }
+          }, { threshold: 0.2 });
+          gio.observe(hero);
+        } else go();
+      }
+    });
+
+    /* Parallax: la foto de fondo se mueve más lento que la página. */
+    var layers = motion ? [].slice.call(document.querySelectorAll("[data-parallax]")) : [];
+    if (layers.length) {
+      var ticking = false;
+      var update = function () {
+        ticking = false;
+        layers.forEach(function (layer) {
+          if (small.matches) { layer.style.transform = ""; return; }
+          var host = layer.parentElement, box = host.getBoundingClientRect();
+          if (box.bottom < -200 || box.top > innerHeight + 200) return;
+          var speed = parseFloat(layer.getAttribute("data-parallax")) || 0.25;
+          var room = Math.max(0, (layer.offsetHeight - host.offsetHeight) / 2);
+          var shift = (box.top + box.height / 2 - innerHeight / 2) * -speed;
+          layer.style.transform = "translate3d(0," + Math.max(-room, Math.min(room, shift)).toFixed(1) + "px,0)";
+        });
+      };
+      var request = function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+      addEventListener("scroll", request, { passive: true });
+      addEventListener("resize", request);
+      update();
+    }
+  })();
 
   if (document.body.classList.contains("lib-page") && window.LanzateReglas && window.LanzateReglas.contrast) {
     document.querySelectorAll(".mq-block").forEach(function (block) {

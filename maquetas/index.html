@@ -172,7 +172,7 @@
           <span class="lib-num">02</span>
           <div>
             <h2 id="hero-full-imagen-titulo">Hero</h2>
-            <p>Portadas con foto completa, enmarcada o con cifras.</p>
+            <p>Portadas con foto, video, parallax o solo tipografía.</p>
           </div>
         </div>
         <nav class="lib-variants" aria-label="Variantes de Hero">
@@ -184,6 +184,9 @@
           <a href="#hero-full-imagen-mosaico">Mosaico</a>
           <a href="#hero-full-imagen-marco">Marco</a>
           <a href="#hero-full-imagen-datos">Datos</a>
+          <a href="#hero-full-imagen-video">Video</a>
+          <a href="#hero-full-imagen-trazo">Trazo</a>
+          <a href="#hero-full-imagen-tipografico">Tipográfico</a>
         </nav>
       </div>
       
@@ -421,6 +424,60 @@
               <article class="nx-hero-card"><span class="nx-ico"><i class="bi bi-headset"></i></span><div><h3>48 h</h3><p>para la primera propuesta</p></div></article>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mq-block" id="hero-full-imagen-video">
+    <div class="mq-caption"><span>Video</span><span>Video de fondo y titular que entra por líneas</span></div>
+    <div class="mq-frame">
+      <div class="nx nx-hero hero-video hero-motion" data-width="full">
+        <div class="nx-hero-slide" style="background-image:url('img/rubros/viajes/hero-1.jpg')" data-lz-background-alt="Pareja caminando por una playa de arena blanca">
+          <video class="hero-video-bg" autoplay muted loop playsinline preload="metadata" poster="img/rubros/viajes/hero-1.jpg" aria-hidden="true" tabindex="-1">
+            <source src="img/video/hero-demo.mp4" type="video/mp4">
+          </video>
+          <div class="container">
+            <h2 class="nx-display lz-split">Viví el lugar <span class="em">antes de llegar.</span></h2>
+            <p class="nx-lead">Escapadas a medida, con alguien que ya estuvo.</p>
+            <a class="btn-nx mt-4" href="mailto:hola@example.com">Armá tu viaje <i class="bi bi-arrow-right"></i></a>
+          </div>
+          <button class="hero-video-toggle" type="button" hidden aria-label="Pausar video" aria-pressed="false"><i class="bi bi-pause-fill" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mq-block" id="hero-full-imagen-trazo">
+    <div class="mq-caption"><span>Trazo</span><span>Foto con parallax y línea que se dibuja</span></div>
+    <div class="mq-frame">
+      <div class="nx nx-hero hero-trazo hero-motion" data-width="full">
+        <div class="nx-hero-slide">
+          <div class="hero-plx" data-parallax="0.25" style="background-image:url('img/rubros/estetica/hero.jpg')" data-lz-background-alt="Cuidado de la piel en un espacio luminoso" role="img" aria-label="Cuidado de la piel en un espacio luminoso"></div>
+          <div class="container">
+            <p class="nx-kicker">Estética y bienestar</p>
+            <h2 class="nx-display lz-split">Tu piel, <span class="em lz-draw">sin apuro<svg class="lz-draw-line" viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M3 9 C55 2 110 13 170 6 S265 9 297 4" pathLength="1"/></svg></span></h2>
+            <p class="nx-lead">Tratamientos pensados para vos, en un espacio donde se baja el ritmo.</p>
+            <a class="btn-nx mt-4" href="mailto:hola@example.com">Reservá tu turno <i class="bi bi-arrow-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mq-block" id="hero-full-imagen-tipografico">
+    <div class="mq-caption"><span>Tipográfico</span><span>Sin foto: palabra que cambia y líneas que se arman</span></div>
+    <div class="mq-frame">
+      <div class="nx nx-hero hero-type hero-motion" data-width="full">
+        <div class="nx-hero-slide">
+          <span class="ht-rule ht-rule-top" aria-hidden="true"></span>
+          <div class="container">
+            <p class="nx-kicker">Estudio de diseño</p>
+            <h2 class="nx-display lz-split">Hacemos cosas con <span class="em lz-rotate" data-words="oficio|estilo|carácter">oficio</span></h2>
+            <p class="nx-lead">Identidad, web y piezas gráficas para marcas que quieren verse como son.</p>
+            <a class="btn-nx mt-4" href="mailto:hola@example.com">Contanos tu idea <i class="bi bi-arrow-right"></i></a>
+          </div>
+          <span class="ht-rule ht-rule-bottom" aria-hidden="true"></span>
         </div>
       </div>
     </div>

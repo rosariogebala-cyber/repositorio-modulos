@@ -46,7 +46,7 @@ window.LANZATE_MODULES = [
     "nombre": "Hero",
     "categoria": "estructura",
     "numero": 2,
-    "descripcion": "Portadas con foto completa, dividida, centrada, en mosaico, enmarcada o con cifras.",
+    "descripcion": "Portadas con foto completa, dividida, centrada, en mosaico, enmarcada, con cifras, con video, con parallax o solo tipográficas.",
     "variantes": [
       {
         "nombre": "Simple",
@@ -95,6 +95,24 @@ window.LANZATE_MODULES = [
         "imagen": "assets/modulos/hero-full-imagen/datos.png",
         "ancho": 800,
         "alto": 422
+      },
+      {
+        "nombre": "Video",
+        "imagen": "assets/modulos/hero-full-imagen/video.png",
+        "ancho": 800,
+        "alto": 422
+      },
+      {
+        "nombre": "Trazo",
+        "imagen": "assets/modulos/hero-full-imagen/trazo.png",
+        "ancho": 800,
+        "alto": 412
+      },
+      {
+        "nombre": "Tipográfico",
+        "imagen": "assets/modulos/hero-full-imagen/tipografico.png",
+        "ancho": 800,
+        "alto": 391
       }
     ]
   },
