@@ -1001,11 +1001,22 @@
       return list.map(rgba).filter(Boolean);
     }
     /* Fondo real detrás del elemento: color sólido (mezclando transparencias) o null si hay foto/video. */
-    function backdrop(el) {
+    function backdrop(el, fore) {
       var layers = [], node = el, source = null;
       while (node && node.nodeType === 1) {
         var st = getComputedStyle(node);
-        if (hasMedia(st) || /^(IMG|VIDEO|PICTURE|CANVAS)$/.test(node.tagName)) return null;
+        if (hasMedia(st) || /^(IMG|VIDEO|PICTURE|CANVAS)$/.test(node.tagName)) {
+          /* Una pastilla casi opaca sobre una foto: se mide contra el peor caso (foto clara u oscura). */
+          var keep = 1;
+          layers.forEach(function (l) { keep *= 1 - l.a; });
+          if (!layers.length || keep > 0.3 || !fore) return null;
+          var worstBase = [BLACK, WHITE].map(function (b) {
+            var acc = b;
+            for (var k = layers.length - 1; k >= 0; k--) acc = over(layers[k], acc);
+            return acc;
+          }).reduce(function (a, b) { return ratio(fore, b) < ratio(fore, a) ? b : a; });
+          return { color: worstBase, source: source || document.body, pill: true };
+        }
         var g = gradientColors(st);
         if (g && g.length) {
           var opaque = g.filter(function (c) { return c.a > 0.85; });
@@ -1027,6 +1038,20 @@
       var base = WHITE;
       for (var i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
       return { color: base, source: source || document.body };
+    }
+    /* Pastilla translúcida sobre una foto: se mide contra el peor caso (foto clara u oscura). */
+    function pillBack(el, fore) {
+      for (var node = el; node && node.nodeType === 1 && node !== document.body; node = node.parentElement) {
+        var st = getComputedStyle(node);
+        if (hasMedia(st)) return null;
+        var c = rgba(st.backgroundColor);
+        if (!c || c.a === 0) continue;
+        if (c.a < 0.6 || c.a > 0.99) return null;
+        var base = [BLACK, WHITE].map(function (b) { return over(c, b); })
+          .reduce(function (a, b) { return ratio(fore, b) < ratio(fore, a) ? b : a; });
+        return { color: base, source: node, pill: true };
+      }
+      return null;
     }
     /* Algo absoluto con imagen (foto del hero, overlay) tapado por el texto: no se puede medir. */
     function onPhoto(el, box) {
@@ -1110,8 +1135,12 @@
           if (box.width < 1 || box.height < 1) return;
           var fore = rgba(st.color);
           if (!fore || fore.a === 0) return;
-          var back = backdrop(el);
-          if (!back || onPhoto(el, box)) return;
+          var back = backdrop(el, fore);
+          if (!back) return;
+          if (!back.pill && onPhoto(el, box)) {
+            back = pillBack(el, fore);
+            if (!back) return;
+          }
           if (fore.a < 1) fore = over(fore, back.color);
           var min = icon ? MIN_ICON : MIN_TEXT, goal = icon ? GOAL_ICON : GOAL_TEXT;
           if (ratio(fore, back.color) >= min) return;

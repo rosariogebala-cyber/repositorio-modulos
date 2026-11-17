@@ -544,8 +544,48 @@
       if (ratio < 4.5) status.textContent = "El botón necesita más contraste. Actual " + ratio.toFixed(2) + ":1. Mínimo 4.5:1.";
     }
 
+    function quickBackgrounds() {
+      var colors = effectiveColors();
+      var brand = colors.marca || colors.acento;
+      var a = AMBIENTES[colors.ambiente] || AMBIENTES.claro;
+      var options = [
+        ["", "Como el resto", a.bg],
+        [a.dark ? "#1f1c18" : mix(brand, "#ffffff", 0.07), "Suave", a.dark ? "#1f1c18" : mix(brand, "#ffffff", 0.07)],
+        [mix(brand, "#ffffff", 0.82), "Color de marca", mix(brand, "#ffffff", 0.82)],
+        [mix(brand, "#0d0d0d", 0.28), "Oscuro", mix(brand, "#0d0d0d", 0.28)]
+      ];
+      var chosen = current.fondo || "";
+      var box = document.createElement("div");
+      box.className = "lb-quick-bg";
+      box.setAttribute("role", "group");
+      box.setAttribute("aria-label", "Fondo de esta sección");
+      box.innerHTML = options.map(function (o) {
+        return '<button type="button" data-quick-bg="' + o[0] + '" aria-pressed="' + (chosen === o[0]) + '"><i style="background:' + o[2] + '"></i>' + o[1] + "</button>";
+      }).join("");
+      box.querySelectorAll("[data-quick-bg]").forEach(function (button) {
+        button.onclick = function () {
+          var value = button.getAttribute("data-quick-bg");
+          if (value) current.fondo = value; else delete current.fondo;
+          ["texto", "titulo", "etiqueta", "tarjetaTexto"].forEach(function (k) { delete current[k]; });
+          render();
+        };
+      });
+      return box;
+    }
+
     function render() {
       list.innerHTML = "";
+      var quickLabel = document.createElement("p");
+      quickLabel.className = "lb-label";
+      quickLabel.textContent = "Fondo de esta sección";
+      list.appendChild(quickLabel);
+      list.appendChild(quickBackgrounds());
+      var more = document.createElement("details");
+      more.className = "lb-more-colors";
+      more.innerHTML = "<summary>Más colores</summary>";
+      if (Object.keys(current).some(function (k) { return k !== "fondo"; })) more.open = true;
+      list.appendChild(more);
+      var target = more;
       Object.keys(fields).forEach(function (key) {
         var field = fields[key];
         if (key !== "fondo" && section && !section.querySelector(field[1])) return;
@@ -582,7 +622,7 @@
           updateContrast();
           paintLive();
         };
-        list.appendChild(row);
+        target.appendChild(row);
       });
       undo.disabled = !history.undo.length;
       redo.disabled = !history.redo.length;
@@ -1290,10 +1330,74 @@
   }
 
   function suggestedStyleColors(style, font) {
+    var mood = { pastel: "marca", calidas: "calido", neutras: "claro" }[style.group] || "claro";
+    var colors = deriveColors(style.accent, mood);
+    if (mood !== "oscuro") {
+      colors.titulos = style.title;
+      colors.parrafos = style.text;
+    }
+    colors.tipografia = font || style.font;
+    return colors;
+  }
+
+  /* Sistema de color: una marca + un ambiente. Todo lo demás se calcula con buen contraste. */
+  var AMBIENTES = {
+    claro: { name: "Claro", hint: "Blanco y gris suave", bg: "#ffffff", paper: "#f6f5f2", cream: "#f2f0eb", sage: 0.93 },
+    calido: { name: "Cálido", hint: "Crema y arena", bg: "#fbf8f3", paper: "#f3ebdf", cream: "#efe6d8", sage: 0.9, tint: "#f6efe4" },
+    marca: { name: "Marca", hint: "Tonos de tu color", bg: "#ffffff", sage: 0.88, paperMix: 0.8 },
+    oscuro: { name: "Oscuro", hint: "Fondo oscuro, texto claro", bg: "#15130f", paper: "#1f1c18", cream: "#24201b", card: "#25211c", dark: true }
+  };
+  var BRAND_PRESETS = ["#1b5e42", "#23517b", "#176274", "#41478e", "#684a8f", "#873f5c", "#b4485b", "#93442e", "#a46836", "#526032", "#2f3640", "#111111"];
+
+  function reachContrast(color, against, goal) {
+    var end = contrastRatio("#000000", against) >= contrastRatio("#ffffff", against) ? "#000000" : "#ffffff";
+    if (contrastRatio(color, against) >= goal) return color;
+    for (var step = 1; step <= 40; step++) {
+      var next = mix(end, color, step / 40);
+      if (contrastRatio(next, against) >= goal) return next;
+    }
+    return end;
+  }
+
+  function deriveColors(marca, ambiente) {
+    var brand = normalizeHex(marca) || DEFAULT_COLORS.c1;
+    var mood = AMBIENTES[ambiente] ? ambiente : "claro";
+    var a = AMBIENTES[mood];
+    var button = reachContrast(brand, "#ffffff", 4.6);
+    if (a.dark) {
+      return {
+        marca: brand, ambiente: mood,
+        titulos: "#f5f1ea", parrafos: "#cfc8bd",
+        etiquetas: reachContrast(mix(brand, "#ffffff", 0.55), a.bg, 7),
+        acento: button, iconos: reachContrast(mix(brand, "#ffffff", 0.55), a.bg, 4.5)
+      };
+    }
     return {
-      titulos: style.title, parrafos: style.text, etiquetas: style.accent,
-      acento: style.accent, iconos: style.accent, nav: style.title, tipografia: font || style.font
+      marca: brand, ambiente: mood,
+      titulos: reachContrast(mix(brand, "#121212", 0.22), a.bg, 12),
+      parrafos: reachContrast(mix(brand, "#4b4b4b", 0.18), a.bg, 7),
+      etiquetas: reachContrast(brand, a.bg, 5.5),
+      acento: button, iconos: reachContrast(brand, a.bg, 4.5)
     };
+  }
+
+  function ambientStyle(colors) {
+    var a = AMBIENTES[colors.ambiente];
+    if (!a) return "";
+    var brand = colors.marca || colors.acento;
+    var sage = a.dark ? mix(brand, a.bg, 0.16) : mix(brand, a.tint || "#ffffff", 1 - a.sage);
+    var paper = a.paperMix ? mix(brand, "#ffffff", 1 - a.paperMix) : a.paper;
+    var css = ":root { --nx-bg: " + a.bg + "; --paper: " + paper + "; --cream: " + (a.cream || paper) + "; --sage: " + sage + "; --sage-2: " + sage +
+      "; --line: " + (a.dark ? "#3a342d" : mix(brand, "#e6e3dc", 0.12)) + "; }" +
+      ".landing-page { background-color: " + a.bg + "; }";
+    if (a.dark) {
+      css += ".landing-page .nx :is(.nx-hero-card, .ben-card, .prod-card, .prod-card-xl, .plan-card, .quote-card, .person-card, .svc-card, .card, .bk-card, .accordion-item, .accordion-button, .bg-white) { background-color: " + a.card + " !important; color: " + colors.titulos + "; border-color: #3a342d; box-shadow: none; }" +
+        ".landing-page .nx :is(input:not([type=radio], [type=checkbox]), select, textarea, .bk-day, .bk-slot, .bk-input) { background-color: #2e2923; border-color: #463f37; color: " + colors.titulos + "; }" +
+        ".landing-page .nx :is(input, textarea)::placeholder { color: #a39b90; }" +
+        ".landing-page .nx .bk-slot:disabled { background-color: #221e1a; color: #8a8278; }" +
+        ".landing-page .nx :is(.text-secondary, .text-muted, .small) { color: " + colors.parrafos + " !important; }";
+    }
+    return css;
   }
 
   var templateStart = document.querySelector("[data-template-start]");
@@ -1462,7 +1566,110 @@
     dialog.showModal();
   }
 
+  var paletteUndo = [];
+  function rememberPalette() {
+    paletteUndo.push(JSON.stringify({
+      colores: state.colores,
+      items: state.items.map(function (item) { return { fondo: item.fondo, coloresModulo: item.coloresModulo }; })
+    }));
+    if (paletteUndo.length > 30) paletteUndo.shift();
+  }
+  function undoPalette() {
+    var last = paletteUndo.pop();
+    if (!last) return;
+    var saved = JSON.parse(last);
+    state.colores = saved.colores;
+    state.items.forEach(function (item, i) {
+      var prev = saved.items[i] || {};
+      if (prev.fondo) item.fondo = prev.fondo; else delete item.fondo;
+      if (prev.coloresModulo) item.coloresModulo = prev.coloresModulo; else delete item.coloresModulo;
+    });
+    moduleColorHistory = new WeakMap();
+    update();
+    renderColors();
+  }
+
+  function setBrandMood(marca, ambiente) {
+    var current = state.colores || {};
+    var next = deriveColors(marca || current.marca || (currentClient() || {}).color_primario || current.acento, ambiente || current.ambiente || "claro");
+    if (current.tipografia) next.tipografia = current.tipografia;
+    rememberPalette();
+    state.colores = next;
+    moduleColorHistory = new WeakMap();
+    paintLandingColors();
+    renderColors();
+    renderMode();
+    scheduleQa(600);
+    saveDraft();
+  }
+
+  function renderPaletteControls() {
+    var colors = state.colores || {};
+    var client = currentClient();
+    var clientColor = client && normalizeHex(client.color_primario);
+    var brand = colors.marca || "";
+    var swatches = document.querySelector("[data-brand-swatches]");
+    if (swatches) {
+      var list = (clientColor ? [clientColor] : []).concat(BRAND_PRESETS.filter(function (c) { return c !== clientColor; }));
+      var custom = brand && list.indexOf(brand) < 0;
+      swatches.innerHTML = list.map(function (color, i) {
+        var label = i === 0 && clientColor ? "Color del cliente" : "Color " + color;
+        return '<button type="button" class="lb-brand' + (i === 0 && clientColor ? " is-client" : "") + '" data-brand="' + color + '" aria-pressed="' + (brand === color) + '" title="' + label + '" aria-label="' + label + '" style="--c:' + color + '"></button>';
+      }).join("") +
+        '<label class="lb-brand lb-brand-custom' + (custom ? " is-on" : "") + '" title="Elegir otro color" style="--c:' + (custom ? brand : "#ffffff") + '">' +
+        '<i class="bi bi-eyedropper" aria-hidden="true"></i><input type="color" data-brand-custom value="' + (custom ? brand : (brand || "#1b5e42")) + '" aria-label="Elegir otro color de marca"></label>';
+      swatches.querySelectorAll("[data-brand]").forEach(function (button) {
+        button.onclick = function () { setBrandMood(button.getAttribute("data-brand"), null); };
+      });
+      var picker = swatches.querySelector("[data-brand-custom]");
+      var timer = null;
+      picker.oninput = function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { setBrandMood(picker.value, null); }, 60);
+      };
+    }
+    var moods = document.querySelector("[data-moods]");
+    if (moods) {
+      var base = brand || clientColor || colors.acento || DEFAULT_COLORS.c1;
+      moods.innerHTML = Object.keys(AMBIENTES).map(function (key) {
+        var a = AMBIENTES[key];
+        var sample = deriveColors(base, key);
+        var band = ambientStyle(sample).match(/--sage: (#[0-9a-f]{6})/)[1];
+        return '<button type="button" class="lb-mood" data-mood="' + key + '" aria-pressed="' + (colors.ambiente === key) + '" title="' + a.hint + '">' +
+          '<span class="lb-mood-chip" aria-hidden="true" style="background:' + a.bg + '"><i style="background:' + band + '"></i><b style="background:' + sample.titulos + '"></b></span>' +
+          '<span>' + a.name + '</span></button>';
+      }).join("");
+      moods.querySelectorAll("[data-mood]").forEach(function (button) {
+        button.onclick = function () { setBrandMood(null, button.getAttribute("data-mood")); };
+      });
+    }
+    var fonts = document.querySelector("[data-fonts]");
+    var select = document.querySelector("[data-lb-typography]");
+    if (fonts && select) {
+      var currentFont = colors.tipografia || "";
+      var names = { "": "Original", editorial: "Editorial", moderna: "Moderna", clasica: "Clásica" };
+      fonts.innerHTML = Object.keys(names).map(function (key) {
+        var family = LANDING_FONTS[key] ? LANDING_FONTS[key][0] : "inherit";
+        return '<button type="button" class="lb-font" data-font="' + key + '" aria-pressed="' + (currentFont === key) + '">' +
+          '<b style="font-family:' + family + '">Aa</b><span>' + names[key] + '</span></button>';
+      }).join("");
+      fonts.querySelectorAll("[data-font]").forEach(function (button) {
+        button.onclick = function () {
+          rememberPalette();
+          select.value = button.getAttribute("data-font");
+          select.dispatchEvent(new Event("change"));
+        };
+      });
+    }
+    var undoButton = document.querySelector("[data-palette-undo]");
+    if (undoButton) {
+      undoButton.hidden = !paletteUndo.length;
+      undoButton.onclick = undoPalette;
+    }
+  }
+
   function applySuggestedStyle(style) {
+    rememberPalette();
     state.colores = suggestedStyleColors(style);
     state.items.forEach(function (item) {
       delete item.fondo;
@@ -1497,6 +1704,7 @@
   }
 
   function renderStyleSuggestions() {
+    renderPaletteControls();
     var list = document.querySelector("[data-style-options]");
     var select = document.querySelector("[data-lb-typography]");
     if (!list || !select) return;
@@ -1532,20 +1740,31 @@
       styles = LANDING_STYLES.filter(function (style) { return style.group === group; });
     }
     var hint = recommended && (category || group === "sugeridas") ?
-      "Para " + (category ? category.name : sector) + ", probá la paleta " + recommended.name.toLowerCase() + ". " : "";
+      "Para " + (category ? category.name : sector) + ", probá " + recommended.name.toLowerCase() + ". " : "";
     document.querySelector("[data-style-hint]").textContent =
-      hint + "Elegir un estilo reemplaza la paleta y los colores personalizados de todas las secciones.";
+      hint + "Tocá una para aplicarla. Reemplaza los colores de todas las secciones; podés deshacer.";
     list.innerHTML = "";
     styles.forEach(function (style) {
       var button = document.createElement("button");
       button.type = "button";
-      button.className = "btn-nx-outline lb-style-option";
-      button.innerHTML = '<span>' + style.name + '</span><span class="lb-style-swatches" aria-hidden="true">' +
-        [style.title, style.text, style.accent].map(function (color) {
-          return '<i style="background:' + color + '"></i>';
-        }).join("") + '</span>';
-      button.setAttribute("aria-label", "Ver la paleta " + style.name);
-      button.onclick = function () { openPalette(style); };
+      var combo = suggestedStyleColors(style);
+      var amb = AMBIENTES[combo.ambiente];
+      var paper = ambientStyle(combo).match(/--sage: (#[0-9a-f]{6})/)[1];
+      var font = LANDING_FONTS[combo.tipografia] ? LANDING_FONTS[combo.tipografia][0] : "inherit";
+      var active = state.colores && state.colores.marca === combo.marca && state.colores.ambiente === combo.ambiente &&
+        state.colores.titulos === combo.titulos;
+      button.className = "lb-style-option" + (active ? " is-active" : "");
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+      button.innerHTML =
+        '<span class="lb-mini" aria-hidden="true" style="background:' + amb.bg + '">' +
+          '<span class="lb-mini-nav" style="background:' + combo.titulos + '"></span>' +
+          '<span class="lb-mini-hero"><b style="color:' + combo.titulos + ';font-family:' + font + '">Aa</b>' +
+            '<i style="background:' + combo.parrafos + '"></i><i style="background:' + combo.parrafos + ';width:60%"></i>' +
+            '<em style="background:' + combo.acento + '"></em></span>' +
+          '<span class="lb-mini-band" style="background:' + paper + '"><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i></span>' +
+        '</span><span class="lb-style-name">' + style.name + '</span>';
+      button.setAttribute("aria-label", "Usar la combinación " + style.name);
+      button.onclick = function () { applySuggestedStyle(style); };
       list.appendChild(button);
     });
   }
@@ -1594,7 +1813,8 @@
       ".landing-page .bi { color: var(--lz-icon); }" +
       (colors.nav ? '.landing-page [data-module^="navegacion"] :is(a, span, strong, p, li, button, .bi):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.nav + "; }" : "") +
       (colors.hero ? '.landing-page [data-module^="hero"] :is(h1, h2, h3, p, li, span, .nx-kicker):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.hero + "; }" : "") +
-      ".landing-page :is(.btn-nx, .btn-nx-outline, .btn-nx-light) .bi { color: inherit; }";
+      ".landing-page :is(.btn-nx, .btn-nx-outline, .btn-nx-light) .bi { color: inherit; }" +
+      ambientStyle(colors);
   }
 
   function contrastNotes(colors) {
@@ -1896,8 +2116,9 @@
       '  <link href="' + iconsCss + '" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" rel="stylesheet">',
       '  <link href="' + assets + 'css/lanzate.css" rel="stylesheet">',
       clientStyle(currentClient()) ? "  <style>" + clientStyle(currentClient()) + "</style>" : "",
-      state.colores ? "  <style>" + colorStyle(state.colores) + "</style>" : "",
       state.estilo ? "  <style>\n" + state.estilo + "\n  </style>" : "",
+      /* La paleta va al final: el CSS propio de la plantilla no puede pisarla (así se ve igual que en la vista previa). */
+      state.colores ? "  <style>" + colorStyle(state.colores) + "</style>" : "",
       "</head>",
       '<body class="landing-page' + (opts.tools ? " has-tools" : "") + (opts.staticPreview ? " lz-static-preview" : "") + '"' + (state.animacion ? ' data-anim="' + state.animacion + '"' : "") + ">"
     ].filter(Boolean);

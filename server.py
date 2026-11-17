@@ -2194,11 +2194,10 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
             image.set("src", travel_path + source[:-4] + ".webp")
 
     # La paleta guardada por el constructor tiene precedencia sobre la del cliente.
-    accent = next((
-        match[1]
-        for style in document.xpath("./head/style/text()")
-        if (match := re.search(r"--green:\s*(#[0-9a-fA-F]{6})\s*(?:;|})", style))
-    ), primary_color)
+    # Gana el último --green del head: la paleta del constructor va al final.
+    greens = [found for style in document.xpath("./head/style/text()")
+              for found in re.findall(r"--green:\s*(#[0-9a-fA-F]{6})\s*(?:;|})", style)]
+    accent = greens[-1] if greens else primary_color
     cta_color = accessible_button_color(accent)
     if cta_color:
         style = etree.SubElement(document.find("head"), "style")
