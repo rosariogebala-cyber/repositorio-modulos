@@ -7,7 +7,7 @@
   <title>Pedir cambios en tu web · Lanzate</title>
   <link rel="icon" href="/assets/favicon-lanzate.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/maquetas/css/fonts.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
   <style>
     :root { --ink: #17352c; --muted: #4f625a; --line: #d7e3dc; --soft: #f3f7f5; --brand: #1b5e42; --brand-deep: #134531; --warn: #8a4b00; --ok: #1b5e42; }
     * { box-sizing: border-box; }
@@ -68,7 +68,7 @@
   </style>
 </head>
 <body>
-  <a class="skip" href="#pedido">Saltar a tu pedido</a>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
   <header>
     <div class="brand"><a href="/portal/" data-back aria-label="Volver a tu portal"><img src="/assets/favicon-lanzate.svg" alt=""></a><span>Pedir cambios <small data-title>Cargando tu web…</small></span></div>
     <div class="modes" role="group" aria-label="Qué querés cambiar">
@@ -164,7 +164,7 @@
 
     document.querySelectorAll("[data-back]").forEach(function (a) { a.href = "/portal/" + client.slug + "/#pedidos"; });
     document.title = "Pedir cambios · " + client.nombre;
-    document.querySelector("[data-title]").textContent = client.nombre + " · " + landing.nombre;
+    document.querySelector("[data-title]").textContent = client.nombre + " · " + landing.nombre.charAt(0).toUpperCase() + landing.nombre.slice(1);
     var plan = plans.filter(function (p) { return p.id === client.plan; })[0];
     if (plan) {
       var planBox = document.querySelector("[data-plan]");
@@ -368,11 +368,23 @@
       say("Enviando tu pedido…");
       var photos = [];
       changes.forEach(function (c, i) { if (c.data) photos.push({ data: c.data, cambio: i, nota: c.seccion + (c.detalle ? ": " + c.detalle : "") }); });
+      var payload = JSON.stringify({ landing: landing.slug, nota: clean(note.value), fotos: photos,
+          cambios: changes.map(function (c) { return { tipo: c.tipo, modulo: c.modulo || "", src: c.src || "", href: c.href || "", seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) });
+      /* El servidor acepta hasta 4,5 MB por pedido: mejor avisar antes que mostrar un error técnico */
+      if (payload.length > 4200000) {
+        btn.disabled = false;
+        say("Las fotos pesan demasiado para mandarlas juntas. Mandá este pedido con menos fotos y las demás en otro.", "warn");
+        return;
+      }
       fetch("/api/portal/pedidos?sitio=" + encodeURIComponent(client.slug), {
-        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ landing: landing.slug, nota: clean(note.value), fotos: photos,
-          cambios: changes.map(function (c) { return { tipo: c.tipo, modulo: c.modulo || "", src: c.src || "", href: c.href || "", seccion: c.seccion, antes: c.antes, despues: c.despues || "", detalle: c.detalle || "" }; }) })
-      }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "No se pudo enviar."); return d; }); })
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: payload
+      }).then(function (r) {
+        if (r.status === 413) throw new Error("Las fotos pesan demasiado para mandarlas juntas. Mandá este pedido con menos fotos y las demás en otro.");
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (!r.ok) throw new Error(d.error || "No se pudo enviar el pedido. Probá de nuevo en unos minutos.");
+          return d;
+        });
+      })
         .then(function () {
           changes = [];
           note.value = "";

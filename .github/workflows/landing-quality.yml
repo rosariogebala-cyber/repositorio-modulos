@@ -1,4 +1,4 @@
-name: Calidad de landings
+name: Calidad de landings y API
 
 on:
   pull_request:
@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: '22'
       - run: pip install -r requirements.txt
-      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py
+      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py
       - run: for file in js/*.js maquetas/js/*.js; do node --check "$file" || exit 1; done
       - run: python scripts/check-landing-quality.py
+      - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar)
+        run: python scripts/test-api.py

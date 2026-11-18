@@ -57,7 +57,7 @@
 .cat-lead { max-width: 560px; }
 .cat-card { display: flex; align-items: center; gap: 14px; padding: 12px; color: inherit; text-decoration: none; }
 .cat-card img { flex: 0 0 42%; width: 42%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
-.cat-card > span { min-width: 0; }
+.cat-card > div { min-width: 0; }
 .cat-card h3 { font-size: clamp(1rem, 0.6rem + 0.6vw, 1.2rem); margin: 0 0 4px; overflow-wrap: anywhere; }
 .cat-card p { font-size: 14px; line-height: 1.45; }
 .cat-card:hover h3 { color: var(--green); }
@@ -108,7 +108,7 @@
         <div class="nx-hero-slide" style="">
           <img class="lz-hero-photo" src="../../../maquetas/img/rubros/viajes/hero-1.jpg" alt="imagen" sizes="100vw" srcset="../../../maquetas/img/rubros/viajes/hero-1-480.webp 480w, ../../../maquetas/img/rubros/viajes/hero-1-1280.webp 1280w" loading="eager" fetchpriority="high"><video class="hero-video-bg" autoplay="" muted="" loop="" playsinline="" preload="metadata" poster="img/rubros/viajes/hero-1.jpg" aria-hidden="true" tabindex="-1">
             <source src="../../../maquetas/img/video/hero-demo.mp4" type="video/mp4">
-          </source></video>
+          </video>
           <div class="container">
             <h1 class="nx-display lz-split" id="hero-titulo">Caribe all inclusive <span class="em">hasta 30% off.</span></h1>
             <p class="nx-lead">Punta Cana, Cancún y Aruba con aéreo, hotel y traslados. Cupos limitados.</p>
@@ -149,14 +149,14 @@
       <div class="container">
         <div class="text-center mb-4 mb-lg-5"><p class="nx-kicker">Viajá a tu manera</p><h2 class="nx-display" id="beneficios-titulo">Encontrá inspiración para <span class="em">tu próximo viaje</span></h2><p class="nx-lead mx-auto cat-lead">Elegí qué tipo de viaje tenés ganas de hacer y te mostramos las promos que mejor encajan.</p></div>
         <div class="row g-3">
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="europa"><img src="../../../maquetas/img/rubros/viajes/cat-historia.webp" alt="Historia" loading="lazy" decoding="async"><span><h3>Historia</h3><p>Roma, Atenas y Estambul con guías locales.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-romance.webp" alt="Romance" loading="lazy" decoding="async"><span><h3>Romance</h3><p>Lunas de miel y escapadas para dos.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-ciudades.webp" alt="Ciudades" loading="lazy" decoding="async"><span><h3>Ciudades</h3><p>Nueva York, Madrid y Dubái a pie.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-bienestar.webp" alt="Bienestar" loading="lazy" decoding="async"><span><h3>Bienestar</h3><p>Spas, yoga y retiros frente al mar.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="argentina"><img src="../../../maquetas/img/rubros/viajes/cat-aventura.webp" alt="Aventura" loading="lazy" decoding="async"><span><h3>Aventura</h3><p>Trekking en la Patagonia y el Norte.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="playa"><img src="../../../maquetas/img/rubros/viajes/cat-playa.webp" alt="Playa" loading="lazy" decoding="async"><span><h3>Playa</h3><p>Caribe, Brasil y Miami todo incluido.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-naturaleza.webp" alt="Naturaleza" loading="lazy" decoding="async"><span><h3>Naturaleza</h3><p>Safaris, Iguazú y parques nacionales.</p></span></a></div>
-          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-gastronomia.webp" alt="Gastronomía" loading="lazy" decoding="async"><span><h3>Gastronomía</h3><p>Rutas del vino y mercados locales.</p></span></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="europa"><img src="../../../maquetas/img/rubros/viajes/cat-historia.webp" alt="Historia" loading="lazy" decoding="async"><div><h3>Historia</h3><p>Roma, Atenas y Estambul con guías locales.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-romance.webp" alt="Romance" loading="lazy" decoding="async"><div><h3>Romance</h3><p>Lunas de miel y escapadas para dos.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-ciudades.webp" alt="Ciudades" loading="lazy" decoding="async"><div><h3>Ciudades</h3><p>Nueva York, Madrid y Dubái a pie.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-bienestar.webp" alt="Bienestar" loading="lazy" decoding="async"><div><h3>Bienestar</h3><p>Spas, yoga y retiros frente al mar.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="argentina"><img src="../../../maquetas/img/rubros/viajes/cat-aventura.webp" alt="Aventura" loading="lazy" decoding="async"><div><h3>Aventura</h3><p>Trekking en la Patagonia y el Norte.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="playa"><img src="../../../maquetas/img/rubros/viajes/cat-playa.webp" alt="Playa" loading="lazy" decoding="async"><div><h3>Playa</h3><p>Caribe, Brasil y Miami todo incluido.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-naturaleza.webp" alt="Naturaleza" loading="lazy" decoding="async"><div><h3>Naturaleza</h3><p>Safaris, Iguazú y parques nacionales.</p></div></a></div>
+          <div class="col-6 col-lg-3"><a class="ben-card cat-card" href="#productos" data-filter-pick="todos"><img src="../../../maquetas/img/rubros/viajes/cat-gastronomia.webp" alt="Gastronomía" loading="lazy" decoding="async"><div><h3>Gastronomía</h3><p>Rutas del vino y mercados locales.</p></div></a></div>
         </div>
       </div>
     </div><div class="lz-corte" aria-hidden="true"><svg viewbox="0 0 1440 80" preserveaspectratio="none" focusable="false"><path d="M0 80 L0 44 C240 4 480 84 720 44 S1200 4 1440 44 L1440 80 Z"></path></svg></div></div>
@@ -240,16 +240,16 @@
       </div>
     </div><div class="lz-corte" aria-hidden="true"><svg viewbox="0 0 1440 80" preserveaspectratio="none" focusable="false"><path d="M0 80 L0 44 C240 4 480 84 720 44 S1200 4 1440 44 L1440 80 Z"></path></svg></div></div>
   </section>
-  </main><section class="mq-block" id="whatsapp" data-module="whatsapp-simple" data-width="full">
+  </main><aside aria-label="Contacto por WhatsApp" class="lz-region"><section class="mq-block" id="whatsapp" data-module="whatsapp-simple" data-width="full">
     <div class="mq-frame">
       <div class="nx nx-wa-wrap" data-width="full">
         <a class="nx-wa" href="https://wa.me/5491134567890?text=Hola%2C%20quiero%20hacer%20una%20consulta" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp" title="Escribinos por WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a>
       </div>
     </div>
   </section>
-  <section class="mq-block" id="footer" data-module="footer-cierre" data-width="full">
+  </aside><section class="mq-block" id="footer" data-module="footer-cierre" data-width="full">
     <div class="mq-frame">
-      <footer class="nx nx-footer" data-width="full">
+      <footer class="nx nx-footer" data-width="full" role="contentinfo">
         <div class="foot-cta">
           <div class="container">
             <div>

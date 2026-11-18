@@ -1110,7 +1110,7 @@
           <h2 class="nx-display mb-0">Encontrá tu próximo favorito</h2>
           <a class="btn-nx-outline btn-sm" href="#productos-media">Ver todos <i class="bi bi-arrow-right"></i></a>
         </div>
-        <div class="nx-tabs" role="tablist">
+        <div class="nx-tabs" role="group" aria-label="Filtrar productos">
           <button class="is-on" data-filter="todos" type="button">Todos</button>
           <button data-filter="vajilla" type="button">Vajilla</button>
           <button data-filter="decoracion" type="button">Decoración</button>
@@ -1469,10 +1469,10 @@
       <div class="container" data-tabs>
         <h2 class="nx-display">Dale play a nuevas ideas</h2>
         <div class="nx-tabs" role="tablist">
-          <button class="is-on" type="button" data-tab="todos">Todos</button>
-          <button type="button" data-tab="nosotros">Nosotros</button>
-          <button type="button" data-tab="procesos">Procesos</button>
-          <button type="button" data-tab="inspiracion">Inspiración</button>
+          <button role="tab" aria-selected="true" class="is-on" type="button" data-tab="todos">Todos</button>
+          <button role="tab" aria-selected="false" type="button" data-tab="nosotros">Nosotros</button>
+          <button role="tab" aria-selected="false" type="button" data-tab="procesos">Procesos</button>
+          <button role="tab" aria-selected="false" type="button" data-tab="inspiracion">Inspiración</button>
         </div>
         <div data-panel="todos" class="is-on svc-panel" style="padding:0">
           <div class="row g-4 vid-feature">
@@ -1488,9 +1488,9 @@
             <div class="col-lg-5">
               <p class="fw-semibold">Para seguir mirando</p>
               <div class="vid-side">
-                <button class="vid-row" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt="Vista previa del video El valor del detalle"><div><h3>El valor del detalle</h3><p>01:45</p></div></button>
-                <button class="vid-row" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt="Vista previa del video Espacios con identidad"><div><h3>Espacios con identidad</h3><p>03:06</p></div></button>
-                <button class="vid-row" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt="Vista previa del video Una idea compartida"><div><h3>Una idea compartida</h3><p>02:40</p></div></button>
+                <button class="vid-row" type="button" data-video="El valor del detalle"><img src="img/vid-proceso.jpg" alt="Vista previa del video El valor del detalle"><span class="vid-row-text"><span class="vid-row-title">El valor del detalle</span><span class="vid-row-time">01:45</span></span></button>
+                <button class="vid-row" type="button" data-video="Espacios con identidad"><img src="img/vid-inspiracion.jpg" alt="Vista previa del video Espacios con identidad"><span class="vid-row-text"><span class="vid-row-title">Espacios con identidad</span><span class="vid-row-time">03:06</span></span></button>
+                <button class="vid-row" type="button" data-video="Una idea compartida"><img src="img/vid-nosotros.jpg" alt="Vista previa del video Una idea compartida"><span class="vid-row-text"><span class="vid-row-title">Una idea compartida</span><span class="vid-row-time">02:40</span></span></button>
               </div>
             </div>
           </div>

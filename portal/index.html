@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
   <style>
     :root {
       --brand: #5a3df2; --brand-deep: #4128d1; --brand-soft: #f1effb; --ink: #0e1130; --muted: #5d627c;
@@ -155,15 +155,16 @@
     .rows dd { margin: 0; overflow-wrap: anywhere; }
     .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--bg); font-size: 13px; font-weight: 600; }
     .tag.on { background: var(--ok-soft); color: var(--ok); }
-    .tag.off { background: #eef0f4; color: #6b7090; }
+    .tag.off { background: #eef0f4; color: #5d6280; }
 
     .mobile-top { display: none; }
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
-      .side { position: sticky; top: 0; z-index: 20; height: auto; flex-direction: row; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+      .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
       .side-client, .side-foot .brand { display: none; }
-      .nav { display: flex; gap: 4px; }
-      .nav a { white-space: nowrap; padding: 0 12px; }
+      /* En celular las secciones se acomodan en varias filas: todas a la vista, sin cortarse */
+      .nav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 100%; }
+      .nav a { white-space: nowrap; padding: 0 12px; min-height: 40px; }
       .side-foot { margin: 0 0 0 auto; padding: 0; border: 0; display: flex; }
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .grid-2 { grid-template-columns: 1fr; }
@@ -179,7 +180,7 @@
   <a class="skip" href="#contenido">Saltar al contenido</a>
 
   <!-- Ingreso -->
-  <div class="login-wrap" data-login hidden>
+  <main class="login-wrap" data-login hidden>
     <section class="login" aria-labelledby="ingreso">
       <div class="logo"><img src="/assets/favicon-lanzate.svg" alt=""> Lanzate</div>
       <h1 id="ingreso">Entrá a tu portal</h1>
@@ -193,14 +194,14 @@
       </form>
       <button class="link" type="button" data-forgot-open>Me olvidé la contraseña</button>
       <form data-forgot-form hidden>
-        <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te mandamos tu contraseña por WhatsApp o mail.</p>
+        <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te mandamos una contraseña nueva por WhatsApp o mail, en general el mismo día hábil.</p>
         <label for="usuario-olvido">Usuario</label>
         <input id="usuario-olvido" name="usuario" autocomplete="username" autocapitalize="none" required>
-        <button class="btn btn-main" type="submit">Pedir mi contraseña</button>
+        <button class="btn btn-main" type="submit">Pedir una contraseña nueva</button>
       </form>
       <p role="status" data-login-msg></p>
     </section>
-  </div>
+  </main>
 
   <!-- Portal -->
   <div class="app" data-app hidden>
@@ -355,6 +356,10 @@
     }
 
     function chart(serie) {
+      /* Sin visitas, un eje vacío no dice nada: mejor explicarlo */
+      if (!serie.some(function (p) { return p.visitas > 0; })) {
+        return '<p class="muted chart-empty"><i class="bi bi-graph-up" aria-hidden="true"></i> Todavía no hay visitas en estos días. Van a aparecer acá cuando alguien entre a tu web.</p>';
+      }
       var w = 720, h = 220, pad = 24, max = Math.max(1, Math.max.apply(null, serie.map(function (d) { return d.visitas; })));
       var bw = (w - pad) / serie.length;
       var bars = serie.map(function (d, i) {
@@ -422,7 +427,7 @@
         return head("Mi web", "Tus páginas publicadas. Para cambiar algo, tocá «Pedir cambios» y marcalo directamente sobre la página.") +
           (d.landings.length ? '<div class="sites">' + d.landings.map(function (l) {
             return '<article class="site"><div class="site-shot" style="' + (l.portada ? "background-image:url('" + esc(l.portada) + "')" : "") + '" role="img" aria-label="Vista de ' + esc(l.nombre) + '"></div>' +
-              '<div class="site-body"><div><strong>' + esc(l.nombre) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p></div>" +
+              '<div class="site-body"><div><strong>' + esc(l.nombre.charAt(0).toUpperCase() + l.nombre.slice(1)) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p></div>" +
               '<div class="site-actions"><a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a>' +
               '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Ver mi web</a></div></div></article>';
           }).join("") + "</div>" : '<div class="card empty"><i class="bi bi-window" aria-hidden="true"></i>Todavía no hay páginas publicadas.</div>');

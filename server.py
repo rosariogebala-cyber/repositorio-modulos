@@ -16,6 +16,7 @@ Uso:
 """
 
 import base64
+import datetime
 import secrets
 import hashlib
 import hmac
@@ -110,6 +111,14 @@ PUBLIC_ROUTES = ("sesion", "login", "logout", "portal-login", "portal-logout", "
                  "portal-inicio", "portal-datos", "portal-sitio", "portal-pedidos", "portal-consulta", "portal-clave", "visita", "consulta-nueva")
 CROSS_SITE_ROUTES = ("visita", "consulta-nueva")
 PORTAL_COOKIE = "lz_portal"
+# Política de contenido del panel y del portal: solo scripts propios y de jsDelivr, nada de plugins, y nadie
+# puede meter estas páginas en un iframe de otro sitio. Las mismas reglas están en vercel.json.
+PANEL_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+             "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https:; "
+             "media-src 'self' data: blob: https:; frame-src 'self' https://www.google.com https://maps.google.com "
+             "https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self'; "
+             "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
 COOKIE = "lz_sesion"
 SESSION_DAYS = 30
@@ -236,6 +245,7 @@ class GitHubFiles:
     def __init__(self, token):
         self.token = token
         self.local = threading.local()
+        self.token_expires = ""  # GitHub avisa en cada respuesta cuándo vence un token fine-grained
 
     def state(self):
         if not hasattr(self.local, "pending"):
@@ -263,6 +273,7 @@ class GitHubFiles:
         try:
             with urlopen(req, timeout=30) as resp:
                 data = resp.read()
+                self.token_expires = resp.headers.get("GitHub-Authentication-Token-Expiration") or self.token_expires
         except HTTPError as err:
             if err.code == 404:
                 return None
@@ -312,20 +323,31 @@ class GitHubFiles:
         for target in targets:
             pending[target] = None
 
+    COMMIT_ORDER = ("datos", "modulos", "sitio")  # primero los datos (la fuente), después lo que se publica
+
     def commit(self, message):
         st = self.state()
         done = []
-        for repo, files in st.pending.items():
+        for repo in self.COMMIT_ORDER:
+            files = st.pending.get(repo)
             if not files:
                 continue
-            for attempt in range(3):
-                try:
-                    self.commit_repo(repo, files, message)
-                    break
-                except ApiError as err:
-                    if attempt == 2 or "422" not in str(err) and "409" not in str(err):
-                        raise
-                    st.trees.pop(repo, None)
+            try:
+                for attempt in range(3):
+                    try:
+                        self.commit_repo(repo, files, message)
+                        break
+                    except ApiError as err:
+                        if attempt == 2 or "422" not in str(err) and "409" not in str(err):
+                            raise
+                        st.trees.pop(repo, None)
+            except ApiError as err:
+                if not done:
+                    raise
+                # Una parte ya quedó subida: se dice cuál, para que nada quede desfasado sin que nadie se entere.
+                names = {"datos": "los datos", "modulos": "las landings", "sitio": "el sitio de venta"}
+                raise ApiError(502, "Se guardó %s, pero no %s: %s Volvé a tocar Publicar o Guardar para completarlo."
+                               % (" y ".join(names[r] for r in done), names[repo], err))
             done.append(repo)
         self.begin()
         return done
@@ -474,68 +496,93 @@ class Record:
 RECORD = Record()
 
 
-# --- Límite de intentos -----------------------------------------------------------------
-# Cuenta los intentos fallidos de ingreso por usuario y por conexión (IP). Online usa Upstash Redis;
+# --- Límites y contadores con vencimiento -------------------------------------------------
+# Intentos de ingreso, visitas repetidas y consultas por conexión. Online usa Upstash Redis;
 # sin Redis, en tu computadora va a ~/.lanzate/registro.json y en Vercel queda en memoria.
 
 ATTEMPT_WINDOW = 15 * 60
-ATTEMPT_LIMITS = {"usuario": 5, "ip": 20, "olvide": 10}
-_attempts = {}
-_attempts_lock = threading.Lock()
+_counters = {}
+_counters_lock = threading.Lock()
 
 
-def attempt_keys(kind, usuario, ip):
-    keys = []
-    if usuario:
-        keys.append(("intentos:%s:u:%s" % (kind, hashlib.sha256(usuario.encode("utf-8")).hexdigest()[:24]), ATTEMPT_LIMITS["usuario"]))
-    if ip:
-        keys.append(("intentos:%s:ip:%s" % (kind, ip), ATTEMPT_LIMITS["olvide" if kind == "olvide" else "ip"]))
-    return keys
+def short_hash(text):
+    """Las IP y los usuarios se guardan resumidos, no como texto."""
+    return hashlib.sha256(("lz:" + str(text)).encode("utf-8")).hexdigest()[:20]
 
 
-def _attempt_counts(keys):
+def _local_table(fn):
+    if RECORD.available() and not RECORD.online:
+        return RECORD.local(lambda data: fn(data.setdefault("contadores", {})))
+    with _counters_lock:
+        return fn(_counters)
+
+
+def counter_get(keys):
+    """Cuánto vale cada contador (0 si venció o no existe)."""
+    if not keys:
+        return []
     if RECORD.online:
         return [int(n or 0) for n in RECORD.redis([["GET", k] for k in keys])]
     now = time.time()
-    if RECORD.available():
-        table = RECORD.local(lambda data: dict(data.get("intentos") or {}))
-    else:
-        with _attempts_lock:
-            table = dict(_attempts)
-    return [n if until > now else 0 for n, until in (table.get(k) or (0, 0) for k in keys)]
+    return _local_table(lambda t: [n if until > now else 0 for n, until in (t.get(k) or (0, 0) for k in keys)])
+
+
+def counter_add(keys, window):
+    """Suma 1 a cada contador y devuelve los valores nuevos. Cada contador vence `window` segundos después
+    de la primera suma (no se estira con cada intento)."""
+    if not keys:
+        return []
+    if RECORD.online:
+        commands = []
+        for k in keys:
+            commands += [["SET", k, 0, "EX", window, "NX"], ["INCR", k]]
+        out = RECORD.redis(commands)
+        return [int(out[i * 2 + 1] or 0) for i in range(len(keys))]
+    now = time.time()
+
+    def bump(table):
+        values = []
+        for k in keys:
+            n, until = table.get(k) or (0, 0)
+            if until <= now:
+                n, until = 0, now + window
+            table[k] = [n + 1, until]
+            values.append(n + 1)
+        for k in [k for k, (_, until) in table.items() if until <= now]:
+            del table[k]
+        return values
+    return _local_table(bump)
+
+
+# Intentos fallidos de ingreso. El límite fuerte es por usuario Y conexión juntos: así nadie puede dejar
+# afuera al dueño de una cuenta desde otra conexión. Por usuario solo hay un techo alto, contra ataques
+# repartidos en muchas conexiones.
+ATTEMPT_LIMITS = (("ui", 5), ("ip", 20), ("u", 50))
+FORGOT_LIMIT = 10
+
+
+def attempt_keys(kind, usuario, ip):
+    u, i = short_hash(usuario), short_hash(ip)
+    keys = []
+    for scope, limit in ATTEMPT_LIMITS:
+        if scope == "ui" and usuario and ip:
+            keys.append(("lz:int:%s:ui:%s:%s" % (kind, u, i), limit))
+        elif scope == "ip" and ip:
+            keys.append(("lz:int:%s:ip:%s" % (kind, i), FORGOT_LIMIT if kind == "olvide" else limit))
+        elif scope == "u" and usuario:
+            keys.append(("lz:int:%s:u:%s" % (kind, u), limit))
+    return keys
 
 
 def check_attempts(kind, usuario="", ip=""):
     """Antes de probar la clave: si ya hubo demasiados intentos fallidos, no deja seguir."""
     keys = attempt_keys(kind, usuario, ip)
-    if keys and any(n >= limit for n, (_, limit) in zip(_attempt_counts([k for k, _ in keys]), keys)):
+    if any(n >= limit for n, (_, limit) in zip(counter_get([k for k, _ in keys]), keys)):
         raise ApiError(429, "Hubo demasiados intentos. Esperá 15 minutos y probá de nuevo.")
 
 
 def add_attempt(kind, usuario="", ip=""):
-    keys = [k for k, _ in attempt_keys(kind, usuario, ip)]
-    if not keys:
-        return
-    if RECORD.online:
-        commands = []
-        for k in keys:
-            commands += [["INCR", k], ["EXPIRE", k, ATTEMPT_WINDOW]]
-        RECORD.redis(commands)
-        return
-    until = time.time() + ATTEMPT_WINDOW
-
-    def bump(table):
-        now = time.time()
-        for k in keys:
-            n, end = table.get(k) or (0, 0)
-            table[k] = [(n if end > now else 0) + 1, until]
-        for k in [k for k, (_, end) in table.items() if end <= now]:
-            del table[k]
-    if RECORD.available():
-        RECORD.local(lambda data: bump(data.setdefault("intentos", {})))
-    else:
-        with _attempts_lock:
-            bump(_attempts)
+    counter_add([k for k, _ in attempt_keys(kind, usuario, ip)], ATTEMPT_WINDOW)
 
 
 def read_text(repo, path):
@@ -671,6 +718,35 @@ def session_secret():
     return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
 
 
+def token_days_left(expires, today=None):
+    """Días hasta que vence el token de GitHub ('2026-12-16 00:00:00 -0300'), o None si no se sabe."""
+    match = re.match(r"(\d{4})-(\d{2})-(\d{2})", expires or "")
+    if not match:
+        return None
+    end = datetime.date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    return (end - (today or datetime.date.today())).days
+
+
+def panel_warnings():
+    """Avisos para el equipo arriba del panel: cosas de configuración que conviene arreglar antes de que fallen."""
+    out = []
+    if ON_VERCEL and not os.environ.get("LANZATE_SECRETO"):
+        out.append("Falta LANZATE_SECRETO en Vercel: las sesiones y las contraseñas del portal dependen de la clave del equipo. "
+                   "Cargalo (un texto al azar de 32 caracteres o más) y volvé a crear las contraseñas del portal.")
+    if FILES.online:
+        if not FILES.token_expires:
+            try:
+                FILES.call("GET", "/repos/%s" % REPOS["datos"])
+            except ApiError:
+                pass
+        days = token_days_left(FILES.token_expires)
+        if days is not None and days <= 15:
+            when = "venció" if days < 0 else "vence hoy" if days == 0 else "vence en %d día%s" % (days, "" if days == 1 else "s")
+            out.append("El token de GitHub del panel %s (%s). Generá uno nuevo con los mismos permisos y cargalo en Vercel "
+                       "como GITHUB_TOKEN: sin token el panel no puede guardar." % (when, FILES.token_expires[:10]))
+    return out
+
+
 def valid_credentials(usuario, clave):
     user_ok = hmac.compare_digest(usuario.encode("utf-8"), access_user().encode("utf-8"))
     key_ok = bool(access_key()) and hmac.compare_digest(clave.encode("utf-8"), access_key().encode("utf-8"))
@@ -714,35 +790,6 @@ def check_portal_password(stored, password):
     return len(password) <= 128 and hmac.compare_digest(hash_portal_password(password, salt), stored)
 
 
-def _keystream(key, nonce, size):
-    out, counter = b"", 0
-    while len(out) < size:
-        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
-        counter += 1
-    return out[:size]
-
-
-def seal_password(password):
-    key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
-    nonce = secrets.token_bytes(16)
-    plain = password.encode("utf-8")
-    sealed = bytes(a ^ b for a, b in zip(plain, _keystream(key, nonce, len(plain))))
-    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
-    return base64.urlsafe_b64encode(nonce + tag + sealed).decode()
-
-
-def open_password(stored):
-    try:
-        raw = base64.urlsafe_b64decode((stored or "").encode())
-        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
-        key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
-        if not sealed or not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
-            return ""
-        return bytes(a ^ b for a, b in zip(sealed, _keystream(key, nonce, len(sealed)))).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return ""
-
-
 def set_portal_access(client_id, data):
     usuario = re.sub(r"\s+", "", str(data.get("usuario") or "")).lower()
     if not re.fullmatch(r"[a-z0-9._@-]{3,60}", usuario):
@@ -757,9 +804,11 @@ def set_portal_access(client_id, data):
         if any(c["id"] != client_id and (c.get("portal") or {}).get("usuario") == usuario for c in db["clientes"]):
             raise ApiError(409, "Ese usuario ya lo tiene otro cliente. Elegí otro.")
         version = (row.get("portal") or {}).get("version", 0) + 1
-        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "clave": seal_password(clave),
-                         "version": version, "pidio_clave": 0}
-    return get_client(client_id)
+        # Solo se guarda el hash: la contraseña se muestra esta única vez para mandársela al cliente.
+        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "version": version, "pidio_clave": 0}
+    result = get_client(client_id)
+    result["clave_nueva"] = clave
+    return result
 
 
 def clear_password_request(client_id):
@@ -830,7 +879,17 @@ def request_password(usuario, sitio=""):
                 if now_ms() - (access.get("pidio_clave") or 0) > 10 * 60000:
                     access["pidio_clave"] = now_ms()
                 break
-    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate y te mandamos tu contraseña por WhatsApp o mail."}
+    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate: te mandamos una contraseña nueva por WhatsApp o mail, "
+                                  "en general el mismo día hábil."}
+
+
+def landing_public_name(nombre, total=1):
+    """El nombre que ve el cliente: sin palabras internas como «Template» o «copia». Con una sola web, «tu web»."""
+    if total <= 1:
+        return "tu web"
+    clean = re.sub(r"^(template|plantilla|demo)\s+(de\s+)?", "", nombre.strip(), flags=re.I)
+    clean = re.sub(r"[\s-]+(copia|copy)(\s*\d+)?$", "", clean, flags=re.I).strip() or nombre
+    return clean[:1].upper() + clean[1:]
 
 
 def portal_home(client):
@@ -856,7 +915,7 @@ def portal_home(client):
         "plan": status, "plan_vence": client.get("plan_vence") or "",
         "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
                                                   "turnos", "medicion")} if plan else None,
-        "landings": [{"nombre": l["nombre"], "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
+        "landings": [{"nombre": landing_public_name(l["nombre"], len(landings)), "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
                       "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
                       "actualizado": l["actualizado"]} for l in sorted(landings, key=lambda l: -l["actualizado"])],
@@ -879,7 +938,8 @@ def change_portal_password(client_id, data):
         if not check_portal_password(access.get("hash"), actual):
             time.sleep(1)
             raise ApiError(400, "La contraseña actual no es correcta.")
-        access.update(hash=hash_portal_password(nueva), clave=seal_password(nueva), version=access.get("version", 0) + 1)
+        access.update(hash=hash_portal_password(nueva), version=access.get("version", 0) + 1)
+        access.pop("clave", None)
         return access["version"]
 
 
@@ -887,7 +947,8 @@ def portal_data_js(client):
     """Los datos que usa el editor del cliente: solo los suyos y sin datos de acceso."""
     safe = {k: v for k, v in client.items() if k not in ("portal", "notas")}
     landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
-    landings = [{k: l[k] for k in ("id", "cliente_id", "nombre", "slug", "actualizado")} | {"html": True} for l in landings]
+    landings = [{k: l[k] for k in ("id", "cliente_id", "slug", "actualizado")}
+                | {"nombre": landing_public_name(l["nombre"], len(landings)), "html": True} for l in landings]
     config = {k: v for k, v in read_config().items()}
     parts = [("LANZATE_CONFIG", config), ("LANZATE_PLANES", read_data("planes", {})),
              ("LANZATE_CLIENTES", [safe]), ("LANZATE_LANDINGS", landings)]
@@ -917,7 +978,12 @@ def landing_owner(landing_id):
     return None
 
 
-def record_visit(data, user_agent):
+VISITS_PER_IP_HOUR = 120
+LEADS_PER_IP_HOUR = 5
+LEADS_PER_LANDING_HOUR = 30
+
+
+def record_visit(data, user_agent, ip=""):
     if BOT_RE.search(user_agent or ""):
         return {"ok": True}
     try:
@@ -928,6 +994,12 @@ def record_visit(data, user_agent):
     if not landing or not RECORD.available():
         return {"ok": True}
     day = time.strftime("%Y-%m-%d")
+    if ip:
+        # Cada conexión cuenta una sola visita por landing y por día, y hay un tope por hora para los bots.
+        seen = counter_add(["lz:vd:%d:%s:%s" % (landing_id, short_hash(ip), day)], 86400)[0]
+        hour = counter_add(["lz:vh:%s" % short_hash(ip)], 3600)[0]
+        if seen > 1 or hour > VISITS_PER_IP_HOUR:
+            return {"ok": True}
     source = traffic_source(str(data.get("r") or ""))
     RECORD.hincr([("lz:v:%d" % landing_id, day, 1), ("lz:f:%d" % landing_id, source, 1),
                   ("lz:vc:%d" % landing["cliente_id"], day, 1)])
@@ -952,6 +1024,9 @@ def record_lead(data, ip=""):
             clean[key] = str(value)[:1000] if not isinstance(value, bool) else "Sí"
     if not clean:
         raise ApiError(400, "La consulta está vacía.")
+    per_ip, per_landing = counter_add(["lz:ch:%s" % short_hash(ip or "?"), "lz:cl:%d" % landing_id], 3600)
+    if per_ip > LEADS_PER_IP_HOUR or per_landing > LEADS_PER_LANDING_HOUR:
+        raise ApiError(429, "Ya recibimos varias consultas seguidas. Probá de nuevo en un rato o escribinos por WhatsApp.")
     lead_id = "%d-%s" % (now_ms(), secrets.token_hex(3))
     lead = {"id": lead_id, "fecha": now_ms(), "landing": landing["nombre"], "landing_id": landing_id,
             "tipo": "turno" if data.get("tipo") == "turno" else "contacto", "datos": clean, "estado": "nueva"}
@@ -1354,7 +1429,7 @@ def apply_to_document(markup, changes, photos, mark=False):
         roots = module_roots(doc, change.get("modulo")) or [doc]
         if any(apply_change(root, change, photos.get(index, ""), index if mark else None) for root in roots):
             applied.append(index)
-    return "<!DOCTYPE html>\n" + html_dom.tostring(doc, encoding="unicode"), applied
+    return "<!DOCTYPE html>\n" + html5_voids(html_dom.tostring(doc, encoding="unicode")), applied
 
 
 def apply_to_fragment(markup, changes, photos):
@@ -1551,7 +1626,7 @@ def client_dict(row, count=None):
     data = {k: v for k, v in row.items() if k != "portal"}
     access = row.get("portal") or {}
     data["portal_usuario"] = access.get("usuario") or ""
-    data["portal_clave"] = open_password(access.get("clave")) if access else ""
+    data["portal_clave"] = ""  # no se guarda una copia que se pueda leer: se genera una nueva cuando hace falta
     data["pidio_clave"] = access.get("pidio_clave") or 0
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row)
@@ -1664,7 +1739,54 @@ def decode_logo(data_url):
         raise ApiError(400, "No se pudo leer el logo")
     if len(raw) > MAX_LOGO:
         raise ApiError(400, "El logo pesa más de 2 MB")
+    if match.group(1) == "image/svg+xml":
+        raw = clean_svg(raw)
     return LOGO_TYPES[match.group(1)], raw
+
+
+SVG_BLOCKED = {"script", "foreignobject", "iframe", "object", "embed", "handler", "listener", "set", "animate",
+               "animatemotion", "animatetransform"}
+
+
+def clean_svg(raw):
+    """Un SVG puede traer código que se ejecuta al abrirlo. Se dejan solo las formas: sin scripts, sin eventos
+    (onload, onclick…) y sin links a otros sitios o a javascript:."""
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False, remove_comments=True,
+                             remove_pis=True)
+    try:
+        root = etree.fromstring(raw, parser)
+    except etree.XMLSyntaxError:
+        raise ApiError(400, "No se pudo leer el logo SVG")
+    if not isinstance(root.tag, str) or etree.QName(root).localname.lower() != "svg":
+        raise ApiError(400, "El logo SVG no es válido")
+    for ent in list(root.iter(etree.Entity)):  # entidades sin resolver (&x;): se sacan, dejando el texto que sigue
+        parent, tail = ent.getparent(), ent.tail or ""
+        prev = ent.getprevious()
+        if prev is not None:
+            prev.tail = (prev.tail or "") + tail
+        else:
+            parent.text = (parent.text or "") + tail
+        parent.remove(ent)
+    for el in list(root.iter()):
+        if not isinstance(el.tag, str):
+            continue
+        if etree.QName(el).localname.lower() in SVG_BLOCKED:
+            el.getparent().remove(el)
+            continue
+        for name in list(el.attrib):
+            local = etree.QName(name).localname.lower()
+            value = re.sub(r"\s+", "", el.attrib[name]).lower()
+            if local.startswith("on") or "javascript:" in value or "data:text" in value:
+                del el.attrib[name]
+            elif local == "href" and not (value.startswith("#") or value.startswith("data:image/png")
+                                          or value.startswith("data:image/jpeg") or value.startswith("data:image/webp")):
+                del el.attrib[name]
+            elif local == "style" and ("url(" in value or "expression(" in value or "@import" in value):
+                del el.attrib[name]
+    for style in root.iter("{http://www.w3.org/2000/svg}style", "style"):
+        if style.text and re.search(r"@import|url\(\s*['\"]?(?!#)|javascript:", style.text, re.I):
+            style.getparent().remove(style)
+    return etree.tostring(root, xml_declaration=True, encoding="utf-8")
 
 
 def write_logo(slug, data_url):
@@ -2199,6 +2321,14 @@ def publish(data):
     return {"resultados": results, "url": read_config()["urlPublica"]}
 
 
+VOID_END_TAGS = re.compile(r"</(?:source|track|wbr)>", re.I)
+
+
+def html5_voids(markup):
+    """lxml sigue las reglas de HTML4 y cierra <source>, <track> y <wbr>, que en HTML5 no llevan cierre."""
+    return VOID_END_TAGS.sub("", markup)
+
+
 def accessible_button_color(color):
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", color or ""):
         return None
@@ -2460,6 +2590,23 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
     if not main.get("id"):
         main.set("id", unique_id("contenido-principal"))
     main.set("tabindex", "-1")
+
+    # Todo el contenido dentro de una región: el botón de WhatsApp en un <aside> y el pie en un <footer>.
+    for module in body.xpath("./section[@data-module]"):
+        kind = module.get("data-module") or ""
+        if kind.startswith("whatsapp") and not module.xpath(".//aside"):
+            wrapper = etree.Element("aside", {"aria-label": "Contacto por WhatsApp", "class": "lz-region"})
+        elif kind.startswith("footer"):
+            inner = module.xpath(".//footer")
+            if inner:
+                # Un <footer> dentro de un <section> no cuenta como pie de la página: se lo marca explícitamente.
+                inner[0].set("role", "contentinfo")
+                continue
+            wrapper = etree.Element("footer", {"class": "lz-region"})
+        else:
+            continue
+        module.addprevious(wrapper)
+        wrapper.append(module)
     if not body.xpath('./a[contains(concat(" ", normalize-space(@class), " "), " lib-skip-link ")]'):
         skip = etree.Element("a", {"class": "lib-skip-link", "href": "#" + main.get("id")})
         skip.text = "Saltar al contenido"
@@ -2493,7 +2640,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
             if not heading.get("id"):
                 heading.set("id", unique_id((section.get("id") or "seccion") + "-titulo"))
             section.set("aria-labelledby", heading.get("id"))
-    return "<!DOCTYPE html>\n" + html_dom.tostring(document, encoding="unicode")
+    return "<!DOCTYPE html>\n" + html5_voids(html_dom.tostring(document, encoding="unicode"))
 
 
 def auto_description(html):
@@ -3018,6 +3165,7 @@ class Handler(SimpleHTTPRequestHandler):
         portal = re.match(r"^/portal/([a-z0-9-]+)/(editar/)?$", path)
         if portal and portal.group(1) != "editar":
             page = "portal/editar/index.html" if portal.group(2) else "portal/index.html"
+            self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),)
             self.send_body(200, Path(ROOT, page).read_bytes(), "text/html; charset=utf-8")
             return True
         if path in PANEL_PAGES:
@@ -3028,6 +3176,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 return True
             if ON_VERCEL:
+                self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),)
                 self.send_body(200, Path(ROOT, path.lstrip("/")).read_bytes(), "text/html; charset=utf-8")
                 return True
             return False
@@ -3177,7 +3326,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def dispatch(self, method, name, ident, query):
         if name == "sesion" and method == "GET":
-            return {"ok": self.authorized(), "requiere": login_required(), "online": FILES.online}
+            ok = self.authorized()
+            return {"ok": ok, "requiere": login_required(), "online": FILES.online, "avisos": panel_warnings() if ok else []}
         if name == "login" and method == "POST":
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")
@@ -3223,9 +3373,9 @@ class Handler(SimpleHTTPRequestHandler):
             add_attempt("olvide", "", self.client_ip())
             return request_password(data.get("usuario"), data.get("sitio") or sitio)
         if name == "visita" and method == "POST":
-            return record_visit(self.read_json(), self.headers.get("User-Agent"))
+            return record_visit(self.read_json(), self.headers.get("User-Agent"), self.client_ip())
         if name == "consulta-nueva" and method == "POST":
-            return record_lead(self.read_json())
+            return record_lead(self.read_json(), self.client_ip())
         if name in ("portal-pedidos", "portal-consulta", "portal-clave"):
             client = self.portal_client(sitio)
             if not client:

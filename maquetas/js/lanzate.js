@@ -129,6 +129,12 @@
   document.querySelectorAll("[data-tabs]").forEach(function (root) {
     var buttons = root.querySelectorAll("[data-tab]");
     var panels = root.querySelectorAll("[data-panel]");
+    /* Pestañas accesibles: cada botón de un tablist es una pestaña con su estado */
+    buttons.forEach(function (b) {
+      if (b.parentNode.getAttribute("role") !== "tablist") return;
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", b.classList.contains("is-on") ? "true" : "false");
+    });
     buttons.forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = btn.getAttribute("data-tab");
@@ -147,13 +153,20 @@
   document.querySelectorAll("[data-filter-group]").forEach(function (root) {
     var buttons = root.querySelectorAll("[data-filter]");
     var items = root.querySelectorAll("[data-item]");
+    /* Los filtros no son pestañas: son botones que quedan apretados */
+    var bar = buttons.length ? buttons[0].parentNode : null;
+    if (bar && bar.getAttribute("role") === "tablist") {
+      bar.setAttribute("role", "group");
+      if (!bar.hasAttribute("aria-label")) bar.setAttribute("aria-label", "Filtrar");
+    }
+    buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.classList.contains("is-on") ? "true" : "false"); });
     var empty = root.querySelector("[data-empty]");
     var paged = root.hasAttribute("data-pager");
     var homes = Array.prototype.map.call(items, function (item) { return item.parentNode; });
     buttons.forEach(function (btn) {
       btn.addEventListener("click", function () {
         var tag = btn.getAttribute("data-filter");
-        buttons.forEach(function (b) { b.classList.toggle("is-on", b === btn); });
+        buttons.forEach(function (b) { b.classList.toggle("is-on", b === btn); b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
         var shown = 0;
         items.forEach(function (item) {
           var tags = (item.getAttribute("data-tags") || "").split(/\s+/);
@@ -200,6 +213,17 @@
       });
     });
   }
+
+  /* Carruseles con scroll propio: se pueden enfocar y mover con el teclado, y tienen nombre */
+  document.querySelectorAll(".nx-scroll-track, [data-track]").forEach(function (track) {
+    if (!track.hasAttribute("tabindex")) track.setAttribute("tabindex", "0");
+    if (!track.hasAttribute("role")) track.setAttribute("role", "region");
+    if (!track.hasAttribute("aria-label")) {
+      var section = track.closest("section");
+      var heading = section && section.querySelector("h1, h2, h3");
+      track.setAttribute("aria-label", "Carrusel" + (heading && heading.textContent.trim() ? ": " + heading.textContent.trim().slice(0, 60) : ""));
+    }
+  });
 
   document.querySelectorAll("[data-scroller]").forEach(function (root) {
     var track = root.querySelector("[data-track]");
@@ -502,8 +526,9 @@
     function dayButton(d, cls, inner) {
       var iso = isoDate(d);
       var on = values.dia_iso === iso;
+      /* El nombre accesible empieza con lo que se ve («mié 18 nov») y suma la fecha completa, para control por voz */
       return '<button class="' + cls + '" type="button" data-book-pick="dia" data-iso="' + iso + '" data-label="' + longDate(d) +
-        '" aria-pressed="' + on + '" aria-label="' + longDate(d) + '">' + inner + "</button>";
+        '" aria-pressed="' + on + '">' + inner + '<span class="visually-hidden">, ' + longDate(d) + "</span></button>";
     }
 
     root.querySelectorAll("[data-book-days]").forEach(function (box) {
@@ -513,8 +538,8 @@
       while (count > 0) {
         if (d.getDay() !== 0) {
           html += dayButton(d, "bk-day",
-            "<small>" + d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "") + "</small>" +
-            "<strong>" + d.getDate() + "</strong>" +
+            "<small>" + d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "") + "</small> " +
+            "<strong>" + d.getDate() + "</strong> " +
             "<small>" + d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "") + "</small>");
           count -= 1;
         }
