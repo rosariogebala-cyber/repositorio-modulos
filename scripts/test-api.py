@@ -181,15 +181,18 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 200, out)
         return out["clave_nueva"]
 
-    def test_portal_password_is_shown_once_and_not_stored(self):
+    def test_portal_password_is_visible_to_the_team_and_stored_encrypted(self):
         clave = self.portal_access()
         self.assertGreaterEqual(len(clave), 8)
         row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
-        self.assertNotIn("clave", row["portal"], "no se guarda una copia recuperable de la contraseña")
-        self.assertNotIn(clave, sim.repo_file("lanzate-datos", "data/clientes.js").decode("utf-8"))
-        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), "")
+        self.assertIn("clave", row["portal"], "el equipo tiene que poder ver la contraseña")
+        self.assertNotIn(clave, sim.repo_file("lanzate-datos", "data/clientes.js").decode("utf-8"), "se guarda cifrada")
+        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), clave)
+        status, out = self.team.call("POST", "/api/clientes/%d/acceso" % self.client_id, {"usuario": "prueba-portal", "clave": "una-clave-elegida"})
+        self.assertEqual(status, 200, out)
+        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), "una-clave-elegida")
         portal = Client(self.base, "10.4.0.1")
-        status, _ = portal.call("POST", "/api/portal/login", {"usuario": "prueba-portal", "clave": clave, "sitio": self.slug})
+        status, _ = portal.call("POST", "/api/portal/login", {"usuario": "prueba-portal", "clave": "una-clave-elegida", "sitio": self.slug})
         self.assertEqual(status, 200)
 
     def test_portal_request_with_photo_is_private(self):

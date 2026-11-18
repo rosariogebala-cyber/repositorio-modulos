@@ -790,6 +790,36 @@ def check_portal_password(stored, password):
     return len(password) <= 128 and hmac.compare_digest(hash_portal_password(password, salt), stored)
 
 
+# La contraseña del portal se guarda cifrada con LANZATE_SECRETO para que el equipo la pueda ver y reenviar.
+def _keystream(key, nonce, size):
+    out, counter = b"", 0
+    while len(out) < size:
+        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
+        counter += 1
+    return out[:size]
+
+
+def seal_password(password):
+    key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+    nonce = secrets.token_bytes(16)
+    plain = password.encode("utf-8")
+    sealed = bytes(a ^ b for a, b in zip(plain, _keystream(key, nonce, len(plain))))
+    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
+    return base64.urlsafe_b64encode(nonce + tag + sealed).decode()
+
+
+def open_password(stored):
+    try:
+        raw = base64.urlsafe_b64decode((stored or "").encode())
+        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
+        key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+        if not sealed or not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
+            return ""
+        return bytes(a ^ b for a, b in zip(sealed, _keystream(key, nonce, len(sealed)))).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+
+
 def set_portal_access(client_id, data):
     usuario = re.sub(r"\s+", "", str(data.get("usuario") or "")).lower()
     if not re.fullmatch(r"[a-z0-9._@-]{3,60}", usuario):
@@ -804,8 +834,8 @@ def set_portal_access(client_id, data):
         if any(c["id"] != client_id and (c.get("portal") or {}).get("usuario") == usuario for c in db["clientes"]):
             raise ApiError(409, "Ese usuario ya lo tiene otro cliente. Elegí otro.")
         version = (row.get("portal") or {}).get("version", 0) + 1
-        # Solo se guarda el hash: la contraseña se muestra esta única vez para mandársela al cliente.
-        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "version": version, "pidio_clave": 0}
+        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "clave": seal_password(clave),
+                         "version": version, "pidio_clave": 0}
     result = get_client(client_id)
     result["clave_nueva"] = clave
     return result
@@ -879,7 +909,7 @@ def request_password(usuario, sitio=""):
                 if now_ms() - (access.get("pidio_clave") or 0) > 10 * 60000:
                     access["pidio_clave"] = now_ms()
                 break
-    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate: te mandamos una contraseña nueva por WhatsApp o mail, "
+    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate: te mandamos tu contraseña por WhatsApp o mail, "
                                   "en general el mismo día hábil."}
 
 
@@ -938,8 +968,7 @@ def change_portal_password(client_id, data):
         if not check_portal_password(access.get("hash"), actual):
             time.sleep(1)
             raise ApiError(400, "La contraseña actual no es correcta.")
-        access.update(hash=hash_portal_password(nueva), version=access.get("version", 0) + 1)
-        access.pop("clave", None)
+        access.update(hash=hash_portal_password(nueva), clave=seal_password(nueva), version=access.get("version", 0) + 1)
         return access["version"]
 
 
@@ -1626,7 +1655,7 @@ def client_dict(row, count=None):
     data = {k: v for k, v in row.items() if k != "portal"}
     access = row.get("portal") or {}
     data["portal_usuario"] = access.get("usuario") or ""
-    data["portal_clave"] = ""  # no se guarda una copia que se pueda leer: se genera una nueva cuando hace falta
+    data["portal_clave"] = open_password(access.get("clave")) if access else ""
     data["pidio_clave"] = access.get("pidio_clave") or 0
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row)

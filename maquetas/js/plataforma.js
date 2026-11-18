@@ -726,7 +726,7 @@
 
     function render(c) {
       current = c;
-      var freshKey = freshKeys[c.id] || "";
+      var freshKey = freshKeys[c.id] || c.portal_clave || "";
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio.replace(/^https?:\/\//, "")) + "</a>" : "";
@@ -755,8 +755,8 @@
 
       profile.innerHTML =
         (c.pidio_clave ? '<div class="cf-alert is-key" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i><p><strong>' + esc(c.nombre) +
-          " pidió su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Generá una nueva y mandásela.</p>" +
-          '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-key" aria-hidden="true"></i> Clave nueva y copiar acceso</button>' +
+          " pidió su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Copiá el acceso y mandáselo, o poné una contraseña nueva en «Cambiar usuario o contraseña».</p>" +
+          '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' +
           '<button class="btn-nx-outline btn-sm" type="button" data-pf-clave-enviada>Ya se la mandé</button></div>' : "") +
         (planAlert(c) ? '<div class="cf-alert" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong> " +
           (ps.vencido || (ps.dias != null && ps.dias <= 15) ? "Avisale para renovarlo y actualizá la fecha." : "Un pedido más se cobra aparte o pasa al mes que viene.") + "</p></div>" : "") +
@@ -795,9 +795,8 @@
                   "<div><dt>Contraseña</dt><dd>" + (freshKey
                     ? '<code data-pf-clave hidden>' + esc(freshKey) + '</code><code data-pf-clave-oculta aria-hidden="true">••••••••••</code>' +
                       '<button class="cf-icon-btn" type="button" data-pf-ver-clave aria-pressed="false" aria-label="Mostrar contraseña" title="Mostrar"><i class="bi bi-eye" aria-hidden="true"></i></button>'
-                    : '<span class="cf-muted">Guardada. Por seguridad no se puede ver: si la necesitás, generá una nueva.</span>') + "</dd></div>" +
+                    : '<span class="cf-muted">No se puede mostrar: poné una nueva en «Cambiar usuario o contraseña».</span>') + "</dd></div>" +
                 "</dl>" +
-                (freshKey ? '<p class="cf-muted">Copiala ahora: cuando salgas de esta página ya no se va a poder ver.</p>' : "") +
                 '<button class="btn-nx btn-sm cf-wide" type="button" data-pf-copiar-acceso><i class="bi bi-whatsapp" aria-hidden="true"></i> ' +
                   (freshKey ? "Copiar acceso para mandárselo" : "Clave nueva y copiar acceso") + "</button>"
               : '<p class="cf-empty"><i class="bi bi-lock" aria-hidden="true"></i> Todavía no tiene usuario. Creale uno abajo.</p>') +
@@ -983,7 +982,7 @@
         var btn = f.querySelector("button");
         btn.disabled = true;
         api("POST", "/api/clientes/" + c.id + "/acceso", { usuario: f.elements.usuario.value, clave: f.elements.clave.value })
-          .then(function (out) { freshKeys[c.id] = out.clave_nueva; say(msg, "Acceso guardado. Tocá «Copiar acceso» para mandárselo: la contraseña solo se ve ahora.", "ok"); return load(); })
+          .then(function (out) { freshKeys[c.id] = out.clave_nueva; say(msg, "Acceso guardado. Tocá «Copiar acceso» para mandárselo.", "ok"); return load(); })
           .catch(function (err) { say(accessOut, err.message, "warn"); })
           .then(function () { btn.disabled = false; });
       });
