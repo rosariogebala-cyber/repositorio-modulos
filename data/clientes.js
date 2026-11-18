@@ -149,7 +149,7 @@ window.LANZATE_CLIENTES = [
       {
         "id": "1794960093050-c930",
         "fecha": 1794960093050,
-        "estado": "pendiente",
+        "estado": "aceptado",
         "origen": "cliente",
         "landing": "Template estética",
         "landing_slug": "template-estetica",
@@ -157,23 +157,27 @@ window.LANZATE_CLIENTES = [
         "cambios": [
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "Navegación",
             "antes": "Tratamientos",
             "despues": "mmm",
-            "detalle": ""
+            "detalle": "",
+            "aplicado": true
           },
           {
             "tipo": "texto",
-            "estado": "pendiente",
+            "estado": "aceptado",
             "seccion": "Navegación",
             "antes": "Profesionales",
             "despues": "Profesionalesdddd",
             "detalle": "",
-            "modulo": "navegacion-simple"
+            "modulo": "navegacion-simple",
+            "aplicado": true
           }
         ],
-        "fotos": []
+        "fotos": [],
+        "comentario": "",
+        "resuelto": 1794960275728
       }
     ]
   },
