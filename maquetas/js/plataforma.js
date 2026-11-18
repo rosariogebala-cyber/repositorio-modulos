@@ -569,10 +569,10 @@
         '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu"><iframe title="Web con los cambios pedidos" loading="lazy" src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div>' +
         '<div class="cf-review-side"><ol class="cf-changes">' + r.cambios.map(function (ch, i) {
           if (ch.estado && ch.estado !== "pendiente") return "";
-          return '<li class="cf-change" data-pf-cambio="' + i + '" data-decision="aceptado"><button class="cf-change-go" type="button" data-pf-ir="' + i + '" aria-label="Ver el cambio ' + (i + 1) + ' en la web">' +
+          return '<li class="cf-change" data-pf-cambio="' + i + '" data-decision=""><button class="cf-change-go" type="button" data-pf-ir="' + i + '" aria-label="Ver el cambio ' + (i + 1) + ' en la web">' +
             '<span class="cf-change-num">' + (i + 1) + '</span><span class="cf-change-text"><small><i class="bi bi-' + (icons[ch.tipo] || "pencil") + '" aria-hidden="true"></i> ' + esc(ch.seccion) + "</small>" + changeLine(ch) + "</span></button>" +
             '<span class="cf-change-actions" role="group" aria-label="Decisión del cambio ' + (i + 1) + '">' +
-            '<button type="button" class="cf-yes" data-pf-si aria-pressed="true" title="Aceptar"><i class="bi bi-check-lg" aria-hidden="true"></i><span>Aceptar</span></button>' +
+            '<button type="button" class="cf-yes" data-pf-si aria-pressed="false" title="Aceptar"><i class="bi bi-check-lg" aria-hidden="true"></i><span>Aceptar</span></button>' +
             '<button type="button" class="cf-no" data-pf-no aria-pressed="false" title="Rechazar"><i class="bi bi-x-lg" aria-hidden="true"></i><span>Rechazar</span></button></span></li>';
         }).join("") + "</ol>" +
         '<label class="cf-request-reply">Respuesta para el cliente (opcional) <input name="comentario" maxlength="600" placeholder="Por ejemplo: ¡Listo! Ya está publicado."></label>' +
@@ -616,6 +616,12 @@
         var out = block.querySelector("[data-pf-review-msg]");
         var decisions = {};
         var rejected = 0;
+        var undecided = block.querySelector('.cf-change[data-decision=""]');
+        if (undecided) {
+          say(out, "Marcá Aceptar o Rechazar en cada cambio antes de guardar.", "warn");
+          undecided.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          return;
+        }
         block.querySelectorAll(".cf-change").forEach(function (li) {
           decisions[li.getAttribute("data-pf-cambio")] = li.getAttribute("data-decision");
           if (li.getAttribute("data-decision") === "rechazado") rejected += 1;
