@@ -1,7 +1,9 @@
 # Lanzate · Módulos, landings y panel
 
 Biblioteca de módulos, constructor de landings y panel de clientes. No usa base de datos:
-todo vive en este repositorio y se publica con GitHub Pages. El panel corre online en Vercel o en tu computadora.
+lo público (módulos y landings publicadas) vive en este repositorio y se publica con GitHub Pages. Lo privado
+(clientes, accesos al portal, landings con sus borradores y fotos de los pedidos) vive en el repo **privado**
+`lanzate-datos`. El panel corre online en Vercel o en tu computadora.
 
 ## Panel online para el equipo (Vercel)
 
@@ -16,13 +18,20 @@ Variables de entorno en Vercel (Settings → Environment Variables):
 | `LANZATE_USUARIO` | Usuario del equipo |
 | `LANZATE_CLAVE` | Clave del equipo |
 | `LANZATE_SECRETO` | Texto largo al azar para firmar las sesiones (32 caracteres o más) |
-| `GITHUB_TOKEN` | Token de GitHub con permiso de escritura (Contents: Read and write) en `repositorio-modulos` y `lanzate` |
+| `GITHUB_TOKEN` | Token de GitHub con permiso de escritura (Contents: Read and write) en `repositorio-modulos`, `lanzate` y `lanzate-datos` |
+| `LANZATE_DATOS_REPO` | Opcional: el repo privado de datos, si no es `rosariogebala-cyber/lanzate-datos` |
 | `ANTHROPIC_API_KEY` | Opcional: clave de la IA del constructor |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Las crea Vercel al conectar Upstash Redis (Storage). Guardan visitas y consultas |
 
 Los guardados de datos no vuelven a desplegar Vercel (`ignoreCommand` en `vercel.json`): solo los cambios de código.
 
 ## Cómo se usa en tu computadora
+
+0. La primera vez, cloná el repo privado de datos al lado de esta carpeta (queda `Lanzate/Lanzate_datos`):
+
+   ```sh
+   cd .. && git clone https://github.com/rosariogebala-cyber/lanzate-datos.git Lanzate_datos
+   ```
 
 1. Abrí la Terminal en esta carpeta y corré:
 
@@ -44,8 +53,9 @@ Los guardados de datos no vuelven a desplegar Vercel (`ignoreCommand` en `vercel
 | --- | --- |
 | Datos generales (WhatsApp, URL pública) | `data/config.js` → `window.LANZATE_CONFIG` |
 | Planes (Express, Negocio, Pro) | `data/planes.js` → se copian solos de `Lanzate_site/js/config.js` |
-| Clientes | `data/clientes.js` → `window.LANZATE_CLIENTES` |
-| Landings con sus módulos | `data/landings.js` → `window.LANZATE_LANDINGS` |
+| Clientes (y accesos al portal) | `lanzate-datos`: `data/clientes.js` → `window.LANZATE_CLIENTES` |
+| Landings con sus módulos | `lanzate-datos`: `data/landings.js` → `window.LANZATE_LANDINGS` |
+| Fotos de los pedidos de cambios | `lanzate-datos`: `pedidos/<cliente>/` |
 | Reglas de calidad | `data/reglas.js` → `window.LANZATE_REGLAS` |
 | Landing publicada | `l/<cliente>/<landing>/index.html` |
 | Logo del cliente | `l/<cliente>/logo.png` (o .jpg, .webp, .svg) |
@@ -124,3 +134,12 @@ GitHub lo corre en cada push.
 ## IA
 
 La clave se guarda en tu computadora (`~/.lanzate/ia.json`), desde «Configurar IA» en el constructor.
+
+## Seguridad
+
+- **Datos privados:** clientes, accesos, landings y fotos de pedidos están en el repo privado `lanzate-datos`.
+  El panel los muestra solo con la clave del equipo; las fotos de un pedido las ve también el cliente dueño, con su sesión del portal.
+- **Guardados al mismo tiempo:** antes de hacer el commit, el panel compara cada archivo con lo que leyó. Si alguien
+  guardó en el medio, vuelve a hacer el pedido con lo último (hasta 3 veces) en lugar de pisar el cambio del otro.
+- **Límite de intentos:** 5 ingresos fallidos por usuario o 20 por conexión bloquean 15 minutos (panel y portal).
+  «Olvidé mi contraseña» acepta 10 pedidos por conexión cada 15 minutos. Online se cuentan en Upstash Redis.

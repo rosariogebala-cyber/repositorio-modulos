@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -43,6 +44,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
 LANDINGS_DIR = os.path.join(ROOT, "l")
 SITIO_VENTA = os.path.normpath(os.path.join(ROOT, "..", "Lanzate_site"))
+DATOS_LOCAL = os.path.normpath(os.path.join(ROOT, "..", "Lanzate_datos"))
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".lanzate")
 
 MAX_BODY = 40 * 1024 * 1024
@@ -153,20 +155,37 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") or ""
 REPOS = {
     "modulos": os.environ.get("LANZATE_REPO") or "rosariogebala-cyber/repositorio-modulos",
     "sitio": os.environ.get("LANZATE_SITIO_REPO") or "rosariogebala-cyber/lanzate",
+    # Privado: clientes, accesos al portal, landings con sus borradores y fotos de los pedidos.
+    "datos": os.environ.get("LANZATE_DATOS_REPO") or "rosariogebala-cyber/lanzate-datos",
 }
 BRANCH = os.environ.get("LANZATE_RAMA") or "main"
 GITHUB_API = os.environ.get("LANZATE_GITHUB_API") or "https://api.github.com"
 
 
+class Conflict(Exception):
+    """Otra persona guardó el mismo archivo mientras se procesaba este pedido."""
+
+
+def blob_sha(data):
+    """El sha que GitHub le da a un archivo con este contenido (None si no existe)."""
+    if data is None:
+        return None
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
 class LocalFiles:
-    """Archivos en el disco: Lanzate_modulos y, al lado, Lanzate_site."""
+    """Archivos en el disco: Lanzate_modulos y, al lado, Lanzate_site y Lanzate_datos."""
     online = False
 
     def root(self, repo):
-        return ROOT if repo == "modulos" else SITIO_VENTA
+        return {"modulos": ROOT, "sitio": SITIO_VENTA, "datos": DATOS_LOCAL}[repo]
 
     def has(self, repo):
-        return repo == "modulos" or os.path.isdir(os.path.join(SITIO_VENTA, "js"))
+        if repo == "modulos":
+            return True
+        if repo == "datos":
+            return os.path.isdir(DATOS_LOCAL)
+        return os.path.isdir(os.path.join(SITIO_VENTA, "js"))
 
     def read(self, repo, path):
         try:
@@ -224,8 +243,9 @@ class GitHubFiles:
         return self.local
 
     def begin(self):
-        self.local.pending = {"modulos": {}, "sitio": {}}
+        self.local.pending = {repo: {} for repo in REPOS}
         self.local.cache = {}
+        self.local.seen = {}
         self.local.trees = {}
 
     def discard(self):
@@ -261,6 +281,8 @@ class GitHubFiles:
         key = (repo, path)
         if key not in st.cache:
             st.cache[key] = self.call("GET", "/repos/%s/contents/%s?ref=%s" % (REPOS[repo], quote(path), BRANCH), raw=True)
+            # Lo que se leyó: al guardar se compara con lo que hay en GitHub para no pisar el cambio de otro.
+            st.seen[key] = blob_sha(st.cache[key])
         return st.cache[key]
 
     def write(self, repo, path, data):
@@ -303,6 +325,7 @@ class GitHubFiles:
                 except ApiError as err:
                     if attempt == 2 or "422" not in str(err) and "409" not in str(err):
                         raise
+                    st.trees.pop(repo, None)
             done.append(repo)
         self.begin()
         return done
@@ -312,6 +335,7 @@ class GitHubFiles:
         ref = self.call("GET", "/repos/%s/git/ref/heads/%s" % (name, BRANCH))
         head = ref["object"]["sha"]
         base = self.call("GET", "/repos/%s/git/commits/%s" % (name, head))["tree"]["sha"]
+        self.check_unchanged(repo, files, base)
         entries = []
         for path, data in sorted(files.items()):
             if data is None:
@@ -328,6 +352,19 @@ class GitHubFiles:
         commit = self.call("POST", "/repos/%s/git/commits" % name,
                            {"message": message, "tree": tree["sha"], "parents": [head]})
         self.call("PATCH", "/repos/%s/git/refs/heads/%s" % (name, BRANCH), {"sha": commit["sha"], "force": False})
+
+
+    def check_unchanged(self, repo, files, base):
+        """Si alguien cambió en GitHub un archivo que este pedido leyó y quiere guardar, no lo pisa."""
+        seen = self.state().seen
+        watched = [p for p in files if (repo, p) in seen]
+        if not watched:
+            return
+        out = self.call("GET", "/repos/%s/git/trees/%s?recursive=1" % (REPOS[repo], base)) or {}
+        current = {t["path"]: t["sha"] for t in out.get("tree") or [] if t.get("type") == "blob"}
+        for path in watched:
+            if current.get(path) != seen[(repo, path)]:
+                raise Conflict(path)
 
 
 FILES = GitHubFiles(GITHUB_TOKEN) if GITHUB_TOKEN else LocalFiles()
@@ -437,6 +474,70 @@ class Record:
 RECORD = Record()
 
 
+# --- Límite de intentos -----------------------------------------------------------------
+# Cuenta los intentos fallidos de ingreso por usuario y por conexión (IP). Online usa Upstash Redis;
+# sin Redis, en tu computadora va a ~/.lanzate/registro.json y en Vercel queda en memoria.
+
+ATTEMPT_WINDOW = 15 * 60
+ATTEMPT_LIMITS = {"usuario": 5, "ip": 20, "olvide": 10}
+_attempts = {}
+_attempts_lock = threading.Lock()
+
+
+def attempt_keys(kind, usuario, ip):
+    keys = []
+    if usuario:
+        keys.append(("intentos:%s:u:%s" % (kind, hashlib.sha256(usuario.encode("utf-8")).hexdigest()[:24]), ATTEMPT_LIMITS["usuario"]))
+    if ip:
+        keys.append(("intentos:%s:ip:%s" % (kind, ip), ATTEMPT_LIMITS["olvide" if kind == "olvide" else "ip"]))
+    return keys
+
+
+def _attempt_counts(keys):
+    if RECORD.online:
+        return [int(n or 0) for n in RECORD.redis([["GET", k] for k in keys])]
+    now = time.time()
+    if RECORD.available():
+        table = RECORD.local(lambda data: dict(data.get("intentos") or {}))
+    else:
+        with _attempts_lock:
+            table = dict(_attempts)
+    return [n if until > now else 0 for n, until in (table.get(k) or (0, 0) for k in keys)]
+
+
+def check_attempts(kind, usuario="", ip=""):
+    """Antes de probar la clave: si ya hubo demasiados intentos fallidos, no deja seguir."""
+    keys = attempt_keys(kind, usuario, ip)
+    if keys and any(n >= limit for n, (_, limit) in zip(_attempt_counts([k for k, _ in keys]), keys)):
+        raise ApiError(429, "Hubo demasiados intentos. Esperá 15 minutos y probá de nuevo.")
+
+
+def add_attempt(kind, usuario="", ip=""):
+    keys = [k for k, _ in attempt_keys(kind, usuario, ip)]
+    if not keys:
+        return
+    if RECORD.online:
+        commands = []
+        for k in keys:
+            commands += [["INCR", k], ["EXPIRE", k, ATTEMPT_WINDOW]]
+        RECORD.redis(commands)
+        return
+    until = time.time() + ATTEMPT_WINDOW
+
+    def bump(table):
+        now = time.time()
+        for k in keys:
+            n, end = table.get(k) or (0, 0)
+            table[k] = [(n if end > now else 0) + 1, until]
+        for k in [k for k, (_, end) in table.items() if end <= now]:
+            del table[k]
+    if RECORD.available():
+        RECORD.local(lambda data: bump(data.setdefault("intentos", {})))
+    else:
+        with _attempts_lock:
+            bump(_attempts)
+
+
 def read_text(repo, path):
     data = FILES.read(repo, path)
     return None if data is None else data.decode("utf-8")
@@ -459,14 +560,43 @@ DEFAULT_CONFIG = {
 _lock = threading.RLock()
 
 
+PRIVATE_DATA = ("clientes", "landings")
+
+
+def data_repo(key):
+    """Clientes y landings van al repo privado; el resto (planes, reglas, config) puede ser público."""
+    return "datos" if key in PRIVATE_DATA else "modulos"
+
+
+_private_ok = []
+
+
+def check_private_repo():
+    """Sin acceso al repo privado el panel se vería vacío: mejor avisar qué falta."""
+    if _private_ok:
+        return
+    if FILES.online:
+        info = FILES.call("GET", "/repos/%s" % REPOS["datos"])
+        if not info:
+            raise ApiError(502, "El panel no puede leer el repo privado %s. Revisá que exista y que el token de GitHub "
+                                "(GITHUB_TOKEN en Vercel) tenga permiso sobre él." % REPOS["datos"])
+        if not info.get("private"):
+            raise ApiError(500, "El repo %s tiene que ser privado: ahí están los datos de los clientes." % REPOS["datos"])
+    elif not FILES.has("datos"):
+        raise ApiError(500, "Falta la carpeta Lanzate_datos al lado de Lanzate_modulos (el repo privado).")
+    _private_ok.append(True)
+
+
 def data_path(key):
     return "data/" + DATA_FILES[key][0]
 
 
 def read_data(key, default):
     """Lee window.X = {...}; del archivo. El contenido es JSON válido."""
-    text = read_text("modulos", data_path(key))
+    text = read_text(data_repo(key), data_path(key))
     if text is None:
+        if data_repo(key) == "datos":
+            check_private_repo()
         return default
     start = text.find("=", text.find("window."))
     end = text.rfind(";")
@@ -479,7 +609,7 @@ def read_data(key, default):
 def write_data(key, value):
     name, var, note = DATA_FILES[key]
     body = "/* %s */\nwindow.%s = %s;\n" % (note, var, json.dumps(value, ensure_ascii=False, indent=2))
-    FILES.write("modulos", data_path(key), body)
+    FILES.write(data_repo(key), data_path(key), body)
 
 
 @contextmanager
@@ -1100,7 +1230,7 @@ def submit_client_request(client_id, data):
         for index, photo in enumerate(photos, 1):
             ext, raw = decode_image(photo.get("data"), MAX_REQUEST_PHOTO)
             path = "pedidos/%s/%s-%d.%s" % (row["slug"], request_id, index, ext)
-            FILES.write("modulos", path, raw)
+            FILES.write("datos", path, raw)
             saved_photos.append({"ruta": "/" + path, "nota": " ".join(str(photo.get("nota") or "").split())[:300]})
             target = photo.get("cambio")
             if isinstance(target, int) and 0 <= target < len(changes) and changes[target]["tipo"] == "foto":
@@ -1308,7 +1438,7 @@ def decide_request(client_id, request_id, data):
             photos = {}
             for index, change in accepted:
                 if change.get("tipo") == "foto" and change.get("foto"):
-                    raw = FILES.read("modulos", change["foto"].lstrip("/"))
+                    raw = FILES.read("datos", change["foto"].lstrip("/"))
                     if raw is not None:
                         name = "l/%s/media/%s" % (row["slug"], change["foto"].rsplit("/", 1)[-1])
                         FILES.write("modulos", name, raw)
@@ -2057,11 +2187,13 @@ def publish(data):
     render_all()
     if FILES.online:
         repos = FILES.commit(message)
-        names = {"modulos": "repositorio-modulos", "sitio": "lanzate"}
+        names = {"modulos": "repositorio-modulos", "sitio": "lanzate", "datos": "lanzate-datos"}
         return {"resultados": [{"carpeta": names[r], "ok": True, "detalle": "Cambios publicados."} for r in repos] or
                 [{"carpeta": "GitHub", "ok": True, "detalle": "Todo estaba publicado."}],
                 "url": read_config()["urlPublica"]}
     results = [publish_repo(ROOT, message)]
+    if os.path.isdir(os.path.join(DATOS_LOCAL, ".git")):
+        results.append(publish_repo(DATOS_LOCAL, message))
     if os.path.isdir(SITIO_VENTA):
         results.append(publish_repo(SITIO_VENTA, message))
     return {"resultados": results, "url": read_config()["urlPublica"]}
@@ -2859,6 +2991,14 @@ class Handler(SimpleHTTPRequestHandler):
     def portal_cookie(self, slug, value, max_age):
         return self.session_cookie(value, max_age, PORTAL_COOKIE + "_" + slug.replace("-", "_"))
 
+    def client_ip(self):
+        """La IP de quien hace el pedido (en Vercel llega en X-Forwarded-For / X-Real-IP)."""
+        if ON_VERCEL:
+            ip = (self.headers.get("X-Real-IP") or (self.headers.get("X-Forwarded-For") or "").split(",")[0]).strip()
+            if ip:
+                return ip[:64]
+        return self.client_address[0] if self.client_address else ""
+
     def authorized(self):
         return not login_required() or valid_session(self.cookie(COOKIE))
 
@@ -2891,7 +3031,26 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_body(200, Path(ROOT, path.lstrip("/")).read_bytes(), "text/html; charset=utf-8")
                 return True
             return False
-        if FILES.online and (path.startswith("/l/") or path.startswith("/pedidos/") or re.match(r"^/data/[a-z]+\.js$", path)):
+        private = re.match(r"^/data/(%s)\.js$" % "|".join(PRIVATE_DATA), path)
+        if private:
+            if not self.authorized():
+                self.send_json(401, {"error": "Ingresá con la clave del equipo."})
+            else:
+                self.send_body(200, FILES.read("datos", path.lstrip("/")) or b"", "text/javascript; charset=utf-8")
+            return True
+        photo = re.match(r"^/pedidos/([a-z0-9-]+)/[\w.-]+\.(jpg|png|webp)$", path)
+        if path.startswith("/pedidos/"):
+            # Fotos de los pedidos: solo el equipo o el cliente dueño, con su sesión del portal.
+            if not photo or not (self.authorized() or self.portal_client(photo.group(1))):
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
+                return True
+            data = FILES.read("datos", path.lstrip("/"))
+            if data is None:
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
+            else:
+                self.send_body(200, data, {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[photo.group(2)])
+            return True
+        if FILES.online and (path.startswith("/l/") or re.match(r"^/data/[a-z]+\.js$", path)):
             rel = path.lstrip("/")
             if rel.endswith("/") or rel.count("/") == 2 and "." not in rel.rsplit("/", 1)[-1]:
                 rel = rel.rstrip("/") + "/index.html"
@@ -2927,8 +3086,10 @@ class Handler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= MAX_BODY:
             raise ApiError(413, "Contenido vacío o demasiado grande")
+        if getattr(self, "_body", None) is None:
+            self._body = self.rfile.read(length)  # se guarda por si hay que reintentar el pedido
         try:
-            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            data = json.loads(self._body.decode("utf-8"))
         except ValueError:
             raise ApiError(400, "El contenido no es JSON válido")
         if not isinstance(data, dict):
@@ -2960,41 +3121,59 @@ class Handler(SimpleHTTPRequestHandler):
         token = match.group(1) if match.groups() else ""
         self.route_token = match.group(2) if len(match.groups()) > 1 else (token if name in ("portal-consulta", "portal-sitio") else "")
         ident = int(token) if str(token).isdigit() else None
-        FILES.begin()
-        try:
-            if name in CROSS_SITE_ROUTES:
-                self.extra_headers = (("Access-Control-Allow-Origin", "*"),)
-            elif method != "GET" and not self.same_origin():
-                raise ApiError(403, "Pedido rechazado.")
-            if name not in PUBLIC_ROUTES and not self.authorized():
-                raise ApiError(401, "Ingresá con la clave del equipo.")
-            if name == "portal-datos":
-                client = self.portal_client((query.get("c") or [""])[0])
-                if not client and self.authorized():
-                    slug = (query.get("c") or [""])[0]
-                    client = next((c for c in read_data("clientes", []) if c["slug"] == slug), None)
-                if not client:
-                    raise ApiError(401, "Ingresá a tu portal.")
-                self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
+        self._body = None
+        for attempt in range(3):
+            FILES.begin()
+            try:
+                result = self.handle_route(method, name, ident, query)
+            except Conflict as err:
+                # Alguien guardó lo mismo mientras tanto: se vuelve a hacer con lo último de GitHub.
+                FILES.discard()
+                if attempt < 2:
+                    time.sleep(0.3 + random.random())
+                    continue
+                print("Choque al guardar %s" % err, file=sys.stderr)
+                self.send_json(409, {"error": "Alguien más estaba guardando lo mismo. Volvé a intentar en unos segundos."})
                 return True
-            if name == "pedido-vista" and method == "GET":
-                page, _ = review_page(ident, self.route_token)
-                self.send_body(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            except ApiError as err:
+                FILES.discard()
+                self.send_json(err.status, {"error": str(err)})
                 return True
-            result = self.dispatch(method, name, ident, query)
-            if method != "GET" and name not in ("publicar", "portal-login", "portal-logout"):
-                action = "Borra " + ("cliente" if name == "cliente" else "landing") if method == "DELETE" else ACTION_NAMES.get(name, "Actualiza datos")
-                FILES.commit(action + " desde el panel")
-        except ApiError as err:
-            FILES.discard()
-            self.send_json(err.status, {"error": str(err)})
-        except OSError as err:
-            FILES.discard()
-            print("Error de archivos: %s" % err, file=sys.stderr)
-            self.send_json(500, {"error": "No se pudo guardar en la carpeta del proyecto: %s" % err})
-        else:
-            self.send_json(200, result)
-        return True
+            except OSError as err:
+                FILES.discard()
+                print("Error de archivos: %s" % err, file=sys.stderr)
+                self.send_json(500, {"error": "No se pudo guardar en la carpeta del proyecto: %s" % err})
+                return True
+            if result is not None:
+                self.send_json(200, result)
+            return True
+
+    def handle_route(self, method, name, ident, query):
+        """Atiende el pedido y guarda. Devuelve None si ya respondió."""
+        if name in CROSS_SITE_ROUTES:
+            self.extra_headers = (("Access-Control-Allow-Origin", "*"),)
+        elif method != "GET" and not self.same_origin():
+            raise ApiError(403, "Pedido rechazado.")
+        if name not in PUBLIC_ROUTES and not self.authorized():
+            raise ApiError(401, "Ingresá con la clave del equipo.")
+        if name == "portal-datos":
+            client = self.portal_client((query.get("c") or [""])[0])
+            if not client and self.authorized():
+                slug = (query.get("c") or [""])[0]
+                client = next((c for c in read_data("clientes", []) if c["slug"] == slug), None)
+            if not client:
+                raise ApiError(401, "Ingresá a tu portal.")
+            self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
+            return None
+        if name == "pedido-vista" and method == "GET":
+            page, _ = review_page(ident, self.route_token)
+            self.send_body(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            return None
+        result = self.dispatch(method, name, ident, query)
+        if method != "GET" and name not in ("publicar", "portal-login", "portal-logout"):
+            action = "Borra " + ("cliente" if name == "cliente" else "landing") if method == "DELETE" else ACTION_NAMES.get(name, "Actualiza datos")
+            FILES.commit(action + " desde el panel")
+        return result
 
     def dispatch(self, method, name, ident, query):
         if name == "sesion" and method == "GET":
@@ -3003,7 +3182,10 @@ class Handler(SimpleHTTPRequestHandler):
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")
             data = self.read_json()
+            usuario = str(data.get("usuario") or "").strip().lower()
+            check_attempts("equipo", usuario, self.client_ip())
             if not valid_credentials(str(data.get("usuario") or ""), str(data.get("clave") or "")):
+                add_attempt("equipo", usuario, self.client_ip())
                 time.sleep(1)
                 raise ApiError(401, "El usuario o la contraseña no son correctos.")
             self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
@@ -3017,7 +3199,14 @@ class Handler(SimpleHTTPRequestHandler):
             return portal_site(self.route_token)
         if name == "portal-login" and method == "POST":
             data = self.read_json()
-            client = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio") or sitio)
+            usuario = str(data.get("usuario") or "").strip().lower()
+            check_attempts("portal", usuario, self.client_ip())
+            try:
+                client = portal_login(data.get("usuario"), data.get("clave"), data.get("sitio") or sitio)
+            except ApiError as err:
+                if err.status == 401:
+                    add_attempt("portal", usuario, self.client_ip())
+                raise
             token = portal_token(client["id"], client["portal"]["version"])
             self.extra_headers = (("Set-Cookie", self.portal_cookie(client["slug"], token, 30 * 86400)),)
             return {"ok": True, "sitio": client["slug"]}
@@ -3030,6 +3219,8 @@ class Handler(SimpleHTTPRequestHandler):
             return {"ok": bool(client), "nombre": client["nombre"] if client else ""}
         if name == "portal-olvide" and method == "POST":
             data = self.read_json()
+            check_attempts("olvide", "", self.client_ip())
+            add_attempt("olvide", "", self.client_ip())
             return request_password(data.get("usuario"), data.get("sitio") or sitio)
         if name == "visita" and method == "POST":
             return record_visit(self.read_json(), self.headers.get("User-Agent"))
@@ -3172,7 +3363,12 @@ def main():
     port = int(os.environ.get("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8877))
     host = "127.0.0.1"
     sync_plans()
-    if FILES.read("modulos", data_path("clientes")) is None:
+    if not FILES.has("datos"):
+        print("Falta la carpeta de datos privados: %s" % DATOS_LOCAL)
+        print("  Cloná el repo privado al lado de Lanzate_modulos:")
+        print("  git clone https://github.com/%s.git %s" % (REPOS["datos"], DATOS_LOCAL))
+        sys.exit(1)
+    if FILES.read("datos", data_path("clientes")) is None:
         write_data("clientes", [])
         write_data("landings", [])
     server = ThreadingHTTPServer((host, port), partial(Handler, directory=ROOT))

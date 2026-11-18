@@ -9,3 +9,8 @@ data/previews/
 .vercel
 .env*
 public/
+
+# Datos privados: viven en el repo privado lanzate-datos (../Lanzate_datos)
+data/clientes.js
+data/landings.js
+pedidos/

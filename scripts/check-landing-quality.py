@@ -82,6 +82,14 @@ class LandingQuality(TestCase):
                 if (ROOT / "data" / server.DATA_FILES[key][0]).exists():
                     self.assertIsNotNone(server.read_data(key, None))
 
+    def test_private_data_not_in_public_repo(self):
+        """Clientes, landings y fotos de pedidos van al repo privado lanzate-datos, nunca a este (es público)."""
+        for rel in ("data/clientes.js", "data/landings.js", "pedidos"):
+            with self.subTest(archivo=rel):
+                self.assertFalse((ROOT / rel).exists(), "%s tiene que estar en lanzate-datos" % rel)
+        self.assertEqual(server.data_repo("clientes"), "datos")
+        self.assertEqual(server.data_repo("landings"), "datos")
+
     def test_site_config_parses(self):
         sample = """window.SITE = {
   marca: "Lanzate", // comentario
