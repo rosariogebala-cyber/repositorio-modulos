@@ -144,7 +144,38 @@ window.LANZATE_CLIENTES = [
       "clave": "-BqFt3in2r5WmZAhY0VxYoUre0dJgN4TMjbacrZ8T2zVY0kLhpmznpECoL0v",
       "version": 1,
       "pidio_clave": 0
-    }
+    },
+    "pedidos": [
+      {
+        "id": "1794960093050-c930",
+        "fecha": 1794960093050,
+        "estado": "pendiente",
+        "origen": "cliente",
+        "landing": "Template estética",
+        "landing_slug": "template-estetica",
+        "nota": "",
+        "cambios": [
+          {
+            "tipo": "texto",
+            "estado": "pendiente",
+            "seccion": "Navegación",
+            "antes": "Tratamientos",
+            "despues": "mmm",
+            "detalle": ""
+          },
+          {
+            "tipo": "texto",
+            "estado": "pendiente",
+            "seccion": "Navegación",
+            "antes": "Profesionales",
+            "despues": "Profesionalesdddd",
+            "detalle": "",
+            "modulo": "navegacion-simple"
+          }
+        ],
+        "fotos": []
+      }
+    ]
   },
   {
     "nombre": "Rumbo Viajes",
