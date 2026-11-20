@@ -47,7 +47,7 @@ class ReferenceAssistantTests(unittest.TestCase):
             {"id": "express", "nombre": "Express", "secciones": 4, "turnos": False},
             {"id": "pro", "nombre": "Pro", "secciones": 10, "turnos": True}
         ]}
-        client = {"id": 1, "nombre": "Estudio", "plan": "express"}
+        client = {"id": 1, "nombre": "Estudio", "slug": "estudio", "plan": "express"}
         old = {"id": 10, "cliente_id": 1}
         new = {"id": 11, "cliente_id": 1, "plan_id": "pro",
                "plan_condiciones": dict(catalog["planes"][1])}
