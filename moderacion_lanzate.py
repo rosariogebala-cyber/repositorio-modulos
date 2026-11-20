@@ -72,4 +72,4 @@ def evaluar_cambio(change):
         return "revisar", "Enlace externo que requiere verificación."
     if any(ch.isspace() for ch in url) or len(url) > 500:
         return "rechazar", "El enlace contiene espacios o es demasiado largo."
-    return "aceptar", "Enlace HTTPS con formato válido; destino no verificado."
+    return "revisar", "Enlace externo con formato válido, pero el destino requiere verificación."
