@@ -59,25 +59,26 @@ class PlanConsistency(unittest.TestCase):
         self.assertEqual([p["enviosIlimitados"] for p in result],[False,False,True])
         self.assertEqual([p["turnos"] for p in result],[False]*3)
 
-    def test_editar_landing_heredada_no_bloquea_por_nuevo_limite(self):
+    def test_secciones_adicionales_son_avisos_no_bloqueos(self):
         plan={"nombre":"Express", "secciones":4, "turnos":False}
         def items(count):
             return [{"id":"servicios-simple"} for _ in range(count)]
         with patch.object(server, "client_plan", return_value=plan):
-            # Antes tenía 6 secciones; cambiar texto conservando 6 debe funcionar.
-            self.assertEqual(server.plan_errors({}, items(6), items(6)), [])
-            self.assertEqual(server.plan_errors({}, items(5), items(6)), [])
-            # Agregar una nueva sección o crear desde cero sobre el límite no.
-            self.assertTrue(server.plan_errors({}, items(7), items(6)))
-            self.assertTrue(server.plan_errors({}, items(6), None))
-            self.assertEqual(server.plan_errors({}, items(4), None), [])
+            self.assertEqual(server.plan_errors({}, items(4)), [])
+            aviso = server.plan_errors({}, items(6))
+            self.assertEqual(len(aviso), 1)
+            self.assertIn("2 adicionales", aviso[0])
+            # La advertencia no impide guardar; la validación técnica sigue separada.
+            self.assertIn("presupuesto", aviso[0])
+            self.assertEqual(server.plan_errors({}, items(6), items(6)), aviso)
 
-    def test_reservas_historicas_se_pueden_mantener_sin_nuevas_altas(self):
+    def test_turnos_son_adicionales_y_no_se_eliminan_de_sitios(self):
         plan={"nombre":"Express", "secciones":4, "turnos":False}
         with patch.object(server, "client_plan", return_value=plan):
             prior=[{"id":"reserva-turno-media"}]
-            self.assertEqual(server.plan_errors({}, prior, prior), [])
-            self.assertTrue(server.plan_errors({}, prior, []))
+            aviso=server.plan_errors({}, prior, prior)
+            self.assertEqual(len(aviso), 1)
+            self.assertIn("adicional", aviso[0])
 
     def test_no_contar_asistencia_como_envio_cliente(self):
         now=server.now_ms()
