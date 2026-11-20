@@ -355,29 +355,18 @@
   </dialog>
 
   <dialog class="lb-dialog lb-ia-dialog" data-lb-ia-dialog aria-labelledby="lbIaTitle">
-    <form method="dialog" data-lb-ia-form>
-      <div class="lb-dialog-head">
-        <div>
-          <h2 id="lbIaTitle">Configurar IA</h2>
-          <p>La clave queda guardada solo en esta computadora, fuera del&nbsp;proyecto.</p>
-        </div>
-        <button class="lb-dialog-close" type="button" data-lb-ia-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+    <div class="lb-dialog-head">
+      <div>
+        <h2 id="lbIaTitle">IA centralizada</h2>
+        <p>La configuración y las claves se administran en el servidor de Lanzate, nunca desde este navegador.</p>
       </div>
-      <label class="lb-label" for="lbIaProvider">Proveedor</label>
-      <select class="lb-input" id="lbIaProvider" data-lb-ia-provider>
-        <option value="anthropic">Claude (Anthropic), recomendado</option>
-        <option value="openai">ChatGPT (OpenAI)</option>
-      </select>
-      <label class="lb-label lb-label-gap" for="lbIaKey">Clave de la API</label>
-      <input class="lb-input" id="lbIaKey" type="password" autocomplete="off" spellcheck="false" data-lb-ia-key>
-      <p class="lb-hint" data-lb-ia-hint></p>
-      <label class="lb-label lb-label-gap" for="lbIaModel">Modelo <span class="lb-optional">(opcional)</span></label>
-      <input class="lb-input" id="lbIaModel" type="text" autocomplete="off" spellcheck="false" data-lb-ia-model>
-      <p class="lb-msg" data-lb-ia-msg role="status" aria-live="polite"></p>
-      <div class="lb-ia-foot">
-        <button class="btn-nx btn-sm" type="submit" data-lb-ia-save><i class="bi bi-check2"></i> Guardar</button>
-      </div>
-    </form>
+      <button class="lb-dialog-close" type="button" data-lb-ia-close aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <p class="lb-hint" data-lb-ia-hint role="status"></p>
+    <p class="lb-msg" data-lb-ia-msg role="status" aria-live="polite"></p>
+    <div class="lb-ia-foot">
+      <button class="btn-nx btn-sm" type="button" data-lb-ia-close-bottom>Cerrar</button>
+    </div>
   </dialog>
 
   <dialog class="lb-dialog lb-ia-dialog" data-lb-assign-dialog aria-labelledby="lbAssignTitle">
