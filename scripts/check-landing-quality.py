@@ -51,6 +51,23 @@ class LandingQuality(TestCase):
         self.assertTrue(server.published_structure_errors("<body><p>Sin encabezado</p></body>"))
         self.assertFalse(server.published_structure_errors("<main><h1>Servicios</h1></main>"))
 
+    def test_qa_report_is_versioned_and_deterministic(self):
+        valid = '<html><body><main><h1>Hola</h1><img src="a.png" alt="Producto"></main></body></html>'
+        report = server.landing_qa_report(valid)
+        self.assertTrue(report["passed"])
+        self.assertEqual(len(report["html_sha256"]), 64)
+        self.assertIn("lighthouse-mobile", report["pending_external"])
+        self.assertEqual(report, server.landing_qa_report(valid))
+
+    def test_qa_report_rejects_inaccessible_markup(self):
+        invalid = ('<html><body><main><h1>Hola</h1>'
+                   '<img src="a.png"><a>Ir</a><button></button>'
+                   '<div id="duplicado"></div><div id="duplicado"></div>'
+                   '</main></body></html>')
+        report = server.landing_qa_report(invalid)
+        self.assertFalse(report["passed"])
+        self.assertEqual(len(report["blocking_errors"]), 4)
+
     def test_primary_button_color_meets_contrast_against_white(self):
         for color in ("#ffffff", "#eab879", "#ff0000", "#302060"):
             with self.subTest(color=color):
