@@ -4774,6 +4774,7 @@
       planId: lp.plan_id || "",
       originalPlanId: lp.plan_id || "",
       planIncluded: lp.secciones_incluidas || 0,
+      legacyInherited: !lp.plan_individual,
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) {
         var item = { id: it.id, width: it.width };
         if (it.html) item.html = it.html;
@@ -4953,7 +4954,9 @@
     var html = buildDocument({ prefix: "" });
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
-    return { cliente_id: state.clienteId, plan_id: state.planId || "", nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    var payload = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    if (!state.legacyInherited || state.planId !== state.originalPlanId) payload.plan_id = state.planId || "";
+    return payload;
   }
 
   function rebuildLanding() {
@@ -4993,6 +4996,9 @@
     (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
       .then(function (data) {
         state.landingId = data.id;
+        state.legacyInherited = !data.plan_individual;
+        state.originalPlanId = data.plan_id || state.planId;
+        state.planIncluded = data.secciones_incluidas || 0;
         if (data.cliente_id && data.cliente_id !== state.clienteId) {
           state.clienteId = data.cliente_id;
           loadClients().then(function () {
