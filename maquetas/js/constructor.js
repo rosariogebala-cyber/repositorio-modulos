@@ -3625,19 +3625,14 @@
     say("El link volvió al original.", "ok");
   }
 
-  /* IA: sugerir módulos y escribir textos. Solo con el servidor local: la clave nunca llega al navegador. */
+  /* IA centralizada: los secretos viven exclusivamente en el servidor. */
   var aiBar = $("[data-lb-ai]");
   var aiModulesBtn = $("[data-lb-ai-modules]");
   var aiTextsBtn = $("[data-lb-ai-texts]");
   var qaAiBtn = $("[data-lb-qa-ai]");
   var aiDialog = $("[data-lb-ia-dialog]");
-  var aiProvider = $("[data-lb-ia-provider]");
-  var aiKey = $("[data-lb-ia-key]");
-  var aiModel = $("[data-lb-ia-model]");
   var aiHint = $("[data-lb-ia-hint]");
   var aiMsg = $("[data-lb-ia-msg]");
-  var AI_MODELS = { anthropic: "claude-haiku-5-5", openai: "gpt-6-luna" };
-  var AI_KEYS = { anthropic: "https://console.anthropic.com/settings/keys", openai: "https://platform.openai.com/api-keys" };
   var ai = null;
   var aiBusy = false;
   var aiAfter = null;
@@ -3658,30 +3653,27 @@
     aiMsg.className = "lb-msg" + (tone ? " is-" + tone : "");
   }
 
-  function renderAiHint() {
-    var p = aiProvider.value;
-    aiModel.placeholder = AI_MODELS[p];
-    aiKey.placeholder = p === "openai" ? "sk-…" : "sk-ant-…";
-    var saved = ai && ai.configurada && ai.proveedor === p;
-    aiHint.innerHTML = (saved ? "Ya hay una clave guardada: dejá el campo vacío para mantenerla. " : "") +
-      '<a href="' + AI_KEYS[p] + '" target="_blank" rel="noopener">Conseguí tu clave&nbsp;acá</a>.';
-  }
-
   function openAiConfig(then) {
-    aiProvider.value = ai.proveedor;
-    aiKey.value = "";
-    aiModel.value = ai.modelo !== AI_MODELS[ai.proveedor] ? ai.modelo : "";
-    aiAfter = then || null;
-    renderAiHint();
+    var budget = ai && ai.presupuesto || {};
+    var status = ai && ai.configurada
+      ? "Proveedor: " + ai.nombre + " (" + ai.modelo + ")."
+      : "Sin conectar. Configurá ANTHROPIC_API_KEY en las variables privadas de Vercel.";
+    var usage = budget.error
+      ? "El control del presupuesto no está disponible: IA bloqueada."
+      : "Presupuesto mensual: US$ 2 · Alerta: US$ 1 · Reservado: US$ " +
+        (budget.consumo_reservado_usd == null ? "0" : budget.consumo_reservado_usd) +
+        " · Disponible: US$ " + (budget.disponible_usd == null ? "2" : budget.disponible_usd) +
+        (budget.bloqueada ? " · Nuevas consultas bloqueadas." : budget.alerta ? " · Alerta: alcanzaste el 50% del presupuesto." : "");
+    aiHint.textContent = status + " " + usage;
     aiSay("");
     aiDialog.showModal();
-    aiKey.focus();
+    aiDialog.querySelector("[data-lb-ia-close]").focus();
   }
 
   function withAi(fn) {
     if (!ai || aiBusy) return;
     if (ai.configurada) fn();
-    else openAiConfig(fn);
+    else openAiConfig();
   }
 
   function aiRequest(btn, body, waitText) {
@@ -3695,6 +3687,7 @@
       throw err;
     }).finally(function () {
       aiBusy = false;
+      loadAi();
       aiModulesBtn.disabled = aiTextsBtn.disabled = qaAiBtn.disabled = false;
       if (btn) btn.classList.remove("is-busy");
     });
@@ -4033,24 +4026,7 @@
   $("[data-lb-ai-config]").addEventListener("click", function () { if (ai) openAiConfig(); });
   $("[data-lb-ia-close]").addEventListener("click", function () { aiDialog.close(); });
   aiDialog.addEventListener("click", function (e) { if (e.target === aiDialog) aiDialog.close(); });
-  aiProvider.addEventListener("change", renderAiHint);
-  $("[data-lb-ia-form]").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var saveBtn = $("[data-lb-ia-save]");
-    saveBtn.disabled = true;
-    aiSay("Guardando…");
-    api("PUT", "/api/ia", { proveedor: aiProvider.value, clave: aiKey.value.trim(), modelo: aiModel.value.trim() })
-      .then(function (data) {
-        ai = data;
-        aiKey.value = "";
-        aiDialog.close();
-        say("IA lista: " + data.nombre + " con el modelo " + data.modelo + ".", "ok");
-        var next = aiAfter;
-        aiAfter = null;
-        if (next) next();
-      }, function (err) { aiSay(err.message, "warn"); })
-      .then(function () { saveBtn.disabled = false; });
-  });
+  $("[data-lb-ia-close-bottom]").addEventListener("click", function () { aiDialog.close(); });
 
   /* Control de calidad: revisa la vista previa con las reglas de reglas.html */
   function qaItems() {

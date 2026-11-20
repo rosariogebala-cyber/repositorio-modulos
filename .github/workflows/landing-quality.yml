@@ -19,8 +19,9 @@ jobs:
         with:
           node-version: '22'
       - run: pip install -r requirements.txt
-      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py
+      - run: python -m py_compile server.py api/index.py ai_budget.py scripts/test-ai-budget.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py
       - run: for file in js/*.js maquetas/js/*.js; do node --check "$file" || exit 1; done
+      - run: python scripts/test-ai-budget.py
       - run: python scripts/check-landing-quality.py
       - name: Consistencia entre planes, cupos y biblioteca
         run: python scripts/test-plan-consistency.py
