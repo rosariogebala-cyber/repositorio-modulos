@@ -375,7 +375,9 @@
           var decorative = el.getAttribute("aria-hidden") === "true" || el.getAttribute("role") === "presentation";
           var namedControl = control && norm(control.getAttribute("aria-label") || control.textContent);
           if (alt === null || (!norm(alt) && !decorative && !namedControl)) {
-            add("error", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Copiá el texto que muestra la imagen. Si es una foto, describila o usá «imagen».", el);
+            add("error", "imagenes", mi, "Imagen sin texto alternativo (alt).", "Copiá el texto que muestra la imagen. Si es una foto, describí qué se ve (podés usar «Describir con IA»).", el);
+          } else if (/^(imagen|image|foto|img|picture|photo)$/i.test(norm(alt))) {
+            add("aviso", "imagenes", mi, "El texto alternativo «" + norm(alt) + "» no describe la imagen.", "Contá qué se ve en la foto: quien usa lector de pantalla escucha solo esa palabra.", el);
           } else if (rules.imagenes.altMax && norm(alt).length > rules.imagenes.altMax) {
             add("aviso", "imagenes", mi, "Texto alternativo de " + norm(alt).length + " caracteres, el máximo es " + rules.imagenes.altMax + ".", "«" + cut(alt) + "»", el);
           }

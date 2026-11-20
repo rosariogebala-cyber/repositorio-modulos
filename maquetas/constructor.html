@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="robots" content="noindex">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Crear landing · Lanzate</title>
   <link rel="icon" href="../assets/favicon-lanzate.svg" type="image/svg+xml">
@@ -26,7 +27,7 @@
     </nav>
   </header>
 
-  <main class="lb-template-start" data-template-start id="contenido-principal" tabindex="-1">
+  <main class="lb-template-start" aria-label="Elegir plantilla" data-template-start id="contenido-principal" tabindex="-1">
     <header class="lb-template-start-head">
       <div>
         <h1>Crear landing</h1>
@@ -44,7 +45,7 @@
     <div data-template-sections></div>
   </main>
 
-  <main class="lb-main" id="contenido-editor" tabindex="-1" data-landing-editor hidden>
+  <main class="lb-main" aria-label="Editor de la landing" id="contenido-editor" tabindex="-1" data-landing-editor hidden>
     <aside class="lb-side" aria-label="Configuración de la landing">
       <section class="lb-card lb-step" data-lb-step="1">
         <div class="lb-step-head">
@@ -274,7 +275,7 @@
           </div>
         </div>
         <button class="lb-split" type="button" data-lb-split hidden aria-label="Ajustar el ancho de cada vista"></button>
-        <aside class="lb-change-pane" data-lb-change-pane hidden>
+        <aside class="lb-change-pane" aria-label="Cambios de la sección" data-lb-change-pane hidden>
           <p class="lb-kicker">Cambios</p>
           <div class="lb-change-view" data-lb-change-view>
             <div class="lb-change-device" data-lb-change-device>
@@ -282,7 +283,7 @@
             </div>
           </div>
         </aside>
-        <aside class="lb-qa-col">
+        <aside class="lb-qa-col" aria-label="Control de calidad">
           <section class="lb-qa" data-lb-qa aria-label="Control de calidad" hidden>
             <div class="lb-qa-head">
               <p class="lb-qa-sum"><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Revisando calidad…</span></p>
@@ -401,8 +402,8 @@
         <button class="lb-link" type="button" data-module-color-reset>Quitar excepciones</button>
         <button class="lb-link" type="button" data-module-color-undo>Deshacer</button>
         <button class="lb-link" type="button" data-module-color-redo>Rehacer</button>
-        <button class="btn-nx-outline" value="cancel" formnovalidate>Cancelar</button>
-        <button class="btn-nx" value="apply">Aplicar</button>
+        <button class="btn-nx-outline" type="submit" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn-nx" type="submit" value="apply">Aplicar</button>
       </div>
     </form>
   </dialog>

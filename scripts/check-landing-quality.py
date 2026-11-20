@@ -1,4 +1,5 @@
 """Verifica las landings estáticas de l/, los archivos de data/ y las páginas del panel."""
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -8,6 +9,9 @@ from lxml import html
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+# Siempre con los archivos del disco: aunque haya un token de GitHub en la máquina, el test no lee ni toca GitHub.
+for name in ("GITHUB_TOKEN", "GH_TOKEN", "VERCEL"):
+    os.environ.pop(name, None)
 import server
 
 
@@ -46,6 +50,28 @@ class LandingQuality(TestCase):
         self.assertIn("480w", photo.get("srcset"))
         self.assertIn("752w", photo.get("srcset"))
         self.assertEqual(photo.get("sizes"), "50vw")
+
+    def test_site_config_strings_with_commas_and_colons_are_kept(self):
+        import json
+        parsed = json.loads(server.js_literal_to_json('{planes: [{id: "pro", incluye: "Diseño, hosting: 1 año",},], // nota\n}'))
+        self.assertEqual(parsed["planes"][0]["incluye"], "Diseño, hosting: 1 año")
+
+    def test_pending_requests_are_never_trimmed(self):
+        requests = [{"id": n, "estado": "pendiente" if n < 3 else "aceptado"} for n in range(100)]
+        kept = server.trim_requests(requests)
+        self.assertEqual(len(kept), 80)
+        self.assertEqual([r["id"] for r in kept[:3]], [0, 1, 2])
+        self.assertEqual(len(server.trim_requests([{"estado": "pendiente"}] * 90)), 90)
+
+    def test_seo_title_never_uses_internal_names(self):
+        self.assertEqual(server.seo_title({"nombre": "Template agencia de viajes"}, {"nombre": "Rumbo", "rubro": "viajes"}), "Rumbo · Viajes")
+        self.assertEqual(server.seo_title({"nombre": "yoga (copia)"}, {"nombre": "Aurora"}), "Aurora")
+        self.assertEqual(server.seo_title({"nombre": "Clases de yoga"}, {"nombre": "Aurora"}), "Clases de yoga · Aurora")
+
+    def test_missing_alt_is_not_filled_with_a_generic_word(self):
+        node = html.fromstring('<main><img src="/maquetas/img/gal-living.jpg"></main>')
+        server.fill_image_alts(node)
+        self.assertEqual(node.find("img").get("alt"), "")
 
     def test_publication_validation_rejects_missing_structure(self):
         self.assertTrue(server.published_structure_errors("<body><p>Sin encabezado</p></body>"))

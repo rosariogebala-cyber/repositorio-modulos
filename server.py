@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Panel de Lanzate: corre en tu computadora y guarda todo en archivos del repositorio.
+"""Panel de Lanzate: corre online en Vercel (guarda con commits en GitHub) o en tu computadora (guarda en el disco).
 
 Los datos viven en archivos JS, con la misma forma que js/config.js del sitio de venta:
     data/config.js    window.LANZATE_CONFIG   (marca, WhatsApp, URL pública)
     data/planes.js    window.LANZATE_PLANES   (copia de los planes del sitio de venta)
-    data/clientes.js  window.LANZATE_CLIENTES
-    data/landings.js  window.LANZATE_LANDINGS
+    data/clientes.js  window.LANZATE_CLIENTES (en el repo privado lanzate-datos)
+    data/landings.js  window.LANZATE_LANDINGS (en el repo privado lanzate-datos)
     data/reglas.js    window.LANZATE_REGLAS
 Cada landing se escribe como página estática en l/<cliente>/<landing>/index.html.
 Para publicar: botón «Publicar» del panel (git add, commit y push) o a mano con git.
@@ -29,6 +29,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import unicodedata
 from contextlib import contextmanager
 from functools import lru_cache, partial
@@ -121,7 +122,17 @@ PANEL_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.
              "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
 COOKIE = "lz_sesion"
-SESSION_DAYS = 30
+SESSION_DAYS = 7
+
+
+def preview_html(html):
+    """Una landing vista desde el panel o el portal (mismo origen que el panel): sin los códigos de medición del
+    cliente (GTM, GA4, Píxel) ni el registro de visitas y consultas. La versión pública sigue en GitHub Pages."""
+    if isinstance(html, bytes):
+        html = html.decode("utf-8", "replace")
+    html = re.sub(r"(<template data-lz-tracking[^>]*>).*?(</template>)", r"\1\2", html, flags=re.S)
+    html = re.sub(r'<meta name="lz-api"[^>]*>', "", html)
+    return html.encode("utf-8")
 
 
 class ApiError(Exception):
@@ -169,6 +180,16 @@ REPOS = {
 }
 BRANCH = os.environ.get("LANZATE_RAMA") or "main"
 GITHUB_API = os.environ.get("LANZATE_GITHUB_API") or "https://api.github.com"
+
+
+def int_value(value, default=0, error=None):
+    """Un número entero que llega del navegador; si no es válido usa el valor por defecto o responde 400."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        if error:
+            raise ApiError(400, error)
+        return default
 
 
 class Conflict(Exception):
@@ -341,10 +362,12 @@ class GitHubFiles:
                         if attempt == 2 or "422" not in str(err) and "409" not in str(err):
                             raise
                         st.trees.pop(repo, None)
-            except ApiError as err:
+            except (ApiError, Conflict) as err:
                 if not done:
                     raise
-                # Una parte ya quedó subida: se dice cuál, para que nada quede desfasado sin que nadie se entere.
+                if isinstance(err, Conflict):
+                    err = "Alguien más guardó lo mismo al mismo tiempo."
+                # Una parte ya quedó subida (no se reintenta el pedido entero, porque repetiría lo ya guardado): se dice cuál, para que nada quede desfasado sin que nadie se entere.
                 names = {"datos": "los datos", "modulos": "las landings", "sitio": "el sitio de venta"}
                 raise ApiError(502, "Se guardó %s, pero no %s: %s Volvé a tocar Publicar o Guardar para completarlo."
                                % (" y ".join(names[r] for r in done), names[repo], err))
@@ -714,8 +737,20 @@ def login_required():
     return ON_VERCEL or bool(access_key())
 
 
+def secret_ok():
+    """Online el secreto es obligatorio: sin él las sesiones dependerían solo de la clave del equipo."""
+    return not ON_VERCEL or len(os.environ.get("LANZATE_SECRETO") or "") >= 32
+
+
 def session_secret():
     return (os.environ.get("LANZATE_SECRETO") or ("lanzate:" + access_key())).encode("utf-8")
+
+
+def team_session_key():
+    """Clave de las sesiones del equipo. Cambiar LANZATE_SESION_VERSION (o la clave del equipo) cierra todas las
+    sesiones abiertas, por ejemplo si se perdió una computadora o alguien dejó el equipo."""
+    version = os.environ.get("LANZATE_SESION_VERSION") or "1"
+    return hmac.new(session_secret(), ("equipo:%s:%s" % (version, access_key())).encode("utf-8"), hashlib.sha256).digest()
 
 
 def token_days_left(expires, today=None):
@@ -730,9 +765,12 @@ def token_days_left(expires, today=None):
 def panel_warnings():
     """Avisos para el equipo arriba del panel: cosas de configuración que conviene arreglar antes de que fallen."""
     out = []
-    if ON_VERCEL and not os.environ.get("LANZATE_SECRETO"):
-        out.append("Falta LANZATE_SECRETO en Vercel: las sesiones y las contraseñas del portal dependen de la clave del equipo. "
-                   "Cargalo (un texto al azar de 32 caracteres o más) y volvé a crear las contraseñas del portal.")
+    if not secret_ok():
+        out.append("Falta LANZATE_SECRETO en Vercel (o tiene menos de 32 caracteres). Cargalo con un texto al azar "
+                   "de 32 caracteres o más y volvé a crear las contraseñas del portal.")
+    if ON_VERCEL and not RECORD.available():
+        out.append("Falta conectar la base de Upstash (Redis) en Vercel: sin ella no se guardan visitas ni consultas "
+                   "y los límites de intentos de ingreso protegen mucho menos.")
     if FILES.online:
         if not FILES.token_expires:
             try:
@@ -755,13 +793,15 @@ def valid_credentials(usuario, clave):
 
 def make_session():
     expires = str(int(time.time()) + SESSION_DAYS * 86400)
-    return expires + "." + hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+    return expires + "." + hmac.new(team_session_key(), expires.encode(), hashlib.sha256).hexdigest()
 
 
 def valid_session(value):
+    if not secret_ok():
+        return False
     try:
         expires, sig = value.split(".", 1)
-        good = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+        good = hmac.new(team_session_key(), expires.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(sig, good) and int(expires) > time.time()
     except (ValueError, AttributeError):
         return False
@@ -799,20 +839,33 @@ def _keystream(key, nonce, size):
     return out[:size]
 
 
+def _password_key():
+    return hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+
+
 def seal_password(password):
-    key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
-    nonce = secrets.token_bytes(16)
-    plain = password.encode("utf-8")
-    sealed = bytes(a ^ b for a, b in zip(plain, _keystream(key, nonce, len(plain))))
-    tag = hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]
-    return base64.urlsafe_b64encode(nonce + tag + sealed).decode()
+    """Copia cifrada (AES-GCM) de la contraseña del portal, para que el equipo la pueda ver y reenviar."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    nonce = secrets.token_bytes(12)
+    sealed = AESGCM(_password_key()).encrypt(nonce, password.encode("utf-8"), b"lanzate-portal")
+    return "v2:" + base64.urlsafe_b64encode(nonce + sealed).decode()
 
 
 def open_password(stored):
+    stored = stored or ""
     try:
-        raw = base64.urlsafe_b64decode((stored or "").encode())
+        if stored.startswith("v2:"):
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            from cryptography.exceptions import InvalidTag
+            raw = base64.urlsafe_b64decode(stored[3:].encode())
+            try:
+                return AESGCM(_password_key()).decrypt(raw[:12], raw[12:], b"lanzate-portal").decode("utf-8")
+            except InvalidTag:
+                return ""
+        # Formato anterior: se sigue pudiendo leer; al poner una contraseña nueva queda en el formato nuevo.
+        raw = base64.urlsafe_b64decode(stored.encode())
         nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
-        key = hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
+        key = _password_key()
         if not sealed or not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
             return ""
         return bytes(a ^ b for a, b in zip(sealed, _keystream(key, nonce, len(sealed)))).decode("utf-8")
@@ -1063,15 +1116,33 @@ def record_lead(data, ip=""):
     return {"ok": True}
 
 
+LEAD_RETENTION_DAYS = 365
+
+
 def client_leads(client_id):
+    """Consultas del cliente. Las de más de un año se borran solas (no se guardan datos personales sin fin)."""
     raw = RECORD.hgetall(["lz:c:%d" % client_id])[0]
+    limit = now_ms() - LEAD_RETENTION_DAYS * 86400 * 1000
     leads = []
-    for value in raw.values():
+    for field, value in raw.items():
         try:
-            leads.append(json.loads(value))
+            lead = json.loads(value)
         except (TypeError, ValueError):
             continue
+        if lead.get("fecha", 0) < limit:
+            RECORD.hdel("lz:c:%d" % client_id, field)
+            continue
+        leads.append(lead)
     return sorted(leads, key=lambda x: -x.get("fecha", 0))
+
+
+def delete_lead(client_id, lead_id):
+    """Borra una consulta (por ejemplo si la persona pide que se eliminen sus datos)."""
+    lead_id = str(lead_id)
+    if not any(l["id"] == lead_id for l in client_leads(client_id)):
+        raise ApiError(404, "No encontramos esa consulta.")
+    RECORD.hdel("lz:c:%d" % client_id, lead_id)
+    return {"ok": True, "id": lead_id}
 
 
 def set_lead_status(client_id, lead_id, status):
@@ -1116,11 +1187,20 @@ def client_stats(client, days=30):
 # --- Planes: los mismos del sitio de venta ---------------------------------------
 
 def js_literal_to_json(text):
-    """Convierte un objeto JS escrito a mano (claves sin comillas, comentarios, comas finales) a JSON."""
-    out, i, n = [], 0, len(text)
+    """Convierte un objeto JS escrito a mano (claves sin comillas, comentarios, comas finales) a JSON.
+    Las claves y las comas se corrigen solo fuera de los textos, así «Diseño, hosting: 1 año» queda intacto."""
+    parts, code, i, n = [], [], 0, len(text)
+
+    def flush():
+        chunk = "".join(code)
+        chunk = re.sub(r'([{,]\s*)([A-Za-z_$][\w$]*)\s*:', r'\1"\2":', chunk)
+        parts.append(chunk)
+        code.clear()
+
     while i < n:
         ch = text[i]
         if ch == '"' or ch == "'":
+            flush()
             j, buf = i + 1, []
             while j < n and text[j] != ch:
                 if text[j] == "\\":
@@ -1132,19 +1212,28 @@ def js_literal_to_json(text):
             raw = "".join(buf)
             if ch == "'":
                 raw = raw.replace('"', '\\"').replace("\\'", "'")
-            out.append('"' + raw + '"')
+            parts.append('"' + raw + '"')
             i = j + 1
         elif text.startswith("//", i):
             i = text.find("\n", i) if text.find("\n", i) >= 0 else n
         elif text.startswith("/*", i):
             i = text.find("*/", i) + 2 if text.find("*/", i) >= 0 else n
         else:
-            out.append(ch)
+            code.append(ch)
             i += 1
-    result = "".join(out)
-    result = re.sub(r'([{,]\s*)([A-Za-z_$][\w$]*)\s*:', r'\1"\2":', result)
-    result = re.sub(r",(\s*[}\]])", r"\1", result)
-    return result
+    flush()
+    # Comas finales: se sacan las que quedan justo antes de } o ] (fuera de los textos).
+    out = []
+    for index, part in enumerate(parts):
+        if part.startswith('"'):
+            out.append(part)
+        else:
+            following = next((p for p in parts[index + 1:] if p.strip()), "")
+            part = re.sub(r",(\s*[}\]])", r"\1", part)
+            if re.search(r",\s*$", part) and following.lstrip()[:1] in ("}", "]"):
+                part = re.sub(r",(\s*)$", r"\1", part)
+            out.append(part)
+    return "".join(out)
 
 
 def site_plans():
@@ -1270,6 +1359,28 @@ def plan_status(client):
     return status
 
 
+def request_plan_note(client):
+    """El portal deja mandar pedidos aunque el plan esté vencido o sin pedidos disponibles (se cobran aparte o
+    pasan al mes siguiente); el servidor lo deja anotado para que el equipo lo vea. Una cuenta pausada no pide."""
+    if client.get("estado") == "pausado":
+        raise ApiError(403, "Tu cuenta está pausada. Escribinos para reactivarla.")
+    if plan_expired(client):
+        return "plan vencido"
+    status = plan_status(client)
+    if status.get("cambios_mes") and not status.get("cambios_restantes"):
+        return "fuera del límite del plan"
+    return ""
+
+
+def trim_requests(requests, keep=80):
+    """Guarda todos los pedidos pendientes y los últimos resueltos (para que el archivo no crezca sin fin)."""
+    pending = [p for p in requests if p.get("estado") == "pendiente"]
+    done = [p for p in requests if p.get("estado") != "pendiente"]
+    room = max(0, keep - len(pending))
+    kept = {id(p) for p in pending + done[len(done) - room:]}
+    return [p for p in requests if id(p) in kept]
+
+
 def content_sections(items):
     """Secciones que cuenta el plan: todo menos la navegación, el footer y el botón de WhatsApp."""
     groups = [str(it.get("id") or "").rsplit("-", 1)[0] for it in items if isinstance(it, dict)]
@@ -1299,7 +1410,7 @@ def add_change_request(client_id, data):
         stamp = now_ms()
         row.setdefault("pedidos", []).append({"id": str(stamp), "fecha": stamp, "nota": nota, "estado": "aceptado",
                                               "origen": "equipo", "resuelto": stamp})
-        row["pedidos"] = row["pedidos"][-80:]
+        row["pedidos"] = trim_requests(row["pedidos"])
     return get_client(client_id)
 
 
@@ -1329,6 +1440,7 @@ def submit_client_request(client_id, data):
     request_id = "%d-%s" % (stamp, secrets.token_hex(2))
     with store("clientes", "landings") as db:
         row = find_client(db, client_id)
+        fuera_de_plan = request_plan_note(row)
         landing = next((l for l in db["landings"] if l["cliente_id"] == client_id and l["slug"] == landing_slug), None)
         saved_photos = []
         for index, photo in enumerate(photos, 1):
@@ -1342,8 +1454,8 @@ def submit_client_request(client_id, data):
         row.setdefault("pedidos", []).append({
             "id": request_id, "fecha": stamp, "estado": "pendiente", "origen": "cliente",
             "landing": landing["nombre"] if landing else "", "landing_slug": landing_slug if landing else "",
-            "nota": nota, "cambios": changes, "fotos": saved_photos})
-        row["pedidos"] = row["pedidos"][-80:]
+            "nota": nota, "cambios": changes, "fotos": saved_photos, **({"fuera_de_plan": fuera_de_plan} if fuera_de_plan else {})})
+        row["pedidos"] = trim_requests(row["pedidos"])
     return {"ok": True, "id": request_id}
 
 
@@ -1651,11 +1763,12 @@ def find_client(db, client_id):
     raise ApiError(404, "El cliente no existe")
 
 
-def client_dict(row, count=None):
+def client_dict(row, count=None, with_password=True):
     data = {k: v for k, v in row.items() if k != "portal"}
     access = row.get("portal") or {}
     data["portal_usuario"] = access.get("usuario") or ""
-    data["portal_clave"] = open_password(access.get("clave")) if access else ""
+    # La contraseña solo viaja en la ficha de un cliente, nunca en el listado de todos.
+    data["portal_clave"] = open_password(access.get("clave")) if access and with_password else ""
     data["pidio_clave"] = access.get("pidio_clave") or 0
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row)
@@ -1841,7 +1954,7 @@ def list_clients():
         for landing in db["landings"]:
             counts[landing["cliente_id"]] = counts.get(landing["cliente_id"], 0) + 1
         rows = sorted(db["clientes"], key=lambda c: c["nombre"].lower())
-        return [client_dict(r, counts.get(r["id"], 0)) for r in rows]
+        return [client_dict(r, counts.get(r["id"], 0), with_password=False) for r in rows]
 
 
 def get_client(client_id):
@@ -1890,6 +2003,7 @@ def delete_client(client_id):
                            % (row["nombre"], count, "" if count == 1 else "s"))
         db["clientes"].remove(row)
     FILES.delete("modulos", "l/" + row["slug"])
+    FILES.delete("datos", "pedidos/" + row["slug"])  # las fotos de sus pedidos también se borran
     return row["nombre"]
 
 
@@ -1946,7 +2060,7 @@ def get_landing(landing_id):
 
 
 def editor_url(client, landing=None):
-    """Página donde el cliente arma su pedido de cambios (estática, sin login)."""
+    """Portal del cliente o su editor de pedidos de cambios (entra con su usuario y contraseña)."""
     base = read_config().get("urlPanel") or ""
     if landing is None:
         return base + "/portal/%s/" % client["slug"]
@@ -1954,9 +2068,11 @@ def editor_url(client, landing=None):
 
 
 def fill_image_alts(document):
+    """Red de seguridad: una imagen sin descripción queda como decorativa (alt vacío), para que el lector de
+    pantalla la saltee en vez de leer «imagen». El control de calidad del constructor pide el alt antes de guardar."""
     for image in document.xpath(".//img"):
-        if not (image.get("alt") or "").strip():
-            image.set("alt", "imagen")
+        if image.get("alt") is None:
+            image.set("alt", "")
 
 
 def publish_html(html, items, logo):
@@ -2038,7 +2154,7 @@ def image_metadata_errors(html, rules):
     count = len(document.xpath("//img[normalize-space(@src) and not(normalize-space(@alt))]"))
     errors = []
     if count:
-        errors.append(f"{count} imagen(es) sin texto alternativo. Describí la imagen, transcribí su texto o escribí «imagen»")
+        errors.append(f"{count} imagen(es) sin texto alternativo. Describí qué se ve en la foto o transcribí su texto (podés usar «Describir con IA»).")
     heavy = 0
     total = 0
     for src in document.xpath("//img/@src"):
@@ -2180,6 +2296,23 @@ def whatsapp_number(client):
     return digits if 8 <= len(digits) <= 15 else ""
 
 
+INTERNAL_NAME = re.compile(r"^(template|plantilla|prueba|test|borrador)\b|\(copia", re.I)
+
+
+def seo_title(row, client):
+    """El título que ve Google: nunca el nombre interno de la landing («Template agencia de viajes», «yoga (copia)»)."""
+    name = " ".join((row.get("nombre") or "").split())
+    business = " ".join((client.get("nombre") or "").split())
+    rubro = " ".join((client.get("rubro") or "").split())
+    if not name or INTERNAL_NAME.search(name):
+        title = business + (" · " + rubro[:1].upper() + rubro[1:] if rubro else "")
+    elif business and business.casefold() not in name.casefold():
+        title = name[:1].upper() + name[1:] + " · " + business
+    else:
+        title = name
+    return title or business or name
+
+
 def landing_page(row, client):
     """HTML final de la landing, con rutas absolutas (/maquetas/…)."""
     if not row.get("html"):
@@ -2193,7 +2326,7 @@ def landing_page(row, client):
                 email=client.get("email") or "", tipo_cliente=client.get("tipo_cliente"),
                 ga4=(client.get("ga4") or "") if tracking else "", gtm=(client.get("gtm") or "") if tracking else "",
                 meta_pixel=(client.get("meta_pixel") or "") if tracking else "",
-                slug_cliente=client["slug"])
+                slug_cliente=client["slug"], titulo=seo_title(row, client))
     head = '<meta name="lz-landing" content="%d">' % row["id"]
     panel = read_config().get("urlPanel") or ""
     if panel:
@@ -2204,7 +2337,8 @@ def landing_page(row, client):
     if client.get("email") and client_type(client) == "real":
         head += '<meta name="lz-email" content="%s">' % escape(client["email"], quote=True)
     head += share_head(meta, origin, path)
-    html = row["html"].replace("</head>", head + "</head>", 1)
+    html = re.sub(r"<title>.*?</title>", lambda m: "<title>" + escape(meta["titulo"]) + "</title>", row["html"], count=1, flags=re.S)
+    html = html.replace("</head>", head + "</head>", 1)
     html = accessible_landing(html, row["nombre"], primary_color=client.get("color_primario"), legal_links=client)
     return add_tracking_consent(html, meta)
 
@@ -2567,7 +2701,7 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         source = match[1].strip()
         width = hero_variants.get(source)
         base = source[:-4] if source.endswith(".jpg") else source
-        description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split()) or "imagen"
+        description = " ".join(slide.attrib.pop("data-lz-background-alt", "").split())
         attrs = {
             "class": "lz-hero-photo",
             "src": source,
@@ -2584,11 +2718,17 @@ def accessible_landing(markup, title, primary_color=None, legal_links=None):
         slide.insert(0, photo)
 
     for background in body.xpath('.//section[starts-with(@data-module, "hero")]//*[@data-lz-background-alt or contains(@style, "background-image")]'):
-        description = " ".join(background.get("data-lz-background-alt", "").split()) or "imagen"
+        description = " ".join(background.get("data-lz-background-alt", "").split())
         if description and not background.xpath('./p[@data-lz-background-description]'):
             alternative = etree.Element("p", {"class": "visually-hidden", "data-lz-background-description": ""})
             alternative.text = description
             background.insert(0, alternative)
+
+    # Video de portada: la foto (lz-hero-photo) ya es la imagen de espera; el poster la descargaba dos veces
+    # y además quedaba con una ruta relativa rota en la página publicada.
+    for video in body.xpath('.//video[contains(concat(" ", normalize-space(@class), " "), " hero-video-bg ")][@poster]'):
+        if video.getparent() is not None and video.getparent().xpath('./img[contains(@class, "lz-hero-photo")]'):
+            del video.attrib["poster"]
 
     add_local_responsive_images(body)
     ids = set(document.xpath("//@id"))
@@ -2689,7 +2829,7 @@ def share_head(row, origin, path):
     tags = [
         ("name", "description", desc),
         ("property", "og:type", "website"),
-        ("property", "og:title", row["nombre"]),
+        ("property", "og:title", row.get("titulo") or row["nombre"]),
         ("property", "og:description", desc),
         ("property", "og:site_name", row["cliente"]),
         ("property", "og:url", origin + path),
@@ -2823,22 +2963,53 @@ def add_tracking_consent(html, landing):
 
 
 
+PRIVACY_TEXT = (
+    ("¿Quién es responsable de tus datos?",
+     "El negocio que publica la página donde completaste el formulario. Sus datos de contacto están en esa página. "
+     "Lanzate arma y aloja la página y guarda las consultas por cuenta de ese negocio, solo para que te pueda responder."),
+    ("¿Qué datos se guardan?",
+     "Los que escribís en el formulario (por ejemplo, nombre, teléfono, email y mensaje) y la fecha. Para contar visitas "
+     "no se usan cookies ni se guarda tu IP: se usa un código que se borra en menos de 24 horas."),
+    ("¿Para qué se usan?",
+     "Solo para responder tu consulta o tu pedido de turno. No se venden ni se ceden a otros."),
+    ("¿Cuánto tiempo se guardan?",
+     "Hasta un año. Después se borran solos. El negocio también los puede borrar antes."),
+    ("Cookies de medición",
+     "Si el negocio usa herramientas de medición o publicidad (Google Analytics, Google Tag Manager o el Píxel de Meta), "
+     "solo se activan si las aceptás en el aviso de cookies. Podés cambiar tu elección desde «Preferencias de cookies»."),
+    ("Tus derechos",
+     "Podés pedir ver, corregir o borrar tus datos escribiéndole al negocio por los medios de contacto de su página. "
+     "Tenés que recibir respuesta en un plazo de 10 días corridos (acceso) o 5 días hábiles (corrección o borrado), según "
+     "la Ley 25.326 de Protección de Datos Personales. Si no te responden, podés reclamar ante la Agencia de Acceso a la "
+     "Información Pública (AAIP), autoridad de control de esa ley: www.argentina.gob.ar/aaip."),
+)
+TERMS_TEXT = (
+    ("Uso del sitio",
+     "Esta página presenta los productos o servicios de un negocio. Los precios, la disponibilidad y las condiciones se "
+     "acuerdan directamente con ese negocio."),
+    ("Consultas y turnos",
+     "Enviar una consulta o un pedido de turno no confirma una compra ni una reserva: el negocio te responde para confirmarlo."),
+    ("Contenido",
+     "Los textos, fotos y marcas son del negocio o se usan con permiso. No los copies sin su autorización."),
+)
+
+
 def legal_page(kind):
-    title = "Privacidad" if kind == "privacidad" else "Términos"
-    body = (
-        "Esta página explica cómo se usan los datos que dejás en el formulario de contacto."
-        if kind == "privacidad" else
-        "El uso del sitio y de los servicios se acuerda directamente con el negocio que publica esta landing."
-    )
+    """Privacidad y términos por defecto, para landings cuyo negocio no tiene documento propio."""
+    title = "Privacidad" if kind == "privacidad" else "Términos y condiciones"
+    sections = PRIVACY_TEXT if kind == "privacidad" else TERMS_TEXT
+    body = "".join("<h2>%s</h2><p>%s</p>" % (escape(h), escape(t)) for h, t in sections)
     html = (
         "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-        "<title>%s · Lanzate</title></head><body style=\"font:16px/1.5 Inter,sans-serif;max-width:40rem;margin:48px auto;padding:0 16px\">"
-        "<h1>%s</h1><p>%s</p><p>Si el negocio tiene su propio documento, el enlace del pie de página abre ese documento.</p>"
-        "</body></html>"
+        "<meta name=\"robots\" content=\"noindex, follow\">"
+        "<title>%s</title><style>body{font:17px/1.6 system-ui,sans-serif;color:#1d1f2b;max-width:42rem;margin:48px auto;padding:0 20px}"
+        "h1{font-size:2rem;line-height:1.2}h2{font-size:1.2rem;margin-top:2rem}a{color:#3a2bb8}</style></head>"
+        "<body><main><h1>%s</h1><p>Esta página vale para las webs hechas con Lanzate cuyo negocio no tiene un documento propio. "
+        "Si el negocio tiene el suyo, el enlace del pie de su página abre ese documento.</p>%s"
+        "<p><small>Última actualización: noviembre de 2026.</small></p></main></body></html>"
     ) % (title, title, body)
     return html.encode("utf-8")
-
 
 
 # --- IA (textos y módulos sugeridos) ------------------------------------------
@@ -3108,7 +3279,7 @@ def ia_describe_images(data):
                                                           (" · texto cercano: " + str(f.get("contexto"))[:160]) if f.get("contexto") else ""))
     if not images:
         raise ApiError(400, "No llegaron fotos para describir")
-    limit = int(data.get("max") or 125)
+    limit = min(max(int_value(data.get("max"), 125), 40), 250)
     prompt = (
         ia_client_text(data.get("cliente")) + "\n\n"
         + "Escribí el texto alternativo (alt) de cada imagen, en el mismo orden en que llegan:\n"
@@ -3128,7 +3299,7 @@ def ia_describe_images(data):
 
 
 
-# --- HTTP (solo en tu computadora) ------------------------------------------------
+# --- HTTP (Vercel y la computadora) ------------------------------------------------
 
 def not_found_page():
     return Path(ROOT, "404.html").read_bytes()
@@ -3228,16 +3399,28 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 self.send_body(200, data, {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[photo.group(2)])
             return True
-        if FILES.online and (path.startswith("/l/") or re.match(r"^/data/[a-z]+\.js$", path)):
+        landing_page_path = path.startswith("/l/") and (path.endswith("/") or path.endswith(".html")
+                                                         or "." not in path.rsplit("/", 1)[-1])
+        if landing_page_path or (FILES.online and (path.startswith("/l/") or re.match(r"^/data/[a-z]+\.js$", path))):
             rel = path.lstrip("/")
-            if rel.endswith("/") or rel.count("/") == 2 and "." not in rel.rsplit("/", 1)[-1]:
+            if rel.endswith("/") or "." not in rel.rsplit("/", 1)[-1]:
                 rel = rel.rstrip("/") + "/index.html"
+            if ".." in rel.split("/"):
+                self.send_body(404, not_found_page(), "text/html; charset=utf-8")
+                return True
             data = FILES.read("modulos", rel)
             if data is None:
                 self.send_body(404, not_found_page(), "text/html; charset=utf-8")
             else:
+                ext = rel.rsplit(".", 1)[-1]
                 kind = {"html": "text/html; charset=utf-8", "js": "text/javascript; charset=utf-8", "png": "image/png",
-                        "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}.get(rel.rsplit(".", 1)[-1], "application/octet-stream")
+                        "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}.get(ext, "application/octet-stream")
+                if ext == "html" and rel.startswith("l/"):
+                    # La landing comparte origen con el panel: sin scripts de terceros y con la misma política.
+                    data = preview_html(data)
+                    self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),)
+                elif ext == "svg":
+                    self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'"),)
                 self.send_body(200, data, kind)
             return True
         return False
@@ -3261,7 +3444,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def read_json(self):
-        length = int(self.headers.get("Content-Length") or 0)
+        length = int_value(self.headers.get("Content-Length"), 0)
         if not 0 < length <= MAX_BODY:
             raise ApiError(413, "Contenido vacío o demasiado grande")
         if getattr(self, "_body", None) is None:
@@ -3283,7 +3466,19 @@ class Handler(SimpleHTTPRequestHandler):
         hosts.update(h.strip() for h in (self.headers.get("X-Forwarded-Host") or "").split(",") if h.strip())
         return urlsplit(origin).netloc in hosts
 
+    def local_host_ok(self):
+        """En la computadora el panel solo responde a 127.0.0.1 o localhost: así una web ajena no puede usarlo
+        apuntando su dominio a tu máquina (DNS rebinding)."""
+        if ON_VERCEL:
+            return True
+        port = self.server.server_address[1] if getattr(self, "server", None) else 0
+        host = (self.headers.get("Host") or "").strip().lower()
+        return host in {"127.0.0.1:%d" % port, "localhost:%d" % port, "[::1]:%d" % port}
+
     def serve_lanzate(self, method):
+        if not self.local_host_ok():
+            self.send_body(403, "Abrí el panel desde http://127.0.0.1".encode("utf-8"), "text/plain; charset=utf-8")
+            return True
         path, query = self.route_path()
         if method in ("GET", "HEAD") and self.serve_page(path):
             return True
@@ -3322,6 +3517,12 @@ class Handler(SimpleHTTPRequestHandler):
                 print("Error de archivos: %s" % err, file=sys.stderr)
                 self.send_json(500, {"error": "No se pudo guardar en la carpeta del proyecto: %s" % err})
                 return True
+            except Exception:
+                # Cualquier otro error: se registra y se responde con un mensaje, en vez de cortar la conexión.
+                FILES.discard()
+                traceback.print_exc()
+                self.send_json(500, {"error": "Algo falló en el panel y no se guardó nada. Probá de nuevo; si sigue, avisá al equipo."})
+                return True
             if result is not None:
                 self.send_json(200, result)
             return True
@@ -3345,7 +3546,8 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         if name == "pedido-vista" and method == "GET":
             page, _ = review_page(ident, self.route_token)
-            self.send_body(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),)
+            self.send_body(200, preview_html(page), "text/html; charset=utf-8")
             return None
         result = self.dispatch(method, name, ident, query)
         if method != "GET" and name not in ("publicar", "portal-login", "portal-logout"):
@@ -3360,6 +3562,8 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "login" and method == "POST":
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")
+            if not secret_ok():
+                raise ApiError(500, "Falta configurar LANZATE_SECRETO en Vercel (un texto al azar de 32 caracteres o más).")
             data = self.read_json()
             usuario = str(data.get("usuario") or "").strip().lower()
             check_attempts("equipo", usuario, self.client_ip())
@@ -3413,6 +3617,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return submit_client_request(client["id"], self.read_json())
             if name == "portal-consulta" and method == "PUT":
                 return set_lead_status(client["id"], self.route_token, self.read_json().get("estado"))
+            if name == "portal-consulta" and method == "DELETE":
+                return delete_lead(client["id"], self.route_token)
             if name == "portal-clave" and method == "POST":
                 version = change_portal_password(client["id"], self.read_json())
                 self.extra_headers = (("Set-Cookie", self.portal_cookie(client["slug"], portal_token(client["id"], version), 30 * 86400)),)
@@ -3426,6 +3632,8 @@ class Handler(SimpleHTTPRequestHandler):
                     "registro": RECORD.available(), "nombre": client["nombre"]}
         if name == "consulta" and method == "PUT":
             return set_lead_status(ident, self.route_token, self.read_json().get("estado"))
+        if name == "consulta" and method == "DELETE":
+            return delete_lead(ident, self.route_token)
         if name == "portal-inicio" and method == "GET":
             client = self.portal_client(sitio)
             if not client:
@@ -3444,7 +3652,7 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "POST":
                 return add_change_request(ident, self.read_json())
             if method == "DELETE":
-                return remove_change_request(ident, int((query.get("fecha") or ["0"])[0] or 0))
+                return remove_change_request(ident, int_value((query.get("fecha") or ["0"])[0], None, "La fecha del pedido no es válida."))
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
         if name == "clientes":

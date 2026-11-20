@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="robots" content="noindex">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reserva tu turno · Maquetas Lanzate</title>
   <link href="css/fonts.css" rel="stylesheet">
@@ -15,7 +16,7 @@
     <a class="mq-brand" href="index.html">Maquetas Lanzate</a>
     <nav class="mq-links" aria-label="Variantes de la maqueta">
       <a href="#simple">Simple</a><a href="#media">Media</a><a href="#compleja">Compleja</a>
-      <a href="../assets/modulos/reserva-turno/simple.png" target="_blank" rel="noopener">Ver PNG</a>
+      <a href="../assets/modulos/reserva-turno/simple.webp" target="_blank" rel="noopener">Ver PNG</a>
     </nav>
   </header>
 
@@ -93,7 +94,7 @@
                 <div class="bk-slots" data-book-slots><button class="bk-slot" type="button" data-book-pick="horario">09:00</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>09:30</button><button class="bk-slot" type="button" data-book-pick="horario">10:00</button><button class="bk-slot" type="button" data-book-pick="horario">10:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>11:30</button><button class="bk-slot" type="button" data-book-pick="horario">12:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:00</button><button class="bk-slot" type="button" data-book-pick="horario">15:30</button><button class="bk-slot" type="button" data-book-pick="horario" disabled>16:30</button><button class="bk-slot" type="button" data-book-pick="horario">17:00</button><button class="bk-slot" type="button" data-book-pick="horario">17:30</button><button class="bk-slot" type="button" data-book-pick="horario">18:00</button></div>
                 <p class="bk-label"><span>3</span> Tus datos</p>
                 <div class="row g-2">
-                  <label class="bk-field col-sm-6"><span class="visually-hidden">Nombre y apellido</span><input class="bk-input" name="nombre" required placeholder="Nombre y apellido" autocomplete="name" data-book-field="nombre"></label>
+                  <label class="bk-field col-sm-6"><span class="visually-hidden">Nombre y apellido</span><input class="bk-input" type="text" name="nombre" required placeholder="Nombre y apellido" autocomplete="name" data-book-field="nombre"></label>
                   <label class="bk-field col-sm-6"><span class="visually-hidden">Email</span><input class="bk-input" type="email" name="email" required placeholder="tu@email.com" autocomplete="email" data-book-field="email"></label>
                 </div>
                 <div class="bk-foot">
@@ -155,7 +156,7 @@
                 <section class="bk-step" data-book-step="4" hidden>
                   <h3 class="bk-step-title">Completá tus datos</h3>
                   <div class="row g-3">
-                    <label class="bk-field col-md-6"><span>Nombre y apellido</span><input class="bk-input" name="nombre" required autocomplete="name" placeholder="Ej: Ana Pérez" data-book-field="nombre"></label>
+                    <label class="bk-field col-md-6"><span>Nombre y apellido</span><input class="bk-input" type="text" name="nombre" required autocomplete="name" placeholder="Ej: Ana Pérez" data-book-field="nombre"></label>
                     <label class="bk-field col-md-6"><span>Teléfono</span><input class="bk-input" type="tel" name="telefono" required autocomplete="tel" placeholder="+54 11 5555-0000" data-book-field="telefono"></label>
                     <label class="bk-field col-12"><span>Email</span><input class="bk-input" type="email" name="email" required autocomplete="email" placeholder="tu@email.com" data-book-field="email"></label>
                     <label class="bk-field col-12"><span>¿Algo que debamos saber? <em>(opcional)</em></span><textarea class="bk-input" name="notas" rows="2" placeholder="Contanos brevemente el motivo de la consulta"></textarea></label>
