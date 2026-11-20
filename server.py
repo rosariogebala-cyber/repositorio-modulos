@@ -1948,6 +1948,10 @@ def landing_dict(row, client, summary=False):
         "disponible": bool(row.get("html")),
     }
     data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or []))
+    plan = client_plan(client)
+    data["secciones_contenido"] = len(content_sections(row.get("items") or []))
+    data["secciones_incluidas"] = (plan.get("secciones") or 0) if plan else 0
+    data["secciones_adicionales"] = max(0, data["secciones_contenido"] - data["secciones_incluidas"]) if plan else 0
     if summary:
         data["cantidad_modulos"] = len(row.get("items") or [])
     else:
