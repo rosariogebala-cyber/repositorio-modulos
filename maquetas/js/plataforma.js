@@ -343,7 +343,11 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
-    var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">No entra en el plan: ' + esc(lp.aviso_plan) + "</b></small>" : "";
+    if (lp.secciones_incluidas) {
+      meta.push(lp.secciones_contenido + " de " + lp.secciones_incluidas + " secciones incluidas" +
+        (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
+    }
+    var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">Ampliación a revisar: ' + esc(lp.aviso_plan) + "</b></small>" : "";
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -842,8 +846,8 @@
             (plan
               ? '<div class="cf-plan-name"><strong>' + esc(plan.nombre) + "</strong>" + (plan.mensual ? "<span>" + esc(money(plan.mensual)) + " / mes</span>" : "") + "</div>" +
                 '<ul class="cf-features">' +
-                  "<li><i class=\"bi bi-layout-text-window\" aria-hidden=\"true\"></i> Hasta " + (plan.secciones || "—") + " secciones</li>" +
-                  "<li><i class=\"bi bi-chat-square-text\" aria-hidden=\"true\"></i> " + plural(plan.cambiosPorMes || 0, "pedido", "pedidos") + " de cambios por mes</li>" +
+                  "<li><i class=\"bi bi-layout-text-window\" aria-hidden=\"true\"></i> Hasta " + (plan.secciones || "—") + " secciones incluidas; podés sumar más con presupuesto y aprobación</li>" +
+                  "<li><i class=\"bi bi-chat-square-text\" aria-hidden=\"true\"></i> " + (plan.enviosIlimitados ? "Envíos ilimitados desde el portal" : plural(plan.cambiosPorMes || 0, "envío", "envíos") + " desde el portal por mes") + " · " + (plan.cambiosAsistidos || 0) + " cambios asistidos</li>" +
                   '<li class="' + (plan.turnos ? "" : "is-off") + '"><i class="bi bi-' + (plan.turnos ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Reserva de turnos</li>' +
                   '<li class="' + (plan.medicion ? "" : "is-off") + '"><i class="bi bi-' + (plan.medicion ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Analytics y Píxel de Meta</li>' +
                 "</ul>"
@@ -1077,8 +1081,9 @@
     var p = PLANS.filter(function (x) { return x.id === id; })[0];
     if (!p) return "";
     var parts = [];
-    if (p.secciones) parts.push("hasta " + p.secciones + " secciones");
-    if (p.cambiosPorMes) parts.push(plural(p.cambiosPorMes, "pedido", "pedidos") + " de cambios por mes");
+    if (p.secciones) parts.push(p.secciones + " secciones incluidas; adicionales con presupuesto");
+    parts.push(p.enviosIlimitados ? "envíos ilimitados desde el portal" : plural(p.cambiosPorMes || 0, "envío", "envíos") + " desde el portal al mes");
+    parts.push((p.cambiosAsistidos || 0) + " cambios asistidos al mes");
     parts.push(p.turnos ? "con reserva de turnos" : "sin reserva de turnos");
     parts.push(p.medicion ? "con Analytics y Píxel de Meta" : "sin Analytics ni Píxel");
     return "Plan " + p.nombre + ": " + parts.join(", ") + ".";

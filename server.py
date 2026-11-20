@@ -944,7 +944,7 @@ def portal_home(client):
                      "meta_pixel": bool(client.get("meta_pixel"))},
         "plan": status, "plan_vence": client.get("plan_vence") or "",
         "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
-                                                  "turnos", "medicion")} if plan else None,
+                                                  "enviosIlimitados", "cambiosAsistidos", "turnos", "medicion")} if plan else None,
         "landings": [{"nombre": landing_public_name(l["nombre"], len(landings)), "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
                       "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
@@ -1169,9 +1169,17 @@ def site_plans():
         features = {str(row[0]): row[index + 1] for row in compare if len(row) > index + 1}
         item["caracteristicas"] = features
         item["secciones"] = feature_number(features, "secciones")
-        item["cambiosPorMes"] = feature_number(features, "cambios")
-        item["turnos"] = feature_flag(features, "turno")
-        item["medicion"] = feature_flag(features, "analytics")
+        # Son dos beneficios distintos: envíos que hace el cliente desde el portal
+        # y cambios asistidos por el equipo. No contabilizarlos juntos.
+        envio = features.get("Envíos de cambios desde tu portal / mes", 0)
+        item["enviosIlimitados"] = str(envio).strip().lower() in ("ilimitado", "ilimitados")
+        item["cambiosPorMes"] = 0 if item["enviosIlimitados"] else feature_number(
+            {"Envíos": envio}, "envíos")
+        item["cambiosAsistidos"] = feature_number(features, "cambios asistidos")
+        # "Adicional" significa cotizable, NO incluido en el plan.
+        item["turnos"] = features.get("Gestión de turnos a medida") is True
+        # La web ofrece analítica básica en Express/Negocio y ampliada en Pro.
+        item["medicion"] = features.get("Analítica") not in (None, False, "No")
         out.append(item)
     return {"planes": out, "whatsapp": site.get("whatsapp") or "", "email": site.get("email") or ""}
 
@@ -1220,8 +1228,13 @@ def plan_ids():
 
 
 def client_plan(client):
-    """El plan del cliente con sus límites, o None si no tiene (sin límites: demos y pruebas)."""
+    """Condiciones pactadas primero; catálogo vigente solo si no hay snapshot."""
     plan_id = client.get("plan") or ""
+    if not plan_id:
+        return None
+    contracted = client.get("plan_condiciones")
+    if isinstance(contracted, dict) and contracted.get("id") == plan_id:
+        return contracted
     for plan in read_data("planes", {}).get("planes") or []:
         if plan.get("id") == plan_id:
             return plan
@@ -1249,21 +1262,27 @@ def month_key(ms=None):
     return time.strftime("%Y-%m", time.localtime((ms or now_ms()) / 1000))
 
 
-def changes_this_month(client):
-    """Pedidos del mes que cuentan para el plan: los pendientes y los aceptados (los rechazados no)."""
+def changes_this_month(client, origin="cliente"):
+    """Envios del portal y cambios asistidos son cupos independientes."""
     current = month_key()
     return [p for p in client.get("pedidos") or []
-            if month_key(p.get("fecha")) == current and p.get("estado", "aceptado") != "rechazado"]
+            if month_key(p.get("fecha")) == current
+            and p.get("estado", "aceptado") != "rechazado"
+            and p.get("origen", "equipo") == origin]
 
 
 def plan_status(client):
     """Resumen del plan para el panel y el editor del cliente."""
     plan = client_plan(client)
     used = len(changes_this_month(client))
+    assisted_used = len(changes_this_month(client, "equipo"))
     status = {"plan": plan["nombre"] if plan else "", "vencido": bool(plan_expired(client)),
               "dias": plan_days_left(client), "cambios_usados": used}
     if plan:
         status.update(cambios_mes=plan.get("cambiosPorMes") or 0, secciones=plan.get("secciones") or 0,
+                      envios_ilimitados=bool(plan.get("enviosIlimitados")),
+                      cambios_asistidos=plan.get("cambiosAsistidos") or 0,
+                      cambios_asistidos_usados=assisted_used,
                       turnos=bool(plan.get("turnos")), medicion=bool(plan.get("medicion")))
         if status["cambios_mes"]:
             status["cambios_restantes"] = max(0, status["cambios_mes"] - used)
@@ -1276,19 +1295,23 @@ def content_sections(items):
     return [g for g in groups if g not in ("navegacion", "footer", "whatsapp")]
 
 
-def plan_errors(client, items):
+def plan_errors(client, items, existing_items=None):
+    """Avisos comerciales NO bloqueantes; el equipo puede ampliar con presupuesto."""
     plan = client_plan(client)
     if not plan:
         return []
-    errors = []
+    avisos = []
     limit = plan.get("secciones") or 0
-    count = len(content_sections(items))
+    sections = content_sections(items)
+    count = len(sections)
     if limit and count > limit:
-        errors.append("el plan %s permite hasta %d secciones y esta landing tiene %d (sin contar navegación ni footer)"
-                      % (plan["nombre"], limit, count))
-    if not plan.get("turnos") and "reserva-turno" in content_sections(items):
-        errors.append("la reserva de turnos no está incluida en el plan %s" % plan["nombre"])
-    return errors
+        extra = count - limit
+        avisos.append("Plan %s: incluye hasta %d secciones; esta landing tiene %d (%d adicional%s). "
+                      "Podés conservarlas o agregar más; revisá el presupuesto y la aprobación antes de publicar"
+                      % (plan["nombre"], limit, count, extra, "es" if extra != 1 else ""))
+    if not plan.get("turnos") and "reserva-turno" in sections:
+        avisos.append("La reserva de turnos se cotiza como funcionalidad adicional")
+    return avisos
 
 
 def add_change_request(client_id, data):
@@ -1622,6 +1645,14 @@ def set_client_plan(client_id, data):
         raise ApiError(400, "La fecha de vencimiento tiene que ser AAAA-MM-DD.")
     with store("clientes") as db:
         row = find_client(db, client_id)
+        # Solo una nueva asignación de plan crea condiciones contractuales.
+        # No tocar clientes históricos ni regenerar un contrato al cambiar vencimiento.
+        if plan != (row.get("plan") or ""):
+            active = next((p for p in read_data("planes", {}).get("planes") or [] if p.get("id") == plan), None)
+            if active:
+                row["plan_condiciones"] = dict(active)
+            else:
+                row.pop("plan_condiciones", None)
         row.update(plan=plan, plan_vence=vence, actualizado=now_ms())
     render_client_landings(client_id)
     return get_client(client_id)
@@ -1917,6 +1948,10 @@ def landing_dict(row, client, summary=False):
         "disponible": bool(row.get("html")),
     }
     data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or []))
+    plan = client_plan(client)
+    data["secciones_contenido"] = len(content_sections(row.get("items") or []))
+    data["secciones_incluidas"] = (plan.get("secciones") or 0) if plan else 0
+    data["secciones_adicionales"] = max(0, data["secciones_contenido"] - data["secciones_incluidas"]) if plan else 0
     if summary:
         data["cantidad_modulos"] = len(row.get("items") or [])
     else:
@@ -2092,9 +2127,8 @@ def save_landing(data, landing_id=None):
         slug = slugify(nombre)
         if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-        limits = plan_errors(client, items)
-        if limits:
-            raise ApiError(400, "No se puede guardar: " + "; ".join(limits) + ". Cambiá el plan en la ficha del cliente o sacá esas secciones.")
+        # Los límites del plan son comerciales, no errores de validación técnica:
+        # el aviso se muestra en el constructor y en la ficha, pero se permite guardar.
         html = publish_html(html, items, logo_ref(client))
         if (rules.get("general") or {}).get("bloquear"):
             final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
