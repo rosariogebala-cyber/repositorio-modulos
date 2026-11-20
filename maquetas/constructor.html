@@ -50,6 +50,9 @@
           <label>Nombre de la landing
             <input class="lb-input" data-reference-name type="text" maxlength="120" required placeholder="Ej.: Web principal">
           </label>
+          <label>Plan de esta landing
+            <select class="lb-input" data-reference-plan required><option value="">Cargando planes…</option></select>
+          </label>
           <label>Instagram del negocio <span class="lb-optional">(opcional)</span>
             <input class="lb-input" data-reference-instagram type="url" inputmode="url" maxlength="200" placeholder="https://www.instagram.com/usuario/">
           </label>
@@ -97,6 +100,11 @@
         </select>
         <label class="lb-label lb-label-gap" for="lbName">Nombre de la landing</label>
         <input class="lb-input" id="lbName" type="text" placeholder="Ej: Promo primavera" autocomplete="off">
+        <label class="lb-label lb-label-gap" for="lbLandingPlan">Plan de esta landing</label>
+        <select class="lb-input" id="lbLandingPlan" data-lb-landing-plan>
+          <option value="">Cargando planes…</option>
+        </select>
+        <p class="lb-hint">Cada landing tiene su propio plan y cantidad de secciones incluidas. Las adicionales se avisan para aprobarlas.</p>
         <p class="lb-hint lb-mode" data-lb-mode></p>
         <label class="lb-label lb-label-gap" for="lbDesc">Descripción para Google&nbsp;<span class="lb-optional">(opcional)</span></label>
         <textarea class="lb-input lb-desc" id="lbDesc" rows="3" maxlength="300" placeholder="Qué ofrece la landing, en una o dos frases" data-lb-desc></textarea>
