@@ -42,6 +42,24 @@ class ReferenceAssistantTests(unittest.TestCase):
             with self.assertRaises(server.ApiError):
                 server.ia_identidad_referencias(dict(self.base, cliente_id=999))
 
+    def test_plan_por_landing_y_retrocompatibilidad(self):
+        catalog = {"planes": [
+            {"id": "express", "nombre": "Express", "secciones": 4, "turnos": False},
+            {"id": "pro", "nombre": "Pro", "secciones": 10, "turnos": True}
+        ]}
+        client = {"id": 1, "nombre": "Estudio", "plan": "express"}
+        old = {"id": 10, "cliente_id": 1}
+        new = {"id": 11, "cliente_id": 1, "plan_id": "pro",
+               "plan_condiciones": dict(catalog["planes"][1])}
+        with patch.object(server, "read_data", return_value=catalog):
+            self.assertEqual(server.landing_plan(old, client)["id"], "express")
+            self.assertEqual(server.landing_plan(new, client)["id"], "pro")
+            sections = [{"id": "servicios-simple"} for _ in range(6)]
+            self.assertTrue(server.plan_errors(client, sections, landing=old))
+            self.assertFalse(server.plan_errors(client, sections, landing=new))
+            self.assertEqual(server.landing_dict(new | {"nombre":"Landing", "slug":"landing",
+                "creado":1, "actualizado":1,"items":sections}, client)["secciones_incluidas"], 10)
+
     def test_descarta_html_y_estilos_no_admitidos(self):
         response = dict(self.response, titulo="<script>malicioso</script>",
                         rubro="no-existe", tipografia="fuente-externa",
