@@ -427,7 +427,8 @@
         return head("Mi web", "Tus páginas publicadas. Para cambiar algo, tocá «Pedir cambios» y marcalo directamente sobre la página.") +
           (d.landings.length ? '<div class="sites">' + d.landings.map(function (l) {
             return '<article class="site"><div class="site-shot" style="' + (l.portada ? "background-image:url('" + esc(l.portada) + "')" : "") + '" role="img" aria-label="Vista de ' + esc(l.nombre) + '"></div>' +
-              '<div class="site-body"><div><strong>' + esc(l.nombre.charAt(0).toUpperCase() + l.nombre.slice(1)) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p></div>" +
+              '<div class="site-body"><div><strong>' + esc(l.nombre.charAt(0).toUpperCase() + l.nombre.slice(1)) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p>" +
+              (l.plan && l.plan.plan ? '<p class="muted" style="margin:2px 0 0;font-size:14px">Plan ' + esc(l.plan.plan) + ' · ' + (l.plan.secciones || 0) + ' secciones incluidas' + (l.plan.envios_ilimitados ? ' · envíos ilimitados' : ' · ' + (l.plan.cambios_restantes || 0) + ' envíos disponibles') + '</p>' : '') + "</div>" +
               '<div class="site-actions"><a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a>' +
               '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Ver mi web</a></div></div></article>';
           }).join("") + "</div>" : '<div class="card empty"><i class="bi bi-window" aria-hidden="true"></i>Todavía no hay páginas publicadas.</div>');
