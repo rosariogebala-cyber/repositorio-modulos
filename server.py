@@ -2154,7 +2154,8 @@ def save_landing(data, landing_id=None):
         if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
         # Guardar condiciones comerciales por landing; no actualizar instantáneas antiguas.
-        plan_id = str(data.get("plan_id") or "").strip() if "plan_id" in data else (current or {}).get("plan_id") or client.get("plan") or ""
+        plan_id = (str(data.get("plan_id") or "").strip() if "plan_id" in data else
+                   ((current or {}).get("plan_id") or "") if current else client.get("plan") or "")
         plans = read_data("planes", {}).get("planes") or []
         plan = next((p for p in plans if p.get("id") == plan_id), None) if plan_id else None
         if plan_id and not plan:
