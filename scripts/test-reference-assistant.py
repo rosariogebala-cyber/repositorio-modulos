@@ -60,6 +60,20 @@ class ReferenceAssistantTests(unittest.TestCase):
             self.assertEqual(server.landing_dict(new | {"nombre":"Landing", "slug":"landing",
                 "creado":1, "actualizado":1,"items":sections}, client)["secciones_incluidas"], 10)
 
+    def test_cupos_de_pedidos_aislados_por_sitio(self):
+        plan = {"id":"express", "nombre":"Express", "secciones":4,
+                "cambiosPorMes":10, "cambiosAsistidos":1}
+        client = {"plan":"express", "pedidos":[
+            {"fecha": server.now_ms(), "landing_slug":"a", "origen":"cliente", "estado":"pendiente"},
+            {"fecha": server.now_ms(), "landing_slug":"b", "origen":"cliente", "estado":"pendiente"}]}
+        with patch.object(server, "read_data", return_value={"planes":[plan]}):
+            a = server.plan_status(client, {"slug":"a", "plan_id":"express"})
+            b = server.plan_status(client, {"slug":"b", "plan_id":"express"})
+        self.assertEqual(a["cambios_usados"], 1)
+        self.assertEqual(b["cambios_usados"], 1)
+        self.assertEqual(a["cambios_restantes"], 9)
+        self.assertEqual(b["cambios_restantes"], 9)
+
     def test_descarta_html_y_estilos_no_admitidos(self):
         response = dict(self.response, titulo="<script>malicioso</script>",
                         rubro="no-existe", tipografia="fuente-externa",
