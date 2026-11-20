@@ -121,7 +121,7 @@ PANEL_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.
              "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
 PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
 COOKIE = "lz_sesion"
-SESSION_DAYS = 30
+TEAM_SESSION_SECONDS = 6 * 60 * 60
 
 
 class ApiError(Exception):
@@ -754,15 +754,24 @@ def valid_credentials(usuario, clave):
 
 
 def make_session():
-    expires = str(int(time.time()) + SESSION_DAYS * 86400)
-    return expires + "." + hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
+    """Sesión del equipo: 6 horas fijas desde el login, no renovables por actividad."""
+    issued = int(time.time())
+    payload = "v2.%d.%d" % (issued, issued + TEAM_SESSION_SECONDS)
+    return payload + "." + hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
 
 
 def valid_session(value):
     try:
-        expires, sig = value.split(".", 1)
-        good = hmac.new(session_secret(), expires.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig, good) and int(expires) > time.time()
+        version, issued, expires, sig = value.split(".")
+        if version != "v2":
+            return False  # Las sesiones antiguas de 30 días dejan de ser válidas.
+        issued_at, expires_at = int(issued), int(expires)
+        now = time.time()
+        if issued_at > now or expires_at != issued_at + TEAM_SESSION_SECONDS or expires_at <= now:
+            return False
+        payload = "%s.%s.%s" % (version, issued, expires)
+        good = hmac.new(session_secret(), payload.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, good)
     except (ValueError, AttributeError):
         return False
 
@@ -3401,7 +3410,7 @@ class Handler(SimpleHTTPRequestHandler):
                 add_attempt("equipo", usuario, self.client_ip())
                 time.sleep(1)
                 raise ApiError(401, "El usuario o la contraseña no son correctos.")
-            self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), SESSION_DAYS * 86400)),)
+            self.extra_headers = (("Set-Cookie", self.session_cookie(make_session(), TEAM_SESSION_SECONDS)),)
             return {"ok": True}
         if name == "acceso" and method == "POST":
             return set_portal_access(ident, self.read_json())
