@@ -1296,27 +1296,22 @@ def content_sections(items):
 
 
 def plan_errors(client, items, existing_items=None):
-    """No bloquear ediciones de landings históricas si no amplían su alcance."""
+    """Avisos comerciales NO bloqueantes; el equipo puede ampliar con presupuesto."""
     plan = client_plan(client)
     if not plan:
         return []
-    errors = []
+    avisos = []
     limit = plan.get("secciones") or 0
     sections = content_sections(items)
     count = len(sections)
-    previous_sections = content_sections(existing_items) if existing_items is not None else []
-    previous_count = len(previous_sections)
-    # Una landing ya publicada puede superar el nuevo límite comercial.
-    # Permitimos mantener o reducir sus secciones, nunca agregar más.
-    legacy_unchanged = existing_items is not None and previous_count > limit and count <= previous_count
-    if limit and count > limit and not legacy_unchanged:
-        errors.append("el plan %s permite hasta %d secciones y esta landing tiene %d (sin contar navegación ni footer)"
-                      % (plan["nombre"], limit, count))
+    if limit and count > limit:
+        extra = count - limit
+        avisos.append("Plan %s: incluye hasta %d secciones; esta landing tiene %d (%d adicional%s). "
+                      "Podés conservarlas o agregar más; revisá el presupuesto y la aprobación antes de publicar"
+                      % (plan["nombre"], limit, count, extra, "es" if extra != 1 else ""))
     if not plan.get("turnos") and "reserva-turno" in sections:
-        # Si ya existía, el cliente puede editar sin perder la funcionalidad.
-        if "reserva-turno" not in previous_sections:
-            errors.append("la reserva de turnos no está incluida en el plan %s" % plan["nombre"])
-    return errors
+        avisos.append("La reserva de turnos se cotiza como funcionalidad adicional")
+    return avisos
 
 
 def add_change_request(client_id, data):
@@ -2128,9 +2123,8 @@ def save_landing(data, landing_id=None):
         slug = slugify(nombre)
         if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-        limits = plan_errors(client, items, current.get("items") or [] if current else None)
-        if limits:
-            raise ApiError(400, "No se puede guardar: " + "; ".join(limits) + ". Cambiá el plan en la ficha del cliente o sacá esas secciones.")
+        # Los límites del plan son comerciales, no errores de validación técnica:
+        # el aviso se muestra en el constructor y en la ficha, pero se permite guardar.
         html = publish_html(html, items, logo_ref(client))
         if (rules.get("general") or {}).get("bloquear"):
             final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
