@@ -1241,6 +1241,18 @@ def client_plan(client):
     return None
 
 
+def landing_plan(landing, client):
+    """Cada landing puede contratar su propio plan. Las anteriores heredan el del cliente."""
+    plan_id = landing.get("plan_id") if isinstance(landing, dict) else ""
+    if not plan_id:
+        return client_plan(client)
+    contracted = landing.get("plan_condiciones")
+    if isinstance(contracted, dict) and contracted.get("id") == plan_id:
+        return contracted
+    return next((p for p in read_data("planes", {}).get("planes") or []
+                 if p.get("id") == plan_id), None)
+
+
 def plan_expired(client, today=None):
     vence = client.get("plan_vence") or ""
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vence):
@@ -1295,9 +1307,9 @@ def content_sections(items):
     return [g for g in groups if g not in ("navegacion", "footer", "whatsapp")]
 
 
-def plan_errors(client, items, existing_items=None):
-    """Avisos comerciales NO bloqueantes; el equipo puede ampliar con presupuesto."""
-    plan = client_plan(client)
+def plan_errors(client, items, existing_items=None, landing=None):
+    """Avisos comerciales por landing. Las webs antiguas conservan el plan heredado."""
+    plan = landing_plan(landing, client)
     if not plan:
         return []
     avisos = []
@@ -1950,8 +1962,11 @@ def landing_dict(row, client, summary=False):
         "editor": editor_url(client, row),
         "disponible": bool(row.get("html")),
     }
-    data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or []))
-    plan = client_plan(client)
+    data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or [], landing=row))
+    plan = landing_plan(row, client)
+    data["plan_id"] = row.get("plan_id") or client.get("plan") or ""
+    data["plan_nombre"] = plan.get("nombre") if plan else ""
+    data["plan_individual"] = bool(row.get("plan_id"))
     data["secciones_contenido"] = len(content_sections(row.get("items") or []))
     data["secciones_incluidas"] = (plan.get("secciones") or 0) if plan else 0
     data["secciones_adicionales"] = max(0, data["secciones_contenido"] - data["secciones_incluidas"]) if plan else 0
@@ -2130,8 +2145,20 @@ def save_landing(data, landing_id=None):
         slug = slugify(nombre)
         if any(l["cliente_id"] == client_id and l["slug"] == slug and l["id"] != (landing_id or 0) for l in db["landings"]):
             raise ApiError(409, "«%s» ya tiene una landing llamada así. Usá otro nombre o editá la existente." % client["nombre"])
-        # Los límites del plan son comerciales, no errores de validación técnica:
-        # el aviso se muestra en el constructor y en la ficha, pero se permite guardar.
+        # Guardar condiciones comerciales por landing; no actualizar instantáneas antiguas.
+        plan_id = str(data.get("plan_id") or "").strip() if "plan_id" in data else (current or {}).get("plan_id") or client.get("plan") or ""
+        plans = read_data("planes", {}).get("planes") or []
+        plan = next((p for p in plans if p.get("id") == plan_id), None) if plan_id else None
+        if plan_id and not plan:
+            raise ApiError(400, "El plan de la landing no existe.")
+        if plan_id and (not current or current.get("plan_id") != plan_id):
+            plan_snapshot = dict(plan)
+        elif current:
+            plan_snapshot = current.get("plan_condiciones")
+        else:
+            plan_snapshot = dict(plan) if plan else None
+        # Los límites del plan son comerciales; las secciones extra necesitan revisión,
+        # no se rechaza automáticamente un borrador por su cantidad.
         html = publish_html(html, items, logo_ref(client))
         if (rules.get("general") or {}).get("bloquear"):
             final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
@@ -2145,7 +2172,8 @@ def save_landing(data, landing_id=None):
         stamp = max(now_ms(), current["actualizado"] + 1) if current else now_ms()
         values = {"cliente_id": client_id, "nombre": nombre, "slug": slug, "items": items, "estilo": estilo,
                   "ignorados": ignorados, "descripcion": descripcion, "animacion": animacion, "html": html,
-                  "portada": cover_of(html), "actualizado": stamp}
+                  "portada": cover_of(html), "actualizado": stamp,
+                  "plan_id": plan_id, "plan_condiciones": plan_snapshot}
         if "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
@@ -2223,7 +2251,7 @@ def landing_page(row, client):
         return None
     origin = read_config()["urlPublica"]
     path = "/l/%s/%s/" % (client["slug"], row["slug"])
-    plan = client_plan(client)
+    plan = landing_plan(row, client)
     tracking = not plan or plan.get("medicion")
     meta = dict(row, cliente=client["nombre"], cliente_id=client["id"], cliente_actualizado=client.get("actualizado") or 0,
                 logo=client.get("logo"), direccion=client.get("direccion") or "", telefono=client.get("telefono") or "",
