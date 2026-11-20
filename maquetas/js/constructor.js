@@ -29,6 +29,7 @@
   var allSeg = $("[data-lb-all]");
   var animSeg = $("[data-lb-anim]");
   var clientSelect = $("[data-lb-client]");
+  var landingPlanSelect = $("[data-lb-landing-plan]");
   var modeHint = $("[data-lb-mode]");
   var kicker = $("[data-lb-kicker]");
   var createLabel = $("[data-lb-create-label]");
@@ -53,7 +54,8 @@
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+  var landingPlans = [];
+  var state = { name: "", clienteId: null, landingId: null, planId: "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
   var savedSnapshot = null;
   var busy = false;
   var portalRevision = null;
@@ -70,7 +72,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.colores || null, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.planId, state.items, state.estilo, state.colores || null, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -1527,6 +1529,7 @@
     var form = templateStart.querySelector("[data-reference-form]");
     var clientField = form.querySelector("[data-reference-client]");
     var nameField = form.querySelector("[data-reference-name]");
+    var planField = form.querySelector("[data-reference-plan]");
     var infoField = form.querySelector("[data-reference-info]");
     var instagramField = form.querySelector("[data-reference-instagram]");
     var webField = form.querySelector("[data-reference-web]");
@@ -1537,12 +1540,16 @@
     clients.forEach(function (c) { clientField.add(new Option(c.nombre, String(c.id))); });
     if (state.clienteId) clientField.value = String(state.clienteId);
     if (state.name.trim()) nameField.value = state.name.trim();
+    planField.replaceChildren(new Option("Elegí un plan", ""));
+    landingPlans.forEach(function (p) { planField.add(new Option(p.nombre + " · " + p.secciones + " secciones", p.id)); });
+    planField.value = state.planId || (clients.find(function(c){return c.id===state.clienteId;}) || {}).plan || "";
     var chosen = clients.find(function (c) { return c.id === Number(clientField.value); });
     if (chosen && chosen.sitio) webField.value = /^https:\/\//i.test(chosen.sitio) ? chosen.sitio : "";
     if (chosen && chosen.instagram) instagramField.value = /^https:\/\//i.test(chosen.instagram) ? chosen.instagram : "";
     clientField.addEventListener("change", function () {
       var c = clients.find(function (row) { return row.id === Number(clientField.value); });
       if (c) {
+        planField.value = c.plan || "";
         if (c.sitio && !webField.value) webField.value = /^https:\/\//i.test(c.sitio) ? c.sitio : "";
         if (c.instagram && !instagramField.value) instagramField.value = /^https:\/\//i.test(c.instagram) ? c.instagram : "";
       }
@@ -1562,8 +1569,8 @@
     }
 
     function generate() {
-      if (!clientField.value || !nameField.value.trim()) {
-        status.textContent = "Elegí un cliente y el nombre de la landing.";
+      if (!clientField.value || !nameField.value.trim() || !planField.value) {
+        status.textContent = "Elegí cliente, nombre y plan de esta landing.";
         return;
       }
       if (state.items.length && !window.confirm("El asistente reemplazará el borrador sin guardar. ¿Continuar?")) return;
@@ -1631,6 +1638,7 @@
           hero.html = element.innerHTML;
         }
         state.clienteId = client.id;
+        state.planId = planField.value;
         state.name = nameField.value.trim();
         state.items = items;
         state.landingId = null;
@@ -4622,11 +4630,15 @@
   }
   function planSectionWarning() {
     var client = currentClient();
-    var plan = client && client.plan_estado;
-    if (!plan || !plan.secciones) return { text: "", extra: 0 };
+    var selected = landingPlans.find(function (p) { return p.id === state.planId; });
+    var legacy = client && client.plan_estado;
+    var limit = state.landingId && state.planId === state.originalPlanId && state.planIncluded ?
+      state.planIncluded : selected && selected.secciones || legacy && legacy.secciones || 0;
+    var planName = selected && selected.nombre || legacy && legacy.plan || "";
+    if (!limit) return { text: "", extra: 0 };
     var count = countPlanSections(state.items);
-    var extra = Math.max(0, count - plan.secciones);
-    return { extra: extra, text: "Plan " + plan.plan + ": " + count + " de " + plan.secciones +
+    var extra = Math.max(0, count - limit);
+    return { extra: extra, text: "Plan de esta landing: " + planName + ". " + count + " de " + limit +
       " secciones incluidas." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
       ". Podés continuar, pero corresponde revisar su presupuesto y aprobación antes de publicar." : "") };
   }
@@ -4725,6 +4737,16 @@
     }).join("");
     if (state.clienteId && !currentClient()) state.clienteId = null;
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
+    if (!state.planId && state.clienteId && !state.landingId) state.planId = (currentClient() || {}).plan || "";
+    landingPlanSelect.value = state.planId || "";
+  }
+
+  function loadLandingPlans() {
+    return api("GET", "/api/planes").then(function (list) {
+      landingPlans = Array.isArray(list) ? list : [];
+      landingPlanSelect.replaceChildren(new Option("Elegí un plan", ""));
+      landingPlans.forEach(function (p) { landingPlanSelect.add(new Option(p.nombre + " · " + p.secciones + " secciones", p.id)); });
+    });
   }
 
   function loadClients() {
@@ -4748,6 +4770,9 @@
       name: lp.nombre,
       clienteId: lp.cliente_id,
       landingId: lp.id,
+      planId: lp.plan_id || "",
+      originalPlanId: lp.plan_id || "",
+      planIncluded: lp.secciones_incluidas || 0,
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) {
         var item = { id: it.id, width: it.width };
         if (it.html) item.html = it.html;
@@ -4782,6 +4807,7 @@
     nameInput.value = state.name;
     renderDesc(true);
     clientSelect.value = String(state.clienteId);
+    landingPlanSelect.value = state.planId;
     paintClientBrand();
     update();
   }
@@ -4923,7 +4949,7 @@
     var html = buildDocument({ prefix: "" });
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
-    return { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    return { cliente_id: state.clienteId, plan_id: state.planId || "", nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
   }
 
   function rebuildLanding() {
@@ -4998,11 +5024,12 @@
 
   function startNew(clienteId) {
     initialPlanSections = null;
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    state = { name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
     renderDesc(true);
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
+    landingPlanSelect.value = state.planId;
     search.value = "";
     showTab("add");
     update();
@@ -5017,8 +5044,16 @@
 
   clientSelect.addEventListener("change", function () {
     state.clienteId = clientSelect.value ? Number(clientSelect.value) : null;
+    if (!state.landingId) state.planId = (currentClient() || {}).plan || "";
+    landingPlanSelect.value = state.planId;
     renderMode();
     renderPreview();
+    saveDraft();
+  });
+
+  landingPlanSelect.addEventListener("change", function () {
+    state.planId = landingPlanSelect.value;
+    renderMode();
     saveDraft();
   });
 
@@ -5225,6 +5260,7 @@
       name: draft.name || "",
       clienteId: draft.clienteId || null,
       landingId: draft.landingId || null,
+      planId: draft.planId || "",
       items: draft.items.filter(function (it) { return byId[it.id]; }),
       estilo: draft.estilo || "",
       ignorados: draft.ignorados || [],
@@ -5238,7 +5274,7 @@
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
-    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    state = { name: "", clienteId: state.clienteId, landingId: null, planId: state.planId, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     return last;
   }
@@ -5320,7 +5356,7 @@
   function clientMode() { return false; }
   function applyClientEditor() {}
 
-  Promise.all([loadLibrary(), loadClients()]).then(function () {
+  Promise.all([loadLibrary(), loadClients(), loadLandingPlans()]).then(function () {
     renderClients();
     applyClientEditor();
     start();
