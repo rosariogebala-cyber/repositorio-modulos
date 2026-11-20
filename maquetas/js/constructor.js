@@ -4651,6 +4651,7 @@
     var out = [];
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
+    if (!state.planId) out.push({ key: "plan", text: "Elegí el plan de esta landing" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
     if (state.colores && state.colores.acento && contrastRatio(sharedModuleColors().botonTexto || "#ffffff", effectiveColors().acento) < 4.5) {
       out.push({ key: "colors", text: "Ajustá el color de los botones para llegar a 4.5:1" });
@@ -4861,6 +4862,7 @@
 
   function goTo(key) {
     if (key === "client" || key === "name") { openAssign(); return; }
+    if (key === "plan") { landingPlanSelect.scrollIntoView({ behavior: "smooth", block: "center" }); landingPlanSelect.focus(); return; }
     if (key === "colors") {
       document.querySelector("[data-lb-colors]").open = true;
       document.querySelector('[data-hex="acento"]').focus();
@@ -4921,8 +4923,10 @@
       return;
     }
     state.clienteId = id;
+    if (!state.planId) state.planId = (clients.find(function(c){ return c.id === id; }) || {}).plan || "";
     state.name = name;
     clientSelect.value = String(id);
+    landingPlanSelect.value = state.planId;
     nameInput.value = name;
     assignDialog.close();
     renderMode();
