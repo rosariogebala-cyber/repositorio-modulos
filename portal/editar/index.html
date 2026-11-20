@@ -395,13 +395,20 @@
           return d;
         });
       })
-        .then(function () {
+        .then(function (res) {
           changes = [];
           note.value = "";
           try { localStorage.removeItem(STORAGE); } catch (e) {}
           render();
-          say("¡Listo! Recibimos tu pedido. Vas a ver si lo aceptamos en tu portal, en «Pedidos de cambios».", "ok");
-          setTimeout(function () { location.href = "/portal/" + client.slug + "/#pedidos"; }, 2200);
+          var reviews = res.moderacion || [];
+          var accepted = reviews.filter(function (m) { return m.decision === "aceptar"; }).length;
+          var rejected = reviews.filter(function (m) { return m.decision === "rechazar"; }).length;
+          var pending = reviews.filter(function (m) { return m.decision === "revisar"; }).length;
+          say(reviews.length ?
+            "Revisión automática: " + accepted + " aprobados, " + rejected + " rechazados y " +
+            pending + " pendientes de revisión. Consultá el detalle en «Pedidos de cambios»." :
+            "¡Listo! Recibimos tu pedido y quedó pendiente de revisión.", "ok");
+          setTimeout(function () { location.href = "/portal/" + client.slug + "/#pedidos"; }, 3800);
         })
         .catch(function (err) {
           btn.disabled = false;
