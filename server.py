@@ -948,7 +948,8 @@ def portal_home(client):
         "landings": [{"nombre": landing_public_name(l["nombre"], len(landings)), "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
                       "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
-                      "actualizado": l["actualizado"]} for l in sorted(landings, key=lambda l: -l["actualizado"])],
+                      "actualizado": l["actualizado"],
+                      "plan": plan_status(client, l)} for l in sorted(landings, key=lambda l: -l["actualizado"])],
         "pedidos": requests,
         "estadisticas": client_stats(client),
         "consultas": client_leads(client["id"])[:200] if RECORD.available() else [],
@@ -977,7 +978,12 @@ def portal_data_js(client):
     safe = {k: v for k, v in client.items() if k not in ("portal", "notas")}
     landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
     landings = [{k: l[k] for k in ("id", "cliente_id", "slug", "actualizado")}
-                | {"nombre": landing_public_name(l["nombre"], len(landings)), "html": True} for l in landings]
+                | {"nombre": landing_public_name(l["nombre"], len(landings)), "html": True,
+                   "plan_id": l.get("plan_id") or client.get("plan") or "",
+                   "plan_detalle": {k: landing_plan(l, client).get(k) for k in
+                                   ("id", "nombre", "secciones", "cambiosPorMes", "enviosIlimitados",
+                                    "cambiosAsistidos")} if landing_plan(l, client) else None}
+                for l in landings]
     config = {k: v for k, v in read_config().items()}
     parts = [("LANZATE_CONFIG", config), ("LANZATE_PLANES", read_data("planes", {})),
              ("LANZATE_CLIENTES", [safe]), ("LANZATE_LANDINGS", landings)]
@@ -1274,20 +1280,22 @@ def month_key(ms=None):
     return time.strftime("%Y-%m", time.localtime((ms or now_ms()) / 1000))
 
 
-def changes_this_month(client, origin="cliente"):
-    """Envios del portal y cambios asistidos son cupos independientes."""
+def changes_this_month(client, origin="cliente", landing_slug=None):
+    """Cupos independientes por origen y, si se indica, por landing."""
     current = month_key()
     return [p for p in client.get("pedidos") or []
             if month_key(p.get("fecha")) == current
             and p.get("estado", "aceptado") != "rechazado"
-            and p.get("origen", "equipo") == origin]
+            and p.get("origen", "equipo") == origin
+            and (landing_slug is None or p.get("landing_slug") == landing_slug)]
 
 
-def plan_status(client):
-    """Resumen del plan para el panel y el editor del cliente."""
-    plan = client_plan(client)
-    used = len(changes_this_month(client))
-    assisted_used = len(changes_this_month(client, "equipo"))
+def plan_status(client, landing=None):
+    """Resumen del plan de una landing; sin landing conserva el resumen legado."""
+    plan = landing_plan(landing, client) if landing else client_plan(client)
+    slug = landing.get("slug") if landing else None
+    used = len(changes_this_month(client, landing_slug=slug))
+    assisted_used = len(changes_this_month(client, "equipo", slug))
     status = {"plan": plan["nombre"] if plan else "", "vencido": bool(plan_expired(client)),
               "dias": plan_days_left(client), "cambios_usados": used}
     if plan:
