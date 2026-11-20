@@ -1169,9 +1169,17 @@ def site_plans():
         features = {str(row[0]): row[index + 1] for row in compare if len(row) > index + 1}
         item["caracteristicas"] = features
         item["secciones"] = feature_number(features, "secciones")
-        item["cambiosPorMes"] = feature_number(features, "cambios")
-        item["turnos"] = feature_flag(features, "turno")
-        item["medicion"] = feature_flag(features, "analytics")
+        # Son dos beneficios distintos: envíos que hace el cliente desde el portal
+        # y cambios asistidos por el equipo. No contabilizarlos juntos.
+        envio = features.get("Envíos de cambios desde tu portal / mes", 0)
+        item["enviosIlimitados"] = str(envio).strip().lower() in ("ilimitado", "ilimitados")
+        item["cambiosPorMes"] = 0 if item["enviosIlimitados"] else feature_number(
+            {"Envíos": envio}, "envíos")
+        item["cambiosAsistidos"] = feature_number(features, "cambios asistidos")
+        # "Adicional" significa cotizable, NO incluido en el plan.
+        item["turnos"] = features.get("Gestión de turnos a medida") is True
+        # La web ofrece analítica básica en Express/Negocio y ampliada en Pro.
+        item["medicion"] = features.get("Analítica") not in (None, False, "No")
         out.append(item)
     return {"planes": out, "whatsapp": site.get("whatsapp") or "", "email": site.get("email") or ""}
 
@@ -1264,6 +1272,8 @@ def plan_status(client):
               "dias": plan_days_left(client), "cambios_usados": used}
     if plan:
         status.update(cambios_mes=plan.get("cambiosPorMes") or 0, secciones=plan.get("secciones") or 0,
+                      envios_ilimitados=bool(plan.get("enviosIlimitados")),
+                      cambios_asistidos=plan.get("cambiosAsistidos") or 0,
                       turnos=bool(plan.get("turnos")), medicion=bool(plan.get("medicion")))
         if status["cambios_mes"]:
             status["cambios_restantes"] = max(0, status["cambios_mes"] - used)
