@@ -3503,6 +3503,18 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "DELETE":
                 delete_landing(ident)
                 return {"ok": True}
+        if name == "landing-qa" and method == "GET":
+            with store("clientes", "landings", save=False) as db:
+                row = find_landing(db, ident)
+                client = find_client(db, row["cliente_id"])
+                markup = landing_page(row, client)
+            if not markup:
+                raise ApiError(409, "La landing todavía no tiene HTML para evaluar")
+            report = landing_qa_report(markup)
+            report["landing_id"] = ident
+            report["evaluated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            report["status"] = "static_passed_external_pending" if report["passed"] else "static_failed"
+            return report
         if name == "duplicate" and method == "POST":
             return duplicate_landing(ident)
         if name == "reglas":
