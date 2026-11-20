@@ -1379,7 +1379,7 @@ def submit_client_request(client_id, data):
     for item in (data.get("cambios") or [])[:60]:
         if not isinstance(item, dict):
             continue
-        kind = item.get("tipo") if item.get("tipo") in ("texto", "foto", "link") else "texto"
+        kind = "foto" if item.get("tipo") == "imagen" else item.get("tipo") if item.get("tipo") in ("texto", "foto", "link") else "texto"
         change = {"tipo": kind, "estado": "pendiente",
                   **{k: " ".join(str(item.get(k) or "").split())[:600] for k in ("seccion", "antes", "despues", "detalle")}}
         for key in ("modulo", "src", "href"):
@@ -1597,7 +1597,7 @@ def review_page(client_id, request_id, original=False):
     if original:
         # Vista solo lectura: bloquea navegación accidental al revisar la versión actual.
         return page.replace("</head>", REVIEW_STYLE + "</head>", 1), set()
-    changes = [(i, c) for i, c in enumerate(request.get("cambios") or []) if c.get("estado", "pendiente") != "rechazado"]
+    changes = [(i, c) for i, c in enumerate(request.get("cambios") or []) if c.get("estado", "pendiente") == "pendiente"]
     photos = {i: c.get("foto") for i, c in changes if c.get("foto")}
     page, applied = apply_to_document(page, changes, photos, mark=True)
     page = page.replace("</head>", REVIEW_STYLE + "</head>", 1)
