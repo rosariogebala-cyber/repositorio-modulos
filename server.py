@@ -1530,7 +1530,8 @@ def review_page(client_id, request_id, original=False):
         raise ApiError(404, "No encontramos la página de este pedido.")
     page = landing_page(landing, client)
     if original:
-        return page, set()
+        # Vista solo lectura: bloquea navegación accidental al revisar la versión actual.
+        return page.replace("</head>", REVIEW_STYLE + "</head>", 1), set()
     changes = [(i, c) for i, c in enumerate(request.get("cambios") or []) if c.get("estado", "pendiente") != "rechazado"]
     photos = {i: c.get("foto") for i, c in changes if c.get("foto")}
     page, applied = apply_to_document(page, changes, photos, mark=True)
