@@ -1257,23 +1257,27 @@ def month_key(ms=None):
     return time.strftime("%Y-%m", time.localtime((ms or now_ms()) / 1000))
 
 
-def changes_this_month(client):
-    """Pedidos del mes que cuentan para el plan: los pendientes y los aceptados (los rechazados no)."""
+def changes_this_month(client, origin="cliente"):
+    """Envios del portal y cambios asistidos son cupos independientes."""
     current = month_key()
     return [p for p in client.get("pedidos") or []
-            if month_key(p.get("fecha")) == current and p.get("estado", "aceptado") != "rechazado"]
+            if month_key(p.get("fecha")) == current
+            and p.get("estado", "aceptado") != "rechazado"
+            and p.get("origen", "equipo") == origin]
 
 
 def plan_status(client):
     """Resumen del plan para el panel y el editor del cliente."""
     plan = client_plan(client)
     used = len(changes_this_month(client))
+    assisted_used = len(changes_this_month(client, "equipo"))
     status = {"plan": plan["nombre"] if plan else "", "vencido": bool(plan_expired(client)),
               "dias": plan_days_left(client), "cambios_usados": used}
     if plan:
         status.update(cambios_mes=plan.get("cambiosPorMes") or 0, secciones=plan.get("secciones") or 0,
                       envios_ilimitados=bool(plan.get("enviosIlimitados")),
                       cambios_asistidos=plan.get("cambiosAsistidos") or 0,
+                      cambios_asistidos_usados=assisted_used,
                       turnos=bool(plan.get("turnos")), medicion=bool(plan.get("medicion")))
         if status["cambios_mes"]:
             status["cambios_restantes"] = max(0, status["cambios_mes"] - used)
