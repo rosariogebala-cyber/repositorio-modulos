@@ -57,6 +57,7 @@
   var savedSnapshot = null;
   var busy = false;
   var portalRevision = null;
+  var initialPlanSections = null;
   var clientReview = document.querySelector("[data-lb-client-review]");
   var device = 1280;
   var renderTimer = null;
@@ -4467,14 +4468,17 @@
   function currentClient() {
     return clients.find(function (c) { return c.id === state.clienteId; }) || null;
   }
+  function countPlanSections(items) {
+    return (items || []).filter(function (it) {
+      var section = String(it.id || "").replace(/-[^-]+$/, "");
+      return ["navegacion", "footer", "whatsapp"].indexOf(section) === -1;
+    }).length;
+  }
   function planSectionWarning() {
     var client = currentClient();
     var plan = client && client.plan_estado;
     if (!plan || !plan.secciones) return { text: "", extra: 0 };
-    var count = state.items.filter(function (it) {
-      var section = String(it.id || "").replace(/-[^-]+$/, "");
-      return ["navegacion", "footer", "whatsapp"].indexOf(section) === -1;
-    }).length;
+    var count = countPlanSections(state.items);
     var extra = Math.max(0, count - plan.secciones);
     return { extra: extra, text: "Plan " + plan.plan + ": " + count + " de " + plan.secciones +
       " secciones incluidas." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
@@ -4593,6 +4597,7 @@
   }
 
   function loadLanding(lp) {
+    initialPlanSections = countPlanSections(lp.items || []);
     state = {
       name: lp.nombre,
       clienteId: lp.cliente_id,
@@ -4791,7 +4796,8 @@
     var editing = !!state.landingId;
     var planInfo = planSectionWarning();
     if (planInfo.extra && !REBUILD &&
-        !window.confirm(planInfo.text + "\\n\\n¿Querés guardar esta landing con las secciones adicionales?")) return;
+        (!editing || initialPlanSections == null || countPlanSections(state.items) > initialPlanSections) &&
+        !window.confirm(planInfo.text + "\n\n¿Querés guardar esta landing con las secciones adicionales?")) return;
     var body = landingPayload();
     if (clientMode()) {
       body.modo = "sitio";
@@ -4845,6 +4851,7 @@
   }
 
   function startNew(clienteId) {
+    initialPlanSections = null;
     state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
