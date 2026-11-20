@@ -64,3 +64,13 @@ Probar biblioteca a 320/375/768/1024/1440 px y zoom 200/400%; navegación por te
 - Incorporadas pruebas de regresión y un paso específico en CI para evitar divergencias.
 
 **Antes de integrar:** revisar si algún contrato previo tiene precios, cupos o módulos distintos; la actualización del catálogo cambia el comportamiento de los planes activos que no tengan condiciones históricas específicas. La rama no altera la base de datos privada ni modifica clientes existentes. Verificar en Vercel y portales de prueba. No mezclar automáticamente con los PR #29 y #30 sin reconciliar los cambios.
+
+## Nueva regla comercial: ampliar secciones sin bloqueo (20/11/2026)
+
+- Los límites Express **4**, Negocio **7**, Pro **10** secciones pasan a describir **lo incluido**, no un tope técnico infranqueable.
+- El backend `plan_errors()` ahora devuelve **avisos** de sobrecupo y funcionalidades adicionales; `save_landing()` no rechaza una landing únicamente por superar ese cupo. Las validaciones técnicas (estructura, calidad, placeholders y seguridad) **sí siguen bloqueando**.
+- El constructor muestra un aviso contextual con el plan y número de secciones, y pide confirmación cuando se agregan secciones por encima del límite. Las ediciones de texto de una landing ya excedida no vuelven a pedir confirmación si no aumenta su cantidad de secciones.
+- La ficha de cliente y el listado de landings muestran **secciones actuales / incluidas / adicionales** con advertencia de presupuesto. Los pedidos de ampliación quedan sujetos a presupuestación y aprobación humana; el código no automatiza un cargo económico.
+- Revisión anónima del repositorio de datos: **7 clientes, 7 landings, 2 landings por encima de los nuevos cupos**. Las 7 landings se conservan sin cambiar contenido, módulos, URLs ni publicaciones. El aviso se calculará con sus datos cuando el cambio se integre.
+- El portal informa por separado envíos de contenido y cambios asistidos. Los planes asignados por primera vez guardarán una copia de las condiciones; clientes anteriores no reciben una copia inventada de condiciones pasadas.
+- **No se modificó `lanzate-datos`, `main` ni Vercel** en esta rama de correcciones. La migración de producción requiere contrastar contratos existentes y revisar los PR abiertos #29 y #30.
