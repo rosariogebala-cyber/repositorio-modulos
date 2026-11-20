@@ -4636,9 +4636,18 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .cf-review-views button[aria-pressed="true"] { background: #fff; color: #0e1130; box-shadow: 0 1px 3px rgba(14, 17, 48, .12); }
 .cf-review-note { display: flex; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #f7f6f2; font-size: 15px; color: #0e1130; }
 .cf-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-.cf-review-stage { height: 640px; border: 1px solid #ece9e1; border-radius: 14px; overflow: hidden; background: #f7f6f2; display: flex; justify-content: center; }
-.cf-review-stage iframe { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
-.cf-review-stage[data-vista="celu"] iframe { width: 390px; border-left: 1px solid #ece9e1; border-right: 1px solid #ece9e1; }
+.cf-review-stage { min-width: 0; height: 640px; border: 1px solid #ece9e1; border-radius: 14px; overflow: hidden; background: #f7f6f2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; }
+.cf-review-preview { min-width: 0; height: 100%; display: flex; flex-direction: column; background: #fff; border: 1px solid #ddd9e8; border-radius: 9px; overflow: hidden; }
+.cf-review-preview-title { padding: 9px 12px; font-size: 13px; line-height: 1.4; color: #28334c; background: #f4f6f8; border-bottom: 1px solid #ddd9e8; }
+.cf-review-stage iframe { width: 100%; min-width: 0; flex: 1; border: 0; background: #fff; transition: width .25s; }
+.cf-review-stage[data-vista="celu"] iframe { max-width: 390px; margin-inline: auto; border-left: 1px solid #ece9e1; border-right: 1px solid #ece9e1; }
+@media (max-width: 1320px) {
+  .cf-review-stage { height: 720px; }
+}
+@media (max-width: 700px) {
+  .cf-review-stage { height: auto; grid-template-columns: 1fr; }
+  .cf-review-preview { height: 460px; }
+}
 .cf-review-side { display: flex; flex-direction: column; gap: 12px; max-height: 640px; }
 .cf-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; overflow-y: auto; }
 .cf-change { border: 1px solid #ece9e1; border-radius: 14px; background: #fff; transition: border-color .15s, background .15s; }
