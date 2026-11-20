@@ -343,6 +343,7 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
+    if (lp.plan_nombre) meta.push("Plan " + esc(lp.plan_nombre) + (lp.plan_individual ? " · propio" : " · heredado"));
     if (lp.secciones_incluidas) {
       meta.push(lp.secciones_contenido + " de " + lp.secciones_incluidas + " secciones incluidas" +
         (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
