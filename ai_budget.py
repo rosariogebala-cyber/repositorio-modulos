@@ -177,7 +177,7 @@ def cache_result(key, value):
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             path.write_text(encoded, encoding="utf-8")
             path.chmod(0o600)
-    except (OSError, BudgetError, ValueError):
+    except Exception:
         pass  # La caché es optativa: nunca debe causar un segundo cobro.
 
 
