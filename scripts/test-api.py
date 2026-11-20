@@ -216,6 +216,32 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(portal.call("GET", path, raw=True)[0], 200)
         self.assertEqual(self.team.call("GET", path, raw=True)[0], 200)
 
+    def test_review_before_after_is_private_and_does_not_publish(self):
+        """El original y la propuesta son dos lecturas; ningún dato publicado cambia."""
+        clave = self.portal_access("comparador-portal")
+        portal = Client(self.base, "10.5.0.22")
+        status, _ = portal.call("POST", "/api/portal/login", {
+            "usuario": "comparador-portal", "clave": clave, "sitio": self.slug})
+        self.assertEqual(status, 200)
+        before = sim.repo_file("lanzate-datos", "data/landings.js")
+        status, result = portal.call("POST", "/api/portal/pedidos?sitio=" + self.slug, {
+            "landing": self.landing["slug"],
+            "cambios": [{"tipo": "texto", "seccion": "Propiedades",
+                         "antes": "Propiedades destacadas",
+                         "despues": "Propiedades para vos"}]})
+        self.assertEqual(status, 200, result)
+        path = "/api/clientes/%d/pedidos/%s/vista" % (self.client_id, result["id"])
+        self.assertEqual(Client(self.base, "10.5.0.23").call("GET", path, raw=True)[0], 401)
+        original_status, original = self.team.call("GET", path + "?vista=original", raw=True)
+        proposal_status, proposal = self.team.call("GET", path, raw=True)
+        self.assertEqual((original_status, proposal_status), (200, 200))
+        self.assertIn(b"Propiedades destacadas", original)
+        self.assertNotIn(b"Propiedades para vos", original)
+        self.assertIn(b"Propiedades para vos", proposal)
+        self.assertIn(b"data-lz-cambio", proposal)
+        self.assertEqual(before, sim.repo_file("lanzate-datos", "data/landings.js"),
+                         "Mirar las propuestas no debe modificar la landing")
+
     def test_forgot_password_is_limited(self):
         bot = Client(self.base, "10.6.0.1")
         codes = [bot.call("POST", "/api/portal/olvide", {"usuario": "nadie"})[0] for _ in range(11)]

@@ -1520,8 +1520,8 @@ def request_landing(landings, client_id, request):
     return next((l for l in own if l["slug"] == slug), None) or (own[0] if len(own) == 1 else None)
 
 
-def review_page(client_id, request_id):
-    """La web del cliente con los cambios del pedido aplicados y marcados (vista previa para el equipo)."""
+def review_page(client_id, request_id, original=False):
+    """Dos vistas del mismo HTML guardado: original o propuesta, sin escribir cambios."""
     with store("clientes", "landings", save=False) as db:
         client = find_client(db, client_id)
         request = find_request(client, request_id)
@@ -1529,6 +1529,9 @@ def review_page(client_id, request_id):
     if not landing:
         raise ApiError(404, "No encontramos la página de este pedido.")
     page = landing_page(landing, client)
+    if original:
+        # Vista solo lectura: bloquea navegación accidental al revisar la versión actual.
+        return page.replace("</head>", REVIEW_STYLE + "</head>", 1), set()
     changes = [(i, c) for i, c in enumerate(request.get("cambios") or []) if c.get("estado", "pendiente") != "rechazado"]
     photos = {i: c.get("foto") for i, c in changes if c.get("foto")}
     page, applied = apply_to_document(page, changes, photos, mark=True)
@@ -3378,7 +3381,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
             return None
         if name == "pedido-vista" and method == "GET":
-            page, _ = review_page(ident, self.route_token)
+            # Solo el equipo autenticado puede ver ambos estados del pedido.
+            original = (query.get("vista") or [""])[0] == "original"
+            page, _ = review_page(ident, self.route_token, original=original)
             self.send_body(200, page.encode("utf-8"), "text/html; charset=utf-8")
             return None
         result = self.dispatch(method, name, ident, query)

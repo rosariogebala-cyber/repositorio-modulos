@@ -598,7 +598,7 @@
             '<p class="cf-site-links"><a href="' + esc(lp.editor) + '" target="_blank" rel="noopener"><i class="bi bi-pencil-square" aria-hidden="true"></i> Pedir cambios como el cliente</a></p>' +
           "</div></div>" +
           (pending.length ? '<div class="cf-review-wrap"><div class="cf-review-title"><span class="cf-icon"><i class="bi bi-eye" aria-hidden="true"></i></span><div><h3>Cambios para revisar en ' + esc(lp.nombre) + "</h3>" +
-            "<p>Los cambios que pidió, marcados en amarillo sobre esta web. Aceptá o rechazá cada uno: lo aceptado se aplica y se publica.</p></div></div>" +
+            "<p>Compará la web actual con la propuesta del cliente. Revisá cada texto, foto o enlace y aceptá o rechazá antes de publicar.</p></div></div>" +
             pending.map(reviewBlock).join("") + "</div>" : "") +
           (done.length ? '<details class="cf-site-history"' + (pending.length ? "" : " open") + "><summary>Historial de pedidos de esta web (" + done.length + ")</summary>" + historyList(done) + "</details>"
             : (pending.length ? "" : '<p class="cf-muted cf-site-none">Sin pedidos de cambios para esta web.</p>')) +
@@ -616,7 +616,11 @@
         '<span class="cf-review-views" role="group" aria-label="Vista"><button type="button" data-pf-vista="compu" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Compu</button>' +
         '<button type="button" data-pf-vista="celu" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button></span></header>' +
         (r.nota ? '<p class="cf-review-note"><i class="bi bi-chat-quote" aria-hidden="true"></i> ' + esc(r.nota) + "</p>" : "") +
-        '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu"><iframe title="Web con los cambios pedidos" loading="lazy" src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div>' +
+        '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu">' +
+          '<div class="cf-review-preview"><strong class="cf-review-preview-title">Antes · versión actual</strong>' +
+          '<iframe title="Versión actual sin aplicar cambios" loading="lazy" data-pf-original src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista?vista=original"></iframe></div>' +
+          '<div class="cf-review-preview"><strong class="cf-review-preview-title">Después · propuesta del cliente</strong>' +
+          '<iframe title="Propuesta del cliente con cambios destacados" loading="lazy" data-pf-propuesta src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div></div>' +
         '<div class="cf-review-side"><ol class="cf-changes">' + r.cambios.map(function (ch, i) {
           if (ch.estado && ch.estado !== "pendiente") return "";
           return '<li class="cf-change" data-pf-cambio="' + i + '" data-decision=""><button class="cf-change-go" type="button" data-pf-ir="' + i + '" aria-label="Ver el cambio ' + (i + 1) + ' en la web">' +
@@ -633,7 +637,7 @@
     }
 
     function bindReview(block) {
-      var frame = block.querySelector("iframe");
+      var frame = block.querySelector("[data-pf-propuesta]");
       var stage = block.querySelector(".cf-review-stage");
       function setDecision(li, value) {
         li.setAttribute("data-decision", value);
