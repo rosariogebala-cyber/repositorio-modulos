@@ -2411,13 +2411,39 @@ def local_image_variants(stem):
 
 
 def published_structure_errors(markup):
-    doc = html_dom.document_fromstring(markup)
+    """Controles estáticos bloqueantes de la landing renderizada (no reemplazan axe/Lighthouse)."""
+    try:
+        doc = html_dom.document_fromstring(markup)
+    except (etree.ParserError, ValueError):
+        return ["el HTML de la página final no se pudo analizar"]
+    errors = []
     main = doc.xpath("//main")
     if len(main) != 1 or len(main[0].xpath(".//h1")) != 1:
-        return ["la página final necesita un contenido principal y un encabezado H1"]
-    if doc.xpath("//img[not(normalize-space(@alt))]"):
-        return ["hay imágenes sin descripción alternativa"]
-    return []
+        errors.append("la página final necesita un contenido principal y un encabezado H1")
+    if doc.xpath("//img[not(@alt)]"):
+        errors.append("hay imágenes sin atributo alt")
+    if doc.xpath("//a[not(@href) and not(@role='button')]"):
+        errors.append("hay enlaces sin destino")
+    if doc.xpath("//button[not(normalize-space(.)) and not(normalize-space(@aria-label)) and not(normalize-space(@title))]"):
+        errors.append("hay botones sin nombre accesible")
+    ids = [value for value in doc.xpath("//@id") if value]
+    if len(ids) != len(set(ids)):
+        errors.append("hay identificadores HTML duplicados")
+    return errors
+
+
+def landing_qa_report(markup):
+    """Informe reproducible por versión, para integrarlo al panel de gestión."""
+    import hashlib
+    errors = published_structure_errors(markup)
+    return {
+        "version": 1,
+        "html_sha256": hashlib.sha256(markup.encode("utf-8")).hexdigest(),
+        "passed": not errors,
+        "blocking_errors": errors,
+        "checks": ["main-h1", "image-alt", "link-href", "button-name", "unique-ids"],
+        "pending_external": ["axe-core", "playwright-responsive", "lighthouse-mobile", "lighthouse-desktop"],
+    }
 
 
 def add_local_responsive_images(body):
