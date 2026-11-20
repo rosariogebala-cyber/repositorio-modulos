@@ -80,6 +80,7 @@ ROUTES = [
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
+    (re.compile(r"^/api/landings/(\d+)/qa$"), "landing-qa"),
     (re.compile(r"^/api/reglas$"), "reglas"),
     (re.compile(r"^/api/planes$"), "planes"),
     (re.compile(r"^/api/config$"), "config"),
