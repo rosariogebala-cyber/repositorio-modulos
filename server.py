@@ -1228,8 +1228,13 @@ def plan_ids():
 
 
 def client_plan(client):
-    """El plan del cliente con sus límites, o None si no tiene (sin límites: demos y pruebas)."""
+    """Condiciones pactadas primero; catálogo vigente solo si no hay snapshot."""
     plan_id = client.get("plan") or ""
+    if not plan_id:
+        return None
+    contracted = client.get("plan_condiciones")
+    if isinstance(contracted, dict) and contracted.get("id") == plan_id:
+        return contracted
     for plan in read_data("planes", {}).get("planes") or []:
         if plan.get("id") == plan_id:
             return plan
@@ -1645,6 +1650,14 @@ def set_client_plan(client_id, data):
         raise ApiError(400, "La fecha de vencimiento tiene que ser AAAA-MM-DD.")
     with store("clientes") as db:
         row = find_client(db, client_id)
+        # Solo una nueva asignación de plan crea condiciones contractuales.
+        # No tocar clientes históricos ni regenerar un contrato al cambiar vencimiento.
+        if plan != (row.get("plan") or ""):
+            active = next((p for p in read_data("planes", {}).get("planes") or [] if p.get("id") == plan), None)
+            if active:
+                row["plan_condiciones"] = dict(active)
+            else:
+                row.pop("plan_condiciones", None)
         row.update(plan=plan, plan_vence=vence, actualizado=now_ms())
     render_client_landings(client_id)
     return get_client(client_id)
