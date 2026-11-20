@@ -944,7 +944,7 @@ def portal_home(client):
                      "meta_pixel": bool(client.get("meta_pixel"))},
         "plan": status, "plan_vence": client.get("plan_vence") or "",
         "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
-                                                  "turnos", "medicion")} if plan else None,
+                                                  "enviosIlimitados", "cambiosAsistidos", "turnos", "medicion")} if plan else None,
         "landings": [{"nombre": landing_public_name(l["nombre"], len(landings)), "slug": l["slug"], "url": origin + "/l/%s/%s/" % (client["slug"], l["slug"]),
                       "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
