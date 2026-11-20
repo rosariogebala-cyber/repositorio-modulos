@@ -24,5 +24,7 @@ jobs:
       - run: python scripts/check-landing-quality.py
       - name: Consistencia entre planes, cupos y biblioteca
         run: python scripts/test-plan-consistency.py
+      - name: Moderación automática de pedidos
+        run: python scripts/test-moderacion.py
       - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar)
         run: python scripts/test-api.py
