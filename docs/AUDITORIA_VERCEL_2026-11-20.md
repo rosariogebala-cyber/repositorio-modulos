@@ -53,3 +53,14 @@ Probar biblioteca a 320/375/768/1024/1440 px y zoom 200/400%; navegación por te
 5. Ejecutar pruebas reales en Vercel con usuario de prueba y datos sintéticos; medir rendimiento móvil y desktop; publicar solo tras aprobación.
 
 **Estado:** informe técnico de inspección de repositorios completado, **auditoría integral de producción aún abierta** por limitaciones de acceso de navegador y credenciales. Sin cambios funcionales ni despliegues en este PR.
+
+## Correcciones implementadas en rama QA (no publicadas)
+
+- Sincronizada la instantánea de `data/planes.js` con `lanzate/js/config.js`: Express $99.000 + $19.900/mes (4 secciones, 10 envíos, 1 asistido), Negocio $179.000 + $34.900/mes (7, 30, 3) y Pro $299.000 + $54.900/mes (10, envíos ilimitados, 5 asistidos).
+- El sincronizador del backend separa **envíos del portal** de **cambios asistidos** y no interpreta «Gestión de turnos a medida: Adicional» como beneficio incluido.
+- El contador de envíos registra solamente pedidos de origen `cliente`; pedidos del equipo se contabilizan por separado, sin borrar registros anteriores.
+- El portal diferencia visualmente envíos ilimitados y cambios asistidos; el contador de Pro representa ilimitados con ∞.
+- Biblioteca: 26 módulos y 76 variantes; el recuento visible calcula cada variante real.
+- Incorporadas pruebas de regresión y un paso específico en CI para evitar divergencias.
+
+**Antes de integrar:** revisar si algún contrato previo tiene precios, cupos o módulos distintos; la actualización del catálogo cambia el comportamiento de los planes activos que no tengan condiciones históricas específicas. La rama no altera la base de datos privada ni modifica clientes existentes. Verificar en Vercel y portales de prueba. No mezclar automáticamente con los PR #29 y #30 sin reconciliar los cambios.
