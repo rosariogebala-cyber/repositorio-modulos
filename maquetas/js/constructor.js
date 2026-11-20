@@ -1597,6 +1597,22 @@
           return !/resen|testimoni|opin|precio|cifra|estadistic|equipo|personas|casos-de-exito/i.test(section.m);
         }).slice(0, 2);
         if (!sections.length) sections = source.sections.slice(0, 1);
+        var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
+        var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
+          return text + "|Información pendiente de ampliar y confirmar.";
+        }) : ["Contenido por completar|Agregá información confirmada del negocio."];
+        sections = sections.map(function (section, index) {
+          return Object.assign({}, section, {
+            title: index ? "Conocé " + client.nombre : "Lo que hacemos",
+            lead: analysis.descripcion || "Información pendiente de confirmar.",
+            body: [analysis.descripcion || "Información pendiente de completar."],
+            items: factualItems,
+            bullets: verifiedFacts.length ? verifiedFacts : ["Información por confirmar"],
+            services: undefined,
+            filters: undefined,
+            speech: undefined
+          });
+        });
         var choice = Object.assign({}, source, {
           name: client.nombre,
           title: analysis.titulo || client.nombre,
