@@ -226,21 +226,46 @@ class ApiTest(unittest.TestCase):
         before = sim.repo_file("lanzate-datos", "data/landings.js")
         status, result = portal.call("POST", "/api/portal/pedidos?sitio=" + self.slug, {
             "landing": self.landing["slug"],
-            "cambios": [{"tipo": "texto", "seccion": "Propiedades",
-                         "antes": "Propiedades destacadas",
-                         "despues": "Propiedades para vos"}]})
+            "cambios": [{"tipo": "link", "seccion": "Propiedades",
+                         "antes": "Ver propiedad",
+                         "despues": "https://otrodominio.com"}]})
         self.assertEqual(status, 200, result)
         path = "/api/clientes/%d/pedidos/%s/vista" % (self.client_id, result["id"])
         self.assertEqual(Client(self.base, "10.5.0.23").call("GET", path, raw=True)[0], 401)
         original_status, original = self.team.call("GET", path + "?vista=original", raw=True)
         proposal_status, proposal = self.team.call("GET", path, raw=True)
         self.assertEqual((original_status, proposal_status), (200, 200))
-        self.assertIn(b"Propiedades destacadas", original)
-        self.assertNotIn(b"Propiedades para vos", original)
-        self.assertIn(b"Propiedades para vos", proposal)
+        self.assertNotIn(b"https://otrodominio.com", original)
+        self.assertIn(b"https://otrodominio.com", proposal)
         self.assertIn(b"data-lz-cambio", proposal)
         self.assertEqual(before, sim.repo_file("lanzate-datos", "data/landings.js"),
                          "Mirar las propuestas no debe modificar la landing")
+
+    def test_z_moderacion_aplica_solo_cambios_validos(self):
+        """El texto aceptado se aplica, un placeholder se rechaza y foto queda pendiente."""
+        clave = self.portal_access("auto-portal")
+        portal = Client(self.base, "10.5.0.33")
+        self.assertEqual(portal.call("POST", "/api/portal/login", {
+            "usuario": "auto-portal", "clave": clave, "sitio": self.slug})[0], 200)
+        status, res = portal.call("POST", "/api/portal/pedidos?sitio=" + self.slug, {
+            "landing": self.landing["slug"],
+            "cambios": [
+                {"tipo": "texto", "seccion": "Propiedades", "antes": "Propiedades destacadas",
+                 "despues": "Inmuebles destacados"},
+                {"tipo": "texto", "seccion": "Empresa", "antes": "Umbral", "despues": "XXXXXX"},
+                {"tipo": "foto", "seccion": "Portada", "antes": "", "despues": ""}]})
+        self.assertEqual(status, 200, res)
+        self.assertEqual([m["decision"] for m in res["moderacion"]],
+                         ["aceptar", "rechazar", "revisar"])
+        page = next(l for l in read_js("lanzate-datos", "data/landings.js")
+                    if l["id"] == self.landing["id"])
+        self.assertIn("Inmuebles destacados", page["html"])
+        self.assertNotIn("XXXXXX", page["html"])
+        client = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
+        pedido = next(p for p in client["pedidos"] if str(p["id"]) == str(res["id"]))
+        self.assertEqual([c["estado"] for c in pedido["cambios"]],
+                         ["aceptado", "rechazado", "pendiente"])
+        self.assertEqual(pedido["estado"], "pendiente")
 
     def test_forgot_password_is_limited(self):
         bot = Client(self.base, "10.6.0.1")
