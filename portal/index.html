@@ -180,14 +180,14 @@
   <a class="skip" href="#contenido">Saltar al contenido</a>
 
   <!-- Ingreso -->
-  <main class="login-wrap" data-login hidden>
+  <main class="login-wrap" aria-label="Ingresar al portal" data-login hidden>
     <section class="login" aria-labelledby="ingreso">
       <div class="logo"><img src="/assets/favicon-lanzate.svg" alt=""> Lanzate</div>
       <h1 id="ingreso">Entrá a tu portal</h1>
       <p class="muted">Tu web, tus consultas y tus visitas en un solo lugar.</p>
       <form data-login-form>
         <label for="usuario">Usuario</label>
-        <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" required>
+        <input id="usuario" type="text" name="usuario" autocomplete="username" autocapitalize="none" required>
         <label for="clave">Contraseña</label>
         <input id="clave" name="clave" type="password" autocomplete="current-password" required>
         <button class="btn btn-main" type="submit">Entrar</button>
@@ -196,7 +196,7 @@
       <form data-forgot-form hidden>
         <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te mandamos tu contraseña por WhatsApp o mail, en general el mismo día hábil.</p>
         <label for="usuario-olvido">Usuario</label>
-        <input id="usuario-olvido" name="usuario" autocomplete="username" autocapitalize="none" required>
+        <input id="usuario-olvido" type="text" name="usuario" autocomplete="username" autocapitalize="none" required>
         <button class="btn btn-main" type="submit">Pedir mi contraseña</button>
       </form>
       <p role="status" data-login-msg></p>
@@ -223,7 +223,7 @@
         <span class="brand"><img src="/assets/favicon-lanzate.svg" alt=""> Hecho con Lanzate</span>
       </div>
     </aside>
-    <main class="content" id="contenido" tabindex="-1" data-view></main>
+    <main class="content" aria-label="Contenido del portal" id="contenido" tabindex="-1" data-view></main>
   </div>
 
   <script>
@@ -397,7 +397,8 @@
         '<div class="lead-actions">' +
         (phone ? '<a class="btn btn-sm" href="https://wa.me/' + esc(phone) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Responder por WhatsApp</a>' : "") +
         (mail ? '<a class="btn btn-sm" href="mailto:' + esc(mail) + '"><i class="bi bi-envelope" aria-hidden="true"></i> Responder por mail</a>' : "") +
-        '<button class="btn btn-sm" type="button" data-lead="' + esc(c.id) + '" data-to="' + (c.estado === "nueva" ? "atendida" : "nueva") + '">' + (c.estado === "nueva" ? '<i class="bi bi-check2" aria-hidden="true"></i> Marcar como atendida' : "Marcar como nueva") + "</button></div></li>";
+        '<button class="btn btn-sm" type="button" data-lead="' + esc(c.id) + '" data-to="' + (c.estado === "nueva" ? "atendida" : "nueva") + '">' + (c.estado === "nueva" ? '<i class="bi bi-check2" aria-hidden="true"></i> Marcar como atendida' : "Marcar como nueva") + "</button>" +
+        '<button class="btn btn-sm" type="button" data-lead-borrar="' + esc(c.id) + '"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button></div></li>";
     }
 
     /* ---------- Vistas ---------- */
@@ -552,6 +553,22 @@
                 DATA.estadisticas.consultas_nuevas = DATA.consultas.filter(function (c) { return c.estado === "nueva"; }).length;
                 renderSide();
                 route();
+              })
+              .catch(function (err) { b.disabled = false; say($("[data-lead-msg]"), err.message, "warn"); });
+          });
+        });
+        view.querySelectorAll("[data-lead-borrar]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            if (!window.confirm("¿Eliminar esta consulta? Se borran los datos de la persona y no se puede deshacer.")) return;
+            b.disabled = true;
+            var id = b.getAttribute("data-lead-borrar");
+            api("DELETE", "/api/portal/consultas/" + encodeURIComponent(id))
+              .then(function () {
+                DATA.consultas = DATA.consultas.filter(function (c) { return c.id !== id; });
+                DATA.estadisticas.consultas_nuevas = DATA.consultas.filter(function (c) { return c.estado === "nueva"; }).length;
+                renderSide();
+                route();
+                say($("[data-lead-msg]"), "Eliminamos la consulta.", "ok");
               })
               .catch(function (err) { b.disabled = false; say($("[data-lead-msg]"), err.message, "warn"); });
           });

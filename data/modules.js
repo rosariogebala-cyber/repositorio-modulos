@@ -8,7 +8,7 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/whatsapp/simple.png",
+        "imagen": "assets/modulos/whatsapp/simple.webp",
         "ancho": 800,
         "alto": 200
       }
@@ -23,19 +23,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/navegacion/simple.png",
+        "imagen": "assets/modulos/navegacion/simple.webp",
         "ancho": 800,
         "alto": 39
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/navegacion/media.png",
+        "imagen": "assets/modulos/navegacion/media.webp",
         "ancho": 800,
         "alto": 54
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/navegacion/compleja.png",
+        "imagen": "assets/modulos/navegacion/compleja.webp",
         "ancho": 800,
         "alto": 102
       }
@@ -50,67 +50,67 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/hero-full-imagen/simple.png",
+        "imagen": "assets/modulos/hero-full-imagen/simple.webp",
         "ancho": 800,
         "alto": 333
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/hero-full-imagen/media.png",
+        "imagen": "assets/modulos/hero-full-imagen/media.webp",
         "ancho": 800,
         "alto": 332
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/hero-full-imagen/compleja.png",
+        "imagen": "assets/modulos/hero-full-imagen/compleja.webp",
         "ancho": 800,
         "alto": 333
       },
       {
         "nombre": "Dividida",
-        "imagen": "assets/modulos/hero-full-imagen/dividida.png",
+        "imagen": "assets/modulos/hero-full-imagen/dividida.webp",
         "ancho": 800,
         "alto": 356
       },
       {
         "nombre": "Centrada",
-        "imagen": "assets/modulos/hero-full-imagen/centrada.png",
+        "imagen": "assets/modulos/hero-full-imagen/centrada.webp",
         "ancho": 800,
         "alto": 389
       },
       {
         "nombre": "Mosaico",
-        "imagen": "assets/modulos/hero-full-imagen/mosaico.png",
+        "imagen": "assets/modulos/hero-full-imagen/mosaico.webp",
         "ancho": 800,
         "alto": 380
       },
       {
         "nombre": "Marco",
-        "imagen": "assets/modulos/hero-full-imagen/marco.png",
+        "imagen": "assets/modulos/hero-full-imagen/marco.webp",
         "ancho": 800,
         "alto": 408
       },
       {
         "nombre": "Datos",
-        "imagen": "assets/modulos/hero-full-imagen/datos.png",
+        "imagen": "assets/modulos/hero-full-imagen/datos.webp",
         "ancho": 800,
         "alto": 422
       },
       {
         "nombre": "Video",
-        "imagen": "assets/modulos/hero-full-imagen/video.png",
+        "imagen": "assets/modulos/hero-full-imagen/video.webp",
         "ancho": 800,
         "alto": 422
       },
       {
         "nombre": "Trazo",
-        "imagen": "assets/modulos/hero-full-imagen/trazo.png",
+        "imagen": "assets/modulos/hero-full-imagen/trazo.webp",
         "ancho": 800,
         "alto": 412
       },
       {
         "nombre": "Tipográfico",
-        "imagen": "assets/modulos/hero-full-imagen/tipografico.png",
+        "imagen": "assets/modulos/hero-full-imagen/tipografico.webp",
         "ancho": 800,
         "alto": 391
       }
@@ -125,19 +125,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/quienes-somos/simple.png",
+        "imagen": "assets/modulos/quienes-somos/simple.webp",
         "ancho": 800,
         "alto": 430
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/quienes-somos/media.png",
+        "imagen": "assets/modulos/quienes-somos/media.webp",
         "ancho": 800,
         "alto": 611
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/quienes-somos/compleja.png",
+        "imagen": "assets/modulos/quienes-somos/compleja.webp",
         "ancho": 800,
         "alto": 750
       }
@@ -152,19 +152,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/servicios-productos/simple.png",
+        "imagen": "assets/modulos/servicios-productos/simple.webp",
         "ancho": 1710,
         "alto": 919
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/servicios-productos/media.png",
+        "imagen": "assets/modulos/servicios-productos/media.webp",
         "ancho": 1460,
         "alto": 1078
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/servicios-productos/compleja.png",
+        "imagen": "assets/modulos/servicios-productos/compleja.webp",
         "ancho": 1391,
         "alto": 1131
       }
@@ -179,19 +179,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/beneficios/simple.png",
+        "imagen": "assets/modulos/beneficios/simple.webp",
         "ancho": 800,
         "alto": 259
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/beneficios/media.png",
+        "imagen": "assets/modulos/beneficios/media.webp",
         "ancho": 800,
         "alto": 280
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/beneficios/compleja.png",
+        "imagen": "assets/modulos/beneficios/compleja.webp",
         "ancho": 800,
         "alto": 259
       }
@@ -205,19 +205,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/productos/simple.png",
+        "imagen": "assets/modulos/productos/simple.webp",
         "ancho": 800,
         "alto": 571
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/productos/media.png",
+        "imagen": "assets/modulos/productos/media.webp",
         "ancho": 800,
         "alto": 690
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/productos/compleja.png",
+        "imagen": "assets/modulos/productos/compleja.webp",
         "ancho": 800,
         "alto": 760
       }
@@ -233,19 +233,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/galeria-imagenes/simple.png",
+        "imagen": "assets/modulos/galeria-imagenes/simple.webp",
         "ancho": 800,
         "alto": 560
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/galeria-imagenes/media.png",
+        "imagen": "assets/modulos/galeria-imagenes/media.webp",
         "ancho": 800,
         "alto": 649
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/galeria-imagenes/compleja.png",
+        "imagen": "assets/modulos/galeria-imagenes/compleja.webp",
         "ancho": 800,
         "alto": 760
       }
@@ -260,19 +260,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/carrusel-imagenes/simple.png",
+        "imagen": "assets/modulos/carrusel-imagenes/simple.webp",
         "ancho": 800,
         "alto": 420
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/carrusel-imagenes/media.png",
+        "imagen": "assets/modulos/carrusel-imagenes/media.webp",
         "ancho": 800,
         "alto": 420
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/carrusel-imagenes/compleja.png",
+        "imagen": "assets/modulos/carrusel-imagenes/compleja.webp",
         "ancho": 800,
         "alto": 420
       }
@@ -287,19 +287,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/video-destacado/simple.png",
+        "imagen": "assets/modulos/video-destacado/simple.webp",
         "ancho": 800,
         "alto": 571
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/video-destacado/media.png",
+        "imagen": "assets/modulos/video-destacado/media.webp",
         "ancho": 800,
         "alto": 619
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/video-destacado/compleja.png",
+        "imagen": "assets/modulos/video-destacado/compleja.webp",
         "ancho": 800,
         "alto": 739
       }
@@ -314,19 +314,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/casos-exito/simple.png",
+        "imagen": "assets/modulos/casos-exito/simple.webp",
         "ancho": 800,
         "alto": 560
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/casos-exito/media.png",
+        "imagen": "assets/modulos/casos-exito/media.webp",
         "ancho": 800,
         "alto": 610
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/casos-exito/compleja.png",
+        "imagen": "assets/modulos/casos-exito/compleja.webp",
         "ancho": 800,
         "alto": 730
       }
@@ -341,19 +341,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/resenas-google/simple.png",
+        "imagen": "assets/modulos/resenas-google/simple.webp",
         "ancho": 800,
         "alto": 480
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/resenas-google/media.png",
+        "imagen": "assets/modulos/resenas-google/media.webp",
         "ancho": 800,
         "alto": 619
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/resenas-google/compleja.png",
+        "imagen": "assets/modulos/resenas-google/compleja.webp",
         "ancho": 800,
         "alto": 741
       }
@@ -368,19 +368,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/equipo/simple.png",
+        "imagen": "assets/modulos/equipo/simple.webp",
         "ancho": 800,
         "alto": 541
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/equipo/media.png",
+        "imagen": "assets/modulos/equipo/media.webp",
         "ancho": 800,
         "alto": 650
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/equipo/compleja.png",
+        "imagen": "assets/modulos/equipo/compleja.webp",
         "ancho": 800,
         "alto": 761
       }
@@ -395,19 +395,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/proceso/simple.png",
+        "imagen": "assets/modulos/proceso/simple.webp",
         "ancho": 800,
         "alto": 470
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/proceso/media.png",
+        "imagen": "assets/modulos/proceso/media.webp",
         "ancho": 800,
         "alto": 611
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/proceso/compleja.png",
+        "imagen": "assets/modulos/proceso/compleja.webp",
         "ancho": 800,
         "alto": 469
       }
@@ -421,19 +421,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/preguntas-frecuentes/simple.png",
+        "imagen": "assets/modulos/preguntas-frecuentes/simple.webp",
         "ancho": 800,
         "alto": 530
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/preguntas-frecuentes/media.png",
+        "imagen": "assets/modulos/preguntas-frecuentes/media.webp",
         "ancho": 800,
         "alto": 619
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/preguntas-frecuentes/compleja.png",
+        "imagen": "assets/modulos/preguntas-frecuentes/compleja.webp",
         "ancho": 800,
         "alto": 739
       }
@@ -449,19 +449,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/donde-nos-encontramos/simple.png",
+        "imagen": "assets/modulos/donde-nos-encontramos/simple.webp",
         "ancho": 800,
         "alto": 430
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/donde-nos-encontramos/media.png",
+        "imagen": "assets/modulos/donde-nos-encontramos/media.webp",
         "ancho": 800,
         "alto": 591
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/donde-nos-encontramos/compleja.png",
+        "imagen": "assets/modulos/donde-nos-encontramos/compleja.webp",
         "ancho": 800,
         "alto": 864
       }
@@ -476,19 +476,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/reserva-turno/simple.png",
+        "imagen": "assets/modulos/reserva-turno/simple.webp",
         "ancho": 800,
         "alto": 357
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/reserva-turno/media.png",
+        "imagen": "assets/modulos/reserva-turno/media.webp",
         "ancho": 800,
         "alto": 468
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/reserva-turno/compleja.png",
+        "imagen": "assets/modulos/reserva-turno/compleja.webp",
         "ancho": 800,
         "alto": 651
       }
@@ -503,13 +503,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/lista-precios/simple.png",
+        "imagen": "assets/modulos/lista-precios/simple.webp",
         "ancho": 800,
         "alto": 385
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/lista-precios/media.png",
+        "imagen": "assets/modulos/lista-precios/media.webp",
         "ancho": 800,
         "alto": 443
       }
@@ -524,13 +524,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/cifras/simple.png",
+        "imagen": "assets/modulos/cifras/simple.webp",
         "ancho": 800,
         "alto": 199
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/cifras/media.png",
+        "imagen": "assets/modulos/cifras/media.webp",
         "ancho": 800,
         "alto": 293
       }
@@ -545,13 +545,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/llamado/simple.png",
+        "imagen": "assets/modulos/llamado/simple.webp",
         "ancho": 800,
         "alto": 195
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/llamado/media.png",
+        "imagen": "assets/modulos/llamado/media.webp",
         "ancho": 800,
         "alto": 266
       }
@@ -566,13 +566,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/marcas/simple.png",
+        "imagen": "assets/modulos/marcas/simple.webp",
         "ancho": 800,
         "alto": 110
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/marcas/media.png",
+        "imagen": "assets/modulos/marcas/media.webp",
         "ancho": 800,
         "alto": 340
       }
@@ -587,13 +587,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/agenda/simple.png",
+        "imagen": "assets/modulos/agenda/simple.webp",
         "ancho": 800,
         "alto": 329
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/agenda/media.png",
+        "imagen": "assets/modulos/agenda/media.webp",
         "ancho": 800,
         "alto": 361
       }
@@ -608,13 +608,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/contacto/simple.png",
+        "imagen": "assets/modulos/contacto/simple.webp",
         "ancho": 800,
         "alto": 353
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/contacto/media.png",
+        "imagen": "assets/modulos/contacto/media.webp",
         "ancho": 800,
         "alto": 345
       }
@@ -629,13 +629,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/antes-despues/simple.png",
+        "imagen": "assets/modulos/antes-despues/simple.webp",
         "ancho": 800,
         "alto": 627
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/antes-despues/media.png",
+        "imagen": "assets/modulos/antes-despues/media.webp",
         "ancho": 800,
         "alto": 418
       }
@@ -650,13 +650,13 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/linea-tiempo/simple.png",
+        "imagen": "assets/modulos/linea-tiempo/simple.webp",
         "ancho": 800,
         "alto": 477
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/linea-tiempo/media.png",
+        "imagen": "assets/modulos/linea-tiempo/media.webp",
         "ancho": 800,
         "alto": 285
       }
@@ -671,19 +671,19 @@ window.LANZATE_MODULES = [
     "variantes": [
       {
         "nombre": "Simple",
-        "imagen": "assets/modulos/footer/simple.png",
+        "imagen": "assets/modulos/footer/simple.webp",
         "ancho": 800,
         "alto": 260
       },
       {
         "nombre": "Media",
-        "imagen": "assets/modulos/footer/media.png",
+        "imagen": "assets/modulos/footer/media.webp",
         "ancho": 800,
         "alto": 390
       },
       {
         "nombre": "Compleja",
-        "imagen": "assets/modulos/footer/compleja.png",
+        "imagen": "assets/modulos/footer/compleja.webp",
         "ancho": 800,
         "alto": 560
       }
