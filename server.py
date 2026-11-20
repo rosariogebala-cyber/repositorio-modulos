@@ -40,6 +40,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 from lxml import etree, html as html_dom
+import ai_budget
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -2926,53 +2927,34 @@ IA_PROVIDERS = {
 
 
 def ia_settings():
-    data = {}
-    if not ON_VERCEL and os.path.isfile(IA_CONFIG):
-        try:
-            with open(IA_CONFIG, encoding="utf-8") as fh:
-                data = json.load(fh)
-        except (OSError, ValueError):
-            data = {}
-    provider = data.get("proveedor") if data.get("proveedor") in IA_PROVIDERS else ""
-    key = data.get("clave") or ""
-    if not key:
-        for pid, info in IA_PROVIDERS.items():
-            if os.environ.get(info["env"]):
-                provider, key = pid, os.environ[info["env"]]
-                break
-    provider = provider or "anthropic"
-    model = data.get("modelo") or IA_PROVIDERS[provider]["modelo"]
-    return {"proveedor": provider, "clave": key, "modelo": model}
+    """Solo variables privadas del servidor; nunca recibir ni almacenar claves del navegador."""
+    for provider, info in IA_PROVIDERS.items():
+        key = os.environ.get(info["env"], "").strip()
+        if key:
+            return {"proveedor": provider, "clave": key,
+                    "modelo": os.environ.get("LANZATE_IA_MODEL") or info["modelo"]}
+    return {"proveedor": "anthropic", "clave": "", "modelo": IA_PROVIDERS["anthropic"]["modelo"]}
 
 
 def ia_status():
     cfg = ia_settings()
-    return {"configurada": bool(cfg["clave"]), "proveedor": cfg["proveedor"], "modelo": cfg["modelo"],
-            "nombre": IA_PROVIDERS[cfg["proveedor"]]["nombre"]}
+    result = {"configurada": bool(cfg["clave"]), "proveedor": cfg["proveedor"],
+              "modelo": cfg["modelo"], "nombre": IA_PROVIDERS[cfg["proveedor"]]["nombre"]}
+    try:
+        result["presupuesto"] = ai_budget.status()
+    except Exception:
+        result["presupuesto"] = {"bloqueada": True, "error": "No se pudo consultar el presupuesto"}
+    return result
 
 
 def save_ia_settings(data):
-    if ON_VERCEL:
-        raise ApiError(400, "Online, la clave de la IA se carga en Vercel (variable ANTHROPIC_API_KEY u OPENAI_API_KEY).")
-    provider = data.get("proveedor")
-    if provider not in IA_PROVIDERS:
-        raise ApiError(400, "Elegí Claude u OpenAI")
-    current = ia_settings()
-    key = str(data.get("clave") or "").strip() or (current["clave"] if current["proveedor"] == provider else "")
-    if not key:
-        raise ApiError(400, "Pegá la clave de la API")
-    model = str(data.get("modelo") or "").strip() or IA_PROVIDERS[provider]["modelo"]
-    os.makedirs(os.path.dirname(IA_CONFIG), exist_ok=True)
-    with open(IA_CONFIG, "w", encoding="utf-8") as fh:
-        json.dump({"proveedor": provider, "clave": key, "modelo": model}, fh)
-    os.chmod(IA_CONFIG, 0o600)
-    return ia_status()
+    raise ApiError(403, "La IA se configura exclusivamente con variables privadas del servidor (Vercel).")
 
 
-def ia_call(system, prompt, images=None):
+def _ia_call_uncached(system, prompt, images=None):
     cfg = ia_settings()
     if not cfg["clave"]:
-        raise ApiError(400, "Configurá la IA: tocá «Configurar IA» y pegá la clave")
+        raise ApiError(400, "Configurá ANTHROPIC_API_KEY como variable privada del servidor.")
     if cfg["proveedor"] == "openai":
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": "Bearer " + cfg["clave"], "Content-Type": "application/json"}
@@ -2989,7 +2971,7 @@ def ia_call(system, prompt, images=None):
         if images:
             content = [{"type": "image", "source": {"type": "base64", "media_type": m, "data": d}} for m, d in images]
             content.append({"type": "text", "text": prompt})
-        body = {"model": cfg["modelo"], "max_tokens": 16000, "system": system,
+        body = {"model": cfg["modelo"], "max_tokens": 2000, "system": system,
                 "messages": [{"role": "user", "content": content}]}
     req = Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
     try:
@@ -3012,9 +2994,39 @@ def ia_call(system, prompt, images=None):
         text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
     start, end = text.find("{"), text.rfind("}")
     try:
-        return json.loads(text[start:end + 1])
+        return json.loads(text[start:end + 1]), data.get("usage", {})
     except ValueError:
         raise ApiError(502, "La IA no devolvió una respuesta válida. Probá de nuevo.")
+
+
+def ia_call(system, prompt, images=None):
+    """Aplica caché y reserva presupuestaria antes de cada solicitud externa."""
+    cfg = ia_settings()
+    if not cfg["clave"]:
+        raise ApiError(503, "Falta configurar la clave privada ANTHROPIC_API_KEY en Vercel.")
+    try:
+        cache_key, hit = ai_budget.cached(cfg["proveedor"], cfg["modelo"], system, prompt, images)
+        if hit is not None:
+            return hit
+        reservation = ai_budget.begin(system, prompt, images)
+    except ai_budget.BudgetError as err:
+        raise ApiError(429, str(err))
+    except Exception:
+        raise ApiError(503, "Control de presupuesto no disponible. La IA permanece bloqueada.")
+    try:
+        result, usage = _ia_call_uncached(system, prompt, images)
+    except Exception:
+        try:
+            ai_budget.abort(reservation)
+        except Exception:
+            pass  # Fallo cerrado: la reserva no se libera si Redis no responde.
+        raise
+    try:
+        ai_budget.finish(reservation, usage, cfg["proveedor"])
+    except Exception:
+        pass  # Se conserva la reserva completa como cargo conservador.
+    ai_budget.cache_result(cache_key, result)
+    return result
 
 
 IA_SYSTEM = (
