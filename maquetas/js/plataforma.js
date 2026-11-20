@@ -365,6 +365,7 @@
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
       icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
+      icon("button", 'type="button" data-act="qa"', "bi-shield-check", "Revisar calidad") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
@@ -392,6 +393,20 @@
         navigator.clipboard.writeText(lp.editor).then(function () {
           report("Link copiado. El cliente lo abre con su usuario y contraseña del portal.", "ok");
         }, function () { window.prompt("Copiá el link del editor:", lp.editor); });
+      }
+      if (act === "qa") {
+        btn.disabled = true;
+        api("GET", "/api/landings/" + lp.id + "/qa").then(function (qa) {
+          var lines = [
+            "QA estático: " + (qa.passed ? "sin errores detectados" : "requiere correcciones"),
+            "Versión HTML: " + qa.html_sha256.slice(0, 12),
+            "Errores: " + (qa.blocking_errors.length ? qa.blocking_errors.join("; ") : "ninguno"),
+            "Pendiente: axe-core, Playwright y Lighthouse. No equivale a aprobación de publicación."
+          ];
+          window.alert(lines.join("\\n"));
+          report("QA estático de «" + lp.nombre + "»: " + (qa.passed ? "sin errores; faltan pruebas de navegador" : qa.blocking_errors.length + " hallazgos"), qa.passed ? "ok" : "warn");
+        }).catch(function (err) { report(err.message, "warn"); })
+          .finally(function () { btn.disabled = false; });
       }
       if (act === "duplicate") {
         btn.disabled = true;
