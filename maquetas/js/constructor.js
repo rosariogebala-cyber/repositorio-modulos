@@ -4467,6 +4467,23 @@
   function currentClient() {
     return clients.find(function (c) { return c.id === state.clienteId; }) || null;
   }
+  function planSectionWarning() {
+    var client = currentClient();
+    var plan = client && client.plan_estado;
+    if (!plan || !plan.secciones) return { text: "", extra: 0 };
+    var count = state.items.filter(function (it) {
+      var section = String(it.id || "").replace(/-[^-]+$/, "");
+      return ["navegacion", "footer", "whatsapp"].indexOf(section) === -1;
+    }).length;
+    var extra = Math.max(0, count - plan.secciones);
+    return { extra: extra, text: "Plan " + plan.plan + ": " + count + " de " + plan.secciones +
+      " secciones incluidas." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
+      ". Podés continuar, pero corresponde revisar su presupuesto y aprobación antes de publicar." : "") };
+  }
+  var planSectionNote = document.createElement("p");
+  planSectionNote.setAttribute("role", "status");
+  planSectionNote.style.cssText = "font-size:13px;line-height:1.5;margin:8px 0;color:#4a4762;";
+  statusEl.insertAdjacentElement("afterend", planSectionNote);
 
   function missing() {
     var out = [];
@@ -4489,6 +4506,10 @@
 
   function renderMode() {
     var client = currentClient();
+    var planInfo = planSectionWarning();
+    planSectionNote.hidden = !planInfo.text;
+    planSectionNote.textContent = planInfo.text;
+    planSectionNote.style.color = planInfo.extra ? "#9a4b00" : "#4a4762";
     var editing = !!state.landingId;
     var dirty = isDirty();
     var todo = missing();
@@ -4768,6 +4789,9 @@
     if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
     if (todo.length) { goTo(todo[0].key); return; }
     var editing = !!state.landingId;
+    var planInfo = planSectionWarning();
+    if (planInfo.extra && !REBUILD &&
+        !window.confirm(planInfo.text + "\\n\\n¿Querés guardar esta landing con las secciones adicionales?")) return;
     var body = landingPayload();
     if (clientMode()) {
       body.modo = "sitio";
