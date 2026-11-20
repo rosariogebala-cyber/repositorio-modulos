@@ -343,6 +343,10 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
+    if (lp.secciones_incluidas) {
+      meta.push(lp.secciones_contenido + " de " + lp.secciones_incluidas + " secciones incluidas" +
+        (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
+    }
     var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">Ampliación a revisar: ' + esc(lp.aviso_plan) + "</b></small>" : "";
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
