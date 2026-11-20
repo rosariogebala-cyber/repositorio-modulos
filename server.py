@@ -3111,13 +3111,13 @@ def ia_identidad_referencias(data):
         raise ApiError(400, "Agregá una captura o una descripción del negocio. Una URL sola no alcanza para analizar la identidad.")
     client = next(c for c in read_data("clientes", []) if c["id"] == client_id)
     prompt = (
-        "Datos confirmados de la ficha del negocio:\\n" + ia_client_text({
+        "Datos confirmados de la ficha del negocio:\n" + ia_client_text({
             "nombre": client.get("nombre"), "rubro": client.get("rubro"), "sitio": client.get("sitio")
-        }) + "\\n"
-        + "Nombre solicitado para la landing: " + nombre + "\\n"
-        + "Texto confirmado por el usuario: " + info + "\\n"
+        }) + "\n"
+        + "Nombre solicitado para la landing: " + nombre + "\n"
+        + "Texto confirmado por el usuario: " + info + "\n"
         + "Enlaces aportados (referencia identificatoria, NO ACCEDIDOS NI ANALIZADOS): "
-        + json.dumps({"instagram": instagram, "sitio": sitio}, ensure_ascii=False) + "\\n"
+        + json.dumps({"instagram": instagram, "sitio": sitio}, ensure_ascii=False) + "\n"
         + "Analizá exclusivamente las capturas adjuntas y los datos proporcionados; "
           "nunca afirmes que viste publicaciones o un sitio web externo. "
           "No inventes datos, horarios, servicios, precios, testimonios ni promociones. "
