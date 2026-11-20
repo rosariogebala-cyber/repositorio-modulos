@@ -3663,7 +3663,7 @@
       : "Presupuesto mensual: US$ 2 · Alerta: US$ 1 · Reservado: US$ " +
         (budget.consumo_reservado_usd == null ? "0" : budget.consumo_reservado_usd) +
         " · Disponible: US$ " + (budget.disponible_usd == null ? "2" : budget.disponible_usd) +
-        (budget.bloqueada ? " · Nuevas consultas bloqueadas." : "");
+        (budget.bloqueada ? " · Nuevas consultas bloqueadas." : budget.alerta ? " · Alerta: alcanzaste el 50% del presupuesto." : "");
     aiHint.textContent = status + " " + usage;
     aiSay("");
     aiDialog.showModal();
@@ -3687,6 +3687,7 @@
       throw err;
     }).finally(function () {
       aiBusy = false;
+      loadAi();
       aiModulesBtn.disabled = aiTextsBtn.disabled = qaAiBtn.disabled = false;
       if (btn) btn.classList.remove("is-busy");
     });
