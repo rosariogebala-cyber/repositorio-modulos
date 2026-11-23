@@ -1727,7 +1727,9 @@ def decide_request(client_id, request_id, data):
                     frame = section.find_class("mq-frame")[0] if section is not None and section.find_class("mq-frame") else section
                     if frame is not None:
                         item["html"] = (frame.text or "") + "".join(html_dom.tostring(ch, encoding="unicode") for ch in frame)
+                        # Los textos quedaron dentro del html: se sacan también los guardados por nombre (campos).
                         item.pop("textos", None)
+                        item.pop("campos", None)
                         done_items.update(i for i, _ in mine)
             for index, change in accepted:
                 if index in done_doc:

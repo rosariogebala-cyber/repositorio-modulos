@@ -97,7 +97,16 @@ y recién después sube los cambios. Si arreglás un módulo o cambiás el telé
   armar las landings sin abrir el panel.
 - **Módulos retirados:** si una landing usa un módulo que ya no está en `maquetas/index.html`, no se rearma ni se puede
   guardar (queda como estaba y el panel lo avisa). Así no se pierden secciones al renombrar o sacar una variante.
-- **Pruebas:** `cd scripts && npm ci && node --test test-armador.mjs` arma cada variante de la biblioteca y una landing de prueba.
+- **Cada texto, foto y link tiene un nombre fijo** en el módulo: `data-lz-campo="titulo"`, `data-lz-foto="foto-2"`,
+  `data-lz-enlace="enlace"`. Las landings guardan sus contenidos por ese nombre (`campos`, `fotos`, `enlaces`), además de por
+  posición. Así podés reordenar un módulo o sumarle un texto y lo guardado sigue en su lugar. Las marcas no salen en la página
+  publicada.
+  - Al agregar o cambiar un módulo en `maquetas/index.html`, corré `cd scripts && node marcar-campos.mjs`: pone las marcas
+    que falten y no cambia las que ya existen. **No renombres una marca existente**: las landings la usan para ubicar sus textos.
+  - Si una landing tiene un texto guardado con un nombre que el módulo ya no tiene, el constructor lo avisa al abrirla y
+    Publicar no la rearma (queda como estaba).
+- **Pruebas:** `cd scripts && npm ci && node marcar-campos.mjs --check && node --test test-armador.mjs` revisa las marcas,
+  arma cada variante de la biblioteca y una landing de prueba, y prueba que lo guardado por nombre no se corra de lugar.
 
 ## Portal del cliente
 

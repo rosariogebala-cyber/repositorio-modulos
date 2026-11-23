@@ -131,7 +131,7 @@
   var REBUILD = new URLSearchParams(location.search).get("rearmar") === "1";
   function saveDraft() {
     if (REBUILD) return;
-    var draft = Object.assign({}, state, { saved: savedSnapshot });
+    var draft = Object.assign({}, state, { saved: savedSnapshot, items: namedItems() });
     try { localStorage.setItem(DRAFT, JSON.stringify(draft)); } catch (e) { /* cuota llena: el borrador queda en memoria */ }
   }
   function say(text, tone, links) {
@@ -2517,6 +2517,7 @@
     tpl.content.querySelectorAll("[data-lz-t], [data-lz-i], [data-lz-l], [data-lz-pick]").forEach(function (el) {
       ["data-lz-t", "data-lz-i", "data-lz-l", "data-lz-pick"].forEach(function (a) { el.removeAttribute(a); });
     });
+    A.renombrarRepetidos(tpl.content);
     it.html = tpl.innerHTML;
     Object.keys(next).forEach(function (k) { if (next[k]) it[k] = next[k]; else delete it[k]; });
     if (pick >= 0) pendingSelect = { module: index, key: String(pick) };
@@ -4293,7 +4294,10 @@
     libraryMsg.className = "lb-msg" + (tone ? " is-" + tone : "");
   }
 
+  /* Contenidos guardados con un nombre que el módulo ya no tiene (se avisa al abrir la landing) */
+  var lostFields = [];
   function loadLanding(lp) {
+    lostFields = [];
     initialPlanSections = countPlanSections(lp.items || []);
     state = {
       name: lp.nombre,
@@ -4304,7 +4308,10 @@
       planIncluded: lp.secciones_incluidas || 0,
       legacyInherited: !lp.plan_individual,
       faltan: (lp.items || []).filter(function (it) { return !byId[it.id]; }).map(function (it) { return it.id; }),
-      items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) {
+      items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (saved) {
+        var placed = A.aPosiciones(document, saved, byId[saved.id].html);
+        if (placed.perdidos.length) lostFields.push(byId[saved.id].group + " (" + placed.perdidos.join(", ") + ")");
+        var it = placed.item;
         var item = { id: it.id, width: it.width };
         if (it.html) item.html = it.html;
         if (it.textos) item.textos = it.textos;
@@ -4342,6 +4349,7 @@
     paintClientBrand();
     update();
     if (missingModulesText()) say(missingModulesText() + " No la guardes hasta que vuelvan a estar.", "warn");
+    else if (lostFieldsText()) say(lostFieldsText(), "warn");
   }
 
   function confirmDiscard() {
@@ -4356,6 +4364,7 @@
       loadLanding(detail);
       libraryDialog.close();
       if (missingModulesText()) say(missingModulesText() + " No la guardes hasta que vuelvan a estar.", "warn");
+      else if (lostFieldsText()) say(lostFieldsText(), "warn");
       else say("Editando «" + detail.nombre + "» de " + detail.cliente + ".", "ok");
     }).catch(function (error) { libSay(error.message, "warn"); });
   }
@@ -4473,11 +4482,16 @@
   function imageTokens(html) { return A.imageTokens(html, state.items); }
 
   /* La página se arma siempre a partir de los módulos guardados (items) y de las plantillas actuales de maquetas/ */
+  /* Cada sección se guarda con sus contenidos por nombre (campos, fotos, enlaces) además de por posición. */
+  function namedItems() {
+    return state.items.map(function (it) { return byId[it.id] ? A.aNombres(document, it, byId[it.id].html) : it; });
+  }
+
   function landingPayload() {
     var html = buildDocument({ prefix: "" });
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
-    var payload = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    var payload = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: namedItems(), estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
     if (!state.legacyInherited || state.planId !== state.originalPlanId) payload.plan_id = state.planId || "";
     return payload;
   }
@@ -4486,12 +4500,18 @@
     return state.faltan && state.faltan.length ?
       "Usa módulos que ya no están en la biblioteca (" + state.faltan.join(", ") + "). Se deja como estaba para no perder esas secciones." : "";
   }
+  /* Un texto o una foto guardados con un nombre que el módulo ya no tiene: se avisa al abrir; el rearmado automático no la toca. */
+  function lostFieldsText() {
+    return lostFields.length && state.landingId ?
+      "Hay textos o fotos guardados en lugares que el módulo ya no tiene: " + lostFields.join("; ") + ". Revisalos antes de guardar: si guardás, se pierden." : "";
+  }
 
   function rebuildLanding() {
     var report = function (data) {
       if (window.parent !== window) window.parent.postMessage({ lzRearmar: Object.assign({ id: state.landingId }, data) }, location.origin);
     };
-    if (missingModulesText()) return Promise.resolve(report({ ok: false, nombre: state.name, error: missingModulesText() }));
+    var blocked = missingModulesText() || lostFieldsText();
+    if (blocked) return Promise.resolve(report({ ok: false, nombre: state.name, error: blocked }));
     return api("PUT", "/api/landings/" + state.landingId, JSON.stringify(landingPayload()))
       .then(function (saved) { report({ ok: true, nombre: saved.nombre }); },
         function (err) { report({ ok: false, nombre: state.name, error: err.message }); });
@@ -4804,7 +4824,9 @@
       originalPlanId: draft.originalPlanId || draft.planId || "",
       legacyInherited: Boolean(draft.legacyInherited),
       planIncluded: draft.planIncluded || 0,
-      items: draft.items.filter(function (it) { return byId[it.id]; }),
+      items: draft.items.filter(function (it) { return byId[it.id]; }).map(function (it) {
+        return A.aPosiciones(document, it, byId[it.id].html).item;
+      }),
       estilo: draft.estilo || "",
       ignorados: draft.ignorados || [],
       descripcion: draft.descripcion || "",
@@ -4837,6 +4859,7 @@
         loadLanding(lp);
         if (REBUILD) { rebuildLanding(); return; }
         if (missingModulesText()) { say(missingModulesText() + " No la guardes hasta que vuelvan a estar.", "warn"); return; }
+        if (lostFieldsText()) { say(lostFieldsText(), "warn"); return; }
         say(clientMode() && lp.revision_estado === "pendiente" ?
           "Hay cambios pendientes de aprobación. Podés actualizar la propuesta." :
           "Editando «" + lp.nombre + "» de " + lp.cliente + ".", "ok");

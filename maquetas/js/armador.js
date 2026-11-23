@@ -443,6 +443,92 @@
     return { library: library, byId: byId };
   }
 
+  /* Campos con nombre fijo (data-lz-campo / data-lz-foto / data-lz-enlace, ver scripts/marcar-campos.mjs).
+     Las landings guardan sus contenidos por nombre; las posiciones (textos[0], imagenes[1]…) se recalculan con el módulo
+     actual, así un módulo se puede reordenar o ampliar sin que lo guardado caiga en otro lugar. */
+  var MARCAS = { campos: "data-lz-campo", fotos: "data-lz-foto", enlaces: "data-lz-enlace" };
+
+  function nombresDe(root) {
+    function names(nodes, attr) { return nodes.map(function (el) { return el.getAttribute(attr) || ""; }); }
+    return {
+      campos: names(editableNodes(root), MARCAS.campos),
+      fotos: names(imageNodes(root), MARCAS.fotos),
+      enlaces: names(linkNodes(root), MARCAS.enlaces)
+    };
+  }
+
+  function plantillaDe(doc, html) {
+    var tpl = doc.createElement("template");
+    tpl.innerHTML = html;
+    return tpl.content;
+  }
+
+  function copia(value) { return JSON.parse(JSON.stringify(value)); }
+
+  /* Agrega a la sección sus contenidos por nombre (campos, fotos, enlaces, ocultos), a partir de los de posición. */
+  function aNombres(doc, it, moduleHtml) {
+    var n = nombresDe(plantillaDe(doc, it.html || moduleHtml));
+    var out = Object.assign({}, it);
+    var nombrados = {
+      campos: [n.campos, it.textos], fotos: [n.fotos, it.imagenes], enlaces: [n.enlaces, it.links], ocultosEnlaces: [n.enlaces, it.ocultos]
+    };
+    Object.keys(nombrados).forEach(function (key) {
+      var names = nombrados[key][0], store = nombrados[key][1];
+      delete out[key];
+      if (!store) return;
+      var map = {};
+      Object.keys(store).forEach(function (k) {
+        var name = names[+k];
+        if (name) map[name] = copia(store[k]);
+      });
+      if (Object.keys(map).length) out[key] = map;
+    });
+    return out;
+  }
+
+  /* Recalcula las posiciones desde los nombres con el módulo actual. Devuelve la sección y los nombres que ya no están. */
+  function aPosiciones(doc, it, moduleHtml) {
+    if (!it.campos && !it.fotos && !it.enlaces && !it.ocultosEnlaces) return { item: it, perdidos: [] };
+    var n = nombresDe(plantillaDe(doc, it.html || moduleHtml));
+    var out = Object.assign({}, it);
+    var perdidos = [];
+    var pares = [["campos", n.campos, "textos"], ["fotos", n.fotos, "imagenes"], ["enlaces", n.enlaces, "links"], ["ocultosEnlaces", n.enlaces, "ocultos"]];
+    pares.forEach(function (par) {
+      var named = it[par[0]];
+      /* Sin nombres en el módulo (una sección con estructura propia guardada sin marcas): valen las posiciones. */
+      if (!named || !par[1].some(Boolean)) return;
+      var map = {};
+      /* Lo que está en un lugar sin nombre (una sección guardada antes de las marcas) se deja donde estaba. */
+      Object.keys(it[par[2]] || {}).forEach(function (k) { if (!par[1][+k]) map[k] = copia(it[par[2]][k]); });
+      Object.keys(named).forEach(function (name) {
+        var index = par[1].indexOf(name);
+        if (index < 0) { perdidos.push(name); return; }
+        map[index] = copia(named[name]);
+      });
+      if (Object.keys(map).length) out[par[2]] = map; else delete out[par[2]];
+    });
+    return { item: out, perdidos: perdidos };
+  }
+
+  /* Al repetir un ítem (agregar una tarjeta, un producto…) la copia lleva los mismos nombres: se renombran las copias. */
+  function renombrarRepetidos(root) {
+    Object.keys(MARCAS).forEach(function (key) {
+      var attr = MARCAS[key];
+      var seen = {};
+      root.querySelectorAll("[" + attr + "]").forEach(function (el) { seen[el.getAttribute(attr)] = (seen[el.getAttribute(attr)] || 0) + 1; });
+      var used = {};
+      root.querySelectorAll("[" + attr + "]").forEach(function (el) {
+        var name = el.getAttribute(attr);
+        if (!used[name]) { used[name] = true; return; }
+        var base = name.replace(/-\d+$/, "");
+        var next = base;
+        for (var i = 2; seen[next] || used[next]; i++) next = base + "-" + i;
+        used[next] = true;
+        el.setAttribute(attr, next);
+      });
+    });
+  }
+
   /* Imágenes subidas que todavía son data: URL quedan como «lzimg:sección:posición» (el servidor las guarda como archivos) */
   function imageTokens(html, items) {
     items.forEach(function (it, i) {
@@ -459,7 +545,9 @@
     var estilo = landing.estilo || "";
     var estado = {
       name: landing.nombre || "",
-      items: (landing.items || []).filter(function (it) { return biblioteca.byId[it.id]; }),
+      items: (landing.items || []).filter(function (it) { return biblioteca.byId[it.id]; }).map(function (it) {
+        return aPosiciones(doc, it, biblioteca.byId[it.id].html).item;
+      }),
       estilo: stripLandingColors(estilo),
       colores: readLandingColors(estilo),
       animacion: landing.animacion == null ? "suave" : landing.animacion
@@ -556,6 +644,12 @@
         syncFooterMenu(tpl.content, menuLinks);
         paintModuleColors(tpl.content, it, colores());
       }
+      /* Las marcas de los campos son para el editor: la página publicada sale sin ellas. */
+      if (preview !== true) {
+        Object.keys(MARCAS).forEach(function (key) {
+          tpl.content.querySelectorAll("[" + MARCAS[key] + "]").forEach(function (el) { el.removeAttribute(MARCAS[key]); });
+        });
+      }
       var html = tpl.innerHTML;
       if (prefix) {
         html = html
@@ -651,6 +745,7 @@
 
   var api = {
     crear: crear, socialUrl: socialUrl, leerBiblioteca: leerBiblioteca, armarLanding: armarLanding, imageTokens: imageTokens,
+    MARCAS: MARCAS, nombresDe: nombresDe, aNombres: aNombres, aPosiciones: aPosiciones, renombrarRepetidos: renombrarRepetidos,
     COLOR_MARK: COLOR_MARK, readLandingColors: readLandingColors, stripLandingColors: stripLandingColors,
 
     FONTS: FONTS, BOOTSTRAP_CSS: BOOTSTRAP_CSS, ICONS_CSS: ICONS_CSS, BOOTSTRAP_JS: BOOTSTRAP_JS, SAMPLE: SAMPLE, SAMPLE_HOURS: SAMPLE_HOURS, SAMPLE_HOURS_TEXT: SAMPLE_HOURS_TEXT, SOCIAL: SOCIAL, DEFAULT_COLORS: DEFAULT_COLORS, CORTES: CORTES, LANDING_FONTS: LANDING_FONTS, AMBIENTES: AMBIENTES, COMMON_MODULE_COLORS: COMMON_MODULE_COLORS, MODULE_COLOR_FIELDS: MODULE_COLOR_FIELDS, EDIT_SEL: EDIT_SEL, IMG_SEL: IMG_SEL, slugify: slugify, escapeHtml: escapeHtml, normalizeHex: normalizeHex, shade: shade, mix: mix, waNumber: waNumber, logoSrc: logoSrc, logoMode: logoMode, clientStyle: clientStyle, corteMarkup: corteMarkup, moduleColorFields: moduleColorFields, paintModuleColors: paintModuleColors, paintFondoNodes: paintFondoNodes, ambientStyle: ambientStyle, colorStyle: colorStyle, ownText: ownText, editableNodes: editableNodes, imageNodes: imageNodes, linkNodes: linkNodes, imageData: imageData, setImage: setImage, setHref: setHref, applyClient: applyClient, syncFooterMenu: syncFooterMenu
