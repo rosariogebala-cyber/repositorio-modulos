@@ -57,8 +57,8 @@
 
   var COMMON_MODULE_COLORS = {
     fondo: ["Fondo de sección", ".nx", "background-color", "#f7f4ef"],
-    titulo: ["Títulos", "h1, h2, h3, h4, .nx-display, .nx-display .em", "color", "#17352c"],
-    texto: ["Textos", "p, li, dd, blockquote, figcaption", "color", "#5f6f68"],
+    titulo: ["Títulos", "h1, h2, h3, h4, .stat-n, .hero-stat-n, .nx-display, .nx-display .em", "color", "#17352c"],
+    texto: ["Textos", "p:not(.stat-n, .hero-stat-n), li, dd, blockquote, figcaption", "color", "#5f6f68"],
     etiqueta: ["Etiquetas", ".nx-kicker, .plan-kicker, .badge, .k", "color", "#17352c"],
     enlace: ["Enlaces", "a:not(.btn-nx, .btn-nx-light, .btn-nx-outline, .nx-wa)", "color", "#1b5e42"],
     boton: ["Fondo del botón principal", ".btn-nx, .nx-wa", "background-color", "#1b5e42"],
@@ -217,14 +217,14 @@
     var fonts = Object.hasOwn(LANDING_FONTS, colors.tipografia) && LANDING_FONTS[colors.tipografia];
     var typography = fonts ?
       ".landing-page, .landing-page .nx, .landing-page .nx :is(input, select, textarea, button) { font-family:" + fonts[1] + "; }" +
-      ".landing-page .nx :is(h1, h2, h3, .nx-display) { font-family:" + fonts[0] + "; }" : "";
+      ".landing-page .nx :is(h1, h2, h3, .nx-display, .stat-n, .hero-stat-n) { font-family:" + fonts[0] + "; }" : "";
     if (!colors.acento) return typography;
     return typography + ":root { --ink: " + colors.titulos + "; --muted: " + colors.parrafos + "; --lz-label: " + colors.etiquetas +
       "; --green: " + colors.acento + "; --green-deep: " + shade(colors.acento, -0.28) + "; --lz-icon: " + colors.iconos +
       "; --dark: " + shade(colors.acento, -0.55) + "; --sage: " + mix(colors.acento, "#ffffff", 0.16) +
       "; --paper: " + mix(colors.acento, "#f7f4ef", 0.22) + "; }" +
       ".landing-page { color: var(--ink); }" +
-      ".landing-page :is(p, li, blockquote, figcaption, dd) { color: var(--muted); }" +
+      ".landing-page :is(p, li, blockquote, figcaption, dd):not(.stat-n, .hero-stat-n) { color: var(--muted); }" +
       ".landing-page :is(.nx-kicker, .plan-kicker, .badge, .k) { color: var(--lz-label); }" +
       ".landing-page .bi { color: var(--lz-icon); }" +
       (colors.nav ? '.landing-page [data-module^="navegacion"] :is(a, span, strong, p, li, button, .bi):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.nav + "; }" : "") +

@@ -498,13 +498,14 @@ button, input, textarea { font-family: inherit; }
   flex: none;
 }
 
-.nx-hero-card h3 {
+.nx-hero-card h3,
+.nx-hero-card .hero-stat-n {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
 }
 
-.nx-hero-card p {
+.nx-hero-card p:not(.stat-n, .hero-stat-n) {
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 13px;
@@ -1996,6 +1997,7 @@ html:has(.lib-page) { scroll-behavior: smooth; }
 }
 .nx-display,
 .nx h3,
+.nx :is(.stat-n, .hero-stat-n),
 .nx-banner h3 { text-wrap: balance; }
 .nx p,
 .nx li { text-wrap: pretty; }
@@ -3623,7 +3625,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   --fs-field: 1rem;
 }
 
-.landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6) {
+.landing-page .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6, .stat-n, .hero-stat-n) {
   font-size: var(--fs-body);
   line-height: 1.5;
 }
@@ -4009,7 +4011,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 
 /* Sin viudas en títulos y párrafos de los módulos */
 .nx :is(h1, h2, h3, h4, summary) { text-wrap: balance; }
-.nx :is(p, li, blockquote, figcaption) { text-wrap: pretty; }
+.nx :is(p, li, blockquote, figcaption):not(.stat-n, .hero-stat-n) { text-wrap: pretty; }
 
 /* Portada dividida */
 .hero-split {
@@ -4133,7 +4135,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   letter-spacing: -0.03em;
   color: var(--green);
 }
-.stat p { margin: 10px 0 0; color: var(--muted); }
+.stat p:not(.stat-n, .hero-stat-n) { margin: 10px 0 0; color: var(--muted); }
 .stats-band .stats-row .stat + .stat { border-left: 1px solid var(--line); }
 .stats-dark-grid {
   display: grid;
@@ -4145,7 +4147,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .stats-dark-copy { align-self: center; padding: clamp(40px, 5vw, 80px); }
 .nx .stats-dark-copy :is(h2, .nx-display, .stat-n) { color: #fff; }
 .nx .stats-dark-copy .nx-display .em { color: color-mix(in srgb, var(--green) 35%, #fff); }
-.nx .stats-dark-copy :is(p, .nx-lead) { color: rgba(255, 255, 255, 0.78); }
+.nx .stats-dark-copy :is(p, .nx-lead):not(.stat-n, .hero-stat-n) { color: rgba(255, 255, 255, 0.78); }
 .nx .stats-dark-copy .stat { border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 18px; }
 
 /* Llamado a la acción */
@@ -4463,7 +4465,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   margin: 28px auto 16px;
   font: 700 clamp(1.75rem, 4vw, 2.75rem)/1.15 Manrope, sans-serif;
 }
-:is(.mq, .lib-page) .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6) {
+:is(.mq, .lib-page) .nx :is(p, li, dd, blockquote):not(.nx-kicker, .plan-kicker, .visually-hidden, .h6, .stat-n, .hero-stat-n) {
   font-size: var(--fs-body);
   line-height: 1.5;
 }

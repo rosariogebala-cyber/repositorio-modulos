@@ -159,3 +159,15 @@ test("una landing guardada por nombre se arma igual que por posición", () => {
   }) };
   assert.equal(armar({ landing: porNombre, cliente }).html, armar({ landing, cliente }).html);
 });
+
+test("los títulos de los módulos: sin h1 (lo pone el servidor), sin saltos de nivel y sin cifras sueltas", () => {
+  const doc = docDe(readFileSync(join(ROOT, "maquetas/index.html"), "utf8"));
+  for (const id of ids) {
+    const hs = [...doc.getElementById(id).querySelectorAll(".mq-frame :is(h1, h2, h3, h4, h5, h6)")];
+    const niveles = hs.map((h) => +h.tagName[1]);
+    assert.ok(!niveles.includes(1), id + ": tiene h1");
+    if (niveles.length) assert.equal(niveles[0], 2, id + ": el primer título es h" + niveles[0]);
+    niveles.forEach((n, k) => { if (k) assert.ok(n <= niveles[k - 1] + 1, id + ": salta de h" + niveles[k - 1] + " a h" + n); });
+    hs.forEach((h) => assert.ok(!/^[+\-]?\d[\d.,]*\s*(h|%|años|k)?$/i.test(h.textContent.trim()), id + ": la cifra «" + h.textContent.trim() + "» es un título"));
+  }
+});
