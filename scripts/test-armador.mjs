@@ -171,3 +171,12 @@ test("los títulos de los módulos: sin h1 (lo pone el servidor), sin saltos de 
     hs.forEach((h) => assert.ok(!/^[+\-]?\d[\d.,]*\s*(h|%|años|k)?$/i.test(h.textContent.trim()), id + ": la cifra «" + h.textContent.trim() + "» es un título"));
   }
 });
+
+test("los colores propios de un módulo salen con !important, igual que en el navegador", () => {
+  const items = landing.items.map((it, i) => i === 1 ? { ...it, coloresModulo: { titulo: "#AA0000", texto: "#0a0" } } : it);
+  const { html } = armar({ landing: { ...landing, items }, cliente });
+  const section = new JSDOM(html).window.document.querySelectorAll("body > section.mq-block")[1];
+  const painted = [...section.querySelectorAll("[style*='rgb(170, 0, 0)']")];
+  assert.ok(painted.length, "no se pintó ningún título");
+  for (const el of painted) assert.match(el.getAttribute("style"), /rgb\(170, 0, 0\) !important/);
+});

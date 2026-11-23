@@ -4311,26 +4311,7 @@
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (saved) {
         var placed = A.aPosiciones(document, saved, byId[saved.id].html);
         if (placed.perdidos.length) lostFields.push(byId[saved.id].group + " (" + placed.perdidos.join(", ") + ")");
-        var it = placed.item;
-        var item = { id: it.id, width: it.width };
-        if (it.html) item.html = it.html;
-        if (it.textos) item.textos = it.textos;
-        if (it.imagenes) item.imagenes = it.imagenes;
-        if (it.links) item.links = it.links;
-        if (it.ocultos) item.ocultos = it.ocultos;
-        if (it.menuAjustado) item.menuAjustado = true;
-        var fields = moduleColorFields(item);
-        if (fields && it.coloresModulo) {
-          var colors = {};
-          Object.keys(fields).forEach(function (key) {
-            var color = normalizeHex(it.coloresModulo[key]);
-            if (color) colors[key] = color;
-          });
-          if (Object.keys(colors).length) item.coloresModulo = colors;
-        }
-        if (/^#[0-9a-f]{6}$/i.test(it.fondo || "")) item.fondo = it.fondo;
-        if (CORTES[it.corte]) item.corte = it.corte;
-        return item;
+        return A.normalizarItem(placed.item);
       }),
       estilo: lp.estilo || "",
       ignorados: lp.ignorados || [],

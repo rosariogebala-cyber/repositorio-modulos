@@ -2637,18 +2637,40 @@ def armar_en_node(pedidos):
 
 
 def comparable_html(markup):
-    """El mismo documento escrito igual: el navegador y Node pueden ordenar distinto los atributos."""
+    """El mismo documento escrito igual: el navegador y Node pueden ordenar distinto los atributos y espaciar
+    distinto el CSS de los atributos style."""
     try:
         doc = html_dom.document_fromstring(markup or "")
     except (etree.ParserError, ValueError):
         return markup or ""
     for el in doc.iter():
         if isinstance(el.tag, str) and el.attrib:
+            if el.get("style"):
+                # Mismo CSS escrito distinto (el navegador pone espacios después de las comas: clamp(1rem, 3vw, 2rem)).
+                el.set("style", re.sub(r"\s*([,:;()])\s*", r"\1", el.get("style")).strip().rstrip(";"))
             items = sorted(el.attrib.items())
             el.attrib.clear()
             for key, value in items:
                 el.set(key, value)
     return html_dom.tostring(doc, encoding="unicode")
+
+
+def first_difference(saved, built):
+    """Dónde empieza la diferencia entre lo guardado y lo que arma el servidor: el encabezado o una sección."""
+    try:
+        docs = [html_dom.document_fromstring(comparable_html(m)) for m in (saved or "", built)]
+    except (etree.ParserError, ValueError):
+        return "el documento"
+    heads = [html_dom.tostring(d.find("head"), encoding="unicode") if d.find("head") is not None else "" for d in docs]
+    if heads[0] != heads[1]:
+        return "el encabezado (estilos, colores o título)"
+    sections = [d.xpath("//section[@data-module]") for d in docs]
+    for a, b in zip(*sections):
+        if html_dom.tostring(a, encoding="unicode") != html_dom.tostring(b, encoding="unicode"):
+            return "la sección «%s»" % (a.get("data-module") or "?")
+    if len(sections[0]) != len(sections[1]):
+        return "la cantidad de secciones (%d guardadas, %d armadas)" % (len(sections[0]), len(sections[1]))
+    return "el final de la página"
 
 
 def rebuild_from_data(apply=None):
@@ -2694,7 +2716,7 @@ def rebuild_from_data(apply=None):
             report["iguales"].append(name)
             continue
         if not apply:
-            report["distintas"].append(name)
+            report["distintas"].append("%s, en %s" % (name, first_difference(row.get("html"), candidate)))
             continue
         payload = {"cliente_id": row["cliente_id"], "nombre": row.get("nombre") or "", "html": result["html"],
                    "items": result.get("items") or [], "estilo": row.get("estilo") or "",
@@ -2720,7 +2742,7 @@ def armado_result(report):
         parts.append("%d de %d landings dan igual armadas en el servidor que en el navegador." % (
             len(report["iguales"]), report["total"]))
         if report["distintas"]:
-            parts.append("Distintas: " + names(report["distintas"]) + ".")
+            parts.append("Distintas: " + "; ".join(report["distintas"][:6]) + ("…" if len(report["distintas"]) > 6 else "") + ".")
     if report["omitidas"]:
         parts.append("Quedan como estaban: " + "; ".join(report["omitidas"][:6]) + ".")
     if report["errores"]:

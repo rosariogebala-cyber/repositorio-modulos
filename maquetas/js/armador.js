@@ -178,11 +178,19 @@
         if (field[1] === ".nx" && element.parentElement && element.parentElement.closest(".nx")) return;
         if (touched && !touched.has(element)) touched.set(element, element.getAttribute("style"));
         if (key === "fondo" && element.classList.contains("nx-footer-dark")) {
-          element.style.setProperty("background-image", "none", "important");
+          setImportant(element, "background-image", "none");
         }
-        element.style.setProperty(field[2], color, "important");
+        setImportant(element, field[2], color);
       });
     });
+  }
+
+  /* style.setProperty(…, "important"). En Node (jsdom) el atributo style queda sin el «!important» del último valor:
+     se vuelve a escribir desde cssText, que sí lo tiene. En el navegador ya coinciden y no cambia nada. */
+  function setImportant(element, prop, value) {
+    element.style.setProperty(prop, value, "important");
+    var text = element.style.cssText;
+    if (element.getAttribute("style") !== text) element.setAttribute("style", text);
   }
 
   function paintFondoNodes(root, color) {
@@ -541,6 +549,26 @@
   }
 
   /* Arma la página final de una landing guardada (los mismos datos que manda el constructor al guardar). */
+  /* Una sección guardada, limpia como la abre el constructor: solo los datos que usa el armador, con colores y cortes
+     válidos. El constructor y el servidor (Node) la limpian igual, así arman lo mismo. */
+  function normalizarItem(it) {
+    var item = { id: it.id, width: it.width };
+    ["html", "textos", "imagenes", "links", "ocultos"].forEach(function (key) { if (it[key]) item[key] = it[key]; });
+    if (it.menuAjustado) item.menuAjustado = true;
+    var fields = moduleColorFields(item);
+    if (fields && it.coloresModulo) {
+      var colors = {};
+      Object.keys(fields).forEach(function (key) {
+        var color = normalizeHex(it.coloresModulo[key]);
+        if (color) colors[key] = color;
+      });
+      if (Object.keys(colors).length) item.coloresModulo = colors;
+    }
+    if (/^#[0-9a-f]{6}$/i.test(it.fondo || "")) item.fondo = it.fondo;
+    if (CORTES[it.corte]) item.corte = it.corte;
+    return item;
+  }
+
   function armarLanding(doc, biblioteca, landing, cliente) {
     var estilo = landing.estilo || "";
     var perdidos = [];
@@ -549,7 +577,7 @@
       items: (landing.items || []).filter(function (it) { return biblioteca.byId[it.id]; }).map(function (it) {
         var placed = aPosiciones(doc, it, biblioteca.byId[it.id].html);
         if (placed.perdidos.length) perdidos.push(biblioteca.byId[it.id].group + " (" + placed.perdidos.join(", ") + ")");
-        return placed.item;
+        return normalizarItem(placed.item);
       }),
       estilo: stripLandingColors(estilo),
       colores: readLandingColors(estilo),
@@ -754,7 +782,7 @@
 
   var api = {
     crear: crear, socialUrl: socialUrl, leerBiblioteca: leerBiblioteca, armarLanding: armarLanding, imageTokens: imageTokens,
-    MARCAS: MARCAS, nombresDe: nombresDe, aNombres: aNombres, aPosiciones: aPosiciones, renombrarRepetidos: renombrarRepetidos,
+    MARCAS: MARCAS, normalizarItem: normalizarItem, nombresDe: nombresDe, aNombres: aNombres, aPosiciones: aPosiciones, renombrarRepetidos: renombrarRepetidos,
     COLOR_MARK: COLOR_MARK, readLandingColors: readLandingColors, stripLandingColors: stripLandingColors,
 
     FONTS: FONTS, BOOTSTRAP_CSS: BOOTSTRAP_CSS, ICONS_CSS: ICONS_CSS, BOOTSTRAP_JS: BOOTSTRAP_JS, SAMPLE: SAMPLE, SAMPLE_HOURS: SAMPLE_HOURS, SAMPLE_HOURS_TEXT: SAMPLE_HOURS_TEXT, SOCIAL: SOCIAL, DEFAULT_COLORS: DEFAULT_COLORS, CORTES: CORTES, LANDING_FONTS: LANDING_FONTS, AMBIENTES: AMBIENTES, COMMON_MODULE_COLORS: COMMON_MODULE_COLORS, MODULE_COLOR_FIELDS: MODULE_COLOR_FIELDS, EDIT_SEL: EDIT_SEL, IMG_SEL: IMG_SEL, slugify: slugify, escapeHtml: escapeHtml, normalizeHex: normalizeHex, shade: shade, mix: mix, waNumber: waNumber, logoSrc: logoSrc, logoMode: logoMode, clientStyle: clientStyle, corteMarkup: corteMarkup, moduleColorFields: moduleColorFields, paintModuleColors: paintModuleColors, paintFondoNodes: paintFondoNodes, ambientStyle: ambientStyle, colorStyle: colorStyle, ownText: ownText, editableNodes: editableNodes, imageNodes: imageNodes, linkNodes: linkNodes, imageData: imageData, setImage: setImage, setHref: setHref, applyClient: applyClient, syncFooterMenu: syncFooterMenu
