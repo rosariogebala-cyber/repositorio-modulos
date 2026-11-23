@@ -6,7 +6,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-480.webp,maquetas/img/**/*-752.webp,maquetas/img/**/*-800.webp,maquetas/img/**/*-960.webp,maquetas/img/**/*-1280.webp,maquetas/img/**/*-1600.webp,maquetas/img/**/*.jpg,assets/*.png,assets/*.jpg,assets/*.webp,assets/*.svg}"
+      "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-480.webp,maquetas/img/**/*-752.webp,maquetas/img/**/*-800.webp,maquetas/img/**/*-960.webp,maquetas/img/**/*-1280.webp,maquetas/img/**/*-1600.webp,maquetas/img/**/*.jpg}"
     }
   },
   "rewrites": [
