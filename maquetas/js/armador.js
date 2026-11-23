@@ -543,10 +543,13 @@
   /* Arma la página final de una landing guardada (los mismos datos que manda el constructor al guardar). */
   function armarLanding(doc, biblioteca, landing, cliente) {
     var estilo = landing.estilo || "";
+    var perdidos = [];
     var estado = {
       name: landing.nombre || "",
       items: (landing.items || []).filter(function (it) { return biblioteca.byId[it.id]; }).map(function (it) {
-        return aPosiciones(doc, it, biblioteca.byId[it.id].html).item;
+        var placed = aPosiciones(doc, it, biblioteca.byId[it.id].html);
+        if (placed.perdidos.length) perdidos.push(biblioteca.byId[it.id].group + " (" + placed.perdidos.join(", ") + ")");
+        return placed.item;
       }),
       estilo: stripLandingColors(estilo),
       colores: readLandingColors(estilo),
@@ -560,7 +563,13 @@
       cliente: function () { return cliente || null; },
       colores: function () { return estado.colores && estado.colores.rolesModulo || {}; }
     });
-    return { html: imageTokens(armador.buildDocument({ prefix: "" }), estado.items), faltan: faltan };
+    /* items: las secciones como las guarda el constructor (por nombre y por posición) */
+    return {
+      html: imageTokens(armador.buildDocument({ prefix: "" }), estado.items),
+      faltan: faltan,
+      perdidos: perdidos,
+      items: estado.items.map(function (it) { return aNombres(doc, it, biblioteca.byId[it.id].html); })
+    };
   }
 
   /* Lo que depende de la landing que se está armando: la biblioteca (byId), el estado de la landing, el cliente,

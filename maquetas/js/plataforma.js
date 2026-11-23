@@ -1151,11 +1151,13 @@
       function stay(e) { e.preventDefault(); e.returnValue = ""; }
       window.addEventListener("beforeunload", stay);
       var rebuilt = [];
-      rebuildAll(function (n, total) {
+      /* Con LANZATE_ARMADO=datos las landings se arman en el servidor, desde sus datos: no hace falta abrir el constructor */
+      var serverBuild = SESSION.armado === "datos";
+      (serverBuild ? Promise.resolve([]) : rebuildAll(function (n, total) {
         btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Armando ' + n + " de " + total + "… no cierres";
-      }).then(function (results) {
+      })).then(function (results) {
         rebuilt = results;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Subiendo…';
+        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> ' + (serverBuild ? "Armando y subiendo…" : "Subiendo…");
         return api("POST", "/api/publicar", { mensaje: note });
       }).then(function (out) {
         var failed = rebuilt.filter(function (r) { return !r.ok; });
@@ -1165,7 +1167,9 @@
           failed.forEach(function (r) { lines.push("• " + r.nombre + ": " + r.error); });
         }
         var ok = out.resultados.every(function (r) { return r.ok; });
-        window.alert((ok ? "Listo. Se armaron " + (rebuilt.length - failed.length) + " landings con los módulos actuales. En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
+        var done = serverBuild ? "Listo. Las landings se armaron en el servidor con los módulos actuales." :
+          "Listo. Se armaron " + (rebuilt.length - failed.length) + " landings con los módulos actuales.";
+        window.alert((ok ? done + " En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
       }).catch(function (err) { window.alert(err.message); })
         .then(function () {
           window.removeEventListener("beforeunload", stay);

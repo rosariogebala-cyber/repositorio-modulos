@@ -24,16 +24,17 @@ jobs:
             echo "Estos archivos son privados y van en lanzate-datos, no acá." && exit 1
           fi
       - run: pip install -r requirements.txt
+      - name: Dependencias de Node (armador de landings)
+        run: npm ci --no-audit --no-fund
       - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py scripts/sync-modules.py
-      - run: for file in js/*.js maquetas/js/*.js; do node --check "$file" || exit 1; done
+      - run: for file in js/*.js maquetas/js/*.js api/*.mjs scripts/*.mjs; do node --check "$file" || exit 1; done
       - run: python scripts/sync-modules.py --check
       - run: python scripts/check-landing-quality.py
       - name: Consistencia entre planes, cupos y biblioteca
         run: python scripts/test-plan-consistency.py
       - name: Asistente IA desde referencias y validación segura
         run: python scripts/test-reference-assistant.py
-      - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar)
+      - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar y armado desde los datos)
         run: python scripts/test-api.py
       - name: Armador de landings (el mismo del constructor, en Node)
-        working-directory: scripts
-        run: npm ci --no-audit --no-fund && node marcar-campos.mjs --check && node --test test-armador.mjs
+        run: node scripts/marcar-campos.mjs --check && node --test scripts/test-armador.mjs

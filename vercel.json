@@ -7,6 +7,10 @@
     "api/index.py": {
       "maxDuration": 300,
       "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-{480,752,800,960,1280,1600}.webp,maquetas/img/**/*.jpg}"
+    },
+    "api/armar.mjs": {
+      "maxDuration": 120,
+      "includeFiles": "{maquetas/index.html,maquetas/js/armador.js,scripts/armar-landing.mjs}"
     }
   },
   "rewrites": [
@@ -33,6 +37,10 @@
     {
       "source": "/pedidos/:path*",
       "destination": "/api/index?__path=/pedidos/:path*"
+    },
+    {
+      "source": "/api/armar",
+      "destination": "/api/armar"
     },
     {
       "source": "/api/:path*",

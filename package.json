@@ -1,0 +1,11 @@
+{
+  "name": "lanzate-modulos",
+  "private": true,
+  "description": "Armador de landings en Node (el mismo del constructor): lo usan las pruebas y la función api/armar.mjs al publicar.",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

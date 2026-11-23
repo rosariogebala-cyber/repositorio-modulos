@@ -2547,22 +2547,211 @@ def publish_repo(folder, message):
             "detalle": "Cambios publicados." if changed else "No había cambios nuevos; se sincronizó con GitHub."}
 
 
+# --- Armado desde los datos (entrega 3) ---------------------------------------------
+# El servidor arma cada landing desde sus datos guardados (módulos, textos por nombre, cliente) con el mismo armador
+# que usa el constructor (maquetas/js/armador.js, en Node). En Vercel lo hace la función api/armar.mjs; en la compu,
+# node scripts/armar-landing.mjs --lote.
+#   LANZATE_ARMADO=comparar (por defecto): Publicar sigue rearmando en el navegador y el servidor solo compara.
+#   LANZATE_ARMADO=datos: Publicar arma todo en el servidor, sin abrir el constructor.
+ARMADO_FIRMA = "lanzate-armado-v1"
+ARMADO_LOTE_BYTES = 3_000_000  # Vercel acepta hasta 4,5 MB por pedido
+
+
+class ArmadoError(Exception):
+    pass
+
+
+def armado_mode():
+    return "datos" if (os.environ.get("LANZATE_ARMADO") or "").strip().lower() == "datos" else "comparar"
+
+
+def armado_signature():
+    secret = (os.environ.get("LANZATE_SECRETO") or "").strip()
+    if not secret:
+        raise ArmadoError("falta LANZATE_SECRETO")
+    return hmac.new(secret.encode("utf-8"), ARMADO_FIRMA.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def armado_batches(pedidos):
+    batch, size = [], 0
+    for pedido in pedidos:
+        weight = len(json.dumps(pedido, ensure_ascii=False).encode("utf-8"))
+        if batch and size + weight > ARMADO_LOTE_BYTES:
+            yield batch
+            batch, size = [], 0
+        batch.append(pedido)
+        size += weight
+    if batch:
+        yield batch
+
+
+def armado_origin():
+    """La función de armado es del mismo proyecto de Vercel. La dirección sale de las variables de Vercel (no del
+    pedido), así la firma nunca viaja a otro sitio. LANZATE_ARMADO_URL la reemplaza si hiciera falta."""
+    custom = (os.environ.get("LANZATE_ARMADO_URL") or "").strip().rstrip("/")
+    if custom:
+        return custom
+    host = (os.environ.get("VERCEL_PROJECT_PRODUCTION_URL") if os.environ.get("VERCEL_ENV") == "production"
+            else os.environ.get("VERCEL_URL")) or ""
+    return "https://" + host if host else ""
+
+
+def armar_en_node(pedidos):
+    """Devuelve {id: resultado} con el HTML armado en Node para cada pedido."""
+    if not pedidos:
+        return {}
+    out = {}
+    if ON_VERCEL:
+        origin = armado_origin()
+        if not origin:
+            raise ArmadoError("no se sabe la dirección del sitio")
+        signature = armado_signature()
+        for batch in armado_batches(pedidos):
+            body = json.dumps({"pedidos": batch}, ensure_ascii=False).encode("utf-8")
+            request = Request(origin.rstrip("/") + "/api/armar", data=body, method="POST",
+                              headers={"Content-Type": "application/json", "X-Lanzate-Armado": signature})
+            try:
+                with urlopen(request, timeout=120) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+            except HTTPError as error:
+                raise ArmadoError("la función de armado respondió %s" % error.code)
+            except (URLError, OSError, ValueError) as error:
+                raise ArmadoError("no se pudo llamar a la función de armado (%s)" % error)
+            for result in data.get("resultados") or []:
+                out[result.get("id")] = result
+        return out
+    node = shutil.which("node")
+    if not node or not os.path.isfile(os.path.join(ROOT, "node_modules", "jsdom", "package.json")):
+        raise ArmadoError("falta Node o sus dependencias (corré npm ci en la carpeta del repositorio)")
+    try:
+        done = subprocess.run([node, os.path.join(ROOT, "scripts", "armar-landing.mjs"), "--lote"],
+                              input=json.dumps(pedidos, ensure_ascii=False).encode("utf-8"),
+                              capture_output=True, timeout=300, cwd=ROOT)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ArmadoError("no se pudo correr Node (%s)" % error)
+    if done.returncode != 0:
+        raise ArmadoError("Node falló: " + done.stderr.decode("utf-8", "replace")[-300:])
+    for result in json.loads(done.stdout.decode("utf-8")):
+        out[result.get("id")] = result
+    return out
+
+
+def comparable_html(markup):
+    """El mismo documento escrito igual: el navegador y Node pueden ordenar distinto los atributos."""
+    try:
+        doc = html_dom.document_fromstring(markup or "")
+    except (etree.ParserError, ValueError):
+        return markup or ""
+    for el in doc.iter():
+        if isinstance(el.tag, str) and el.attrib:
+            items = sorted(el.attrib.items())
+            el.attrib.clear()
+            for key, value in items:
+                el.set(key, value)
+    return html_dom.tostring(doc, encoding="unicode")
+
+
+def rebuild_from_data(apply=None):
+    """Arma todas las landings desde sus datos. Si apply (modo «datos»), guarda las que cambiaron como lo haría el
+    constructor; si no, solo compara con lo guardado. Devuelve el informe para el resultado de Publicar."""
+    apply = armado_mode() == "datos" if apply is None else apply
+    with store("clientes", "landings", save=False) as db:
+        clients = {c["id"]: c for c in db["clientes"]}
+        rows = json.loads(json.dumps(db["landings"]))
+    pedidos = []
+    for row in rows:
+        client = clients.get(row.get("cliente_id"))
+        if client and isinstance(row.get("items"), list) and row["items"]:
+            pedidos.append({"id": row["id"], "cliente": client_dict(client, with_password=False),
+                            "landing": {"nombre": row.get("nombre") or "", "items": row["items"],
+                                        "estilo": row.get("estilo") or "", "animacion": row.get("animacion") or ""}})
+    report = {"modo": "datos" if apply else "comparar", "total": len(pedidos), "iguales": [], "actualizadas": [],
+              "distintas": [], "omitidas": [], "errores": []}
+    results = armar_en_node(pedidos)
+    by_id = {row["id"]: row for row in rows}
+    for pedido in pedidos:
+        row = by_id[pedido["id"]]
+        client = clients[row["cliente_id"]]
+        name = "%s (%s)" % (row.get("nombre") or "", client.get("nombre") or "")
+        result = results.get(row["id"]) or {"error": "no volvió del armado"}
+        if result.get("error"):
+            report["errores"].append("%s: %s" % (name, result["error"]))
+            continue
+        reasons = []
+        if result.get("faltan"):
+            reasons.append("usa módulos que ya no están (%s)" % ", ".join(result["faltan"]))
+        if result.get("perdidos"):
+            reasons.append("tiene textos con nombres que el módulo ya no tiene: %s" % "; ".join(result["perdidos"]))
+        if reasons:
+            report["omitidas"].append("%s: %s" % (name, "; ".join(reasons)))
+            continue
+        try:
+            candidate = publish_html(result["html"], result.get("items") or [], logo_ref(client))
+        except Exception as error:  # una landing rota no frena a las demás
+            report["errores"].append("%s: %s" % (name, error))
+            continue
+        if comparable_html(candidate) == comparable_html(row.get("html")):
+            report["iguales"].append(name)
+            continue
+        if not apply:
+            report["distintas"].append(name)
+            continue
+        payload = {"cliente_id": row["cliente_id"], "nombre": row.get("nombre") or "", "html": result["html"],
+                   "items": result.get("items") or [], "estilo": row.get("estilo") or "",
+                   "ignorados": row.get("ignorados") or [], "descripcion": row.get("descripcion") or "",
+                   "animacion": row.get("animacion") or ""}
+        try:
+            save_landing(payload, row["id"])
+            report["actualizadas"].append(name)
+        except ApiError as error:
+            report["errores"].append("%s: %s" % (name, error))
+    return report
+
+
+def armado_result(report):
+    """Una línea del resultado de Publicar con lo que pasó en el armado desde los datos."""
+    def names(items, limit=6):
+        return ", ".join(items[:limit]) + (" y %d más" % (len(items) - limit) if len(items) > limit else "")
+    parts = []
+    if report["modo"] == "datos":
+        parts.append("%d de %d landings armadas en el servidor (%d con cambios)." % (
+            len(report["iguales"]) + len(report["actualizadas"]), report["total"], len(report["actualizadas"])))
+    else:
+        parts.append("%d de %d landings dan igual armadas en el servidor que en el navegador." % (
+            len(report["iguales"]), report["total"]))
+        if report["distintas"]:
+            parts.append("Distintas: " + names(report["distintas"]) + ".")
+    if report["omitidas"]:
+        parts.append("Quedan como estaban: " + "; ".join(report["omitidas"][:6]) + ".")
+    if report["errores"]:
+        parts.append("Con errores: " + "; ".join(report["errores"][:6]) + ".")
+    return {"carpeta": "Armado desde los datos", "ok": not (report["modo"] == "datos" and report["errores"]),
+            "detalle": " ".join(parts)}
+
+
 def publish(data):
     message = " ".join(str(data.get("mensaje") or "").split())[:200] or "Actualiza landings desde el panel"
     sync_plans()
+    try:
+        armado = [armado_result(rebuild_from_data())]
+    except ArmadoError as error:
+        datos = armado_mode() == "datos"
+        armado = [{"carpeta": "Armado desde los datos", "ok": not datos,
+                   "detalle": ("No se pudieron armar en el servidor (%s): se publican como estaban." if datos else
+                               "No se pudo comparar (%s).") % error}]
     render_all()
     if FILES.online:
         repos = FILES.commit(message)
         names = {"modulos": "repositorio-modulos", "sitio": "lanzate", "datos": "lanzate-datos"}
-        return {"resultados": [{"carpeta": names[r], "ok": True, "detalle": "Cambios publicados."} for r in repos] or
-                [{"carpeta": "GitHub", "ok": True, "detalle": "Todo estaba publicado."}],
-                "url": read_config()["urlPublica"]}
-    results = [publish_repo(ROOT, message)]
+        return {"resultados": armado + ([{"carpeta": names[r], "ok": True, "detalle": "Cambios publicados."} for r in repos] or
+                [{"carpeta": "GitHub", "ok": True, "detalle": "Todo estaba publicado."}]),
+                "url": read_config()["urlPublica"], "armado": armado_mode()}
+    results = armado + [publish_repo(ROOT, message)]
     if os.path.isdir(os.path.join(DATOS_LOCAL, ".git")):
         results.append(publish_repo(DATOS_LOCAL, message))
     if os.path.isdir(SITIO_VENTA):
         results.append(publish_repo(SITIO_VENTA, message))
-    return {"resultados": results, "url": read_config()["urlPublica"]}
+    return {"resultados": results, "url": read_config()["urlPublica"], "armado": armado_mode()}
 
 
 VOID_END_TAGS = re.compile(r"</(?:source|track|wbr)>", re.I)
@@ -3744,7 +3933,8 @@ class Handler(SimpleHTTPRequestHandler):
     def dispatch(self, method, name, ident, query):
         if name == "sesion" and method == "GET":
             ok = self.authorized()
-            return {"ok": ok, "requiere": login_required(), "online": FILES.online, "avisos": panel_warnings() if ok else []}
+            return {"ok": ok, "requiere": login_required(), "online": FILES.online, "armado": armado_mode(),
+                    "avisos": panel_warnings() if ok else []}
         if name == "login" and method == "POST":
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")

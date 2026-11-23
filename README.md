@@ -23,6 +23,7 @@ Variables de entorno en Vercel (Settings → Environment Variables):
 | `LANZATE_DATOS_REPO` | Opcional: el repo privado de datos, si no es `rosariogebala-cyber/lanzate-datos` |
 | `ANTHROPIC_API_KEY` | Opcional: clave de la IA del constructor |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Las crea Vercel al conectar Upstash Redis (Storage). Guardan visitas y consultas |
+| `LANZATE_ARMADO` | Opcional. `datos`: **Publicar** arma las landings en el servidor, sin abrir el constructor. Sin la variable (o con `comparar`) se arman en el navegador como siempre y el servidor solo compara (ver «Las landings se arman desde los módulos») |
 
 Los guardados de datos no vuelven a desplegar Vercel (`ignoreCommand` en `vercel.json`): solo los cambios de código.
 
@@ -93,19 +94,25 @@ todas las landings en el constructor con las plantillas actuales de `maquetas/` 
 y recién después sube los cambios. Si arreglás un módulo o cambiás el teléfono de un cliente, se refleja en todas sus landings.
 
 - **Un solo armador:** `maquetas/js/armador.js` convierte módulos + textos + fotos + colores en el HTML final. Lo usa el
-  constructor en el navegador y también funciona en Node (`scripts/armar-landing.mjs`), así el servidor o GitHub van a poder
-  armar las landings sin abrir el panel.
+  constructor en el navegador y también funciona en Node (`scripts/armar-landing.mjs`; en Vercel, la función `api/armar.mjs`,
+  que solo responde al servidor: la llamada va firmada con `LANZATE_SECRETO`).
+- **El servidor también arma:** al publicar, el servidor arma cada landing desde sus datos y la compara con lo que armó el
+  navegador. El resultado de Publicar lo dice en la línea «Armado desde los datos» (cuántas dan igual y cuáles no).
+  Cuando dan todas igual, cargá `LANZATE_ARMADO=datos` en Vercel: desde ahí Publicar arma todo en el servidor, sin abrir el
+  constructor oculto (más rápido y sin «no cierres la pestaña»). Las landings que cambian se guardan con las mismas
+  revisiones que al guardar desde el constructor; las que usan un módulo retirado o un nombre perdido quedan como estaban.
+  En la compu hace falta Node y `npm ci` en la carpeta del repositorio.
 - **Módulos retirados:** si una landing usa un módulo que ya no está en `maquetas/index.html`, no se rearma ni se puede
   guardar (queda como estaba y el panel lo avisa). Así no se pierden secciones al renombrar o sacar una variante.
 - **Cada texto, foto y link tiene un nombre fijo** en el módulo: `data-lz-campo="titulo"`, `data-lz-foto="foto-2"`,
   `data-lz-enlace="enlace"`. Las landings guardan sus contenidos por ese nombre (`campos`, `fotos`, `enlaces`), además de por
   posición. Así podés reordenar un módulo o sumarle un texto y lo guardado sigue en su lugar. Las marcas no salen en la página
   publicada.
-  - Al agregar o cambiar un módulo en `maquetas/index.html`, corré `cd scripts && node marcar-campos.mjs`: pone las marcas
+  - Al agregar o cambiar un módulo en `maquetas/index.html`, corré `node scripts/marcar-campos.mjs`: pone las marcas
     que falten y no cambia las que ya existen. **No renombres una marca existente**: las landings la usan para ubicar sus textos.
   - Si una landing tiene un texto guardado con un nombre que el módulo ya no tiene, el constructor lo avisa al abrirla y
     Publicar no la rearma (queda como estaba).
-- **Pruebas:** `cd scripts && npm ci && node marcar-campos.mjs --check && node --test test-armador.mjs` revisa las marcas,
+- **Pruebas:** `npm ci && node scripts/marcar-campos.mjs --check && node --test scripts/test-armador.mjs` revisa las marcas,
   arma cada variante de la biblioteca y una landing de prueba, y prueba que lo guardado por nombre no se corra de lugar.
 
 ## Portal del cliente
