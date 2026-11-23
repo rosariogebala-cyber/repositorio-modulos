@@ -14,3 +14,6 @@ public/
 data/clientes.js
 data/landings.js
 pedidos/
+
+# Dependencias de Node de scripts/ (armador en Node)
+node_modules/

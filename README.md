@@ -92,6 +92,13 @@ Cada landing guarda sus módulos (`items`: qué módulo, textos, fotos y links).
 todas las landings en el constructor con las plantillas actuales de `maquetas/` y los datos actuales de cada cliente,
 y recién después sube los cambios. Si arreglás un módulo o cambiás el teléfono de un cliente, se refleja en todas sus landings.
 
+- **Un solo armador:** `maquetas/js/armador.js` convierte módulos + textos + fotos + colores en el HTML final. Lo usa el
+  constructor en el navegador y también funciona en Node (`scripts/armar-landing.mjs`), así el servidor o GitHub van a poder
+  armar las landings sin abrir el panel.
+- **Módulos retirados:** si una landing usa un módulo que ya no está en `maquetas/index.html`, no se rearma ni se puede
+  guardar (queda como estaba y el panel lo avisa). Así no se pierden secciones al renombrar o sacar una variante.
+- **Pruebas:** `cd scripts && npm ci && node --test test-armador.mjs` arma cada variante de la biblioteca y una landing de prueba.
+
 ## Portal del cliente
 
 Cada cliente tiene su propio portal, https://lanzate-mu.vercel.app/portal/<cliente>/ (el link está en su ficha), y entra con su
