@@ -56,6 +56,14 @@ class LandingQuality(TestCase):
         parsed = json.loads(server.js_literal_to_json('{planes: [{id: "pro", incluye: "Diseño, hosting: 1 año",},], // nota\n}'))
         self.assertEqual(parsed["planes"][0]["incluye"], "Diseño, hosting: 1 año")
 
+    def test_out_of_plan_note_counts_each_landing_separately(self):
+        client = {"plan": "x", "plan_condiciones": {"id": "x", "nombre": "X", "cambiosPorMes": 1},
+                  "pedidos": [{"fecha": server.now_ms(), "estado": "pendiente", "origen": "cliente", "landing_slug": "a"}]}
+        self.assertEqual(server.request_plan_note(client, {"slug": "a"}), "fuera del límite del plan")
+        self.assertEqual(server.request_plan_note(client, {"slug": "b"}), "")
+        with self.assertRaises(server.ApiError):
+            server.request_plan_note(dict(client, estado="pausado"), {"slug": "b"})
+
     def test_pending_requests_are_never_trimmed(self):
         requests = [{"id": n, "estado": "pendiente" if n < 3 else "aceptado"} for n in range(100)]
         kept = server.trim_requests(requests)

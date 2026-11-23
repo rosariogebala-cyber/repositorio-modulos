@@ -413,7 +413,7 @@
             '<a class="stat" href="#visitas"><i class="bi bi-eye" aria-hidden="true"></i><strong>' + (d.registro ? st.total : "—") + "</strong><span>Visitas en 30 días</span></a>" +
             '<a class="stat" href="#consultas"><i class="bi bi-chat-dots" aria-hidden="true"></i><strong>' + (d.registro ? st.consultas_nuevas : "—") + "</strong><span>Consultas nuevas</span></a>" +
             '<a class="stat" href="#pedidos"><i class="bi bi-hourglass-split" aria-hidden="true"></i><strong>' + pending + "</strong><span>Pedidos en revisión</span></a>" +
-            '<a class="stat" href="#plan"><i class="bi bi-pencil-square" aria-hidden="true"></i><strong>' + (p.cambios_mes ? (p.cambios_restantes || 0) : "—") + "</strong><span>" + (p.cambios_mes ? "Pedidos disponibles este mes" : "Pedidos de cambios") + "</span></a>" +
+            '<a class="stat" href="#plan"><i class="bi bi-pencil-square" aria-hidden="true"></i><strong>' + (p.envios_ilimitados ? "∞" : p.cambios_mes ? (p.cambios_restantes || 0) : "—") + "</strong><span>" + (p.envios_ilimitados ? "Envíos ilimitados desde el portal" : "Envíos disponibles desde el portal") + "</span></a>" +
           "</div>" +
           (d.registro ? '<section class="card"><div class="card-head"><div><h2>Visitas por día</h2><p>' + plural(st.total, "visita", "visitas") + " en total</p></div><a class=\"btn btn-sm\" href=\"#visitas\">Ver detalle</a></div>" + chart(st.serie) + "</section>" : "") +
           '<section class="card"><div class="card-head"><div><h2>Tu web</h2></div><a class="btn btn-sm" href="#web">Ver todo</a></div>' +
@@ -428,7 +428,8 @@
         return head("Mi web", "Tus páginas publicadas. Para cambiar algo, tocá «Pedir cambios» y marcalo directamente sobre la página.") +
           (d.landings.length ? '<div class="sites">' + d.landings.map(function (l) {
             return '<article class="site"><div class="site-shot" style="' + (l.portada ? "background-image:url('" + esc(l.portada) + "')" : "") + '" role="img" aria-label="Vista de ' + esc(l.nombre) + '"></div>' +
-              '<div class="site-body"><div><strong>' + esc(l.nombre.charAt(0).toUpperCase() + l.nombre.slice(1)) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p></div>" +
+              '<div class="site-body"><div><strong>' + esc(l.nombre.charAt(0).toUpperCase() + l.nombre.slice(1)) + '</strong><p class="muted" style="margin:2px 0 0;font-size:14px">Actualizada el ' + esc(when(l.actualizado)) + "</p>" +
+              (l.plan && l.plan.plan ? '<p class="muted" style="margin:2px 0 0;font-size:14px">Plan ' + esc(l.plan.plan) + ' · ' + (l.plan.secciones || 0) + ' secciones incluidas' + (l.plan.envios_ilimitados ? ' · envíos ilimitados' : ' · ' + (l.plan.cambios_restantes || 0) + ' envíos disponibles') + '</p>' : '') + "</div>" +
               '<div class="site-actions"><a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-pencil" aria-hidden="true"></i> Pedir cambios</a>' +
               '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Ver mi web</a></div></div></article>';
           }).join("") + "</div>" : '<div class="card empty"><i class="bi bi-window" aria-hidden="true"></i>Todavía no hay páginas publicadas.</div>');
@@ -436,7 +437,7 @@
       pedidos: function () {
         var d = DATA, p = d.plan || {};
         return head("Pedidos de cambios", "Lo que nos pediste y si lo aceptamos o no.") +
-          '<section class="card"><div class="card-head"><div><h2>Nuevo pedido</h2><p>' + (p.cambios_mes ? "Te " + (p.cambios_restantes === 1 ? "queda 1 pedido" : "quedan " + (p.cambios_restantes || 0) + " pedidos") + " este mes." : "Marcá los cambios sobre tu web.") + "</p></div>" +
+          '<section class="card"><div class="card-head"><div><h2>Nuevo pedido</h2><p>' + (p.envios_ilimitados ? "Tenés envíos ilimitados desde tu portal." : p.cambios_mes ? "Te " + (p.cambios_restantes === 1 ? "queda 1 envío" : "quedan " + (p.cambios_restantes || 0) + " envíos") + " este mes." : "Marcá los cambios sobre tu web.") + "</p></div>" +
             (d.landings.length === 1 ? '<a class="btn btn-main" href="' + esc(d.landings[0].editor) + '"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo pedido</a>' : "") + "</div>" +
             (d.landings.length > 1 ? '<div class="site-actions">' + d.landings.map(function (l) { return '<a class="btn btn-main btn-sm" href="' + esc(l.editor) + '"><i class="bi bi-plus-lg" aria-hidden="true"></i> ' + esc(l.nombre) + "</a>"; }).join("") + "</div>" : "") +
           "</section>" +
@@ -488,9 +489,10 @@
           '<div class="plan-hero"><div><small>Plan</small><strong>' + esc(det.nombre) + "</strong>" + (det.para ? '<p style="margin:8px 0 0;opacity:.85">' + esc(det.para) + "</p>" : "") + "</div>" +
             '<div style="text-align:right">' + (det.mensual ? '<div class="price">' + esc(money(det.mensual)) + " / mes</div>" : "") + "<small>" + (d.plan_vence ? (p.vencido ? "Venció el " : "Vence el ") + esc(date(d.plan_vence)) : "Sin fecha de vencimiento") + "</small></div></div>" +
           '<div class="grid grid-2"><section class="card"><h2>Qué incluye</h2><ul class="checks">' + (det.incluye || []).map(function (x) { return '<li><i class="bi bi-check-circle-fill" aria-hidden="true"></i>' + esc(x) + "</li>"; }).join("") + "</ul></section>" +
-          '<section class="card"><h2>Pedidos de cambios</h2>' +
+          '<section class="card"><h2>Envíos desde el portal</h2>' +
             (limit ? "<p>Este mes usaste <b>" + used + " de " + limit + "</b>.</p>" + '<div class="meter' + (used >= limit ? " is-full" : "") + '"><span style="width:' + Math.min(100, Math.round(used / limit * 100)) + '%"></span></div>' +
-              '<p class="muted" style="font-size:14px">Los pedidos rechazados no cuentan. Se renuevan el 1 de cada mes.</p>' : "<p>Tu plan no tiene límite de pedidos.</p>") +
+              '<p class="muted" style="font-size:14px">Los pedidos rechazados no cuentan. Se renuevan el 1 de cada mes.</p>' : "<p>Tu plan tiene envíos ilimitados desde el portal.</p>") +
+            '<p class="muted" style="font-size:14px">Cambios asistidos incluidos: ' + (p.cambios_asistidos || 0) + ' por mes (usados: ' + (p.cambios_asistidos_usados || 0) + '). Se cuentan aparte de los envíos desde tu portal.</p>' +
             (wa ? '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Quiero cambiar de plan</a>' : "") +
           "</section></div>";
       },

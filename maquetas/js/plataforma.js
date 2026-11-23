@@ -343,7 +343,12 @@
     var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
-    var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">No entra en el plan: ' + esc(lp.aviso_plan) + "</b></small>" : "";
+    if (lp.plan_nombre) meta.push("Plan " + esc(lp.plan_nombre) + (lp.plan_individual ? " · propio" : " · heredado"));
+    if (lp.secciones_incluidas) {
+      meta.push(lp.secciones_contenido + " de " + lp.secciones_incluidas + " secciones incluidas" +
+        (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
+    }
+    var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">Ampliación a revisar: ' + esc(lp.aviso_plan) + "</b></small>" : "";
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -595,7 +600,7 @@
             '<p class="cf-site-links"><a href="' + esc(lp.editor) + '" target="_blank" rel="noopener"><i class="bi bi-pencil-square" aria-hidden="true"></i> Pedir cambios como el cliente</a></p>' +
           "</div></div>" +
           (pending.length ? '<div class="cf-review-wrap"><div class="cf-review-title"><span class="cf-icon"><i class="bi bi-eye" aria-hidden="true"></i></span><div><h3>Cambios para revisar en ' + esc(lp.nombre) + "</h3>" +
-            "<p>Los cambios que pidió, marcados en amarillo sobre esta web. Aceptá o rechazá cada uno: lo aceptado se aplica y se publica.</p></div></div>" +
+            "<p>Compará la web actual con la propuesta del cliente. Revisá cada texto, foto o enlace y aceptá o rechazá antes de publicar.</p></div></div>" +
             pending.map(reviewBlock).join("") + "</div>" : "") +
           (done.length ? '<details class="cf-site-history"' + (pending.length ? "" : " open") + "><summary>Historial de pedidos de esta web (" + done.length + ")</summary>" + historyList(done) + "</details>"
             : (pending.length ? "" : '<p class="cf-muted cf-site-none">Sin pedidos de cambios para esta web.</p>')) +
@@ -613,7 +618,11 @@
         '<span class="cf-review-views" role="group" aria-label="Vista"><button type="button" data-pf-vista="compu" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Compu</button>' +
         '<button type="button" data-pf-vista="celu" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button></span></header>' +
         (r.nota ? '<p class="cf-review-note"><i class="bi bi-chat-quote" aria-hidden="true"></i> ' + esc(r.nota) + "</p>" : "") +
-        '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu"><iframe title="Web con los cambios pedidos" loading="lazy" src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div>' +
+        '<div class="cf-review-body"><div class="cf-review-stage" data-vista="compu">' +
+          '<div class="cf-review-preview"><strong class="cf-review-preview-title">Antes · versión actual</strong>' +
+          '<iframe title="Versión actual sin aplicar cambios" loading="lazy" data-pf-original src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista?vista=original"></iframe></div>' +
+          '<div class="cf-review-preview"><strong class="cf-review-preview-title">Después · propuesta del cliente</strong>' +
+          '<iframe title="Propuesta del cliente con cambios destacados" loading="lazy" data-pf-propuesta src="/api/clientes/' + current.id + "/pedidos/" + encodeURIComponent(r.id || r.fecha) + '/vista"></iframe></div></div>' +
         '<div class="cf-review-side"><ol class="cf-changes">' + r.cambios.map(function (ch, i) {
           if (ch.estado && ch.estado !== "pendiente") return "";
           return '<li class="cf-change" data-pf-cambio="' + i + '" data-decision=""><button class="cf-change-go" type="button" data-pf-ir="' + i + '" aria-label="Ver el cambio ' + (i + 1) + ' en la web">' +
@@ -630,7 +639,7 @@
     }
 
     function bindReview(block) {
-      var frame = block.querySelector("iframe");
+      var frame = block.querySelector("[data-pf-propuesta]");
       var stage = block.querySelector(".cf-review-stage");
       function setDecision(li, value) {
         li.setAttribute("data-decision", value);
@@ -843,8 +852,8 @@
             (plan
               ? '<div class="cf-plan-name"><strong>' + esc(plan.nombre) + "</strong>" + (plan.mensual ? "<span>" + esc(money(plan.mensual)) + " / mes</span>" : "") + "</div>" +
                 '<ul class="cf-features">' +
-                  "<li><i class=\"bi bi-layout-text-window\" aria-hidden=\"true\"></i> Hasta " + (plan.secciones || "—") + " secciones</li>" +
-                  "<li><i class=\"bi bi-chat-square-text\" aria-hidden=\"true\"></i> " + plural(plan.cambiosPorMes || 0, "pedido", "pedidos") + " de cambios por mes</li>" +
+                  "<li><i class=\"bi bi-layout-text-window\" aria-hidden=\"true\"></i> Hasta " + (plan.secciones || "—") + " secciones incluidas; podés sumar más con presupuesto y aprobación</li>" +
+                  "<li><i class=\"bi bi-chat-square-text\" aria-hidden=\"true\"></i> " + (plan.enviosIlimitados ? "Envíos ilimitados desde el portal" : plural(plan.cambiosPorMes || 0, "envío", "envíos") + " desde el portal por mes") + " · " + (plan.cambiosAsistidos || 0) + " cambios asistidos</li>" +
                   '<li class="' + (plan.turnos ? "" : "is-off") + '"><i class="bi bi-' + (plan.turnos ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Reserva de turnos</li>' +
                   '<li class="' + (plan.medicion ? "" : "is-off") + '"><i class="bi bi-' + (plan.medicion ? "check-circle-fill" : "x-circle") + '" aria-hidden="true"></i> Analytics y Píxel de Meta</li>' +
                 "</ul>"
@@ -1078,8 +1087,9 @@
     var p = PLANS.filter(function (x) { return x.id === id; })[0];
     if (!p) return "";
     var parts = [];
-    if (p.secciones) parts.push("hasta " + p.secciones + " secciones");
-    if (p.cambiosPorMes) parts.push(plural(p.cambiosPorMes, "pedido", "pedidos") + " de cambios por mes");
+    if (p.secciones) parts.push(p.secciones + " secciones incluidas; adicionales con presupuesto");
+    parts.push(p.enviosIlimitados ? "envíos ilimitados desde el portal" : plural(p.cambiosPorMes || 0, "envío", "envíos") + " desde el portal al mes");
+    parts.push((p.cambiosAsistidos || 0) + " cambios asistidos al mes");
     parts.push(p.turnos ? "con reserva de turnos" : "sin reserva de turnos");
     parts.push(p.medicion ? "con Analytics y Píxel de Meta" : "sin Analytics ni Píxel");
     return "Plan " + p.nombre + ": " + parts.join(", ") + ".";

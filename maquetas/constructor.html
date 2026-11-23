@@ -31,10 +31,50 @@
     <header class="lb-template-start-head">
       <div>
         <h1>Crear landing</h1>
-        <p>Elegí una plantilla por rubro y mirá cómo queda antes de personalizarla.</p>
+        <p>Creá con IA a partir de referencias del negocio o elegí una plantilla para personalizar.</p>
       </div>
       <button class="btn-nx" type="button" data-my-template disabled>Mi plantilla</button>
     </header>
+    <section class="lb-reference-wizard" data-reference-wizard aria-labelledby="lbReferenceHeading">
+      <div class="lb-reference-heading">
+        <div>
+          <span class="lb-reference-eyebrow"><i class="bi bi-stars" aria-hidden="true"></i> Nuevo · Asistente con IA</span>
+          <h2 id="lbReferenceHeading">Crear desde la identidad del negocio</h2>
+          <p>Ingresá datos confirmados y adjuntá una captura del Instagram, la web o el logo. Armaremos una propuesta con los módulos, colores y tipografías existentes.</p>
+        </div>
+      </div>
+      <form data-reference-form class="lb-reference-form">
+        <div class="lb-reference-fields">
+          <label>Cliente
+            <select class="lb-input" data-reference-client required><option value="">Cargando clientes…</option></select>
+          </label>
+          <label>Nombre de la landing
+            <input class="lb-input" data-reference-name type="text" maxlength="120" required placeholder="Ej.: Web principal">
+          </label>
+          <label>Plan de esta landing
+            <select class="lb-input" data-reference-plan required><option value="">Cargando planes…</option></select>
+          </label>
+          <label>Instagram del negocio <span class="lb-optional">(opcional)</span>
+            <input class="lb-input" data-reference-instagram type="url" inputmode="url" maxlength="200" placeholder="https://www.instagram.com/usuario/">
+          </label>
+          <label>Web actual <span class="lb-optional">(opcional)</span>
+            <input class="lb-input" data-reference-web type="url" inputmode="url" maxlength="200" placeholder="https://ejemplo.com">
+          </label>
+        </div>
+        <label class="lb-reference-full">Información confirmada del negocio
+          <textarea class="lb-input" data-reference-info rows="3" maxlength="2000" placeholder="Qué hace, servicios reales, dirección, público, estilo deseado..."></textarea>
+        </label>
+        <label class="lb-reference-full">Capturas de referencia o logo <span class="lb-optional">(hasta 2 imágenes, JPG / PNG / WebP)</span>
+          <input class="lb-input" data-reference-images type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        </label>
+        <p class="lb-hint">Por privacidad, no se rastrean URLs de Instagram ni de webs externas. La IA analiza solo lo que escribas o adjuntes. No se publica nada automáticamente.</p>
+        <div class="lb-reference-actions">
+          <button class="btn-nx" data-reference-generate type="submit"><i class="bi bi-stars" aria-hidden="true"></i> Generar borrador editable</button>
+          <span role="status" aria-live="polite" data-reference-status></span>
+        </div>
+      </form>
+    </section>
+    <div class="lb-template-manual-note"><h2>O empezá desde una plantilla</h2><p>Elegí una base visual y personalizala desde el constructor.</p></div>
     <div class="lb-template-filter">
       <label class="lb-label" for="lbTemplateFilter">Rubro</label>
       <select class="lb-input" id="lbTemplateFilter" data-template-filter>
@@ -61,6 +101,11 @@
         </select>
         <label class="lb-label lb-label-gap" for="lbName">Nombre de la landing</label>
         <input class="lb-input" id="lbName" type="text" placeholder="Ej: Promo primavera" autocomplete="off">
+        <label class="lb-label lb-label-gap" for="lbLandingPlan">Plan de esta landing</label>
+        <select class="lb-input" id="lbLandingPlan" data-lb-landing-plan>
+          <option value="">Cargando planes…</option>
+        </select>
+        <p class="lb-hint">Cada landing tiene su propio plan y cantidad de secciones incluidas. Las adicionales se avisan para aprobarlas.</p>
         <p class="lb-hint lb-mode" data-lb-mode></p>
         <label class="lb-label lb-label-gap" for="lbDesc">Descripción para Google&nbsp;<span class="lb-optional">(opcional)</span></label>
         <textarea class="lb-input lb-desc" id="lbDesc" rows="3" maxlength="300" placeholder="Qué ofrece la landing, en una o dos frases" data-lb-desc></textarea>

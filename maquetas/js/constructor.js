@@ -29,6 +29,7 @@
   var allSeg = $("[data-lb-all]");
   var animSeg = $("[data-lb-anim]");
   var clientSelect = $("[data-lb-client]");
+  var landingPlanSelect = $("[data-lb-landing-plan]");
   var modeHint = $("[data-lb-mode]");
   var kicker = $("[data-lb-kicker]");
   var createLabel = $("[data-lb-create-label]");
@@ -53,10 +54,12 @@
   var library = [];
   var byId = {};
   var clients = [];
-  var state = { name: "", clienteId: null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+  var landingPlans = [];
+  var state = { name: "", clienteId: null, landingId: null, planId: "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
   var savedSnapshot = null;
   var busy = false;
   var portalRevision = null;
+  var initialPlanSections = null;
   var clientReview = document.querySelector("[data-lb-client-review]");
   var device = 1280;
   var renderTimer = null;
@@ -69,7 +72,7 @@
     return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
   function snapshot() {
-    return JSON.stringify([state.name.trim(), state.clienteId, state.items, state.estilo, state.colores || null, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
+    return JSON.stringify([state.name.trim(), state.clienteId, state.planId, state.items, state.estilo, state.colores || null, state.ignorados || [], (state.descripcion || "").trim(), state.animacion || ""]);
   }
   function isDirty() {
     return state.landingId ? snapshot() !== savedSnapshot : !!(state.items.length || state.name.trim());
@@ -1520,6 +1523,158 @@
     myTemplate.disabled = false;
     filter.onchange = renderSections;
     renderSections();
+  }
+
+  function setupReferenceWizard() {
+    var form = templateStart.querySelector("[data-reference-form]");
+    var clientField = form.querySelector("[data-reference-client]");
+    var nameField = form.querySelector("[data-reference-name]");
+    var planField = form.querySelector("[data-reference-plan]");
+    var infoField = form.querySelector("[data-reference-info]");
+    var instagramField = form.querySelector("[data-reference-instagram]");
+    var webField = form.querySelector("[data-reference-web]");
+    var photoField = form.querySelector("[data-reference-images]");
+    var button = form.querySelector("[data-reference-generate]");
+    var status = form.querySelector("[data-reference-status]");
+    clientField.replaceChildren(new Option("Elegí un cliente", ""));
+    clients.forEach(function (c) { clientField.add(new Option(c.nombre, String(c.id))); });
+    if (state.clienteId) clientField.value = String(state.clienteId);
+    if (state.name.trim()) nameField.value = state.name.trim();
+    planField.replaceChildren(new Option("Elegí un plan", ""));
+    landingPlans.forEach(function (p) { planField.add(new Option(p.nombre + " · " + p.secciones + " secciones", p.id)); });
+    planField.value = state.planId || (clients.find(function(c){return c.id===state.clienteId;}) || {}).plan || "";
+    var chosen = clients.find(function (c) { return c.id === Number(clientField.value); });
+    if (chosen && chosen.sitio) webField.value = /^https:\/\//i.test(chosen.sitio) ? chosen.sitio : "";
+    if (chosen && chosen.instagram) instagramField.value = /^https:\/\//i.test(chosen.instagram) ? chosen.instagram : "";
+    clientField.addEventListener("change", function () {
+      var c = clients.find(function (row) { return row.id === Number(clientField.value); });
+      if (c) {
+        planField.value = c.plan || "";
+        if (c.sitio && !webField.value) webField.value = /^https:\/\//i.test(c.sitio) ? c.sitio : "";
+        if (c.instagram && !instagramField.value) instagramField.value = /^https:\/\//i.test(c.instagram) ? c.instagram : "";
+      }
+    });
+
+    function fileAsDataURL(file) {
+      return new Promise(function (resolve, reject) {
+        if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 1300000) {
+          reject(new Error("Cada captura debe ser JPG, PNG o WebP y pesar menos de 1,3 MB."));
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = function () { reject(new Error("No se pudo leer la captura.")); };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function generate() {
+      if (!clientField.value || !nameField.value.trim() || !planField.value) {
+        status.textContent = "Elegí cliente, nombre y plan de esta landing.";
+        return;
+      }
+      if (state.items.length && !window.confirm("El asistente reemplazará el borrador sin guardar. ¿Continuar?")) return;
+      var files = Array.prototype.slice.call(photoField.files || []);
+      if (files.length > 2) { status.textContent = "Adjuntá hasta dos imágenes."; return; }
+      if (!files.length && !infoField.value.trim()) {
+        status.textContent = "Agregá información confirmada o una captura: una URL sola no alcanza.";
+        return;
+      }
+      button.disabled = true;
+      status.textContent = "Analizando la identidad y preparando la estructura…";
+      Promise.all(files.map(fileAsDataURL)).then(function (images) {
+        return api("POST", "/api/ia", {
+          tarea: "identidad_referencias",
+          cliente_id: Number(clientField.value),
+          nombre: nameField.value.trim(),
+          instagram: instagramField.value.trim(),
+          sitio: webField.value.trim(),
+          informacion: infoField.value.trim(),
+          imagenes: images
+        });
+      }).then(function (analysis) {
+        var client = clients.find(function (row) { return row.id === Number(clientField.value); });
+        var category = LANDING_CATEGORIES.find(function (row) { return row.id === analysis.rubro; })
+          || LANDING_CATEGORIES.find(function (row) { return row.match.test(client.rubro || ""); })
+          || LANDING_CATEGORIES[0];
+        var source = categoryTemplates(category)[0];
+        if (!source) throw new Error("No hay una plantilla disponible para este rubro.");
+        // Evitar secciones que exigen datos nunca confirmados: reseñas, precios, estadísticas y equipo.
+        var sections = source.sections.filter(function (section) {
+          return !/resen|testimoni|opin|precio|cifra|estadistic|equipo|personas|casos-de-exito/i.test(section.m);
+        }).slice(0, 2);
+        if (!sections.length) sections = source.sections.slice(0, 1);
+        var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
+        var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
+          return text + "|Información pendiente de ampliar y confirmar.";
+        }) : ["Contenido por completar|Agregá información confirmada del negocio."];
+        sections = sections.map(function (section, index) {
+          return Object.assign({}, section, {
+            title: index ? "Conocé " + client.nombre : "Lo que hacemos",
+            lead: analysis.descripcion || "Información pendiente de confirmar.",
+            body: [analysis.descripcion || "Información pendiente de completar."],
+            items: factualItems,
+            bullets: verifiedFacts.length ? verifiedFacts : ["Información por confirmar"],
+            services: undefined,
+            filters: undefined,
+            speech: undefined
+          });
+        });
+        var choice = Object.assign({}, source, {
+          name: client.nombre,
+          title: analysis.titulo || client.nombre,
+          lead: analysis.descripcion || "Conocé más sobre " + client.nombre,
+          sections: sections,
+          highlights: []
+        });
+        var items = categoryTemplateItems(choice);
+        if (!items) throw new Error("La plantilla elegida tiene módulos que no están en la biblioteca.");
+        // Ningún testimonio, premio o afirmación se considera información verificada automáticamente.
+        var hero = items.find(function (item) { return /^hero-full/.test(item.id); });
+        if (hero && hero.html) {
+          var element = document.createElement("template");
+          element.innerHTML = hero.html;
+          element.content.querySelectorAll(".nx-pill, .nx-hero-card").forEach(function (badge) { badge.remove(); });
+          hero.html = element.innerHTML;
+        }
+        state.clienteId = client.id;
+        state.planId = planField.value;
+        state.name = nameField.value.trim();
+        state.items = items;
+        state.landingId = null;
+        state.ignorados = [];
+        state.descripcion = analysis.descripcion || "";
+        state.estilo = "";
+        var colors = deriveColors(analysis.colores.marca, "claro");
+        colors.titulos = analysis.colores.titulo;
+        colors.parrafos = analysis.colores.texto;
+        colors.tipografia = analysis.tipografia;
+        state.colores = colors;
+        savedSnapshot = null;
+        nameInput.value = state.name;
+        renderClients();
+        renderDesc(true);
+        update();
+        renderColors();
+        showLandingEditor(true);
+        showTab("order");
+        var facts = (analysis.datos_visibles || []).slice(0, 5).join("; ");
+        say("Borrador generado con módulos y paleta existentes. Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
+            (facts ? " Datos detectados para comprobar: " + facts : "") +
+            " Las URLs de Instagram y web no se consultaron automáticamente.", "warn");
+      }).catch(function (error) {
+        status.textContent = error.message || "No pudimos generar el borrador.";
+      }).finally(function () { button.disabled = false; });
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (!ai) {
+        status.textContent = "No se pudo consultar el estado de la IA. Revisá tu conexión y volvé a intentar.";
+        return;
+      }
+      withAi(generate);
+    });
   }
 
   function openCategoryGallery(initialCategory, initialChoice) {
@@ -4465,11 +4620,36 @@
   function currentClient() {
     return clients.find(function (c) { return c.id === state.clienteId; }) || null;
   }
+  function countPlanSections(items) {
+    return (items || []).filter(function (it) {
+      var section = String(it.id || "").replace(/-[^-]+$/, "");
+      return ["navegacion", "footer", "whatsapp"].indexOf(section) === -1;
+    }).length;
+  }
+  function planSectionWarning() {
+    var client = currentClient();
+    var selected = landingPlans.find(function (p) { return p.id === state.planId; });
+    var legacy = client && client.plan_estado;
+    var limit = state.landingId && state.planId === state.originalPlanId && state.planIncluded ?
+      state.planIncluded : selected && selected.secciones || legacy && legacy.secciones || 0;
+    var planName = selected && selected.nombre || legacy && legacy.plan || "";
+    if (!limit) return { text: "", extra: 0 };
+    var count = countPlanSections(state.items);
+    var extra = Math.max(0, count - limit);
+    return { extra: extra, text: "Plan de esta landing: " + planName + ". " + count + " de " + limit +
+      " secciones incluidas." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
+      ". Podés continuar, pero corresponde revisar su presupuesto y aprobación antes de publicar." : "") };
+  }
+  var planSectionNote = document.createElement("p");
+  planSectionNote.setAttribute("role", "status");
+  planSectionNote.style.cssText = "font-size:13px;line-height:1.5;margin:8px 0;color:#4a4762;";
+  statusEl.insertAdjacentElement("afterend", planSectionNote);
 
   function missing() {
     var out = [];
     if (!state.clienteId) out.push({ key: "client", text: "Elegí el cliente" });
     if (!state.name.trim()) out.push({ key: "name", text: "Ponele un nombre" });
+    if (!state.planId) out.push({ key: "plan", text: "Elegí el plan de esta landing" });
     if (!state.items.length) out.push({ key: "items", text: "Sumá módulos" });
     if (state.colores && state.colores.acento && contrastRatio(sharedModuleColors().botonTexto || "#ffffff", effectiveColors().acento) < 4.5) {
       out.push({ key: "colors", text: "Ajustá el color de los botones para llegar a 4.5:1" });
@@ -4487,6 +4667,10 @@
 
   function renderMode() {
     var client = currentClient();
+    var planInfo = planSectionWarning();
+    planSectionNote.hidden = !planInfo.text;
+    planSectionNote.textContent = planInfo.text;
+    planSectionNote.style.color = planInfo.extra ? "#9a4b00" : "#4a4762";
     var editing = !!state.landingId;
     var dirty = isDirty();
     var todo = missing();
@@ -4552,6 +4736,16 @@
     }).join("");
     if (state.clienteId && !currentClient()) state.clienteId = null;
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
+    if (!state.planId && state.clienteId && !state.landingId) state.planId = (currentClient() || {}).plan || "";
+    landingPlanSelect.value = state.planId || "";
+  }
+
+  function loadLandingPlans() {
+    return api("GET", "/api/planes").then(function (list) {
+      landingPlans = Array.isArray(list) ? list : [];
+      landingPlanSelect.replaceChildren(new Option("Elegí un plan", ""));
+      landingPlans.forEach(function (p) { landingPlanSelect.add(new Option(p.nombre + " · " + p.secciones + " secciones", p.id)); });
+    });
   }
 
   function loadClients() {
@@ -4570,10 +4764,15 @@
   }
 
   function loadLanding(lp) {
+    initialPlanSections = countPlanSections(lp.items || []);
     state = {
       name: lp.nombre,
       clienteId: lp.cliente_id,
       landingId: lp.id,
+      planId: lp.plan_id || "",
+      originalPlanId: lp.plan_id || "",
+      planIncluded: lp.secciones_incluidas || 0,
+      legacyInherited: !lp.plan_individual,
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (it) {
         var item = { id: it.id, width: it.width };
         if (it.html) item.html = it.html;
@@ -4608,6 +4807,7 @@
     nameInput.value = state.name;
     renderDesc(true);
     clientSelect.value = String(state.clienteId);
+    landingPlanSelect.value = state.planId;
     paintClientBrand();
     update();
   }
@@ -4661,6 +4861,7 @@
 
   function goTo(key) {
     if (key === "client" || key === "name") { openAssign(); return; }
+    if (key === "plan") { landingPlanSelect.scrollIntoView({ behavior: "smooth", block: "center" }); landingPlanSelect.focus(); return; }
     if (key === "colors") {
       document.querySelector("[data-lb-colors]").open = true;
       document.querySelector('[data-hex="acento"]').focus();
@@ -4721,8 +4922,10 @@
       return;
     }
     state.clienteId = id;
+    if (!state.planId) state.planId = (clients.find(function(c){ return c.id === id; }) || {}).plan || "";
     state.name = name;
     clientSelect.value = String(id);
+    landingPlanSelect.value = state.planId;
     nameInput.value = name;
     assignDialog.close();
     renderMode();
@@ -4749,7 +4952,9 @@
     var html = buildDocument({ prefix: "" });
     var estilo = stripLandingColors(state.estilo);
     if (state.colores) estilo = "/*lz-colores " + JSON.stringify(state.colores) + "*/\n" + estilo;
-    return { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    var payload = { cliente_id: state.clienteId, nombre: state.name.trim(), html: imageTokens(html), items: state.items, estilo: estilo, ignorados: state.ignorados || [], descripcion: (state.descripcion || "").trim(), animacion: state.animacion || "" };
+    if (!state.legacyInherited || state.planId !== state.originalPlanId) payload.plan_id = state.planId || "";
+    return payload;
   }
 
   function rebuildLanding() {
@@ -4766,6 +4971,10 @@
     if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
     if (todo.length) { goTo(todo[0].key); return; }
     var editing = !!state.landingId;
+    var planInfo = planSectionWarning();
+    if (planInfo.extra && !REBUILD &&
+        (!editing || initialPlanSections == null || countPlanSections(state.items) > initialPlanSections) &&
+        !window.confirm(planInfo.text + "\n\n¿Querés guardar esta landing con las secciones adicionales?")) return;
     var body = landingPayload();
     if (clientMode()) {
       body.modo = "sitio";
@@ -4785,6 +4994,9 @@
     (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
       .then(function (data) {
         state.landingId = data.id;
+        state.legacyInherited = !data.plan_individual;
+        state.originalPlanId = data.plan_id || state.planId;
+        state.planIncluded = data.secciones_incluidas || 0;
         if (data.cliente_id && data.cliente_id !== state.clienteId) {
           state.clienteId = data.cliente_id;
           loadClients().then(function () {
@@ -4819,11 +5031,13 @@
   }
 
   function startNew(clienteId) {
-    state = { name: "", clienteId: clienteId || null, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    initialPlanSections = null;
+    state = { name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
     renderDesc(true);
     clientSelect.value = state.clienteId ? String(state.clienteId) : "";
+    landingPlanSelect.value = state.planId;
     search.value = "";
     showTab("add");
     update();
@@ -4838,8 +5052,16 @@
 
   clientSelect.addEventListener("change", function () {
     state.clienteId = clientSelect.value ? Number(clientSelect.value) : null;
+    if (!state.landingId) state.planId = (currentClient() || {}).plan || "";
+    landingPlanSelect.value = state.planId;
     renderMode();
     renderPreview();
+    saveDraft();
+  });
+
+  landingPlanSelect.addEventListener("change", function () {
+    state.planId = landingPlanSelect.value;
+    renderMode();
     saveDraft();
   });
 
@@ -5046,6 +5268,10 @@
       name: draft.name || "",
       clienteId: draft.clienteId || null,
       landingId: draft.landingId || null,
+      planId: draft.planId || "",
+      originalPlanId: draft.originalPlanId || draft.planId || "",
+      legacyInherited: Boolean(draft.legacyInherited),
+      planIncluded: draft.planIncluded || 0,
       items: draft.items.filter(function (it) { return byId[it.id]; }),
       estilo: draft.estilo || "",
       ignorados: draft.ignorados || [],
@@ -5059,7 +5285,7 @@
     if (!state.landingId) return state.items.length || state.name.trim() ? { kind: "draft" } : null;
     if (savedSnapshot && isDirty()) return { kind: "unsaved", name: state.name };
     var last = { kind: "last", id: state.landingId, name: state.name };
-    state = { name: "", clienteId: state.clienteId, landingId: null, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    state = { name: "", clienteId: state.clienteId, landingId: null, planId: state.planId, items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     return last;
   }
@@ -5141,11 +5367,12 @@
   function clientMode() { return false; }
   function applyClientEditor() {}
 
-  Promise.all([loadLibrary(), loadClients()]).then(function () {
+  Promise.all([loadLibrary(), loadClients(), loadLandingPlans()]).then(function () {
     renderClients();
     applyClientEditor();
     start();
     setupTemplateStart();
+    setupReferenceWizard();
     renderSaved();
     loadAi();
   }).catch(function () {

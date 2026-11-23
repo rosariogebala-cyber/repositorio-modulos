@@ -165,15 +165,26 @@
     document.querySelectorAll("[data-back]").forEach(function (a) { a.href = "/portal/" + client.slug + "/#pedidos"; });
     document.title = "Pedir cambios · " + client.nombre;
     document.querySelector("[data-title]").textContent = client.nombre + " · " + landing.nombre.charAt(0).toUpperCase() + landing.nombre.slice(1);
-    var plan = plans.filter(function (p) { return p.id === client.plan; })[0];
+    var plan = landing.plan_detalle || plans.filter(function (p) { return p.id === (landing.plan_id || client.plan); })[0];
     if (plan) {
       var planBox = document.querySelector("[data-plan]");
       var month = new Date().toISOString().slice(0, 7);
-      var used = (client.pedidos || []).filter(function (r) { return new Date(r.fecha).toISOString().slice(0, 7) === month && r.estado !== "rechazado"; }).length;
+      var used = (client.pedidos || []).filter(function (r) {
+        return r.origen === "cliente" && r.fecha &&
+          r.landing_slug === landing.slug &&
+          new Date(r.fecha).toISOString().slice(0, 7) === month &&
+          r.estado !== "rechazado";
+      }).length;
       var limit = plan.cambiosPorMes || 0;
+      var unlimited = Boolean(plan.enviosIlimitados);
       var today = new Date().toISOString().slice(0, 10);
-      var text = "Tu plan " + plan.nombre + (limit ? " incluye " + limit + (limit === 1 ? " pedido de cambios" : " pedidos de cambios") + " por mes." : ".");
-      if (limit) text += used >= limit ? " Ya usaste los de este mes: si mandás otro, te contamos cuánto cuesta o lo hacemos el mes que viene." : " Te quedan " + (limit - used) + " este mes.";
+      var text = "Plan de esta landing: " + plan.nombre + ". " +
+        (unlimited ? "envíos ilimitados de contenido desde el portal." :
+          "hasta " + limit + (limit === 1 ? " envío" : " envíos") + " de contenido por mes desde el portal.");
+      if (!unlimited && limit) text += used >= limit ?
+        " Ya usaste los envíos de este mes. Podés enviar otro para revisión y te informamos cómo continuar." :
+        " Te quedan " + (limit - used) + " este mes.";
+      text += " Cambios asistidos incluidos: " + (plan.cambiosAsistidos || 0) + " por mes (se cuentan por separado).";
       if (client.plan_vence && client.plan_vence < today) text = "Tu plan " + plan.nombre + " venció el " + client.plan_vence.split("-").reverse().join("/") + ". Escribinos para renovarlo; mientras tanto podés mandarnos el pedido igual.";
       planBox.hidden = false;
       planBox.textContent = text;

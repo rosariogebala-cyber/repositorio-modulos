@@ -4639,9 +4639,18 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .cf-review-views button[aria-pressed="true"] { background: #fff; color: #0e1130; box-shadow: 0 1px 3px rgba(14, 17, 48, .12); }
 .cf-review-note { display: flex; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #f7f6f2; font-size: 15px; color: #0e1130; }
 .cf-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-.cf-review-stage { height: 640px; border: 1px solid #ece9e1; border-radius: 14px; overflow: hidden; background: #f7f6f2; display: flex; justify-content: center; }
-.cf-review-stage iframe { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
-.cf-review-stage[data-vista="celu"] iframe { width: 390px; border-left: 1px solid #ece9e1; border-right: 1px solid #ece9e1; }
+.cf-review-stage { min-width: 0; height: 640px; border: 1px solid #ece9e1; border-radius: 14px; overflow: hidden; background: #f7f6f2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; }
+.cf-review-preview { min-width: 0; height: 100%; display: flex; flex-direction: column; background: #fff; border: 1px solid #ddd9e8; border-radius: 9px; overflow: hidden; }
+.cf-review-preview-title { padding: 9px 12px; font-size: 13px; line-height: 1.4; color: #28334c; background: #f4f6f8; border-bottom: 1px solid #ddd9e8; }
+.cf-review-stage iframe { width: 100%; min-width: 0; flex: 1; border: 0; background: #fff; transition: width .25s; }
+.cf-review-stage[data-vista="celu"] iframe { max-width: 390px; margin-inline: auto; border-left: 1px solid #ece9e1; border-right: 1px solid #ece9e1; }
+@media (max-width: 1320px) {
+  .cf-review-stage { height: 720px; }
+}
+@media (max-width: 700px) {
+  .cf-review-stage { height: auto; grid-template-columns: 1fr; }
+  .cf-review-preview { height: 460px; }
+}
 .cf-review-side { display: flex; flex-direction: column; gap: 12px; max-height: 640px; }
 .cf-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; overflow-y: auto; }
 .cf-change { border: 1px solid #ece9e1; border-radius: 14px; background: #fff; transition: border-color .15s, background .15s; }
@@ -4864,3 +4873,23 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .nx .prod-card .pad > a { display: inline-flex; align-items: center; min-height: 32px; }
 .lb-act-icon { min-width: 32px; min-height: 32px; }
 .pf-client-name h2 a { display: inline-block; padding-block: 3px; }
+
+/* Asistente integrado: crear landing desde referencias confirmadas. */
+.lb-reference-wizard { margin: 20px 0 30px; padding: clamp(18px,3vw,32px); border: 1px solid #dfe7e4; border-radius: 22px; background: linear-gradient(150deg,#f5faf8 0%,#fff 70%); box-shadow: 0 12px 32px rgba(14,44,36,.05); }
+.lb-reference-heading { max-width: 730px; }
+.lb-reference-heading h2 { margin: 8px 0; font-size: clamp(22px,2.8vw,32px); font-family: "Bricolage Grotesque",Inter,sans-serif; color: #17352c; }
+.lb-reference-heading p { margin: 0 0 22px; color: #596a64; line-height: 1.6; }
+.lb-reference-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 750; color: #215b45; letter-spacing: .03em; }
+.lb-reference-form { display: grid; gap: 16px; }
+.lb-reference-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 18px; }
+.lb-reference-form label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 650; color: #263e35; min-width: 0; }
+.lb-reference-form .lb-input { width: 100%; }
+.lb-reference-form textarea { min-height: 94px; }
+.lb-reference-form input[type=file] { padding: 10px; height: auto; background: #fff; }
+.lb-reference-form .lb-hint { max-width: 780px; margin: 0; font-size: 13px; }
+.lb-reference-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.lb-reference-actions [role=status] { font-size: 13px; color: #5e6d68; }
+.lb-template-manual-note { margin: 26px 0 15px; }
+.lb-template-manual-note h2 { color: #17352c; margin: 0 0 4px; font-size: 22px; }
+.lb-template-manual-note p { color: #596a64; margin: 0; }
+@media(max-width:680px){.lb-reference-fields{grid-template-columns:1fr}.lb-reference-wizard{padding:18px}.lb-reference-actions .btn-nx{width:100%;justify-content:center}}
