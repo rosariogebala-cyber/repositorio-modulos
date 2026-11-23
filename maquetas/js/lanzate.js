@@ -920,7 +920,7 @@
   /* Cifras que suben hasta su valor. Lee el texto tal como está escrito (+350, 4,9, 1.200, 48 h)
      y vuelve siempre al texto original al terminar. */
   function countUp(scope) {
-    [].forEach.call(scope.querySelectorAll(".stat-n, .hero-stats-row h3, .split-stat strong"), function (el) {
+    [].forEach.call(scope.querySelectorAll(".stat-n, .hero-stat-n, .hero-stats-row h3, .split-stat strong"), function (el) {
       if (el.children.length || el.getAttribute("data-lz-counted")) return;
       var txt = el.textContent, m = /^(\D*?)(\d[\d.,]*)(.*)$/.exec(txt);
       if (!m) return;
