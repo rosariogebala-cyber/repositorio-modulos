@@ -34,3 +34,6 @@ jobs:
         run: python scripts/test-reference-assistant.py
       - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar)
         run: python scripts/test-api.py
+      - name: Armador de landings (el mismo del constructor, en Node)
+        working-directory: scripts
+        run: npm ci --no-audit --no-fund && node --test test-armador.mjs
