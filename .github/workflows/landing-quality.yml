@@ -18,9 +18,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Datos privados fuera del repo público
+        run: |
+          if git ls-files | grep -E '^(data/(clientes|landings)\.js|pedidos/|data/db\.json)'; then
+            echo "Estos archivos son privados y van en lanzate-datos, no acá." && exit 1
+          fi
       - run: pip install -r requirements.txt
-      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py
+      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py scripts/sync-modules.py
       - run: for file in js/*.js maquetas/js/*.js; do node --check "$file" || exit 1; done
+      - run: python scripts/sync-modules.py --check
       - run: python scripts/check-landing-quality.py
       - name: Consistencia entre planes, cupos y biblioteca
         run: python scripts/test-plan-consistency.py

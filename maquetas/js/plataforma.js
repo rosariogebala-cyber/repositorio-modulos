@@ -519,9 +519,9 @@
     function money(n) { return n ? "$" + Number(n).toLocaleString("es-AR") : ""; }
 
     function requestSummary(r) {
-      if (r.nota) return r.nota;
       var n = (r.cambios || []).length;
-      return n ? plural(n, "cambio", "cambios") + (r.landing ? " en " + r.landing : "") : "Pedido sin detalle";
+      var text = r.nota || (n ? plural(n, "cambio", "cambios") + (r.landing ? " en " + r.landing : "") : "Pedido sin detalle");
+      return r.fuera_de_plan ? text + " (" + r.fuera_de_plan + ")" : text;
     }
 
     function requestCard(r) {
@@ -536,7 +536,8 @@
       }).join("");
       return '<li class="cf-request" data-pf-request="' + id + '"><div class="cf-request-head"><b class="cf-state is-pendiente">Para revisar</b><time>' +
         esc(new Date(r.fecha).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + "</time>" +
-        (r.landing ? '<span class="cf-muted">' + esc(r.landing) + "</span>" : "") + "</div>" +
+        (r.landing ? '<span class="cf-muted">' + esc(r.landing) + "</span>" : "") +
+        (r.fuera_de_plan ? '<b class="cf-state is-rechazado">' + esc(r.fuera_de_plan.charAt(0).toUpperCase() + r.fuera_de_plan.slice(1)) + "</b>" : "") + "</div>" +
         (r.nota ? '<p class="cf-request-note">' + esc(r.nota) + "</p>" : "") +
         (changes ? '<ul class="cf-request-list">' + changes + "</ul>" : "") +
         (photos ? '<div class="cf-request-photos">' + photos + "</div>" : "") +

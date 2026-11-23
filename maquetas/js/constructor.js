@@ -124,7 +124,7 @@
             groupId: section.id,
             variant: spans[0] ? spans[0].textContent.trim() : variant,
             note: spans[1] ? spans[1].textContent.trim() : "",
-            thumb: "../assets/modulos/" + section.id + "/" + variant + ".png",
+            thumb: "../assets/modulos/" + section.id + "/" + variant + ".webp",
             width: nx && nx.getAttribute("data-width") === "full" ? "full" : "contained",
             html: frameEl.innerHTML
           };
@@ -2237,8 +2237,9 @@
       }
     }
     if (data.alt != null) {
-      if (el.tagName === "IMG") el.setAttribute("alt", String(data.alt).trim() || "imagen");
-      else if (el.closest(".nx-hero, .nx-hero-slide")) el.setAttribute("data-lz-background-alt", String(data.alt).trim() || "imagen");
+      /* Sin descripción queda vacío: el control de calidad lo marca para que se describa (no se rellena con «imagen») */
+      if (el.tagName === "IMG") el.setAttribute("alt", String(data.alt).trim());
+      else if (el.closest(".nx-hero, .nx-hero-slide")) el.setAttribute("data-lz-background-alt", String(data.alt).trim());
     }
   }
 
@@ -2260,9 +2261,6 @@
     var imagenes = withTexts && it.imagenes || {};
     images.forEach(function (el, k) {
       if (imagenes[k]) setImage(el, imagenes[k]);
-      if (el.tagName === "IMG" && !(el.getAttribute("alt") || "").trim()) {
-        el.setAttribute("alt", "imagen");
-      }
       if (preview) el.setAttribute("data-lb-i", k);
     });
     paintModuleColors(tpl.content, it);

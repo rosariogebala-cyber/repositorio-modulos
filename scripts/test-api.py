@@ -276,6 +276,63 @@ class ApiTest(unittest.TestCase):
         self.assertIn(b"circle", stored)
         self.team.call("DELETE", "/api/clientes/%d" % out["id"])
 
+    # --- Mejoras de la auditoría ---------------------------------------------------------
+    def test_landing_preview_has_no_third_party_scripts(self):
+        """Dentro del panel la landing no lleva medición ni registra visitas, y tiene la política del panel."""
+        path = "/l/%s/%s/" % (self.slug, self.landing["slug"])
+        with urllib.request.urlopen(urllib.request.Request(self.base + path)) as resp:
+            body = resp.read().decode("utf-8")
+            self.assertIn("connect-src 'self'", resp.headers.get("Content-Security-Policy", ""))
+        self.assertNotIn('name="lz-api"', body)
+        self.assertNotIn("googletagmanager.com/gtm.js", body)
+
+    def test_requests_out_of_plan_are_marked_and_paused_accounts_blocked(self):
+        planes = self.team.call("GET", "/api/planes")[1]
+        self.assertTrue(planes, "las pruebas necesitan al menos un plan")
+        clave = self.portal_access("plan-portal")
+        portal = Client(self.base, "10.9.0.1")
+        self.assertEqual(portal.call("POST", "/api/portal/login", {"usuario": "plan-portal", "clave": clave, "sitio": self.slug})[0], 200)
+        try:
+            self.assertEqual(self.team.call("PUT", "/api/clientes/%d/plan" % self.client_id,
+                                            {"plan": planes[0]["id"], "plan_vence": "2020-01-01"})[0], 200)
+            status, out = portal.call("POST", "/api/portal/pedidos?sitio=" + self.slug, {"nota": "Pedido con el plan vencido"})
+            self.assertEqual(status, 200, out)
+            row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
+            pedido = next(p for p in row["pedidos"] if p["id"] == out["id"])
+            self.assertEqual(pedido.get("fuera_de_plan"), "plan vencido")
+            ficha = self.team.call("GET", "/api/clientes/%d" % self.client_id)[1]
+            self.assertEqual(self.team.call("PUT", "/api/clientes/%d" % self.client_id, dict(ficha, estado="pausado"))[0], 200)
+            status, out = portal.call("POST", "/api/portal/pedidos?sitio=" + self.slug, {"nota": "Pedido con la cuenta pausada"})
+            self.assertEqual(status, 403, out)
+        finally:
+            ficha = self.team.call("GET", "/api/clientes/%d" % self.client_id)[1]
+            self.team.call("PUT", "/api/clientes/%d" % self.client_id, dict(ficha, estado="activo"))
+            self.team.call("PUT", "/api/clientes/%d/plan" % self.client_id, {"plan": "", "plan_vence": ""})
+
+    def test_bad_input_gets_a_json_error_instead_of_a_cut_connection(self):
+        status, out = self.team.call("DELETE", "/api/clientes/%d/pedidos?fecha=abc" % self.client_id)
+        self.assertEqual(status, 400, out)
+        self.assertIn("error", out)
+
+    def test_client_list_does_not_send_portal_passwords(self):
+        self.portal_access("lista-portal")
+        listado = self.team.call("GET", "/api/clientes")[1]
+        self.assertFalse(any(c.get("portal_clave") for c in listado))
+        self.assertTrue(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"))
+        row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
+        self.assertTrue(row["portal"]["clave"].startswith("v2:"), "la copia de la contraseña va cifrada con AES-GCM")
+
+    def test_client_can_delete_a_lead(self):
+        clave = self.portal_access("consultas-portal")
+        portal = Client(self.base, "10.10.0.1")
+        portal.call("POST", "/api/portal/login", {"usuario": "consultas-portal", "clave": clave, "sitio": self.slug})
+        Client(self.base, "10.10.0.2").call("POST", "/api/consultas/nueva", {"l": self.landing["id"], "datos": {"nombre": "Ana"}})
+        lead_id = next(iter(sim.STORE.get("lz:c:%d" % self.client_id)))
+        status, out = portal.call("DELETE", "/api/portal/consultas/%s?sitio=%s" % (lead_id, self.slug))
+        self.assertEqual(status, 200, out)
+        self.assertNotIn(lead_id, sim.STORE.get("lz:c:%d" % self.client_id) or {})
+        self.assertEqual(Client(self.base, "10.10.0.3").call("DELETE", "/api/portal/consultas/%s?sitio=%s" % (lead_id, self.slug))[0], 401)
+
     def test_publish(self):
         status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Prueba"})
         self.assertEqual(status, 200, out)

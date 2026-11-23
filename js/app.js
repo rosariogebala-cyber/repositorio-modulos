@@ -21,7 +21,7 @@ function renderModulos() {
     else link.removeAttribute('aria-current');
   });
   $('#sin-resultados').hidden = visible.length > 0;
-  $('#recuento').textContent = `${mostrados.length} de ${modulos.length} secciones · ${mostrados.reduce((total, modulo) => total + modulo.variantes.length, 0)} propuestas`;
+  $('#recuento').textContent = `${mostrados.length} de ${modulos.length} secciones · ${mostrados.reduce((n, m) => n + (m.variantes || []).length, 0)} propuestas`;
   $('#limpiar').hidden = !termino;
   $('#modulos').innerHTML = mostrados.map(m => `<section class="module-section" id="${m.id}"><div class="module-heading"><div class="module-title"><span class="circle" style="background:${palette[m.categoria]}">${String(m.numero).padStart(2,'0')}</span><h2>${escapeHTML(m.nombre)}</h2></div><p>${escapeHTML(m.descripcion)}</p></div>${m.variantes.map(v=>`<figure class="variant-card"><button type="button" class="preview" aria-label="Ampliar ${escapeHTML(m.nombre)}, variante ${v.nombre}" data-img="${v.imagen}" data-label="${escapeHTML(m.nombre)} · ${v.nombre}"><img loading="lazy" decoding="async" src="${v.imagen}" width="${v.ancho}" height="${v.alto}" alt="${escapeHTML(m.nombre)}, variante ${v.nombre}"></button><figcaption><span>${v.nombre}</span><span>${v.ancho} × ${v.alto} px</span></figcaption></figure>`).join('')}</section>`).join('');
 }
@@ -71,3 +71,5 @@ function updateNavigationOffset(){
 new ResizeObserver(updateNavigationOffset).observe(document.querySelector('.header'));
 new ResizeObserver(updateNavigationOffset).observe(document.querySelector('.category-bar'));
 updateNavigationOffset();
+const pie = document.querySelector('[data-pie]');
+if (pie) pie.textContent = `Lanzate · Biblioteca de módulos · ${modulos.length} secciones · ${modulos.reduce((n, m) => n + (m.variantes || []).length, 0)} propuestas visuales.`;
