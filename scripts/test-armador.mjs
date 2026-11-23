@@ -1,6 +1,6 @@
 /* Pruebas del armador de landings en Node (las mismas funciones que usa el constructor).
 
-   cd scripts && npm ci && node --test test-armador.mjs */
+   npm ci && node --test scripts/test-armador.mjs */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

@@ -1,9 +1,0 @@
-{
-  "name": "lanzate-scripts",
-  "private": true,
-  "description": "Herramientas de Node para armar landings desde sus datos (usa el mismo armador que el constructor).",
-  "type": "module",
-  "dependencies": {
-    "jsdom": "^25.0.1"
-  }
-}

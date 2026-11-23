@@ -79,7 +79,27 @@ def read_js(repo, path):
     return json.loads(text[text.index("=") + 1:text.rindex(";")])
 
 
+ARMADO = {}
+
+
+def armado_url():
+    """Levanta una vez la función de armado en Node (api/armar.mjs) para las pruebas de Publicar."""
+    if "url" not in ARMADO:
+        ARMADO["url"] = None
+        node = shutil.which("node")
+        if node and (ROOT / "node_modules" / "jsdom").is_dir():
+            port = free_port()
+            env = dict(os.environ, LANZATE_SECRETO="secreto-de-prueba-0123456789abcdefghij")
+            proc = subprocess.Popen([node, str(ROOT / "scripts" / "servidor-armado.mjs"), str(port)], cwd=str(ROOT),
+                                    env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if proc.stdout.readline().strip() == b"listo":
+                ARMADO["url"], ARMADO["proc"] = "http://127.0.0.1:%d" % port, proc
+    return ARMADO["url"]
+
+
 class ApiTest(unittest.TestCase):
+    EXTRA_ENV = {}
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
@@ -95,6 +115,10 @@ class ApiTest(unittest.TestCase):
                    LANZATE_DATOS_REPO="prueba/lanzate-datos", KV_REST_API_URL=redis, KV_REST_API_TOKEN="x",
                    LANZATE_USUARIO=TEAM["usuario"], LANZATE_CLAVE=TEAM["clave"],
                    LANZATE_SECRETO="secreto-de-prueba-0123456789abcdefghij", HOME=cls.tmp)
+        env.pop("LANZATE_ARMADO", None)
+        if armado_url():
+            env["LANZATE_ARMADO_URL"] = armado_url()
+        env.update(cls.EXTRA_ENV)
         cls.proc = subprocess.Popen([sys.executable, str(ROOT / "server.py"), str(port)], cwd=str(ROOT), env=env,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         cls.base = "http://127.0.0.1:%d" % port
@@ -334,10 +358,53 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(Client(self.base, "10.10.0.3").call("DELETE", "/api/portal/consultas/%s?sitio=%s" % (lead_id, self.slug))[0], 401)
 
     def test_publish(self):
+        before = read_js("lanzate-datos", "data/landings.js")
         status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Prueba"})
         self.assertEqual(status, 200, out)
         self.assertTrue(all(r["ok"] for r in out["resultados"]), out)
+        self.assertEqual(out["armado"], "comparar")
+        armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
+        if armado_url():
+            # Por defecto el servidor arma cada landing desde sus datos y solo compara: no cambia lo guardado.
+            self.assertRegex(armado["detalle"], r"de \d+ landings dan igual", armado)
+        self.assertEqual([l.get("html") for l in before], [l.get("html") for l in read_js("lanzate-datos", "data/landings.js")])
+
+
+@unittest.skipUnless(armado_url(), "hace falta Node con jsdom (npm ci)")
+class DataBuildTest(unittest.TestCase):
+    """LANZATE_ARMADO=datos: Publicar arma las landings en el servidor, sin abrir el constructor."""
+    EXTRA_ENV = {"LANZATE_ARMADO": "datos"}
+    setUpClass = classmethod(ApiTest.setUpClass.__func__)
+    tearDownClass = classmethod(ApiTest.tearDownClass.__func__)
+
+    def setUp(self):
+        sim.reset_redis()
+
+    def test_publish_builds_from_data(self):
+        status, session = self.team.call("GET", "/api/sesion")
+        self.assertEqual(session["armado"], "datos")
+        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Armado en el servidor"})
+        self.assertEqual(status, 200, out)
+        self.assertTrue(all(r["ok"] for r in out["resultados"]), out)
+        armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
+        self.assertIn("armadas en el servidor", armado["detalle"])
+        landing = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
+        self.assertTrue(any("campos" in it for it in landing["items"]), "se guardó por nombre")
+        self.assertNotRegex(landing["html"], r"data-lz-(campo|foto|enlace)=")
+        # Publicar otra vez no cambia nada: lo guardado ya es lo que arma el servidor.
+        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Otra vez"})
+        armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
+        self.assertIn("(0 con cambios)", armado["detalle"], armado)
+        # Sin la firma, la función de armado no responde.
+        request = urllib.request.Request(armado_url() + "/api/armar", data=b'{"pedidos": []}', method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(request, timeout=10)
+        self.assertEqual(error.exception.code, 403)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    try:
+        unittest.main(verbosity=2)
+    finally:
+        if ARMADO.get("proc"):
+            ARMADO["proc"].terminate()
