@@ -738,8 +738,9 @@ def login_required():
 
 
 def secret_ok():
-    """Online el secreto es obligatorio: sin él las sesiones dependerían solo de la clave del equipo."""
-    return not ON_VERCEL or len(os.environ.get("LANZATE_SECRETO") or "") >= 32
+    """Online el secreto es obligatorio: sin él las sesiones dependerían solo de la clave del equipo.
+    Si es corto se acepta igual (con aviso en el panel), para no dejar afuera al equipo."""
+    return not ON_VERCEL or bool((os.environ.get("LANZATE_SECRETO") or "").strip())
 
 
 def session_secret():
@@ -766,8 +767,11 @@ def panel_warnings():
     """Avisos para el equipo arriba del panel: cosas de configuración que conviene arreglar antes de que fallen."""
     out = []
     if not secret_ok():
-        out.append("Falta LANZATE_SECRETO en Vercel (o tiene menos de 32 caracteres). Cargalo con un texto al azar "
-                   "de 32 caracteres o más y volvé a crear las contraseñas del portal.")
+        out.append("Falta LANZATE_SECRETO en Vercel. Cargalo con un texto al azar de 32 caracteres o más "
+                   "y volvé a crear las contraseñas del portal.")
+    elif ON_VERCEL and len(os.environ.get("LANZATE_SECRETO", "").strip()) < 32:
+        out.append("LANZATE_SECRETO es corto (menos de 32 caracteres). Conviene reemplazarlo por uno más largo; "
+                   "al cambiarlo hay que volver a crear las contraseñas del portal.")
     if ON_VERCEL and not RECORD.available():
         out.append("Falta conectar la base de Upstash (Redis) en Vercel: sin ella no se guardan visitas ni consultas "
                    "y los límites de intentos de ingreso protegen mucho menos.")
@@ -3743,7 +3747,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not access_key():
                 raise ApiError(500, "Falta configurar la clave del equipo (LANZATE_CLAVE).")
             if not secret_ok():
-                raise ApiError(500, "Falta configurar LANZATE_SECRETO en Vercel (un texto al azar de 32 caracteres o más).")
+                raise ApiError(500, "Falta configurar LANZATE_SECRETO en Vercel (Settings → Environment Variables, en Production) y volver a desplegar.")
             data = self.read_json()
             usuario = str(data.get("usuario") or "").strip().lower()
             check_attempts("equipo", usuario, self.client_ip())
