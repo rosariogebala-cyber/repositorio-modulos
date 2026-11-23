@@ -370,6 +370,7 @@
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
       icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
+      icon("button", 'type="button" data-act="versions"', "bi-clock-history", "Versiones anteriores") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
       "</span>";
@@ -398,6 +399,7 @@
           report("Link copiado. El cliente lo abre con su usuario y contraseña del portal.", "ok");
         }, function () { window.prompt("Copiá el link del editor:", lp.editor); });
       }
+      if (act === "versions") showVersions(lp, report);
       if (act === "duplicate") {
         btn.disabled = true;
         api("POST", "/api/landings/" + lp.id + "/duplicate")
@@ -416,6 +418,30 @@
       }
     });
     return li;
+  }
+
+  /* Historial: cada vez que se guarda una landing, la versión anterior queda guardada (hasta 30). Se abre en el
+     constructor; si se guarda, vuelve a ser la actual. */
+  var VERSION_CAUSE = { constructor: "Guardada en el constructor", publicar: "Rearmada al publicar", pedido: "Pedido del cliente aplicado" };
+  function showVersions(lp, report) {
+    api("GET", "/api/landings/" + lp.id + "/versiones").then(function (list) {
+      var dialog = document.createElement("dialog");
+      dialog.className = "lb-dialog pf-versions";
+      dialog.setAttribute("aria-labelledby", "pfVersionsTitle");
+      var rows = list.map(function (v) {
+        return '<li><span><strong>' + esc(formatDate(v.fecha)) + "</strong><small>" + esc(VERSION_CAUSE[v.origen] || "Guardada") +
+          " · " + plural(v.modulos, "módulo", "módulos") + (v.nombre !== lp.nombre ? " · «" + esc(v.nombre) + "»" : "") + "</small></span>" +
+          '<a class="btn-nx-outline btn-sm" href="constructor.html?landing=' + lp.id + "&version=" + encodeURIComponent(v.fecha) + '">Abrir</a></li>';
+      }).join("");
+      dialog.innerHTML = '<div class="lb-dialog-head"><h2 id="pfVersionsTitle">Versiones de «' + esc(lp.nombre) + '»</h2>' +
+        '<button type="button" class="lb-dialog-close" data-close aria-label="Cerrar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>' +
+        (list.length ? "<p>Abrí una versión para revisarla en el constructor. Si la guardás, vuelve a ser la actual y la que hay ahora queda en esta lista.</p><ul class=\"pf-version-list\">" + rows + "</ul>"
+          : "<p>Todavía no hay versiones anteriores: aparecen a partir del próximo cambio que guardes.</p>");
+      dialog.addEventListener("click", function (e) { if (e.target === dialog || e.target.closest("[data-close]")) dialog.close(); });
+      dialog.addEventListener("close", function () { dialog.remove(); });
+      document.body.appendChild(dialog);
+      dialog.showModal();
+    }).catch(function (err) { report(err.message, "warn"); });
   }
 
   function normalize(text) {

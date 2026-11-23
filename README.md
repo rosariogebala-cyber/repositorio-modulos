@@ -112,6 +112,13 @@ y recién después sube los cambios. Si arreglás un módulo o cambiás el telé
     que falten y no cambia las que ya existen. **No renombres una marca existente**: las landings la usan para ubicar sus textos.
   - Si una landing tiene un texto guardado con un nombre que el módulo ya no tiene, el constructor lo avisa al abrirla y
     Publicar no la rearma (queda como estaba).
+- **Versiones:** cada vez que se guarda una landing (en el constructor, al publicar o al aplicar un pedido del cliente),
+  la versión anterior queda en `lanzate-datos/versiones/<id>.json` (las últimas 30, sin el HTML: se vuelve a armar). En
+  **Landings**, el botón del reloj las lista; «Abrir» la carga en el constructor y, si la guardás, vuelve a ser la actual.
+- **Direcciones viejas:** si una landing cambia de nombre (y de dirección), la anterior redirige a la nueva con un 301, así
+  no se pierden los links compartidos ni lo que ya indexó Google. Al eliminar la landing se borran también sus redirecciones.
+- **Google:** cada landing de un cliente real lleva sus datos de negocio (schema.org `LocalBusiness`: nombre, dirección,
+  teléfono, mail, logo, foto y redes) y el `sitemap.xml` incluye la fecha del último cambio de cada una.
 - **Pruebas:** `npm ci && node scripts/marcar-campos.mjs --check && node --test scripts/test-armador.mjs` revisa las marcas,
   arma cada variante de la biblioteca y una landing de prueba, y prueba que lo guardado por nombre no se corra de lugar.
 
