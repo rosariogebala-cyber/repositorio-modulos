@@ -65,6 +65,51 @@
     var filter = document.querySelector("[data-gc-filter]");
     var empty = document.querySelector("[data-gc-empty]");
     var clients = [];
+    var alerts = [];
+    var alertType = document.querySelector("[data-gc-alert-type]");
+    var alertList = document.querySelector("[data-gc-alert-list]");
+    var alertCount = document.querySelector("[data-gc-alert-count]");
+    var alertStatus = document.querySelector("[data-gc-alert-status]");
+    var alertEmpty = document.querySelector("[data-gc-alert-empty]");
+    function renderAlerts() {
+      var focusLink = document.activeElement;
+      var selectedId = alertList.contains(focusLink) && focusLink.closest(".gc-alert-item")
+        ? focusLink.closest(".gc-alert-item").dataset.alertId : null;
+      var choice = alertType.value;
+      var items = alerts.filter(function (entry) {
+        return choice === "todas" || (choice === "urgentes" ? entry.prioridad <= 1 : entry.tipo === choice);
+      });
+      alertList.replaceChildren();
+      items.forEach(function (entry) {
+        var li = element("li","gc-alert-item");
+        li.dataset.alertId = entry.id;
+        var level = element("span",entry.prioridad <= 1 ? "gc-alert-severity is-urgent" : "gc-alert-severity",
+          entry.prioridad <= 1 ? "Prioritaria" : "Próxima");
+        var text = element("div","gc-alert-content");
+        var title = element("strong","",entry.titulo + " · " + entry.cliente);
+        text.appendChild(title);
+        text.appendChild(element("span","gc-muted",entry.detalle));
+        if (entry.tipo === "pago" && entry.importe_centavos) {
+          text.appendChild(element("span","gc-muted",cents(entry.importe_centavos,entry.moneda)));
+        }
+        var link = element("a","gc-alert-action","Ver y resolver");
+        // La URL viene exclusivamente del backend autenticado.
+        if (!/^cliente\.html\?id=\d+#(?:gcFinanceTitle|gcContractTitle|cf-revisar)$/.test(entry.url)) {
+          return;
+        }
+        link.href = entry.url;
+        li.appendChild(level); li.appendChild(text); li.appendChild(link);
+        alertList.appendChild(li);
+      });
+      if (selectedId) {
+        var matching = Array.from(alertList.children).find(function (item) { return item.dataset.alertId === selectedId; });
+        if (matching) matching.querySelector("a").focus();
+      }
+      alertCount.textContent = "(" + alerts.length + ")";
+      alertEmpty.hidden = items.length > 0;
+      alertStatus.textContent = items.length + " alerta(s) visibles de " + alerts.length +
+        ". Se actualizan al abrir el panel y cada 5 minutos.";
+    }
     function render() {
       var term = search.value.trim().toLowerCase();
       var selected = filter.value;
@@ -114,10 +159,16 @@
       empty.hidden = shown.length !== 0;
       status.textContent = "Mostrando " + shown.length + " de " + clients.length + " clientes.";
     }
-    api("GET", "/api/gestion/clientes").then(function (data) {
+    function loadDashboard(silent) {
+      return api("GET", "/api/gestion/clientes").then(function (data) {
       clients = data.clientes;
+      alerts = data.alertas || [];
+      renderAlerts();
+      dashboardLoaded = true;
       var summary = data.resumen;
-      [["Clientes",summary.total],["Activos",summary.activos],["Landings publicadas",summary.landings_publicadas],
+      kpis.replaceChildren();
+      [["Clientes",summary.total],["Activos",summary.activos],["Alertas urgentes",(data.alertas_resumen || {}).urgentes || 0],
+       ["Landings publicadas",summary.landings_publicadas],
        ["Cambios pendientes",summary.solicitudes_pendientes],
        ["Clientes con pagos pendientes",summary.clientes_con_pagos_pendientes],
        ["Clientes con pagos vencidos",summary.clientes_con_pagos_vencidos]].forEach(function (row) {
@@ -126,7 +177,18 @@
         card.appendChild(element("span","gc-muted",row[0])); kpis.appendChild(card);
       });
       render();
-    }).catch(function (error) { status.textContent = error.message; status.classList.add("gc-danger"); });
+      }).catch(function (error) {
+        if (!silent) { status.textContent = error.message; status.classList.add("gc-danger"); }
+        alertStatus.textContent = "No se pudieron actualizar las alertas: " + error.message;
+      });
+    }
+    loadDashboard(false);
+    alertType.addEventListener("change",renderAlerts);
+    document.querySelector("[data-gc-alert-refresh]").addEventListener("click",function () { loadDashboard(false); });
+    // Actualización periódica mientras el panel está abierto, sin modificar cobros ni pedidos.
+    setInterval(function () {
+      if (!document.hidden) loadDashboard(true);
+    }, 5 * 60 * 1000);
     search.addEventListener("input",render);
     filter.addEventListener("change",render);
     document.querySelector("[data-gc-export]").addEventListener("click",function () { asCSV(clients); });
