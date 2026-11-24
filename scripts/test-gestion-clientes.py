@@ -21,7 +21,8 @@ class CommercialLogicTest(unittest.TestCase):
 
     def test_full_and_partial_payments(self):
         entries = [{"periodo": "2026-11", "moneda":"ARS", "monto_centavos": 1000000}]
-        self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"], "parcial")
+        self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 12))["estado"], "parcial")
+        self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"], "parcial_vencido")
         entries.append({"periodo":"2026-11", "moneda":"ARS", "monto_centavos": 990050})
         self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"], "pagado")
         self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 12, 23))["estado"], "vencido")
