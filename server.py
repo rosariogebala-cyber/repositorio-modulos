@@ -82,6 +82,7 @@ ROUTES = [
     (re.compile(r"^/api/borradores$"), "borradores"),
     (re.compile(r"^/api/landings/(\d+)/borrador/vista$"), "borrador-vista"),
     (re.compile(r"^/api/landings/(\d+)/borrador$"), "borrador"),
+    (re.compile(r"^/api/landings/(\d+)/qa$"), "qa-borrador"),
     (re.compile(r"^/api/landings/(\d+)/revision$"), "revision"),
     (re.compile(r"^/api/landings/(\d+)/aprobar$"), "aprobar"),
     (re.compile(r"^/api/landings/(\d+)/publicar$"), "publicar-landing"),
@@ -4230,12 +4231,17 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "borradores" and method == "POST":
             import sys
             return draft_workflow.save(sys.modules[__name__], self.read_json())
+        if name == "qa-borrador" and method == "GET":
+            import sys
+            return draft_workflow.qa_summary(sys.modules[__name__], ident)
         if name == "borrador":
             import sys
             if method == "GET":
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 return draft_workflow.save(sys.modules[__name__], self.read_json(), ident)
+            if method == "DELETE":
+                return draft_workflow.discard(sys.modules[__name__], ident, self.read_json())
         if name in ("revision", "aprobar", "publicar-landing") and method == "POST":
             import sys
             return draft_workflow.move(sys.modules[__name__], ident,
