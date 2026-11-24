@@ -826,7 +826,7 @@ def valid_session(value):
 
 # --- Acceso de cada cliente a su portal ----------------------------------------------
 # El repo es público: la contraseña se guarda como hash con un secreto que no está en el repo (LANZATE_SECRETO),
-# y una copia cifrada con ese mismo secreto para que el equipo la pueda ver y reenviar.
+# No se conserva una copia recuperable de las nuevas contraseñas.
 
 def portal_secret():
     return hmac.new(session_secret(), b"portal", hashlib.sha256).digest()
@@ -847,49 +847,6 @@ def check_portal_password(stored, password):
     return len(password) <= 128 and hmac.compare_digest(hash_portal_password(password, salt), stored)
 
 
-# La contraseña del portal se guarda cifrada con LANZATE_SECRETO para que el equipo la pueda ver y reenviar.
-def _keystream(key, nonce, size):
-    out, counter = b"", 0
-    while len(out) < size:
-        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
-        counter += 1
-    return out[:size]
-
-
-def _password_key():
-    return hmac.new(portal_secret(), b"ver", hashlib.sha256).digest()
-
-
-def seal_password(password):
-    """Copia cifrada (AES-GCM) de la contraseña del portal, para que el equipo la pueda ver y reenviar."""
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    nonce = secrets.token_bytes(12)
-    sealed = AESGCM(_password_key()).encrypt(nonce, password.encode("utf-8"), b"lanzate-portal")
-    return "v2:" + base64.urlsafe_b64encode(nonce + sealed).decode()
-
-
-def open_password(stored):
-    stored = stored or ""
-    try:
-        if stored.startswith("v2:"):
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            from cryptography.exceptions import InvalidTag
-            raw = base64.urlsafe_b64decode(stored[3:].encode())
-            try:
-                return AESGCM(_password_key()).decrypt(raw[:12], raw[12:], b"lanzate-portal").decode("utf-8")
-            except InvalidTag:
-                return ""
-        # Formato anterior: se sigue pudiendo leer; al poner una contraseña nueva queda en el formato nuevo.
-        raw = base64.urlsafe_b64decode(stored.encode())
-        nonce, tag, sealed = raw[:16], raw[16:32], raw[32:]
-        key = _password_key()
-        if not sealed or not hmac.compare_digest(tag, hmac.new(key, nonce + sealed, hashlib.sha256).digest()[:16]):
-            return ""
-        return bytes(a ^ b for a, b in zip(sealed, _keystream(key, nonce, len(sealed)))).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return ""
-
-
 def set_portal_access(client_id, data):
     usuario = re.sub(r"\s+", "", str(data.get("usuario") or "")).lower()
     if not re.fullmatch(r"[a-z0-9._@-]{3,60}", usuario):
@@ -904,7 +861,7 @@ def set_portal_access(client_id, data):
         if any(c["id"] != client_id and (c.get("portal") or {}).get("usuario") == usuario for c in db["clientes"]):
             raise ApiError(409, "Ese usuario ya lo tiene otro cliente. Elegí otro.")
         version = (row.get("portal") or {}).get("version", 0) + 1
-        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave), "clave": seal_password(clave),
+        row["portal"] = {"usuario": usuario, "hash": hash_portal_password(clave),
                          "version": version, "pidio_clave": 0}
     result = get_client(client_id)
     result["clave_nueva"] = clave
@@ -977,7 +934,7 @@ def request_password(usuario, sitio=""):
                 if now_ms() - (access.get("pidio_clave") or 0) > 10 * 60000:
                     access["pidio_clave"] = now_ms()
                 break
-    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate: te mandamos tu contraseña por WhatsApp o mail, "
+    return {"ok": True, "mensaje": "Listo. Le avisamos al equipo de Lanzate: te contactamos para restablecer tu contraseña por WhatsApp o mail, "
                                   "en general el mismo día hábil."}
 
 
@@ -1037,7 +994,8 @@ def change_portal_password(client_id, data):
         if not check_portal_password(access.get("hash"), actual):
             time.sleep(1)
             raise ApiError(400, "La contraseña actual no es correcta.")
-        access.update(hash=hash_portal_password(nueva), clave=seal_password(nueva), version=access.get("version", 0) + 1)
+        access.update(hash=hash_portal_password(nueva), version=access.get("version", 0) + 1)
+        access.pop("clave", None)
         return access["version"]
 
 
@@ -1841,8 +1799,8 @@ def client_dict(row, count=None, with_password=True):
     data = {k: v for k, v in row.items() if k != "portal"}
     access = row.get("portal") or {}
     data["portal_usuario"] = access.get("usuario") or ""
-    # La contraseña solo viaja en la ficha de un cliente, nunca en el listado de todos.
-    data["portal_clave"] = open_password(access.get("clave")) if access and with_password else ""
+    # Compatibilidad con el frontend: nunca devolver contraseñas almacenadas.
+    data["portal_clave"] = ""
     data["pidio_clave"] = access.get("pidio_clave") or 0
     data["tipo_cliente"] = client_type(row)
     data["logo_url"] = logo_ref(row)
