@@ -47,6 +47,11 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         const errors=[];
         const onError=e=>errors.push(String(e));
         page.on('pageerror',onError);
+        const requests=[];
+        const onResponse=r=>{const u=new URL(r.url());if(u.origin===base.origin && u.pathname.startsWith('/api/portal/'))requests.push({path:u.pathname,status:r.status()});};
+        const onFailed=r=>{const u=new URL(r.url());if(u.origin===base.origin && u.pathname.startsWith('/api/portal/'))requests.push({path:u.pathname,error:r.failure()?.errorText});};
+        page.on('response',onResponse);
+        page.on('requestfailed',onFailed);
         try {
           await page.goto(base.origin+portalPath);
           await page.locator('[data-login-form]').waitFor({state:'visible'});
@@ -80,8 +85,8 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           await page.locator('[data-logout]').click();
           await page.locator('[data-login-form]').waitFor({state:'visible'});
           assert.equal((await context.request.get(base.origin+'/api/portal/inicio?sitio='+encodeURIComponent(process.env.QA_SLUG))).status(),401,'Logout must revoke browser access');
-        } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e)});}
-        finally {page.off('pageerror',onError);}
+        } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e),errors,requests});}
+        finally {page.off('pageerror',onError);page.off('response',onResponse);page.off('requestfailed',onFailed);}
       } finally {await context.close();}
     }
   } finally {await browser.close();}
