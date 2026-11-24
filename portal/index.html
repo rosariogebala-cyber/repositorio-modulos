@@ -282,7 +282,7 @@
       initialLoad.then(function () { return api("POST", "/api/portal/login", credentials); })
         .then(function (d) {
           if (!SITIO || SITIO !== d.sitio) { location.href = "/portal/" + d.sitio + "/" + location.search; return; }
-          return load();
+          return load(true);
         })
         .catch(function (err) { say(msg, err.message, "warn"); })
         .then(function () { btn.disabled = false; });
@@ -304,9 +304,18 @@
     });
 
     /* ---------- Datos ---------- */
-    function load() {
+    function load(afterLogin) {
       if (!SITIO) { showLogin(); return Promise.resolve(); }
-      return api("GET", "/api/portal/inicio").then(function (d) {
+      // A browser may not have committed the Set-Cookie from login on its first GET.
+      // Retry only a read, only after successful login, and only for a bounded interval.
+      function readInicio(attempt) {
+        return api("GET", "/api/portal/inicio").catch(function (err) {
+          if (afterLogin !== true || err.status !== 401 || attempt >= 4) throw err;
+          return new Promise(function (resolve) { setTimeout(resolve, 150 * Math.pow(2, attempt)); })
+            .then(function () { return readInicio(attempt + 1); });
+        });
+      }
+      return readInicio(0).then(function (d) {
         var volver = new URLSearchParams(location.search).get("volver") || "";
         if (new RegExp("^/portal/" + SITIO + "/editar/\\?l=[\\w%.-]+$").test(volver)) { location.replace(volver); return; }
         DATA = d;
