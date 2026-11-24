@@ -483,9 +483,9 @@
     </div>
   </dialog>
 
-  <dialog class="lb-structure-dialog" data-lb-structure aria-labelledby="lbStructureTitle">
-    <h2 id="lbStructureTitle">Revisá la estructura propuesta</h2>
-    <p>La IA propone las secciones; podés quitarlas, cambiar la variante y ordenarlas sin consumir más tokens. El Hero se incluye en el plan.</p>
+  <dialog class="lb-structure-dialog" data-lb-structure aria-labelledby="lbStructureTitle" aria-describedby="lbStructureHelp">
+    <h2 id="lbStructureTitle" tabindex="-1">Revisá la estructura propuesta</h2>
+    <p id="lbStructureHelp">La IA propone las secciones. Podés cambiar la variante, quitar y reordenar con los botones Subir y Bajar, también usando el teclado. El Hero se incluye en el plan.</p>
     <p data-lb-structure-count role="status" aria-live="polite"></p>
     <ol data-lb-structure-list class="lb-structure-list" aria-label="Secciones sugeridas en orden"></ol>
     <div class="lb-structure-add">
@@ -498,16 +498,16 @@
       <button type="button" class="btn-nx btn-sm" data-lb-structure-accept>Continuar al editor</button>
     </div>
   </dialog>
-  <dialog class="lb-workflow-compare" data-lb-compare aria-labelledby="lbCompareTitle">
+  <dialog class="lb-workflow-compare" data-lb-compare aria-labelledby="lbCompareTitle" aria-describedby="lbCompareHelp">
     <div class="lb-workflow-compare-head">
-      <h2 id="lbCompareTitle">Comparar borrador y landing publicada</h2>
+      <h2 id="lbCompareTitle" tabindex="-1">Comparar borrador y landing publicada</h2>
       <button type="button" class="btn-nx-outline btn-sm" data-lb-compare-close> Cerrar </button>
     </div>
     <div class="lb-workflow-frames">
       <section><h3>Borrador</h3><iframe data-lb-compare-draft title="Vista previa del borrador"></iframe></section>
       <section><h3>Publicada</h3><iframe data-lb-compare-live title="Versión actualmente publicada"></iframe></section>
     </div>
-    <p>Esta comparación es visual. Comprobá también textos, enlaces, comportamiento móvil y accesibilidad.</p>
+    <p id="lbCompareHelp">Esta comparación es visual. Comprobá también textos, enlaces, comportamiento móvil y accesibilidad. Presioná Escape para cerrar.</p>
   </dialog>
   <script src="js/plataforma.js"></script>
   <script src="js/reglas.js"></script>
