@@ -37,3 +37,17 @@
 }
 .gc-main button, .gc-profile button { min-height:44px; }
 @media(max-width:680px){.gc-contract,.gc-payment-form{grid-template-columns:1fr;}.gc-filters label{min-width:100%;}.gc-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* Alertas operativas: prioridad comunicada por texto y no solo color. */
+.gc-alert-filters { display:flex; gap:12px; margin:14px 0; }
+.gc-alert-filters label { display:grid; gap:6px; font-weight:650; min-width:min(100%,260px); }
+.gc-alert-list { list-style:none; padding:0; margin:12px 0 0; display:grid; gap:10px; }
+.gc-alert-item { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px;
+  background:#f8fafc; border:1px solid #d7dce5; border-radius:10px; }
+.gc-alert-content { flex:1; min-width:160px; display:grid; gap:4px; }
+.gc-alert-severity { font-size:.78rem; font-weight:700; padding:5px 8px; border-radius:7px;
+  color:#344054; background:#e8ebf0; }
+.gc-alert-severity.is-urgent { color:#8a1b2c; background:#fff1f1; }
+.gc-alert-action { text-decoration:underline; text-underline-offset:3px; font-weight:650; padding:9px 4px; }
+.gc-alert-action:focus-visible { outline:3px solid #4935b5; outline-offset:3px; }
+@media(max-width:480px){ .gc-alert-item { align-items:flex-start; } .gc-alert-action { width:100%; } }
