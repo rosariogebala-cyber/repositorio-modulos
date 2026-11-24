@@ -48,7 +48,7 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         const onError=e=>errors.push(String(e));
         page.on('pageerror',onError);
         const requests=[];
-        const onResponse=r=>{const u=new URL(r.url());if(u.origin===base.origin && u.pathname.startsWith('/api/portal/'))requests.push({path:u.pathname,status:r.status()});};
+        const onResponse=r=>{const u=new URL(r.url());if(u.origin===base.origin && u.pathname.startsWith('/api/portal/'))requests.push({path:u.pathname,hasSite:u.searchParams.get('sitio')===process.env.QA_SLUG,status:r.status()});};
         const onFailed=r=>{const u=new URL(r.url());if(u.origin===base.origin && u.pathname.startsWith('/api/portal/'))requests.push({path:u.pathname,error:r.failure()?.errorText});};
         page.on('response',onResponse);
         page.on('requestfailed',onFailed);
