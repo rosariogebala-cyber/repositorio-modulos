@@ -1388,6 +1388,95 @@
       });
     }
 
+    function proposeStructure(sections, explanations, candidates, included) {
+      return new Promise(function (resolve) {
+        var dialog = document.querySelector("[data-lb-structure]");
+        var list = dialog.querySelector("[data-lb-structure-list]");
+        var counter = dialog.querySelector("[data-lb-structure-count]");
+        var addSelect = dialog.querySelector("[data-lb-structure-add]");
+        var addButton = dialog.querySelector("[data-lb-structure-insert]");
+        var accept = dialog.querySelector("[data-lb-structure-accept]");
+        var cancel = dialog.querySelector("[data-lb-structure-cancel]");
+        var ordered = sections.map(function (section, index) {
+          return { section: section, reason: (explanations[index] || {}).reason || "Sección sugerida" };
+        });
+        var finished = false;
+        function group(section) { return byId[section.m].group || section.m.replace(/-[^-]+$/, ""); }
+        function done(result) {
+          if (finished) return;
+          finished = true;
+          dialog.close();
+          resolve(result ? ordered : null);
+        }
+        function button(label, title, callback) {
+          var control = document.createElement("button");
+          control.type = "button";
+          control.className = "btn-nx-outline btn-sm";
+          control.textContent = label;
+          control.setAttribute("aria-label", title);
+          control.addEventListener("click", callback);
+          return control;
+        }
+        function render() {
+          list.replaceChildren();
+          ordered.forEach(function (entry, index) {
+            var item = document.createElement("li");
+            var text = document.createElement("span");
+            text.className = "lb-structure-label";
+            text.textContent = (index + 2) + ". " + group(entry.section);
+            var note = document.createElement("small");
+            note.textContent = entry.reason;
+            text.appendChild(note);
+            var select = document.createElement("select");
+            select.setAttribute("aria-label", "Variante de " + group(entry.section));
+            candidates.filter(function (candidate) { return group(candidate) === group(entry.section); })
+              .forEach(function (candidate) {
+                select.add(new Option(candidate.m.split("-").slice(-1)[0], candidate.m));
+              });
+            if (!Array.from(select.options).some(function (opt) { return opt.value === entry.section.m; })) {
+              select.add(new Option("Original", entry.section.m));
+            }
+            select.value = entry.section.m;
+            select.addEventListener("change", function () {
+              entry.section = Object.assign({}, entry.section, { m: select.value });
+              render();
+            });
+            item.appendChild(text);
+            item.appendChild(select);
+            item.appendChild(button("↑", "Subir " + group(entry.section), function () {
+              if (index > 0) { ordered.splice(index - 1, 0, ordered.splice(index, 1)[0]); render(); }
+            }));
+            item.appendChild(button("↓", "Bajar " + group(entry.section), function () {
+              if (index < ordered.length - 1) { ordered.splice(index + 1, 0, ordered.splice(index, 1)[0]); render(); }
+            }));
+            item.appendChild(button("×", "Quitar " + group(entry.section), function () {
+              ordered.splice(index, 1); render();
+            }));
+            list.appendChild(item);
+          });
+          counter.textContent = "Hero + " + ordered.length + " secciones · " + (ordered.length + 1) +
+            " de " + included + " incluidas.";
+          var usedGroups = new Set(ordered.map(function (entry) { return group(entry.section); }));
+          var extras = candidates.filter(function (candidate) { return !usedGroups.has(group(candidate)); });
+          addSelect.replaceChildren(new Option("Elegí una sección", ""));
+          extras.forEach(function (entry) { addSelect.add(new Option(group(entry), entry.m)); });
+          addButton.disabled = !extras.length || ordered.length >= included - 1;
+          accept.disabled = ordered.length < 1;
+        }
+        addButton.onclick = function () {
+          if (!addSelect.value || ordered.length >= included - 1) return;
+          var section = candidates.find(function (entry) { return entry.m === addSelect.value; });
+          if (section) ordered.push({ section: section, reason: "Agregada manualmente durante la revisión" });
+          render();
+        };
+        cancel.onclick = function () { done(false); };
+        accept.onclick = function () { done(true); };
+        dialog.oncancel = function (event) { event.preventDefault(); done(false); };
+        render();
+        dialog.showModal();
+      });
+    }
+
     function generate() {
       if (!clientField.value || !nameField.value.trim() || !planField.value) {
         status.textContent = "Elegí cliente, nombre y plan de esta landing.";
@@ -1466,6 +1555,14 @@
         candidates.forEach(function (section) {
           addRecommended(section, "Sugerencia de plantilla; verificá si corresponde al negocio.");
         });
+        // Revisar visualmente la estructura antes de ensamblar módulos y textos.
+        return proposeStructure(sections, explanations, candidates, included).then(function (selected) {
+          if (!selected) {
+            status.textContent = "Propuesta cancelada. No se modificó ninguna landing.";
+            return;
+          }
+          sections = selected.map(function (entry) { return entry.section; });
+          explanations = selected.map(function (entry) { return { name: byId[entry.section.m].group, reason: entry.reason }; });
         // No se inventan datos ni se supera el cupo del plan.
         var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
         var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
@@ -1534,6 +1631,7 @@
             " Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
             (facts ? " Datos detectados para comprobar: " + facts : "") +
             " Las URLs de Instagram y web no se consultaron automáticamente.", "warn");
+        });
       }).catch(function (error) {
         status.textContent = error.message || "No pudimos generar el borrador.";
       }).finally(function () { button.disabled = false; });
