@@ -379,8 +379,8 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(site["pagos"][-1]["monto_centavos"], 1990050)
         self.assertEqual(len(site["pagos"]), 1)
         self.assertTrue(sim.repo_file("lanzate-datos", "gestion/clientes.json"))
-        with self.assertRaises(Exception):
-            sim.repo_file("repositorio-modulos", "gestion/clientes.json")
+        self.assertFalse(sim.repo_file("repositorio-modulos", "gestion/clientes.json"),
+                         "Los movimientos financieros no deben guardarse en el repositorio público.")
         # Los registros comerciales no aparecen en las API públicas.
         public_status, public_row = self.team.call("GET", "/api/clientes/%d" % client_id)
         self.assertEqual(public_status, 200)
