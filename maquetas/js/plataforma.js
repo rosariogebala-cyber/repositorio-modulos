@@ -340,7 +340,9 @@
     opts = opts || {};
     var li = document.createElement("li");
     li.className = "lb-saved-item";
-    var count = lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos;
+    var count = (lp.borrador_estado && lp.borrador_estado !== "sin_borrador")
+      ? (lp.borrador_modulos || lp.cantidad_modulos || 0)
+      : (lp.cantidad_modulos == null ? (lp.items || []).length : lp.cantidad_modulos);
     var when = new Date(lp.actualizado).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }).replace(/ de /g, " ");
     var meta = [plural(count, "módulo", "módulos"), '<span title="' + esc(formatDate(lp.actualizado)) + '">' + esc(when) + "</span>"];
     if (lp.plan_nombre) meta.push("Plan " + esc(lp.plan_nombre) + (lp.plan_individual ? " · propio" : " · heredado"));
@@ -349,6 +351,10 @@
         (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
     }
     var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">Ampliación a revisar: ' + esc(lp.aviso_plan) + "</b></small>" : "";
+    if (lp.borrador_estado && lp.borrador_estado !== "sin_borrador") {
+      var stageText = { borrador: "Borrador pendiente", revision: "En revisión", aprobado: "Aprobado, sin publicar" };
+      meta.push('<span class="lb-badge">' + esc(stageText[lp.borrador_estado] || "Borrador") + "</span>");
+    }
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -356,15 +362,16 @@
     };
     li.title = lp.path;
     li.innerHTML =
-      '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' +
+      (lp.disponible ? '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' :
+       '<span class="lb-saved-thumb" aria-label="Borrador no publicado de ' + esc(lp.nombre) + '">') +
       (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="Vista previa de ' + esc(lp.nombre) + '" loading="lazy">' : "") +
-      '<i class="bi bi-window" aria-hidden="true"></i></a>' +
+      '<i class="bi bi-window" aria-hidden="true"></i>' + (lp.disponible ? '</a>' : '</span>') +
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
       (opts.showClient ? '<small class="lb-saved-client"><a href="cliente.html?id=' + lp.cliente_id + '">' + esc(lp.cliente) + "</a></small>" : "") +
       "<small>" + meta.join(" · ") + "</small>" +
       (lp.disponible ? "" : '<small><b class="pf-missing">Sin publicar</b></small>') + planWarn + "</span>" +
       '<span class="lb-saved-actions">' +
-      icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") +
+      (lp.disponible ? icon("a", 'href="' + esc(lp.url) + '" target="_blank" rel="noopener"', "bi-box-arrow-up-right", "Abrir") : "") +
       (opts.onEdit
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
