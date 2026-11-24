@@ -205,6 +205,11 @@ def move(s, landing_id, action, data):
             raise s.ApiError(400, "Publicación bloqueada: " + "; ".join(errors[:8]))
         # ÚNICO punto que escribe la landing pública.
         published = s.save_landing(draft["contenido"], landing_id, origen="aprobado_por_equipo")
+        if draft.get("extras_aprobados"):
+            with s.store("landings") as db:
+                row = s.find_landing(db, landing_id)
+                row["extras_aprobados"] = True
+                row["aprobacion_comercial_fecha"] = draft.get("aprobacion_comercial_fecha")
         s.FILES.delete("datos", path(landing_id))
         published["borrador_estado"] = "sin_borrador"
         return published
