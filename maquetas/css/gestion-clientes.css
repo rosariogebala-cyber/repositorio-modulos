@@ -1,0 +1,39 @@
+/* Backoffice operativo: accesible y legible en pantallas pequeñas. */
+.gc-main { max-width:1540px; }
+.gc-status { margin:12px 0; color:#283451; }
+.gc-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:20px 0; }
+.gc-kpi,.gc-panel,.gc-landing { background:#fff; border:1px solid #d5d8e3; border-radius:12px; padding:16px; }
+.gc-kpi { display:flex; flex-direction:column; gap:6px; }
+.gc-kpi-number { font-size:1.9rem; font-weight:750; color:#21334b; font-variant-numeric:tabular-nums; }
+.gc-muted { display:block; font-size:.87rem; color:#475467; }
+.gc-danger { color:#a31e32; font-weight:700; }
+.gc-warning { color:#87470d; font-weight:700; }
+.gc-panel { margin:18px 0; }
+.gc-panel h2 { font-size:1.25rem; margin:0 0 8px; }
+.gc-panel-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+.gc-filters { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:20px 0; }
+.gc-filters label { display:flex; flex-direction:column; font-weight:650; gap:6px; min-width:220px; }
+.gc-filters label:first-child { flex:1; }
+.gc-table-wrap { overflow:auto; max-width:100%; border:1px solid #dce0e8; border-radius:10px; }
+.gc-table { border-collapse:collapse; width:100%; min-width:950px; text-align:left; font-size:.89rem; }
+.gc-table th,.gc-table td { padding:12px 14px; vertical-align:top; border-bottom:1px solid #e2e5eb; }
+.gc-table thead { background:#f1f4f7; }
+.gc-table tbody tr:hover { background:#f7f9fc; }
+.gc-table td a { font-weight:650; text-decoration:underline; text-underline-offset:3px; }
+.gc-plan { line-height:1.5; }
+.gc-contract { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.gc-contract label, .gc-payment-form label { display:flex; flex-direction:column; gap:6px; font-weight:650; }
+.gc-wide { grid-column:1/-1; }
+.gc-contract textarea { min-height:90px; resize:vertical; }
+.gc-payment-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; padding:16px; background:#f7f9fc; border-radius:12px; }
+.gc-payment-form[hidden] { display:none; }
+.gc-profile-summary { display:grid; gap:12px; }
+.gc-landing { padding:12px; }
+.gc-landing a { font-weight:700; }
+.gc-profile-finance { margin-top:20px; }
+.gc-payment-form [hidden] { display:none; }
+.gc-main :is(input,button,textarea,select,a):focus-visible,.gc-profile :is(input,button,textarea,select,a):focus-visible{
+ outline:3px solid #4935b5;outline-offset:3px;
+}
+.gc-main button, .gc-profile button { min-height:44px; }
+@media(max-width:680px){.gc-contract,.gc-payment-form{grid-template-columns:1fr;}.gc-filters label{min-width:100%;}.gc-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
