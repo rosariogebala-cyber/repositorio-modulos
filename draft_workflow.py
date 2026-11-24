@@ -97,6 +97,8 @@ def save(s, data, landing_id=None):
                    "plan_id": plan_id, "plan_condiciones": dict(plan)}
             db["landings"].append(row)
         landing_id = row["id"]
+        row["borrador_estado"] = "borrador"
+        row["borrador_modulos"] = len(content.get("items") or [])
     previous = read(s, landing_id)
     if previous and data.get("base_revision") is not None and data["base_revision"] != previous.get("revision"):
         raise s.ApiError(409, "Hay una versión más nueva del borrador. Recargá para evitar sobrescribirla.")
@@ -209,6 +211,9 @@ def move(s, landing_id, action, data):
     else:
         raise s.ApiError(409, "Transición no permitida. Guardá, enviá a revisión y aprobá primero.")
     write(s, landing_id, draft)
+    with s.store("landings") as db:
+        row = s.find_landing(db, landing_id)
+        row["borrador_estado"] = draft["estado"]
     return project(s, landing_id)
 
 
@@ -223,6 +228,9 @@ def discard(s, landing_id, data):
         row = s.find_landing(db, landing_id)
         if not row.get("html"):
             db["landings"].remove(row)
+        else:
+            row["borrador_estado"] = "sin_borrador"
+            row["borrador_modulos"] = 0
     s.FILES.delete("datos", path(landing_id))
     return {"ok": True, "borrador_estado": "sin_borrador", "id": landing_id}
 
