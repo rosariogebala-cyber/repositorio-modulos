@@ -45,3 +45,10 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - PR comercial https://github.com/rosariogebala-cyber/lanzate/pull/5: smoke y sintaxis aprobados (run 45453693523).
 - Se incorporó matriz comercial Playwright/axe de 27 casos en commit 282ac35f38a53847dd667f57f7c8cb8ff8637458 del repo lanzate. Pendiente de ejecución, no equivale a conformidad WCAG ni validación real de entrega de contactos.
 - RC1 plataforma: API run 45453458789 aprobada; browser run 45453458866 fallida. No fusionar ni publicar hasta resolver.
+
+
+### Seguimiento de autenticación — 2026-11-24
+- API y landings: run 45458281700 aprobada.
+- Navegador: run 45458281533 fallida (62/78 registros, 2 fallos de autenticación WebKit, 0 registros con violaciones axe confirmadas, 28 con comprobaciones incompletas). El diagnóstico confirma sitio correcto en login, sesión e inicio; inicio responde 401 incluso tras login 200. No está confirmada la causa raíz.
+- Commit 920b993c17fc2cc075b8583eb5496bab8d2634af: contexto de navegador independiente para el flujo autenticado del cliente; regresión pendiente. No se modifica autenticación de producción ni se reducen controles.
+- Bloqueos comerciales: correo y WhatsApp ficticios; no habilitar contratación hasta configurar datos reales y verificar entrega. Preview sigue pendiente de aislamiento. NO-GO.
