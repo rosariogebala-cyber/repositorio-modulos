@@ -32,6 +32,8 @@ jobs:
       - run: python scripts/check-landing-quality.py
       - name: Consistencia entre planes, cupos y biblioteca
         run: python scripts/test-plan-consistency.py
+      - name: Gestión de clientes, cobros, fechas y monedas
+        run: python scripts/test-gestion-clientes.py
       - name: Asistente IA desde referencias y validación segura
         run: python scripts/test-reference-assistant.py
       - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar y armado desde los datos)
