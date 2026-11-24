@@ -835,7 +835,7 @@
           '<div class="cf-hero-main">' + avatar(c, "xl") +
             '<div class="cf-hero-text">' +
               '<p class="cf-kicker">' + esc(c.rubro || "Cliente") + "</p>" +
-              "<h1>" + esc(c.nombre) + "</h1>" +
+              "<h2>" + esc(c.nombre) + "</h2>" +
               '<p class="cf-hero-meta">' + status(c) +
                 '<span class="cf-pill' + (plan ? " is-plan" : "") + '"><i class="bi bi-stars" aria-hidden="true"></i> ' + esc(plan ? "Plan " + plan.nombre : "Sin plan") + "</span>" +
                 '<span class="cf-pill"><i class="bi bi-' + (c.tipo_cliente === "demo" ? "easel" : "patch-check") + '" aria-hidden="true"></i> ' + (c.tipo_cliente === "demo" ? "Demo" : "Cliente real") + "</span>" +
