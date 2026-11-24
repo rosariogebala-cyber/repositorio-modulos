@@ -2835,7 +2835,9 @@ def publish(data):
     message = " ".join(str(data.get("mensaje") or "").split())[:200] or "Actualiza landings desde el panel"
     sync_plans()
     try:
-        armado = [armado_result(rebuild_from_data())]
+        # Publicar global solo vuelve a desplegar versiones ya aprobadas.
+        # No reconstruye ni guarda módulos pendientes de revisión.
+        armado = [armado_result(rebuild_from_data(apply=False))]
     except ArmadoError as error:
         datos = armado_mode() == "datos"
         armado = [{"carpeta": "Armado desde los datos", "ok": not datos,
@@ -4254,7 +4256,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return save_landing(self.read_json())
         if name == "landing":
             if method == "GET":
-                if (query.get("modo") or [""])[0] == "sitio":
+                # Rearmado/portal leen solo la versión publicada, nunca el borrador privado.
+                if (query.get("modo") or [""])[0] == "sitio" or (query.get("rearmar") or [""])[0] == "1":
                     return get_landing(ident)
                 import sys
                 return draft_workflow.project(sys.modules[__name__], ident)
@@ -4262,6 +4265,9 @@ class Handler(SimpleHTTPRequestHandler):
                 data = self.read_json()
                 if set(data) == {"ejemplo"}:
                     return set_landing_example(ident, data["ejemplo"])
+                import sys
+                if draft_workflow.read(sys.modules[__name__], ident):
+                    raise ApiError(409, "Hay un borrador pendiente. Usá Revisar, Aprobar y Publicar para no sobrescribirlo.")
                 return save_landing(data, ident)
             if method == "DELETE":
                 delete_landing(ident)
