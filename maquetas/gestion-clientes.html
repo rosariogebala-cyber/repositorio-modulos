@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Resumen de clientes · Lanzate</title>
+  <link rel="icon" href="../assets/favicon-lanzate.svg" type="image/svg+xml">
+  <link href="css/lanzate.css?v=gestion-2" rel="stylesheet">
+  <link href="css/gestion-clientes.css?v=2" rel="stylesheet">
+</head>
+<body class="lib-page pf-page" data-page="gestion-clientes">
+  <a class="lib-skip-link" href="#contenido-principal">Saltar al contenido</a>
+  <header class="lib-header">
+    <a class="lib-brand" href="gestion-clientes.html">LANZATE</a>
+    <nav aria-label="Navegación principal">
+      <a class="is-current" aria-current="page" href="gestion-clientes.html">Resumen</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="landings.html">Landings</a>
+      <a href="../index.html">Biblioteca de módulos</a>
+      <a href="reglas.html">Reglas</a>
+    </nav>
+    <a class="btn-nx btn-sm" href="constructor.html">+ Crear landing</a>
+  </header>
+  <main class="pf-main gc-main" id="contenido-principal" tabindex="-1">
+    <div class="pf-head">
+      <div><p class="lb-kicker">Gestión · Panorama general</p>
+        <h1 class="pf-title">Resumen de clientes</h1>
+        <p class="pf-sub">Clientes, planes por landing, pagos registrados y solicitudes pendientes en un solo lugar.</p>
+      </div>
+      <a class="btn-nx" href="clientes.html?nuevo=1">+ Nuevo cliente</a>
+    </div>
+    <p role="status" aria-live="polite" class="gc-status" data-gc-status>Cargando panorama…</p>
+    <section aria-label="Indicadores del negocio" class="gc-kpis" data-gc-kpis></section>
+    <section class="gc-panel" aria-labelledby="gcClientsTitle">
+      <div class="gc-panel-head"><div><h2 id="gcClientsTitle">Cartera de clientes</h2><p>Solo se cuentan pagos registrados. Los que aún no tienen movimientos figuran como «Sin datos».</p></div>
+        <button class="btn-nx-outline btn-sm" type="button" data-gc-export>Exportar CSV</button>
+      </div>
+      <div class="gc-filters">
+        <label for="gcSearch">Buscar cliente
+          <input id="gcSearch" data-gc-search class="lb-input" type="search" placeholder="Nombre, email, plan o landing">
+        </label>
+        <label for="gcFilter">Mostrar
+          <select id="gcFilter" data-gc-filter class="lb-input">
+            <option value="todos">Todos</option>
+            <option value="pagos">Con pagos pendientes</option>
+            <option value="vencidos">Con pagos vencidos</option>
+            <option value="cambios">Con solicitudes pendientes</option>
+            <option value="sin-registro">Sin registro de cobros</option>
+          </select>
+        </label>
+      </div>
+      <div class="gc-table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable de clientes">
+        <table class="gc-table">
+          <caption class="visually-hidden">Estado comercial y operativo de los clientes de Lanzate</caption>
+          <thead><tr><th scope="col">Cliente</th><th scope="col">Alta / inicio</th><th scope="col">Landings y planes</th><th scope="col">Cobros</th><th scope="col">Próximo vencimiento</th><th scope="col">Cambios pendientes</th><th scope="col">Acción</th></tr></thead>
+          <tbody data-gc-rows></tbody>
+        </table>
+      </div>
+      <p data-gc-empty class="pf-empty" hidden>No hay clientes que coincidan con los filtros.</p>
+    </section>
+  </main>
+  <script src="js/plataforma.js?v=gestion-2"></script>
+  <script src="js/gestion-clientes.js?v=2"></script>
+</body>
+</html>
