@@ -3,6 +3,33 @@
 
   var OFFLINE = "El panel no responde. Abrí la Terminal en Lanzate_modulos y corré: python3 server.py";
 
+  /* Navegación operativa: cliente primero, después constructor, sin duplicar enlaces. */
+  (function arrangeNavigation() {
+    var nav = document.querySelector(".lib-header nav");
+    if (!nav) return;
+    var route = location.pathname;
+    var entries = [
+      ["Resumen", "gestion-clientes.html", /\/gestion-clientes\.html$/],
+      ["Clientes", "clientes.html", /\/(?:clientes|cliente)\.html$/],
+      ["Crear landing", "constructor.html", /\/constructor\.html$/],
+      ["Landings", "landings.html", /\/landings\.html$/],
+      ["Biblioteca", "../index.html", /\/index\.html$/],
+      ["Maquetas", "index.html", /\/maquetas\/index\.html$/],
+      ["Reglas", "reglas.html", /\/reglas\.html$/]
+    ];
+    nav.replaceChildren();
+    entries.forEach(function (entry) {
+      var anchor = document.createElement("a");
+      anchor.href = entry[1];
+      anchor.textContent = entry[0];
+      if (entry[2].test(route)) {
+        anchor.classList.add("is-current");
+        anchor.setAttribute("aria-current", "page");
+      }
+      nav.appendChild(anchor);
+    });
+  })();
+
   var currentNav = document.querySelector(".lib-header nav .is-current");
   if (currentNav && currentNav.parentElement.scrollWidth > currentNav.parentElement.clientWidth) {
     var nav = currentNav.parentElement;
@@ -10,7 +37,7 @@
     nav.scrollLeft = left - (nav.clientWidth - currentNav.offsetWidth) / 2;
   }
 
-  var panelPage = /\/(?:constructor|landings|clientes|cliente|reglas)\.html$/.test(location.pathname);
+  var panelPage = /\/(?:constructor|landings|clientes|cliente|gestion-clientes|reglas)\.html$/.test(location.pathname);
   var SESSION = { ok: true, requiere: false, online: false };
 
   /* Clave del equipo: si no hay sesión, al login */

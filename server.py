@@ -18,6 +18,7 @@ Uso:
 import base64
 import datetime
 import draft_workflow
+import client_management
 import secrets
 import hashlib
 import hmac
@@ -75,6 +76,9 @@ IMG_TOKEN = re.compile(r"lzimg:(\d+):(\d+)")
 ABS_REF = re.compile(r"""(?<=["'(\s,=])/(?=(?:maquetas|assets|l|privacidad|terminos)(?:/|["'?#\s)]))|(?<=&quot;)/(?=(?:maquetas|assets|l)/)""")
 
 ROUTES = [
+    (re.compile(r"^/api/gestion/clientes$"), "gestion-clientes"),
+    (re.compile(r"^/api/gestion/clientes/(\d+)$"), "gestion-cliente"),
+    (re.compile(r"^/api/gestion/clientes/(\d+)/movimientos$"), "gestion-movimientos"),
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
@@ -129,7 +133,7 @@ PANEL_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.
              "media-src 'self' data: blob: https:; frame-src 'self' https://www.google.com https://maps.google.com "
              "https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self'; "
              "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
-PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
+PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "gestion-clientes", "reglas")}
 COOKIE = "lz_sesion"
 SESSION_DAYS = 7
 
@@ -2075,6 +2079,7 @@ def delete_client(client_id):
                            % (row["nombre"], count, "" if count == 1 else "s"))
         db["clientes"].remove(row)
     FILES.delete("modulos", "l/" + row["slug"])
+    FILES.delete("datos", client_management.path(client_id))
     FILES.delete("datos", "pedidos/" + row["slug"])  # las fotos de sus pedidos también se borran
     return row["nombre"]
 
@@ -4228,6 +4233,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return remove_change_request(ident, int_value((query.get("fecha") or ["0"])[0], None, "La fecha del pedido no es válida."))
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
+        if name == "gestion-clientes" and method == "GET":
+            import sys
+            return client_management.dashboard(sys.modules[__name__])
+        if name == "gestion-cliente":
+            import sys
+            if method == "GET":
+                return client_management.get(sys.modules[__name__], ident)
+            if method == "PUT":
+                return client_management.save_settings(sys.modules[__name__], ident, self.read_json())
+        if name == "gestion-movimientos" and method == "POST":
+            import sys
+            return client_management.movement(sys.modules[__name__], ident, self.read_json())
         if name == "clientes":
             if method == "GET":
                 return list_clients()
