@@ -72,6 +72,9 @@
     var alertStatus = document.querySelector("[data-gc-alert-status]");
     var alertEmpty = document.querySelector("[data-gc-alert-empty]");
     function renderAlerts() {
+      var focusLink = document.activeElement;
+      var selectedId = alertList.contains(focusLink) && focusLink.closest(".gc-alert-item")
+        ? focusLink.closest(".gc-alert-item").dataset.alertId : null;
       var choice = alertType.value;
       var items = alerts.filter(function (entry) {
         return choice === "todas" || (choice === "urgentes" ? entry.prioridad <= 1 : entry.tipo === choice);
@@ -79,6 +82,7 @@
       alertList.replaceChildren();
       items.forEach(function (entry) {
         var li = element("li","gc-alert-item");
+        li.dataset.alertId = entry.id;
         var level = element("span",entry.prioridad <= 1 ? "gc-alert-severity is-urgent" : "gc-alert-severity",
           entry.prioridad <= 1 ? "Prioritaria" : "Próxima");
         var text = element("div","gc-alert-content");
@@ -97,6 +101,10 @@
         li.appendChild(level); li.appendChild(text); li.appendChild(link);
         alertList.appendChild(li);
       });
+      if (selectedId) {
+        var matching = Array.from(alertList.children).find(function (item) { return item.dataset.alertId === selectedId; });
+        if (matching) matching.querySelector("a").focus();
+      }
       alertCount.textContent = "(" + alerts.length + ")";
       alertEmpty.hidden = items.length > 0;
       alertStatus.textContent = items.length + " alerta(s) visibles de " + alerts.length +
@@ -151,15 +159,14 @@
       empty.hidden = shown.length !== 0;
       status.textContent = "Mostrando " + shown.length + " de " + clients.length + " clientes.";
     }
-    var dashboardLoaded = false;
     function loadDashboard(silent) {
       return api("GET", "/api/gestion/clientes").then(function (data) {
       clients = data.clientes;
       alerts = data.alertas || [];
       renderAlerts();
-      if (dashboardLoaded) { render(); return; }
       dashboardLoaded = true;
       var summary = data.resumen;
+      kpis.replaceChildren();
       [["Clientes",summary.total],["Activos",summary.activos],["Landings publicadas",summary.landings_publicadas],
        ["Cambios pendientes",summary.solicitudes_pendientes],
        ["Clientes con pagos pendientes",summary.clientes_con_pagos_pendientes],
