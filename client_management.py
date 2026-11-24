@@ -45,13 +45,67 @@ def load(s, client_id):
             "revision": data.get("revision") or 0}
 
 
+def client_timeline(client, landings, info):
+    """Actividad consolidada y limitada: pedidos, movimientos, landings y seguimiento.
+    No se incluyen claves, archivos, HTML ni datos del portal."""
+    events = []
+    names = {l["id"]: l["nombre"] for l in landings}
+    for item in landings:
+        timestamp = item.get("creado")
+        if type(timestamp) is int and timestamp > 0:
+            events.append({"tipo": "landing", "estado": "creada", "fecha": timestamp,
+                           "titulo": "Landing creada: " + str(item["nombre"])[:120],
+                           "detalle": (item.get("plan_id") or client.get("plan") or "Sin plan"),
+                           "landing_id": item["id"]})
+        updated = item.get("actualizado")
+        if type(updated) is int and updated > (timestamp if type(timestamp) is int else 0):
+            events.append({"tipo": "landing", "estado": "actualizada", "fecha": updated,
+                           "titulo": "Landing actualizada: " + str(item["nombre"])[:120],
+                           "detalle": "Cambios en el constructor", "landing_id": item["id"]})
+    for request in client.get("pedidos") or []:
+        timestamp = request.get("fecha")
+        if type(timestamp) is not int or timestamp <= 0:
+            continue
+        req_name = str(request.get("landing") or "Pedido general")[:120]
+        state = str(request.get("estado") or "pendiente")
+        events.append({"tipo": "solicitud", "estado": state, "fecha": timestamp,
+                       "titulo": "Solicitud de cambios: " + req_name,
+                       "detalle": str(request.get("nota") or "")[:160],
+                       "id": str(request.get("id") or timestamp)})
+        resolved = request.get("resuelto")
+        if type(resolved) is int and resolved > timestamp:
+            events.append({"tipo": "solicitud", "estado": state, "fecha": resolved,
+                           "titulo": "Solicitud resuelta: " + req_name,
+                           "detalle": "Estado: " + state, "id": str(request.get("id") or timestamp)})
+    for movement in info.get("movimientos") or []:
+        timestamp = movement.get("creado")
+        if type(timestamp) is not int or timestamp <= 0:
+            continue
+        state = movement.get("estado") or "pendiente"
+        title = "Cobro registrado" if state == "pagado" else "Movimiento comercial registrado"
+        events.append({"tipo": "pago", "estado": state, "fecha": timestamp,
+                       "titulo": title, "detalle": str(movement.get("concepto") or "")[:160],
+                       "moneda": movement.get("moneda"), "importe_centavos": movement.get("importe_centavos"),
+                       "landing": names.get(movement.get("landing_id"), "General")})
+    if client.get("creado"):
+        events.append({"tipo": "cliente", "estado": "alta", "fecha": client["creado"],
+                       "titulo": "Cliente registrado", "detalle": ""})
+    return sorted(events, key=lambda ev: ev["fecha"], reverse=True)[:60]
+
+
 def get(s, client_id):
     with s.store("clientes", "landings", save=False) as db:
         client = s.find_client(db, client_id)
         landings = [l for l in db["landings"] if l["cliente_id"] == client_id]
-        pending = sum(p.get("estado") == "pendiente" for p in (client.get("pedidos") or []))
+        requests = client.get("pedidos") or []
+        pending = sum(p.get("estado") == "pendiente" for p in requests)
+        # No exponer el objeto portal ni contraseñas al endpoint comercial.
+        identity = {field: client.get(field) or "" for field in
+                    ("nombre", "contacto", "email", "telefono", "rubro", "estado", "sitio")}
+        identity["creado"] = client.get("creado") or 0
     data = load(s, client_id)
     data["cliente_id"] = client_id
+    data["cliente"] = identity
     data["solicitudes_pendientes"] = pending
     data["landings"] = [{
         "id": row["id"], "nombre": row["nombre"], "slug": row["slug"],
@@ -63,6 +117,27 @@ def get(s, client_id):
         "cambios": s.plan_status(client, row),
         "url": "/l/%s/%s/" % (client["slug"], row["slug"]),
     } for row in landings]
+    data["solicitudes"] = [{
+        "id": str(p.get("id") or p.get("fecha") or ""),
+        "fecha": p.get("fecha") if type(p.get("fecha")) is int else None,
+        "estado": p.get("estado") or "pendiente",
+        "landing": str(p.get("landing") or "General")[:120],
+        "nota": str(p.get("nota") or "")[:300],
+        "fuera_de_plan": str(p.get("fuera_de_plan") or "")[:120],
+    } for p in sorted(requests, key=lambda p: p.get("fecha") if type(p.get("fecha")) is int else 0, reverse=True)[:40]]
+    zone = ZoneInfo("America/Argentina/Buenos_Aires")
+    now = datetime.now(zone)
+    data["alertas"] = sorted(followup_alerts(client, data, now.date(), int(now.timestamp() * 1000), zone),
+                             key=lambda a: (a["prioridad"], a["fecha"] or "9999-12-31", a["id"]))[:40]
+    data["actividad"] = client_timeline(client, landings, data)
+    amounts = {ccy: sum(m.get("importe_centavos") or 0 for m in data["movimientos"]
+                        if m.get("moneda") == ccy and m.get("estado") == "pendiente") for ccy in CURRENCIES}
+    data["resumen_360"] = {
+        "landings": len(landings), "publicadas": sum(bool(l.get("html")) for l in landings),
+        "cambios_pendientes": pending, "pagos_pendientes": sum(m.get("estado") == "pendiente" for m in data["movimientos"]),
+        "saldos_pendientes": amounts, "alertas_urgentes": sum(a["prioridad"] <= 1 for a in data["alertas"]),
+        "movimientos_registrados": len(data["movimientos"]),
+    }
     return data
 
 
