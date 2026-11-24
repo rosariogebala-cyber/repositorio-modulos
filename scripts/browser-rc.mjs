@@ -42,7 +42,15 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           finally {page.off('pageerror',onError);}
         }
         // Do not let the team cookie mask missing portal authorization.
-        await context.clearCookies();
+        await context.close();
+        const portalContext = await browser.newContext({viewport:{width,height:900}});
+        try {
+        await portalContext.route('**/*', route => {
+          const u = new URL(route.request().url());
+          if (u.origin === base.origin || (u.protocol === 'https:' && allowedStatic.has(u.hostname) && route.request().method() === 'GET' && ['stylesheet','font'].includes(route.request().resourceType()))) return route.continue();
+          return route.abort();
+        });
+        const page = await portalContext.newPage();
         const portalPath='/portal/'+encodeURIComponent(process.env.QA_SLUG)+'/';
         const errors=[];
         const onError=e=>errors.push(String(e));
@@ -67,7 +75,7 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
             return r.ok && (await r.json()).ok===true;
           },process.env.QA_SLUG,{timeout:10000});
           await page.locator('[data-app]').waitFor({state:'visible'});
-          assert.equal((await context.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
+          assert.equal((await portalContext.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
           for (const tab of ['resumen','web','pedidos','visitas','consultas','plan','marca','contacto','cuenta']) {
             const before=errors.length;
             try {
@@ -84,9 +92,10 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           }
           await page.locator('[data-logout]').click();
           await page.locator('[data-login-form]').waitFor({state:'visible'});
-          assert.equal((await context.request.get(base.origin+'/api/portal/inicio?sitio='+encodeURIComponent(process.env.QA_SLUG))).status(),401,'Logout must revoke browser access');
+          assert.equal((await portalContext.request.get(base.origin+'/api/portal/inicio?sitio='+encodeURIComponent(process.env.QA_SLUG))).status(),401,'Logout must revoke browser access');
         } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e),errors,requests});}
         finally {page.off('pageerror',onError);page.off('response',onResponse);page.off('requestfailed',onFailed);}
+        } finally {await portalContext.close();}
       } finally {await context.close();}
     }
   } finally {await browser.close();}
