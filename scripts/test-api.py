@@ -504,7 +504,7 @@ class DataBuildTest(unittest.TestCase):
         self.assertEqual(status, 200, out)
         self.assertTrue(all(r["ok"] for r in out["resultados"]), out)
         armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
-        self.assertIn("compar", armado["detalle"].lower())
+        self.assertIn("dan igual", armado["detalle"])
         after = read_js("lanzate-datos", "data/landings.js")
         self.assertEqual([row.get("html") for row in before], [row.get("html") for row in after])
         self.assertEqual([row.get("items") for row in before], [row.get("items") for row in after])
