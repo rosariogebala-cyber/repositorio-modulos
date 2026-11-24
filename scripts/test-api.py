@@ -358,6 +358,59 @@ class ApiTest(unittest.TestCase):
         self.assertNotIn(lead_id, sim.STORE.get("lz:c:%d" % self.client_id) or {})
         self.assertEqual(Client(self.base, "10.10.0.3").call("DELETE", "/api/portal/consultas/%s?sitio=%s" % (lead_id, self.slug))[0], 401)
 
+    def test_borrador_revision_aprobacion_publicacion(self):
+        """El borrador nunca actualiza la página pública hasta publicar una versión aprobada."""
+        original = next(l for l in read_js("lanzate-datos", "data/landings.js")
+                        if l["id"] == self.landing["id"])
+        before = sim.repo_file("repositorio-modulos",
+                               "l/%s/%s/index.html" % (self.slug, original["slug"]))
+        body = {"cliente_id": original["cliente_id"], "nombre": original["nombre"],
+                "plan_id": original.get("plan_id") or "express",
+                "html": original["html"], "items": original["items"],
+                "estilo": original.get("estilo") or "",
+                "descripcion": "Descripción de prueba para SEO", "animacion": ""}
+        status, draft = self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)
+        self.assertEqual(status, 200, draft)
+        self.assertEqual(draft["borrador_estado"], "borrador")
+        self.assertEqual(original["html"], next(l for l in read_js("lanzate-datos", "data/landings.js")
+                         if l["id"] == original["id"])["html"])
+        self.assertEqual(before, sim.repo_file("repositorio-modulos",
+                         "l/%s/%s/index.html" % (self.slug, original["slug"])))
+        status, out = self.team.call("POST", "/api/landings/%d/publicar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 409, out)
+        # No publicar ni cambiar el HTML público si falla la validación de QA.
+        status, out = self.team.call("POST", "/api/landings/%d/revision" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        if status == 400:
+            self.assertIn("Corregí", out.get("error", "") or str(out))
+            return
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "revision")
+        status, out = self.team.call("POST", "/api/landings/%d/aprobar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "aprobado")
+        status, out = self.team.call("POST", "/api/landings/%d/publicar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "sin_borrador")
+        self.assertEqual(self.team.call("GET", "/api/landings/%d/borrador" % original["id"])[1]["borrador_estado"],
+                         "sin_borrador")
+
+    def test_borrador_privado_control_de_revision(self):
+        original = self.landing
+        body = {"cliente_id": original["cliente_id"], "nombre": original["nombre"],
+                "plan_id": original.get("plan_id") or "express",
+                "html": original["html"], "items": original["items"]}
+        status, draft = self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)
+        self.assertEqual(status, 200, draft)
+        anon = Client(self.base, "10.88.9.1")
+        self.assertEqual(anon.call("GET", "/api/landings/%d/borrador/vista" % original["id"])[0], 401)
+        self.assertEqual(anon.call("GET", "/api/landings/%d/borrador" % original["id"])[0], 401)
+        body["base_revision"] = draft["borrador_revision"] - 1
+        self.assertEqual(self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)[0], 409)
+
     def test_publish(self):
         before = read_js("lanzate-datos", "data/landings.js")
         status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Prueba"})
