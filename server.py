@@ -133,7 +133,7 @@ PANEL_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.
              "media-src 'self' data: blob: https:; frame-src 'self' https://www.google.com https://maps.google.com "
              "https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com; connect-src 'self'; "
              "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
-PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "reglas")}
+PANEL_PAGES = {"/maquetas/%s.html" % name for name in ("constructor", "landings", "clientes", "cliente", "gestion-clientes", "reglas")}
 COOKIE = "lz_sesion"
 SESSION_DAYS = 7
 
