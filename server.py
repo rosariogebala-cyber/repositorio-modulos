@@ -896,7 +896,7 @@ def set_portal_access(client_id, data):
         raise ApiError(400, "El usuario usa letras, números, punto, guion o arroba, de 3 a 60 caracteres.")
     clave = str(data.get("clave") or "").strip()
     if not clave:
-        clave = "-".join(secrets.choice(PASSWORD_WORDS) for _ in range(3)) + str(secrets.randbelow(90) + 10)
+        clave = secrets.token_urlsafe(18)
     elif not 8 <= len(clave) <= 128:
         raise ApiError(400, "La contraseña tiene que tener entre 8 y 128 caracteres.")
     with store("clientes") as db:
@@ -919,8 +919,6 @@ def clear_password_request(client_id):
     return get_client(client_id)
 
 
-PASSWORD_WORDS = ("sol", "mar", "luna", "rio", "pino", "faro", "nube", "lima", "roble", "trigo", "vela", "cielo",
-                  "brisa", "coral", "menta", "arena", "selva", "norte", "lago", "olivo")
 
 
 def portal_token(client_id, version):
