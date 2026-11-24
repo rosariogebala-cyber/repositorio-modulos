@@ -167,7 +167,8 @@
       dashboardLoaded = true;
       var summary = data.resumen;
       kpis.replaceChildren();
-      [["Clientes",summary.total],["Activos",summary.activos],["Landings publicadas",summary.landings_publicadas],
+      [["Clientes",summary.total],["Activos",summary.activos],["Alertas urgentes",(data.alertas_resumen || {}).urgentes || 0],
+       ["Landings publicadas",summary.landings_publicadas],
        ["Cambios pendientes",summary.solicitudes_pendientes],
        ["Clientes con pagos pendientes",summary.clientes_con_pagos_pendientes],
        ["Clientes con pagos vencidos",summary.clientes_con_pagos_vencidos]].forEach(function (row) {
