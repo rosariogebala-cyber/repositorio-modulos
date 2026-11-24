@@ -285,11 +285,18 @@
           <button class="btn-nx-outline btn-sm" type="button" data-lb-new hidden title="Nueva landing"><i class="bi bi-plus-lg"></i><span class="lb-btn-text"> Nueva landing</span></button>
           <button class="btn-nx-outline btn-sm" type="button" data-lb-library-open title="Mis landings"><i class="bi bi-collection"></i><span class="lb-btn-text"> Mis landings</span> <span class="lb-badge" data-lb-saved-count>0</span></button>
           <button class="btn-nx-outline btn-sm lb-jump" type="button" data-lb-jump hidden><i class="bi bi-eye" data-lb-jump-icon></i> <span data-lb-jump-label>Ver landing</span></button>
-          <button class="btn-nx btn-sm" type="button" data-lb-create><i class="bi bi-check2-circle" data-lb-create-icon></i> <span data-lb-create-label>Crear landing</span></button>
+          <button class="btn-nx btn-sm" type="button" data-lb-create><i class="bi bi-floppy" data-lb-create-icon></i> <span data-lb-create-label>Guardar borrador</span></button>
         </div>
       </div>
       <div class="lb-statusbar">
         <p class="lb-status" data-lb-status role="status" aria-live="polite"></p>
+        <div class="lb-workflow" data-lb-workflow role="group" aria-label="Revisión y publicación de la landing">
+          <span class="lb-workflow-state" data-lb-workflow-state role="status" aria-live="polite">Borrador sin guardar</span>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-draft-preview disabled>Vista previa</button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-review disabled>Enviar a revisión</button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-approve disabled>Aprobar</button>
+          <button class="btn-nx btn-sm" type="button" data-lb-publish-one disabled>Publicar versión aprobada</button>
+        </div>
         <div class="lb-preview-tools">
           <p class="lb-edit-hint" data-lb-edit hidden><i class="bi bi-hand-index" aria-hidden="true"></i> Tocá un texto, una foto o un link para&nbsp;cambiarlo</p>
           <button class="lb-edit-btn lb-ai-texts" type="button" data-lb-ai-texts hidden><i class="bi bi-stars" aria-hidden="true"></i> Escribir con IA</button>
@@ -476,6 +483,6 @@
   <script src="js/reglas.js"></script>
   <script src="js/plantillas.js"></script>
   <script src="js/armador.js?v=4"></script>
-  <script src="js/constructor.js?v=versiones-1"></script>
+  <script src="js/constructor.js?v=workflow-1"></script>
 </body>
 </html>
