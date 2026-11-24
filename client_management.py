@@ -148,7 +148,7 @@ def dashboard(s):
         summary = {
             "id": c["id"], "nombre": c["nombre"], "contacto": c.get("contacto") or "",
             "email": c.get("email") or "", "estado": c.get("estado") or "activo",
-            "tipo": s.client_type(c), "inicio": info["inicio"],
+            "tipo": s.client_type(c), "inicio": info["inicio"], "creado": c.get("creado") or 0,
             "proximo_contacto": info["proximo_contacto"],
             "landings": len(rows),
             "publicadas": sum(bool(l.get("html")) for l in rows),
