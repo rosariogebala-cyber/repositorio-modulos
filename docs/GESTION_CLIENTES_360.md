@@ -17,10 +17,12 @@ El menú principal pasa a: **Clientes → Crear landing → Landings → Bibliot
 
 Cada cliente puede tener varias landings, cada una con plan propio o heredado. La nueva sección comercial muestra:
 - fecha de inicio de la relación comercial (ingresada manualmente, independiente de la fecha técnica de alta);
-- para cada landing: plan actual y secciones, si está publicada, pedidos pendientes, envíos utilizados, fecha de inicio, día de vencimiento (1–28), **abono acordado y moneda (ARS/USD)** y notas internas;
+- para cada landing: plan actual y secciones, si está publicada, pedidos pendientes, envíos utilizados, fecha de inicio, día de vencimiento (1–28), **precio inicial de creación, abono acordado y moneda (ARS/USD)** y notas internas;
 - comparación con el precio mensual **de catálogo como referencia**, nunca como precio contratado supuesto;
-- botón para **registrar pagos efectivamente recibidos**, con período AAAA-MM, fecha de pago, importe y referencia;
+- botón para **registrar pagos efectivamente recibidos**, con concepto (anticipo de creación, saldo de creación, abono mensual o trabajo adicional), período AAAA-MM, fecha de pago, importe y referencia;
 - historial de pagos y opción **Anular con motivo**, sin borrar la entrada histórica.
+
+La **creación inicial** puede cobrarse en dos partes (por ejemplo 50 % al contratar y 50 % antes de publicar), pero la plataforma no supone ni registra automáticamente ninguno de esos movimientos. Muestra el total inicial acordado, el acumulado recibido y el saldo por cobrar. Los anticipos no se computan como abonos mensuales.
 
 ### Estados de cobro
 
@@ -29,6 +31,7 @@ Cada cliente puede tener varias landings, cada una con plan propio o heredado. L
 - **Pendiente**: hay contrato activo y no se registró el total de ese período; el vencimiento no pasó.
 - **Vencido**: vencimiento del período superado y saldo total sin pagar.
 - **Parcial**: se registró parte del abono, pero falta saldo; no se equipara a pago completo.
+- **Pago parcial vencido**: quedó saldo tras el vencimiento; cuenta como deuda vencida en el resumen.
 - **Al día**: los pagos válidos del mes y moneda alcanzan el abono configurado.
 
 Los pagos se calculan por **landing + período + moneda**; USD y ARS no se suman entre sí. La fecha de vencimiento no genera un cargo real ni solicita dinero: es una alerta local del panel.
