@@ -34,6 +34,8 @@ jobs:
         run: python scripts/test-plan-consistency.py
       - name: Asistente IA desde referencias y validación segura
         run: python scripts/test-reference-assistant.py
+      - name: Alertas automáticas de clientes (reglas y fechas)
+        run: python scripts/test-client-alerts.py
       - name: Pruebas de la API (login, límites, guardados, portal, pedidos, publicar y armado desde los datos)
         run: python scripts/test-api.py
       - name: Armador de landings (el mismo del constructor, en Node)
