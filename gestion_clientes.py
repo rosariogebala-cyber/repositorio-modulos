@@ -260,8 +260,12 @@ def add_payment(s, client_id, data):
                 raise s.ApiError(403, "La landing no corresponde al cliente.")
         ledger = read(s)
         contract = ledger["contratos"].get(str(lid)) or {}
-        if not contract.get("inicio") or not contract.get("abono_centavos"):
-            raise s.ApiError(409, "Configurá primero el abono y la fecha de inicio de la landing.")
+        if not contract.get("inicio"):
+            raise s.ApiError(409, "Configurá primero la fecha de inicio de la landing.")
+        if concept == "mensual" and not contract.get("abono_centavos"):
+            raise s.ApiError(409, "Configurá primero el abono mensual de la landing.")
+        if concept in ("alta_anticipo", "alta_saldo") and not contract.get("alta_centavos"):
+            raise s.ApiError(409, "Configurá primero el precio de creación de la landing.")
         currency = contract["moneda"]
         if request_id and any(p.get("request_id") == request_id and p.get("cliente_id") == client_id
                               for p in ledger["pagos"]):
