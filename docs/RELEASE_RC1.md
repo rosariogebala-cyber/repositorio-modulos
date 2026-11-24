@@ -30,3 +30,12 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - API 45436520788: success. Browser 45436520855: failure, 62/78 registros; artefacto 14940967490. WebKit recibe login 200, inicio 401 y posteriormente sesión autenticada. Sin errores JS registrados.
 - 36588dc: reintento acotado de lectura de inicio únicamente después de login exitoso y ante 401 (hasta cuatro reintentos, 2250 ms acumulados). No modifica permisos, cookies ni credenciales. Hipótesis de propagación de cookie pendiente de confirmación por CI.
 - NO-GO hasta regresión completa y demás controles bloqueantes. Sin merge, cambios de datos reales ni sincronización local.
+
+
+## Auditoría comercial y técnica — 2026-11-24
+
+- CI `45446683591`: Calidad de landings y API aprobada. CI `45446683521`: Browser RC fallida; 62/78 registros, WebKit conserva HTTP 401 en portal/inicio incluso después del login 200. Artefacto 14944029918. No se aprueba autenticación ni WCAG integral.
+- Cambio `dedcc241bab5f70db431feb5823ee810024dcf8c`: Cache-Control: no-store en respuestas JSON si no existe directiva previa, incluido HTTP 401. Mitigación de caché de respuestas de sesión; causa raíz aún no confirmada. Regresión pendiente.
+- Revisión estática de la web comercial (repositorio lanzate): canonical, descripción, OG, sitemap, robots, textos legales y ALT de imágenes de proyectos presentes. Los tres enlaces Mercado Pago están vacíos y el CTA dice pagar pero abre mailto. Corregir etiqueta y FAQ o configurar enlaces reales; no simular pagos. Validación real de contacto, navegación, rendimiento, teclado y lector de pantalla pendiente.
+- Preview Vercel: GITHUB_TOKEN solo producción y variables KV compartidas. Crear repositorios y Redis independientes, restringir token, verificar aislamiento antes de habilitar escrituras. No modificar producción.
+- Dictamen: NO-GO plataforma RC1; web comercial pendiente de corregir contratación y verificar experiencia real. No se accedió a entorno local ni se fusionaron PR.
