@@ -32,6 +32,29 @@
     </div>
     <p role="status" aria-live="polite" class="gc-status" data-gc-status>Cargando panorama…</p>
     <section aria-label="Indicadores del negocio" class="gc-kpis" data-gc-kpis></section>
+    <section class="gc-panel gc-alert-panel" aria-labelledby="gcAlertsTitle">
+      <div class="gc-panel-head">
+        <div>
+          <h2 id="gcAlertsTitle">Alertas y próximos pasos <span data-gc-alert-count aria-label="Cantidad de alertas"></span></h2>
+          <p>Se calculan con los cobros y pedidos registrados. Próximos vencimientos: 7 días; pedidos demorados: 48 horas.</p>
+        </div>
+        <button type="button" class="btn-nx-outline btn-sm" data-gc-alert-refresh>Actualizar alertas</button>
+      </div>
+      <div class="gc-alert-filters">
+        <label for="gcAlertType">Ver alertas
+          <select class="lb-input" id="gcAlertType" data-gc-alert-type>
+            <option value="todas">Todas las alertas</option>
+            <option value="urgentes">Solo urgentes</option>
+            <option value="pago">Pagos</option>
+            <option value="cambio">Pedidos de cambios</option>
+            <option value="seguimiento">Seguimientos</option>
+          </select>
+        </label>
+      </div>
+      <p class="gc-muted" data-gc-alert-status role="status" aria-live="polite">Calculando alertas…</p>
+      <ol class="gc-alert-list" data-gc-alert-list></ol>
+      <p class="gc-muted" data-gc-alert-empty hidden>No hay alertas para este filtro.</p>
+    </section>
     <section class="gc-panel" aria-labelledby="gcClientsTitle">
       <div class="gc-panel-head"><div><h2 id="gcClientsTitle">Cartera de clientes</h2><p>Solo se cuentan pagos registrados. Los que aún no tienen movimientos figuran como «Sin datos».</p></div>
         <button class="btn-nx-outline btn-sm" type="button" data-gc-export>Exportar CSV</button>
