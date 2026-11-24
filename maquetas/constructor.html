@@ -483,6 +483,21 @@
     </div>
   </dialog>
 
+  <dialog class="lb-structure-dialog" data-lb-structure aria-labelledby="lbStructureTitle">
+    <h2 id="lbStructureTitle">Revisá la estructura propuesta</h2>
+    <p>La IA propone las secciones; podés quitarlas, cambiar la variante y ordenarlas sin consumir más tokens. El Hero se incluye en el plan.</p>
+    <p data-lb-structure-count role="status" aria-live="polite"></p>
+    <ol data-lb-structure-list class="lb-structure-list" aria-label="Secciones sugeridas en orden"></ol>
+    <div class="lb-structure-add">
+      <label for="lbStructureAdd">Agregar otra sección disponible</label>
+      <select id="lbStructureAdd" data-lb-structure-add></select>
+      <button type="button" class="btn-nx-outline btn-sm" data-lb-structure-insert>Agregar</button>
+    </div>
+    <div class="lb-structure-actions">
+      <button type="button" class="btn-nx-outline btn-sm" data-lb-structure-cancel>Volver sin generar</button>
+      <button type="button" class="btn-nx btn-sm" data-lb-structure-accept>Continuar al editor</button>
+    </div>
+  </dialog>
   <dialog class="lb-workflow-compare" data-lb-compare aria-labelledby="lbCompareTitle">
     <div class="lb-workflow-compare-head">
       <h2 id="lbCompareTitle">Comparar borrador y landing publicada</h2>
