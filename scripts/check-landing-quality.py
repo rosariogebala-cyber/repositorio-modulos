@@ -27,6 +27,27 @@ class LandingQuality(TestCase):
         self.assertFalse(server.image_metadata_errors(good, rules))
         self.assertTrue(server.image_metadata_errors(bad, rules))
 
+    def test_client_management_uses_semantic_table_and_accessible_forms(self):
+        clients = html.parse(str(ROOT / "maquetas" / "clientes.html"))
+        tables = clients.xpath("//table[contains(concat(' ',normalize-space(@class),' '),' gc-table ')]")
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(len(tables[0].xpath("./caption")), 1)
+        self.assertEqual(len(tables[0].xpath(".//thead/tr/th[@scope='col']")), 6)
+        self.assertEqual(len(clients.xpath("//*[@data-gc-stats and @aria-label]")), 1)
+        self.assertEqual(len(clients.xpath("//*[@data-pf-clients and self::tbody]")), 1)
+        self.assertEqual(len(clients.xpath("//*[@data-pf-msg and @role='status']")), 1)
+        profile = html.parse(str(ROOT / "maquetas" / "cliente.html"))
+        self.assertEqual(len(profile.xpath("//section[@data-gc-detail and @aria-labelledby='gcDetailTitle']")), 1)
+        self.assertEqual(len(profile.xpath("//*[@data-gc-message and @role='status']")), 1)
+
+    def test_panel_navigation_starts_with_clients_then_create(self):
+        for page in ("clientes", "cliente", "constructor", "landings", "index", "reglas"):
+            with self.subTest(page=page):
+                doc = html.parse(str(ROOT / "maquetas" / (page + ".html")))
+                links = doc.xpath("//header//nav[@aria-label='Navegación principal']/a/@href")
+                self.assertEqual(links[:2], ["clientes.html", "constructor.html"])
+                self.assertEqual(len(doc.xpath("//header//nav/a[@aria-current='page']")), 1)
+
     def test_builder_workflow_dialogs_have_accessible_names_and_instructions(self):
         doc = html.parse(str(ROOT / "maquetas" / "constructor.html"))
         for name in ("structure", "compare"):
