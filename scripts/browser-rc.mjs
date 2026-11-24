@@ -41,10 +41,44 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           } catch(e) { report.push({engine,width,path,failure:String(e)}); }
           finally {page.off('pageerror',onError);}
         }
+        // Do not let the team cookie mask missing portal authorization.
+        await context.clearCookies();
+        const portalPath='/portal/'+encodeURIComponent(process.env.QA_SLUG)+'/';
+        const errors=[];
+        const onError=e=>errors.push(String(e));
+        page.on('pageerror',onError);
+        try {
+          await page.goto(base.origin+portalPath);
+          await page.locator('[data-login-form]').waitFor({state:'visible'});
+          await page.locator('#usuario').fill(process.env.QA_PORTAL_USER);
+          await page.locator('#clave').fill(process.env.QA_PORTAL_PASSWORD);
+          await page.locator('[data-login-form] button[type=submit]').click();
+          await page.locator('[data-app]').waitFor({state:'visible'});
+          assert.equal((await context.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
+          for (const tab of ['resumen','web','pedidos','visitas','consultas','plan','marca','contacto','cuenta']) {
+            const before=errors.length;
+            try {
+              await page.locator('[data-tab="'+tab+'"]').click();
+              await page.waitForFunction(t=>location.hash==='#'+t && document.querySelector('[data-tab="'+t+'"]').getAttribute('aria-current')==='page',tab);
+              await page.locator('[data-view] h1').waitFor({state:'visible'});
+              if (!(await page.evaluate(()=>Boolean(window.axe)))) await page.addScriptTag({content:axe.source});
+              const results=await page.evaluate(()=>window.axe.run({runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}}));
+              await page.keyboard.press('Tab');
+              const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+              const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
+              report.push({engine,width,path:portalPath+'#'+tab,errors:errors.slice(before),focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
+            } catch(e) {report.push({engine,width,path:portalPath+'#'+tab,failure:String(e)});}
+          }
+          await page.locator('[data-logout]').click();
+          await page.locator('[data-login-form]').waitFor({state:'visible'});
+          assert.equal((await context.request.get(base.origin+'/api/portal/inicio?sitio='+encodeURIComponent(process.env.QA_SLUG))).status(),401,'Logout must revoke browser access');
+        } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e)});}
+        finally {page.off('pageerror',onError);}
       } finally {await context.close();}
     }
   } finally {await browser.close();}
 }
 fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
-assert.equal(report.length,24);
+console.log(JSON.stringify(report,null,2));
+assert.equal(report.length,78);
 assert.ok(report.every(r=>!r.failure&&!r.errors.length&&r.focus.visible&&!['BODY','HTML'].includes(r.focus.tag)&&!r.overflow&&!r.violations.length),'Browser QA failed; inspect browser-rc-report.json');
