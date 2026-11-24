@@ -17,3 +17,11 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - fc33eeb: corrección de literal JS mal cerrado en portal/index.html; 5858f4a: control de sintaxis inline.
 - Run 45376392224: regresión API aprobada después de corregir portal; run 45376392265 pendiente de resultado en el momento de revisión.
 - 26a8869: generación automática de contraseña con secrets.token_urlsafe(18), 144 bits aleatorios; no modifica claves existentes. Pendiente regresión y migración de copia recuperable.
+
+
+### 2026-11-24 — Portal autenticado y credenciales
+
+- API/landings: ejecución 45388789003 aprobada. Browser RC 45388789083 falló: 62 registros de 78 esperados; dos flujos no llegaron a mostrar la aplicación aunque el fetch de sesión autenticada pasó. No es evidencia de pérdida de cookie.
+- Se serializa la carga inicial anónima y el login (9aa5c0b) para evitar que una respuesta 401 anterior oculte la aplicación después de autenticar. Hipótesis pendiente de regresión; no se debilitan cookies ni permisos.
+- Las nuevas credenciales se guardan sin copia recuperable; API aprobada. Pendiente migración controlada de copias históricas, respaldo y prueba de restauración. No se modificaron datos reales.
+- NO-GO: navegador completo, accesibilidad manual, rendimiento, SEO, integración y verificación local pendientes.
