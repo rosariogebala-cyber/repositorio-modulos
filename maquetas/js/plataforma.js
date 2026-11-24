@@ -621,9 +621,12 @@
         var pay = site.cobro || {};
         var cssStatus = esc(pay.estado || "sin_configurar");
         var history = site.pagos.length ? site.pagos.slice(0, 20).map(function (p) {
-          return '<li><time datetime="' + esc(p.fecha_pago) + '">' + esc(gcDate(p.fecha_pago)) + '</time> · ' +
+          return '<li' + (p.anulado ? ' class="gc-voided"' : '') + '><time datetime="' + esc(p.fecha_pago) + '">' + esc(gcDate(p.fecha_pago)) + '</time> · ' +
             '<strong>' + esc(gcMoney(p.monto_centavos, p.moneda)) + '</strong> · período ' + esc(p.periodo) +
-            (p.referencia ? ' · ' + esc(p.referencia) : '') + '</li>';
+            (p.referencia ? ' · ' + esc(p.referencia) : '') +
+            (p.anulado ? ' · <b>Anulado: ' + esc(p.motivo_anulacion || "Sin detalle") + '</b>' :
+              ' <button class="btn-nx-outline btn-sm gc-void-button" type="button" data-gc-void="' + p.id +
+              '" aria-label="Anular pago ' + p.id + ' de ' + esc(site.nombre) + '">Anular</button>') + '</li>';
         }).join("") : '<li>No hay pagos registrados para esta landing.</li>';
         var opts = ["ARS","USD"].map(function(code) {
           return '<option value="' + code + '"' + (site.moneda === code ? " selected" : "") + '>' + code + '</option>';
@@ -632,6 +635,8 @@
           return '<option value="' + day + '"' + (site.dia_vencimiento === day ? " selected" : "") + '>' + day + '</option>';
         }).join("");
         var currentPeriod = gcToday().slice(0,7);
+        var paymentRequestId = window.crypto && window.crypto.randomUUID
+          ? window.crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
         return '<article class="gc-site-account" aria-label="Gestión de ' + esc(site.nombre) + '">' +
           '<header class="gc-site-account-head"><div><h3>' + esc(site.nombre) + '</h3><p>Plan ' +
           esc(site.plan) + ' · ' + Number(site.secciones || 0) + ' secciones · ' +
@@ -654,6 +659,7 @@
             '. No se cobra ni se marca como pagado automáticamente.</p>' +
           '<button type="submit" class="btn-nx-outline btn-sm">Guardar contrato</button></fieldset></form>' +
           '<form class="gc-form" data-gc-payment data-landing-id="' + site.id + '">' +
+          '<input type="hidden" name="request_id" value="' + esc(paymentRequestId) + '">' +
           '<fieldset' + (!contractOk ? ' disabled' : '') + '><legend>Registrar un pago recibido</legend>' +
           '<div class="gc-form-grid">' +
             '<label>Período <input class="lb-input" type="month" name="periodo" required value="' + esc(currentPeriod) + '"></label>' +
@@ -677,6 +683,23 @@
         commercial.appendChild(notice);
       });
     }
+    commercial.addEventListener("click", function(event) {
+      var button = event.target.closest("button[data-gc-void]");
+      if (!button) return;
+      var reason = window.prompt("Motivo para anular este pago (se conserva en el historial):");
+      if (reason === null) return;
+      if (reason.trim().length < 5) { say(commercialMsg, "Escribí al menos 5 caracteres.", "warn"); return; }
+      if (!window.confirm("¿Anular este pago? No se borrará del historial, pero dejará de contar como cobrado.")) return;
+      button.disabled = true;
+      api("POST", "/api/gestion-clientes/" + id + "/pagos/" + button.dataset.gcVoid + "/anular",
+          { motivo: reason.trim() }).then(function (info) {
+        gcRender(info);
+        say(commercialMsg, "Pago anulado y conservado en el historial.", "ok");
+      }).catch(function(error) {
+        say(commercialMsg, error.message, "warn");
+        button.disabled = false;
+      });
+    });
     commercial.addEventListener("submit", function(event) {
       var form = event.target.closest("form");
       if (!form || !form.matches("[data-gc-start], [data-gc-contract], [data-gc-payment]")) return;
