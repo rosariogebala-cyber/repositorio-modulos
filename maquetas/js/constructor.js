@@ -1433,7 +1433,8 @@
             select.dataset.structureAction = "variant";
             candidates.filter(function (candidate) { return group(candidate) === group(entry.section); })
               .forEach(function (candidate) {
-                select.add(new Option(candidate.m.split("-").slice(-1)[0], candidate.m));
+                var descriptor = byId[candidate.m].name || byId[candidate.m].title || "Diseño " + candidate.m.split("-").slice(-1)[0];
+                select.add(new Option(descriptor, candidate.m));
               });
             if (!Array.from(select.options).some(function (opt) { return opt.value === entry.section.m; })) {
               select.add(new Option("Original", entry.section.m));
@@ -1445,12 +1446,16 @@
             });
             item.appendChild(text);
             item.appendChild(select);
-            item.appendChild(button("↑", "Subir " + group(entry.section), function () {
+            var up = button("↑", "Subir " + group(entry.section), function () {
               if (index > 0) { ordered.splice(index - 1, 0, ordered.splice(index, 1)[0]); render(entry, "up"); }
-            }));
-            item.appendChild(button("↓", "Bajar " + group(entry.section), function () {
+            });
+            up.disabled = index === 0;
+            item.appendChild(up);
+            var down = button("↓", "Bajar " + group(entry.section), function () {
               if (index < ordered.length - 1) { ordered.splice(index + 1, 0, ordered.splice(index, 1)[0]); render(entry, "down"); }
-            }));
+            });
+            down.disabled = index === ordered.length - 1;
+            item.appendChild(down);
             item.appendChild(button("×", "Quitar " + group(entry.section), function () {
               ordered.splice(index, 1);
               render(ordered[Math.min(index, ordered.length - 1)] || null, "remove");
@@ -1469,7 +1474,7 @@
           if (focusAction) {
             var newIndex = ordered.indexOf(focusEntry);
             var target = newIndex >= 0 ? list.children[newIndex].querySelector('[data-structure-action="' + focusAction + '"]') : null;
-            (target || addSelect).focus();
+            (target && !target.disabled ? target : (newIndex >= 0 ? list.children[newIndex].querySelector("select") : addSelect)).focus();
           }
         }
         addButton.onclick = function () {
