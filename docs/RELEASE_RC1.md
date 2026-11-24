@@ -52,3 +52,8 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - Navegador: run 45458281533 fallida (62/78 registros, 2 fallos de autenticación WebKit, 0 registros con violaciones axe confirmadas, 28 con comprobaciones incompletas). El diagnóstico confirma sitio correcto en login, sesión e inicio; inicio responde 401 incluso tras login 200. No está confirmada la causa raíz.
 - Commit 920b993c17fc2cc075b8583eb5496bab8d2634af: contexto de navegador independiente para el flujo autenticado del cliente; regresión pendiente. No se modifica autenticación de producción ni se reducen controles.
 - Bloqueos comerciales: correo y WhatsApp ficticios; no habilitar contratación hasta configurar datos reales y verificar entrega. Preview sigue pendiente de aislamiento. NO-GO.
+
+### Regresión de contexto independiente
+- SHA a6f8e16: API 45464637834 success; Browser 45464637657 failure. WebKit conserva 401 en inicio con sitio correcto incluso tras sesión autenticada y reintentos. Contexto independiente no resuelve.
+- 04f96a5: sondas GET aisladas de QA, URL original frente a URL única, sin registrar cuerpo ni credenciales. Pendiente CI; distinguir caché de autorización antes de modificar backend.
+- NO-GO; no merge, producción ni datos reales modificados.
