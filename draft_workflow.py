@@ -143,7 +143,8 @@ def move(s, landing_id, action, data):
     if not isinstance(data, dict) or data.get("revision") != draft.get("revision"):
         raise s.ApiError(409, "El borrador cambió; recargá para continuar.")
     if action == "revision" and draft["estado"] == "borrador":
-        errors = quality_errors(s, landing_id, draft)
+        errors = [error for error in quality_errors(s, landing_id, draft)
+                  if error != "hay secciones adicionales sin aprobación comercial"]
         if errors:
             raise s.ApiError(400, "Corregí antes de revisar: " + "; ".join(errors[:8]))
         draft["estado"] = "revision"
