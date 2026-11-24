@@ -368,16 +368,29 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(site["abono_centavos"], 1990050)
         self.assertEqual(site["inicio"], "2026-11-01")
         self.assertNotEqual(site["cobro"]["estado"], "pagado", "Configurar un abono no implica haber cobrado")
-        status, paid = self.team.call("POST", "/api/gestion-clientes/%d/pagos" % client_id, {
-            "landing_id": landing_id, "periodo": "2026-11", "fecha_pago": "2026-11-23",
-            "monto": "19900.50", "referencia": "Transferencia ABC"
-        })
+        payment = {"landing_id": landing_id, "periodo": "2026-11", "fecha_pago": "2026-11-23",
+                   "monto": "19900.50", "referencia": "Transferencia ABC",
+                   "request_id": "prueba-registro-unico-123"}
+        status, paid = self.team.call("POST", "/api/gestion-clientes/%d/pagos" % client_id, payment)
         self.assertEqual(status, 200, paid)
         site = next(lp for lp in paid["webs"] if lp["id"] == landing_id)
         self.assertTrue(site["pagos"])
         self.assertEqual(site["pagos"][-1]["moneda"], "ARS")
         self.assertEqual(site["pagos"][-1]["monto_centavos"], 1990050)
         self.assertEqual(len(site["pagos"]), 1)
+        status, again = self.team.call("POST", "/api/gestion-clientes/%d/pagos" % client_id, payment)
+        self.assertEqual(status, 200, again)
+        self.assertEqual(len(next(lp for lp in again["webs"] if lp["id"] == landing_id)["pagos"]), 1,
+                         "Reintentar la misma solicitud no debe duplicar cobros")
+        payment_id = site["pagos"][0]["id"]
+        status, voided = self.team.call("POST", "/api/gestion-clientes/%d/pagos/%d/anular" %
+                                         (client_id, payment_id), {"motivo": "Pago registrado por error"})
+        self.assertEqual(status, 200, voided)
+        site = next(lp for lp in voided["webs"] if lp["id"] == landing_id)
+        self.assertTrue(site["pagos"][0]["anulado"])
+        self.assertNotEqual(site["cobro"]["estado"], "pagado")
+        self.assertEqual(self.team.call("POST", "/api/gestion-clientes/%d/pagos/%d/anular" %
+                                         (client_id, payment_id), {"motivo": "Duplicado"})[0], 409)
         self.assertTrue(sim.repo_file("lanzate-datos", "gestion/clientes.json"))
         self.assertFalse(sim.repo_file("repositorio-modulos", "gestion/clientes.json"),
                          "Los movimientos financieros no deben guardarse en el repositorio público.")
