@@ -56,9 +56,11 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           await page.locator('[data-login-form] button[type=submit]').click();
           const login=await loginResponse;
           assert.equal(login.status(),200,'Portal login HTTP status');
-          const session=await context.request.get(base.origin+'/api/portal/sesion?sitio='+encodeURIComponent(process.env.QA_SLUG));
-          assert.equal(session.status(),200,'Portal session HTTP status');
-          assert.equal((await session.json()).ok,true,'Browser did not retain portal session');
+          // Wait for the browser's own authenticated fetch; APIRequestContext can race cookie processing.
+          await page.waitForFunction(async slug=>{
+            const r=await fetch('/api/portal/sesion?sitio='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
+            return r.ok && (await r.json()).ok===true;
+          },process.env.QA_SLUG,{timeout:10000});
           await page.locator('[data-app]').waitFor({state:'visible'});
           assert.equal((await context.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
           for (const tab of ['resumen','web','pedidos','visitas','consultas','plan','marca','contacto','cuenta']) {
