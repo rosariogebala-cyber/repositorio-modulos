@@ -4963,3 +4963,58 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Gestión de Clientes 360: contraste, lectura en tabla y formularios adaptables */
+.gc-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin:18px 0 24px; }
+.gc-kpi { border:1px solid #dbe1e6; background:#fff; border-radius:14px; padding:16px; display:grid; gap:6px; }
+.gc-kpi span { color:#4c5566; font-size:.86rem; font-weight:600; }
+.gc-kpi strong { color:#162d35; font-size:1.8rem; font-variant-numeric:tabular-nums; }
+.gc-filters { align-items:end; }
+.gc-filter-label { display:grid; gap:5px; font-weight:600; font-size:.85rem; color:#344255; }
+.gc-table-wrap { overflow-x:auto; max-width:100%; border:1px solid #d9e2e4; border-radius:14px; background:#fff; margin-top:18px; }
+.gc-table { width:100%; min-width:820px; border-collapse:collapse; color:#1a2a34; }
+.gc-table caption { padding:12px 14px; color:#445364; font-size:.84rem; text-align:left; caption-side:bottom; }
+.gc-table thead { background:#eef4f3; }
+.gc-table :is(th,td) { padding:15px 12px; border-bottom:1px solid #e2e8e9; text-align:left; vertical-align:middle; }
+.gc-table thead th { font-size:.82rem; font-weight:700; white-space:nowrap; }
+.gc-table tbody th { font-weight:600; }
+.gc-table tbody tr:hover { background:#f5f9f8; }
+.gc-table small { display:block; color:#586374; font-size:.78rem; font-weight:400; margin-top:4px; }
+.gc-client-link { color:#183e34; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
+.gc-status { display:inline-block; font-size:.81rem; font-weight:700; border-radius:9px; padding:4px 8px; background:#eef2f5; color:#293f4b; }
+.gc-status.is-pagado { color:#14532d; background:#e4f4e9; }
+.gc-status.is-vencido, .gc-status.is-parcial_vencido { color:#852115; background:#fae8e6; }
+.gc-status.is-pendiente, .gc-status.is-parcial { color:#845014; background:#fff0cd; }
+.gc-detail { margin:20px 0; }
+.gc-client-start { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding:12px; background:#f4f7f7; border-radius:12px; }
+.gc-client-start label { display:grid; gap:5px; font-weight:600; }
+.gc-client-start small { color:#4b5563; max-width:400px; }
+.gc-site-account { border:1px solid #dae0e3; border-radius:14px; margin:18px 0; padding:18px; background:#fff; }
+.gc-site-account-head { display:flex; align-items:start; justify-content:space-between; gap:14px; }
+.gc-site-account-head h3 { margin:0; font-size:1.15rem; }
+.gc-site-account-head p,.gc-site-mini { margin:5px 0; color:#4a5363; }
+.gc-form { margin:15px 0; }
+.gc-form fieldset { border:1px solid #d6dfe0; border-radius:12px; padding:12px; }
+.gc-form legend { font-size:1rem; font-weight:700; float:none; width:auto; margin:0 0 10px; padding:0 5px; }
+.gc-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.gc-form label { display:grid; gap:5px; font-size:.89rem; font-weight:600; margin-bottom:12px; }
+.gc-form .lb-input { width:100%; }
+.gc-help { font-size:.84rem; color:#4b5362; }
+.gc-payment-history { margin-top:14px; }
+.gc-payment-history summary { cursor:pointer; font-weight:650; padding:10px 0; }
+.gc-payment-history ol { padding-left:20px; }
+.gc-payment-history li { margin:6px 0; }
+:is(.gc-table-wrap, .gc-form, .gc-client-start) :focus-visible { outline:3px solid #4935b5; outline-offset:3px; }
+@media (max-width:1100px) { .gc-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:680px) {
+  .gc-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .gc-kpi { padding:12px; }
+  .gc-kpi strong { font-size:1.4rem; }
+  .gc-form-grid { grid-template-columns:1fr; }
+  .gc-site-account-head { flex-wrap:wrap; }
+}
+
+/* La navegación acompaña el recorrido cliente → landing → publicación. */
+.lib-header nav .lib-action-create { border-radius:10px; padding:8px 12px; background:#1b5e42; color:#fff; font-weight:700; }
+.lib-header nav .lib-action-create:hover, .lib-header nav .lib-action-create:focus-visible { color:#fff; background:#13472f; }
+.lib-header nav .lib-action-create.is-current { background:#13472f; color:#fff; text-decoration:underline; text-underline-offset:4px; }

@@ -457,60 +457,104 @@
 
   /* Página: Clientes */
   function pageClientes() {
-    var grid = document.querySelector("[data-pf-clients]");
+    var rows = document.querySelector("[data-pf-clients]");
     var empty = document.querySelector("[data-pf-empty]");
     var msg = document.querySelector("[data-pf-msg]");
     var search = document.querySelector("[data-pf-search]");
     var filter = document.querySelector("[data-pf-filter]");
     var typeFilter = document.querySelector("[data-pf-type]");
+    var paymentFilter = document.querySelector("[data-gc-payment]");
+    var changeFilter = document.querySelector("[data-gc-changes]");
+    var stats = document.querySelector("[data-gc-stats]");
     var count = document.querySelector("[data-pf-count]");
     var clients = [];
     var estado = "";
 
+    function dateLabel(iso) {
+      if (!iso) return "Sin configurar";
+      var parts = iso.split("-");
+      return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : iso;
+    }
+    function stateLabel(value) {
+      return ({ vencido: "Vencido", pendiente: "Pendiente", parcial: "Pago parcial", parcial_vencido: "Pago parcial vencido",
+        pagado: "Al día", no_iniciado: "Aún no iniciado",
+        sin_configurar: "Sin configurar" })[value] || "Sin configurar";
+    }
     function render() {
       var q = normalize(search.value.trim());
       var list = clients.filter(function (c) {
+        var payment = paymentFilter.value;
+        var states = c.webs.map(function (site) { return site.cobro.estado; });
+        var fitsPayment = !payment ||
+          (payment === "pendiente" ? states.some(function (x) { return x === "pendiente" || x === "parcial" || x === "parcial_vencido"; }) :
+          payment === "sin_configurar" ? (!states.length || states.includes("sin_configurar")) :
+          payment === "pagado" ? (states.length > 0 && states.every(function (x) { return x === "pagado"; })) :
+          (payment === "vencido" ? states.some(function (x) { return x === "vencido" || x === "parcial_vencido"; }) : states.includes(payment)));
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
-          (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
+          fitsPayment &&
+          (!changeFilter.value || c.cambios_pendientes > 0) &&
+          (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).includes(q));
       });
-      grid.innerHTML = "";
+      rows.replaceChildren();
       list.forEach(function (c) {
-        var art = document.createElement("article");
-        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "");
-        art.innerHTML =
-          '<div class="pf-client-top">' + avatar(c) +
-          '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
-          "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
-          "</div>" + status(c) + "</div>" +
-          (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#cf-revisar"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
-            (pendingCount(c) === 1 ? "Mandó un pedido de cambios" : "Mandó " + pendingCount(c) + " pedidos de cambios") + "</a>" : "") +
-          (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
-          (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
-          '<ul class="pf-client-data">' +
-          (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
-          (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
-          (c.telefono ? '<li><i class="bi bi-telephone"></i>' + esc(c.telefono) + "</li>" : "") +
-          (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
-          "</ul>" +
-          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + (c.plan ? " · " + esc(planName(c.plan)) : "") + "</span>" +
-          '<span class="pf-client-actions">' +
-          '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
-        grid.appendChild(art);
+        var tr = document.createElement("tr");
+        var plans = Array.from(new Set(c.webs.map(function (site) { return site.plan; })));
+        var planText = c.landings
+          ? plural(c.landings, "landing", "landings") + " · " + plans.join(" / ")
+          : "Sin landings";
+        var statusKind = c.cobro_estado;
+        var financial = statusKind === "sin_configurar"
+          ? "Falta cargar el abono" : stateLabel(statusKind);
+        var href = "cliente.html?id=" + encodeURIComponent(c.id);
+        tr.innerHTML =
+          '<th scope="row"><a class="gc-client-link" href="' + href + '">' + esc(c.nombre) + "</a>" +
+            '<small>' + esc(c.rubro || c.contacto || "Sin rubro") + " · " + esc(c.estado) + "</small></th>" +
+          '<td>' + esc(planText) + '<small>' + c.publicadas + ' publicada(s)</small></td>' +
+          '<td>' + esc(dateLabel(c.inicio || c.alta)) +
+            (!c.inicio ? '<small>Fecha de alta · falta inicio contractual</small>' : '<small>Inicio contractual</small>') + '</td>' +
+          '<td><span class="gc-status is-' + esc(statusKind) + '">' + esc(financial) + '</span>' +
+            '<small>' + esc(c.webs.filter(function (lp) { return ["vencido", "parcial_vencido"].includes(lp.cobro.estado); }).length ? "Revisar vencimientos" : "Período actual") + '</small></td>' +
+          '<td><span class="gc-changes">' + c.cambios_pendientes + ' pendiente(s)</span></td>' +
+          '<td><a class="btn-nx-outline btn-sm" href="' + href + '">Ver ficha</a></td>';
+        rows.appendChild(tr);
       });
       empty.hidden = list.length > 0;
-      empty.textContent = clients.length ? "No hay clientes que coincidan con la búsqueda." : "Todavía no diste de alta ningún cliente. Empezá con «Nuevo cliente».";
+      empty.textContent = clients.length ? "No hay clientes que coincidan con los filtros." :
+        "Todavía no hay clientes. Comenzá con «Nuevo cliente».";
       count.textContent = plural(clients.length, "cliente", "clientes");
     }
-
-    function load() {
-      return loadPlans().then(function () { return api("GET", "/api/clientes"); }).then(function (list) {
-        clients = list;
-        render();
-      })
-        .catch(function (err) { say(msg, err.message, "warn"); });
+    function renderStats(summary) {
+      var data = [
+        ["Clientes activos", summary.clientes_activos || 0],
+        ["Landings publicadas", summary.landings_publicadas || 0],
+        ["Cobros a revisar", summary.pagos_pendientes || 0],
+        ["Pagos vencidos", summary.pagos_vencidos || 0],
+        ["Cambios pendientes", summary.cambios_pendientes || 0],
+        ["Creaciones por cobrar", summary.altas_por_cobrar || 0]
+      ];
+      stats.replaceChildren();
+      data.forEach(function (item) {
+        var card = document.createElement("div");
+        card.className = "gc-kpi";
+        var label = document.createElement("span");
+        label.textContent = item[0];
+        var value = document.createElement("strong");
+        value.textContent = item[1].toLocaleString("es-AR");
+        card.appendChild(label);
+        card.appendChild(value);
+        stats.appendChild(card);
+      });
     }
-
+    function load() {
+      return loadPlans().then(function () {
+        return api("GET", "/api/gestion-clientes");
+      }).then(function (data) {
+        clients = data.clientes || [];
+        renderStats(data.resumen || {});
+        render();
+      }).catch(function (err) { say(msg, err.message, "warn"); });
+    }
     document.querySelector("[data-pf-new-client]").addEventListener("click", function () {
       clientForm(null).then(function (saved) {
         if (!saved) return;
@@ -520,11 +564,15 @@
     });
     search.addEventListener("input", render);
     typeFilter.addEventListener("change", render);
+    paymentFilter.addEventListener("change", render);
+    changeFilter.addEventListener("change", render);
     filter.addEventListener("click", function (e) {
       var b = e.target.closest("[data-value]");
       if (!b) return;
       estado = b.getAttribute("data-value");
-      filter.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      filter.querySelectorAll("button").forEach(function (x) {
+        x.setAttribute("aria-pressed", String(x === b));
+      });
       render();
     });
     if (/[?&]nuevo=1/.test(location.search)) {
@@ -544,6 +592,152 @@
     var newLanding = document.querySelector("[data-pf-new-landing]");
     var countEl = document.querySelector("[data-pf-landings-count]");
     var freshKeys = {}; // contraseñas recién generadas: solo viven mientras esta página está abierta
+
+    var commercial = document.querySelector("[data-gc-content]");
+    var commercialMsg = document.querySelector("[data-gc-message]");
+    function gcDate(value) {
+      return value ? value.split("-").reverse().join("/") : "Sin configurar";
+    }
+    function gcMoney(cents, currency) {
+      return new Intl.NumberFormat("es-AR", {style:"currency", currency:currency || "ARS"})
+        .format(Number(cents || 0) / 100);
+    }
+    function gcToday() {
+      var date = new Date();
+      return date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0") + "-" +
+        String(date.getDate()).padStart(2,"0");
+    }
+    function gcStatus(value) {
+      return ({pagado:"Al día", pendiente:"Pendiente", vencido:"Vencido",
+        parcial:"Pago parcial", parcial_vencido:"Pago parcial vencido", no_iniciado:"Aún no inició", sin_configurar:"Sin configurar"})[value] || "Sin configurar";
+    }
+    function gcRender(data) {
+      var start = '<form class="gc-client-start" data-gc-start>' +
+        '<label>Inicio de relación comercial <input class="lb-input" name="inicio" type="date" value="' + esc(data.inicio || "") + '"></label>' +
+        '<button class="btn-nx-outline btn-sm" type="submit">Guardar fecha</button>' +
+        '<small>Si todavía no conocés la fecha contractual, dejala vacía; la fecha de alta es ' + esc(gcDate(data.alta)) + '.</small></form>';
+      if (!data.webs.length) start += '<p class="pf-empty">Primero creá una landing. Los contratos y pagos se registran individualmente por web.</p>';
+      start += data.webs.map(function(site) {
+        var contractOk = Boolean(site.inicio && (site.abono_centavos || site.alta_centavos));
+        var pay = site.cobro || {};
+        var cssStatus = esc(pay.estado || "sin_configurar");
+        var history = site.pagos.length ? site.pagos.slice(0, 20).map(function (p) {
+          return '<li' + (p.anulado ? ' class="gc-voided"' : '') + '><time datetime="' + esc(p.fecha_pago) + '">' + esc(gcDate(p.fecha_pago)) + '</time> · ' +
+            '<strong>' + esc(gcMoney(p.monto_centavos, p.moneda)) + '</strong> · ' +
+            esc(({mensual:"Abono mensual",alta_anticipo:"Anticipo de creación",alta_saldo:"Saldo de creación",adicional:"Trabajo adicional"})[p.concepto] || "Abono mensual") + ' · período ' + esc(p.periodo) +
+            (p.referencia ? ' · ' + esc(p.referencia) : '') +
+            (p.anulado ? ' · <b>Anulado: ' + esc(p.motivo_anulacion || "Sin detalle") + '</b>' :
+              ' <button class="btn-nx-outline btn-sm gc-void-button" type="button" data-gc-void="' + p.id +
+              '" aria-label="Anular pago ' + p.id + ' de ' + esc(site.nombre) + '">Anular</button>') + '</li>';
+        }).join("") : '<li>No hay pagos registrados para esta landing.</li>';
+        var opts = ["ARS","USD"].map(function(code) {
+          return '<option value="' + code + '"' + (site.moneda === code ? " selected" : "") + '>' + code + '</option>';
+        }).join("");
+        var dayOptions = Array.from({length:28},function(_,i) { var day=i+1;
+          return '<option value="' + day + '"' + (site.dia_vencimiento === day ? " selected" : "") + '>' + day + '</option>';
+        }).join("");
+        var currentPeriod = gcToday().slice(0,7);
+        var paymentRequestId = window.crypto && window.crypto.randomUUID
+          ? window.crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+        return '<article class="gc-site-account" aria-label="Gestión de ' + esc(site.nombre) + '">' +
+          '<header class="gc-site-account-head"><div><h3>' + esc(site.nombre) + '</h3><p>Plan ' +
+          esc(site.plan) + ' · ' + Number(site.secciones || 0) + ' secciones · ' +
+          (site.publicada ? 'Publicada' : 'Sin publicar') + '</p></div>' +
+          '<span class="gc-status is-' + cssStatus + '">' + esc(gcStatus(pay.estado)) + '</span></header>' +
+          '<p class="gc-site-mini"><b>' + site.cambios_pendientes + '</b> pedidos de cambios pendientes · ' +
+            site.cambios_mes + (site.cambios_limite ? ' / ' + site.cambios_limite : '') + ' envíos del mes' +
+          (pay.vencimiento ? ' · Próximo vencimiento: ' + esc(gcDate(pay.vencimiento)) : '') + '</p>' +
+          '<form class="gc-form" data-gc-contract data-landing-id="' + site.id + '">' +
+          '<fieldset><legend>Contrato y abono</legend><div class="gc-form-grid">' +
+            '<label>Inicio de esta landing <input class="lb-input" name="inicio" type="date" required value="' + esc(site.inicio) + '"></label>' +
+            '<label>Día de vencimiento mensual <select class="lb-input" name="dia_vencimiento" required>' + dayOptions + '</select></label>' +
+            '<label>Abono acordado <input class="lb-input" name="abono" type="number" min="0" max="100000000" step="0.01" required value="' +
+              (site.abono_centavos ? (site.abono_centavos/100).toFixed(2) : "") + '"></label>' +
+            '<label>Precio inicial de creación <input class="lb-input" name="alta" type="number" min="0" max="100000000" step="0.01" value="' +
+              (site.alta_centavos ? (site.alta_centavos/100).toFixed(2) : "") + '"></label>' +
+            '<label>Moneda <select class="lb-input" name="moneda">' + opts + '</select></label>' +
+          '</div><label>Notas internas <textarea class="lb-input" name="notas" maxlength="400" rows="2">' +
+            esc(site.notas) + '</textarea></label>' +
+          '<p class="gc-help"><strong>Creación:</strong> ' +
+            (site.alta_centavos ? esc(gcMoney(site.alta_centavos,site.moneda)) : "Sin configurar") +
+            ' · <strong>Pagado:</strong> ' + esc(gcMoney(site.alta_pagado_centavos,site.moneda)) +
+            ' · <strong>Saldo:</strong> ' + esc(gcMoney(site.alta_saldo_centavos,site.moneda)) + '</p>' +
+          '<p class="gc-help">Precio de catálogo actual (solo referencia): ' +
+            (site.catalogo_mensual == null ? 'no informado' : esc(gcMoney(Math.round(Number(site.catalogo_mensual)*100),"ARS"))) +
+            '. No se cobra ni se marca como pagado automáticamente.</p>' +
+          '<button type="submit" class="btn-nx-outline btn-sm">Guardar contrato</button></fieldset></form>' +
+          '<form class="gc-form" data-gc-payment data-landing-id="' + site.id + '">' +
+          '<input type="hidden" name="request_id" value="' + esc(paymentRequestId) + '">' +
+          '<fieldset' + (!contractOk ? ' disabled' : '') + '><legend>Registrar un pago recibido</legend>' +
+          '<div class="gc-form-grid">' +
+            '<label>Concepto <select class="lb-input" name="concepto">' +
+              '<option value="mensual">Abono mensual</option><option value="alta_anticipo">Anticipo de creación</option>' +
+              '<option value="alta_saldo">Saldo de creación</option><option value="adicional">Trabajo adicional</option>' +
+            '</select></label>' +
+            '<label>Período <input class="lb-input" type="month" name="periodo" required value="' + esc(currentPeriod) + '"></label>' +
+            '<label>Fecha de pago <input class="lb-input" type="date" name="fecha_pago" required value="' + esc(gcToday()) + '"></label>' +
+            '<label>Importe pagado <input class="lb-input" type="number" name="monto" required min="0.01" step="0.01"></label>' +
+            '<label>Referencia / comprobante <input class="lb-input" name="referencia" maxlength="120" placeholder="Ej.: transferencia #123"></label>' +
+          '</div><button type="submit" class="btn-nx btn-sm">Registrar pago</button></fieldset>' +
+          (!contractOk ? '<p class="gc-help">Configurá el inicio y al menos un importe antes de registrar pagos.</p>' : '') +
+          '</form>' +
+          '<details class="gc-payment-history"><summary>Historial de pagos (' + site.pagos.length + ')</summary><ol>' +
+             history + '</ol></details>' +
+          '</article>';
+      }).join("");
+      commercial.innerHTML = start;
+    }
+    function loadCommercial(clientId) {
+      return api("GET", "/api/gestion-clientes/" + clientId).then(gcRender).catch(function(error) {
+        commercial.replaceChildren();
+        var notice = document.createElement("p");
+        notice.textContent = "No se pudo cargar la información comercial: " + error.message;
+        commercial.appendChild(notice);
+      });
+    }
+    commercial.addEventListener("click", function(event) {
+      var button = event.target.closest("button[data-gc-void]");
+      if (!button) return;
+      var reason = window.prompt("Motivo para anular este pago (se conserva en el historial):");
+      if (reason === null) return;
+      if (reason.trim().length < 5) { say(commercialMsg, "Escribí al menos 5 caracteres.", "warn"); return; }
+      if (!window.confirm("¿Anular este pago? No se borrará del historial, pero dejará de contar como cobrado.")) return;
+      button.disabled = true;
+      api("POST", "/api/gestion-clientes/" + id + "/pagos/" + button.dataset.gcVoid + "/anular",
+          { motivo: reason.trim() }).then(function (info) {
+        gcRender(info);
+        say(commercialMsg, "Pago anulado y conservado en el historial.", "ok");
+      }).catch(function(error) {
+        say(commercialMsg, error.message, "warn");
+        button.disabled = false;
+      });
+    });
+    commercial.addEventListener("submit", function(event) {
+      var form = event.target.closest("form");
+      if (!form || !form.matches("[data-gc-start], [data-gc-contract], [data-gc-payment]")) return;
+      event.preventDefault();
+      var submit = form.querySelector('[type="submit"]');
+      var data = Object.fromEntries(new FormData(form).entries());
+      var url, method;
+      if (form.matches("[data-gc-start]")) {
+        url = "/api/gestion-clientes/" + id + "/inicio"; method = "PUT";
+      } else if (form.matches("[data-gc-contract]")) {
+        url = "/api/gestion-clientes/" + id + "/landings/" + form.dataset.landingId; method = "PUT";
+      } else {
+        url = "/api/gestion-clientes/" + id + "/pagos"; method = "POST";
+        data.landing_id = Number(form.dataset.landingId);
+        if (!window.confirm("¿Confirmás que recibiste este pago por el importe indicado?")) return;
+      }
+      submit.disabled = true;
+      say(commercialMsg, "Guardando…");
+      api(method, url, data).then(function(info) {
+        gcRender(info);
+        say(commercialMsg, "Información comercial guardada. Los pagos se registran solo cuando los confirmás.", "ok");
+      }).catch(function(error) {
+        say(commercialMsg, error.message, "warn");
+      }).finally(function() { submit.disabled = false; });
+    });
+
 
     function row(icon, label, value) {
       return value ? '<div class="cf-row"><dt><i class="bi bi-' + icon + '" aria-hidden="true"></i>' + label + "</dt><dd>" + value + "</dd></div>" : "";
@@ -1047,6 +1241,7 @@
         if (slot) slot.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
       });
       if (list) list.closest("section").hidden = true;
+      loadCommercial(c.id);
     }
 
     function load() {

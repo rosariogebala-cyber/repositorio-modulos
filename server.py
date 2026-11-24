@@ -18,6 +18,7 @@ Uso:
 import base64
 import datetime
 import draft_workflow
+import gestion_clientes
 import secrets
 import hashlib
 import hmac
@@ -75,6 +76,12 @@ IMG_TOKEN = re.compile(r"lzimg:(\d+):(\d+)")
 ABS_REF = re.compile(r"""(?<=["'(\s,=])/(?=(?:maquetas|assets|l|privacidad|terminos)(?:/|["'?#\s)]))|(?<=&quot;)/(?=(?:maquetas|assets|l)/)""")
 
 ROUTES = [
+    (re.compile(r"^/api/gestion-clientes$"), "gestion-clientes"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)$"), "gestion-cliente"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)/inicio$"), "gestion-inicio"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)/landings/(\d+)$"), "gestion-contrato"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)/pagos$"), "gestion-pagos"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)/pagos/(\d+)/anular$"), "gestion-anular"),
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
@@ -4228,6 +4235,31 @@ class Handler(SimpleHTTPRequestHandler):
                 return remove_change_request(ident, int_value((query.get("fecha") or ["0"])[0], None, "La fecha del pedido no es válida."))
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
+        if name == "gestion-clientes" and method == "GET":
+            import sys
+            return gestion_clientes.portfolio(sys.modules[__name__])
+        if name == "gestion-cliente" and method == "GET":
+            import sys
+            return gestion_clientes.portfolio(sys.modules[__name__], ident)
+        if name == "gestion-inicio" and method == "PUT":
+            import sys
+            return gestion_clientes.update_start(sys.modules[__name__], ident, self.read_json())
+        if name == "gestion-contrato" and method == "PUT":
+            import sys
+            parts = re.fullmatch(r"/api/gestion-clientes/(\d+)/landings/(\d+)", self.route_path()[0])
+            if not parts or int(parts.group(1)) != ident:
+                raise ApiError(400, "Ruta de contrato inválida.")
+            return gestion_clientes.update_contract(sys.modules[__name__], ident, int(parts.group(2)), self.read_json())
+        if name == "gestion-anular" and method == "POST":
+            import sys
+            parts = re.fullmatch(r"/api/gestion-clientes/(\d+)/pagos/(\d+)/anular", self.route_path()[0])
+            if not parts or int(parts.group(1)) != ident:
+                raise ApiError(400, "Ruta de anulación inválida.")
+            return gestion_clientes.void_payment(sys.modules[__name__], ident,
+                                                 int(parts.group(2)), self.read_json())
+        if name == "gestion-pagos" and method == "POST":
+            import sys
+            return gestion_clientes.add_payment(sys.modules[__name__], ident, self.read_json())
         if name == "clientes":
             if method == "GET":
                 return list_clients()
