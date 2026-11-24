@@ -495,22 +495,20 @@ class DataBuildTest(unittest.TestCase):
     def setUp(self):
         sim.reset_redis()
 
-    def test_publish_builds_from_data(self):
+    def test_publish_only_syncs_previously_approved_data(self):
+        """Incluso con LANZATE_ARMADO=datos, publicar global no reescribe ninguna landing."""
         status, session = self.team.call("GET", "/api/sesion")
         self.assertEqual(session["armado"], "datos")
-        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Armado en el servidor"})
+        before = read_js("lanzate-datos", "data/landings.js")
+        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Sincronizar aprobadas"})
         self.assertEqual(status, 200, out)
         self.assertTrue(all(r["ok"] for r in out["resultados"]), out)
         armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
-        self.assertIn("armadas en el servidor", armado["detalle"])
-        landing = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
-        self.assertTrue(any("campos" in it for it in landing["items"]), "se guardó por nombre")
-        self.assertNotRegex(landing["html"], r"data-lz-(campo|foto|enlace)=")
-        # Publicar otra vez no cambia nada: lo guardado ya es lo que arma el servidor.
-        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Otra vez"})
-        armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
-        self.assertIn("(0 con cambios)", armado["detalle"], armado)
-        # Sin la firma, la función de armado no responde.
+        self.assertIn("compar", armado["detalle"].lower())
+        after = read_js("lanzate-datos", "data/landings.js")
+        self.assertEqual([row.get("html") for row in before], [row.get("html") for row in after])
+        self.assertEqual([row.get("items") for row in before], [row.get("items") for row in after])
+        # La función de armado mantiene su firma obligatoria.
         request = urllib.request.Request(armado_url() + "/api/armar", data=b'{"pedidos": []}', method="POST")
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(request, timeout=10)
