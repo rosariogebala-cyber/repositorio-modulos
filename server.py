@@ -665,6 +665,8 @@ def check_private_repo():
                                 "(GITHUB_TOKEN en Vercel) tenga permiso sobre él." % REPOS["datos"])
         if not info.get("private"):
             raise ApiError(500, "El repo %s tiene que ser privado: ahí están los datos de los clientes." % REPOS["datos"])
+    elif ON_VERCEL:
+        raise ApiError(503, "Falta GITHUB_TOKEN en este entorno de Vercel. Configurá las credenciales aisladas de Preview; no uses el token de producción.")
     elif not FILES.has("datos"):
         raise ApiError(500, "Falta la carpeta Lanzate_datos al lado de Lanzate_modulos (el repo privado).")
     _private_ok.append(True)
