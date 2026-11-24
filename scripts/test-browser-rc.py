@@ -20,7 +20,9 @@ fixture = mod.ApiTest
 try:
     fixture.setUpClass()
     import json
-    env = dict(os.environ, QA_BASE=fixture.base,
+    status, access = fixture.team.call("POST", "/api/clientes/%d/acceso" % fixture.client_id, {"usuario": "browser-qa", "clave": ""})
+    assert status == 200, "Could not provision fictitious portal account"
+    env = dict(os.environ, QA_PORTAL_USER="browser-qa", QA_PORTAL_PASSWORD=access["clave_nueva"], QA_BASE=fixture.base,
                QA_COOKIES=json.dumps(fixture.team.cookies),
                QA_SLUG=fixture.slug)
     subprocess.run(["node", "scripts/browser-rc.mjs"], cwd=ROOT, env=env, check=True)
