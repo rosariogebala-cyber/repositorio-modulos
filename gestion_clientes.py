@@ -30,7 +30,10 @@ def money_cents(value):
         number = Decimal(str(value).strip().replace(",", "."))
         if not number.is_finite() or number < 0 or number > 100_000_000:
             raise ValueError()
-        return int((number * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        rounded = number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if rounded != number:
+            raise ValueError()
+        return int(rounded * 100)
     except (InvalidOperation, ValueError, TypeError):
         raise ValueError("El importe debe ser un número positivo, de hasta dos decimales.")
 
@@ -82,7 +85,7 @@ def payment_status(contract, payments, current=None):
         return {"estado": "no_iniciado", "vencimiento": due.isoformat(), "pagado_centavos": 0,
                 "saldo_centavos": contract["abono_centavos"]}
     paid = sum(int(p["monto_centavos"]) for p in payments
-               if p.get("periodo") == period and p.get("moneda") == contract["moneda"])
+               if p.get("periodo") == period and p.get("moneda") == contract["moneda"] and not p.get("anulado"))
     total = contract["abono_centavos"]
     state = "pagado" if paid >= total else ("parcial" if paid > 0 else
               ("vencido" if current > due else "pendiente"))
@@ -226,6 +229,9 @@ def add_payment(s, client_id, data):
         if amount <= 0:
             raise ValueError("El pago debe ser mayor a cero.")
         reference = " ".join(str(data.get("referencia") or "").split())[:120]
+        request_id = str(data.get("request_id") or "").strip()
+        if request_id and not re.fullmatch(r"[A-Za-z0-9-]{16,80}", request_id):
+            raise ValueError("El identificador del registro no es válido.")
     except (ValueError, TypeError) as error:
         raise s.ApiError(400, str(error))
     with s._lock:
@@ -239,10 +245,35 @@ def add_payment(s, client_id, data):
         if not contract.get("inicio") or not contract.get("abono_centavos"):
             raise s.ApiError(409, "Configurá primero el abono y la fecha de inicio de la landing.")
         currency = contract["moneda"]
+        if request_id and any(p.get("request_id") == request_id and p.get("cliente_id") == client_id
+                              for p in ledger["pagos"]):
+            return portfolio(s, client_id)
         latest = max([int(p.get("id") or 0) for p in ledger["pagos"]] or [0]) + 1
         ledger["pagos"].append({"id": latest, "cliente_id": client_id, "landing_id": lid,
                               "periodo": period, "fecha_pago": date, "monto_centavos": amount,
-                              "moneda": currency, "referencia": reference, "registrado": s.now_ms()})
+                              "moneda": currency, "referencia": reference, "registrado": s.now_ms(),
+                              "request_id": request_id, "anulado": False})
+        ledger["revision"] += 1
+        write(s, ledger)
+    return portfolio(s, client_id)
+
+
+def void_payment(s, client_id, payment_id, data):
+    """Anulación con motivo y fecha; nunca se borra un cobro del historial de auditoría."""
+    reason = " ".join(str((data or {}).get("motivo") or "").split())[:200]
+    if len(reason) < 5:
+        raise s.ApiError(400, "Escribí el motivo de la anulación (al menos 5 caracteres).")
+    with s._lock:
+        with s.store("clientes", save=False) as db:
+            s.find_client(db, client_id)
+        ledger = read(s)
+        payment = next((entry for entry in ledger["pagos"] if entry.get("id") == payment_id and
+                        entry.get("cliente_id") == client_id), None)
+        if payment is None:
+            raise s.ApiError(404, "No existe ese pago en este cliente.")
+        if payment.get("anulado"):
+            raise s.ApiError(409, "Este movimiento ya está anulado.")
+        payment.update(anulado=True, motivo_anulacion=reason, fecha_anulacion=s.now_ms())
         ledger["revision"] += 1
         write(s, ledger)
     return portfolio(s, client_id)
