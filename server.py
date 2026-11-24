@@ -4084,6 +4084,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_route(self, method, name, ident, query):
         """Atiende el pedido y guarda. Devuelve None si ya respondió."""
+        # Vercel Preview comparte normalmente tokens y repositorios con producción.
+        # Hasta configurar un sandbox aislado, la vista previa es solo lectura.
+        if (ON_VERCEL and os.environ.get("VERCEL_ENV") == "preview" and
+                os.environ.get("LANZATE_PREVIEW_SANDBOX") != "1" and method != "GET" and
+                name not in ("login", "logout", "portal-login", "portal-logout")):
+            raise ApiError(403, "Preview es de solo lectura para proteger las landings reales. Probá en local o configurá repositorios de pruebas aislados.")
         if name in CROSS_SITE_ROUTES:
             self.extra_headers = (("Access-Control-Allow-Origin", "*"),)
         elif method != "GET" and not self.same_origin():
