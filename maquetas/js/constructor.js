@@ -1414,10 +1414,11 @@
           control.className = "btn-nx-outline btn-sm";
           control.textContent = label;
           control.setAttribute("aria-label", title);
+          control.dataset.structureAction = label === "↑" ? "up" : label === "↓" ? "down" : "remove";
           control.addEventListener("click", callback);
           return control;
         }
-        function render() {
+        function render(focusEntry, focusAction) {
           list.replaceChildren();
           ordered.forEach(function (entry, index) {
             var item = document.createElement("li");
@@ -1429,6 +1430,7 @@
             text.appendChild(note);
             var select = document.createElement("select");
             select.setAttribute("aria-label", "Variante de " + group(entry.section));
+            select.dataset.structureAction = "variant";
             candidates.filter(function (candidate) { return group(candidate) === group(entry.section); })
               .forEach(function (candidate) {
                 select.add(new Option(candidate.m.split("-").slice(-1)[0], candidate.m));
@@ -1439,18 +1441,19 @@
             select.value = entry.section.m;
             select.addEventListener("change", function () {
               entry.section = Object.assign({}, entry.section, { m: select.value });
-              render();
+              render(entry, "variant");
             });
             item.appendChild(text);
             item.appendChild(select);
             item.appendChild(button("↑", "Subir " + group(entry.section), function () {
-              if (index > 0) { ordered.splice(index - 1, 0, ordered.splice(index, 1)[0]); render(); }
+              if (index > 0) { ordered.splice(index - 1, 0, ordered.splice(index, 1)[0]); render(entry, "up"); }
             }));
             item.appendChild(button("↓", "Bajar " + group(entry.section), function () {
-              if (index < ordered.length - 1) { ordered.splice(index + 1, 0, ordered.splice(index, 1)[0]); render(); }
+              if (index < ordered.length - 1) { ordered.splice(index + 1, 0, ordered.splice(index, 1)[0]); render(entry, "down"); }
             }));
             item.appendChild(button("×", "Quitar " + group(entry.section), function () {
-              ordered.splice(index, 1); render();
+              ordered.splice(index, 1);
+              render(ordered[Math.min(index, ordered.length - 1)] || null, "remove");
             }));
             list.appendChild(item);
           });
@@ -1462,6 +1465,12 @@
           extras.forEach(function (entry) { addSelect.add(new Option(group(entry), entry.m)); });
           addButton.disabled = !extras.length || ordered.length >= included - 1;
           accept.disabled = ordered.length < 1;
+          // Los controles se recrean: restaurar el foco evita perder la posición del teclado.
+          if (focusAction) {
+            var newIndex = ordered.indexOf(focusEntry);
+            var target = newIndex >= 0 ? list.children[newIndex].querySelector('[data-structure-action="' + focusAction + '"]') : null;
+            (target || addSelect).focus();
+          }
         }
         addButton.onclick = function () {
           if (!addSelect.value || ordered.length >= included - 1) return;
@@ -1474,6 +1483,7 @@
         dialog.oncancel = function (event) { event.preventDefault(); done(false); };
         render();
         dialog.showModal();
+        dialog.querySelector("#lbStructureTitle").focus();
       });
     }
 
