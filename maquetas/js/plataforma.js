@@ -476,7 +476,7 @@
       return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : iso;
     }
     function stateLabel(value) {
-      return ({ vencido: "Vencido", pendiente: "Pendiente", parcial: "Pago parcial",
+      return ({ vencido: "Vencido", pendiente: "Pendiente", parcial: "Pago parcial", parcial_vencido: "Pago parcial vencido",
         pagado: "Al día", no_iniciado: "Aún no iniciado",
         sin_configurar: "Sin configurar" })[value] || "Sin configurar";
     }
@@ -486,10 +486,10 @@
         var payment = paymentFilter.value;
         var states = c.webs.map(function (site) { return site.cobro.estado; });
         var fitsPayment = !payment ||
-          (payment === "pendiente" ? states.some(function (x) { return x === "pendiente" || x === "parcial"; }) :
+          (payment === "pendiente" ? states.some(function (x) { return x === "pendiente" || x === "parcial" || x === "parcial_vencido"; }) :
           payment === "sin_configurar" ? (!states.length || states.includes("sin_configurar")) :
           payment === "pagado" ? (states.length > 0 && states.every(function (x) { return x === "pagado"; })) :
-          states.includes(payment));
+          (payment === "vencido" ? states.some(function (x) { return x === "vencido" || x === "parcial_vencido"; }) : states.includes(payment)));
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           fitsPayment &&
@@ -514,7 +514,7 @@
           '<td>' + esc(dateLabel(c.inicio || c.alta)) +
             (!c.inicio ? '<small>Fecha de alta · falta inicio contractual</small>' : '<small>Inicio contractual</small>') + '</td>' +
           '<td><span class="gc-status is-' + esc(statusKind) + '">' + esc(financial) + '</span>' +
-            '<small>' + esc(c.webs.filter(function (lp) { return lp.cobro.estado === "vencido"; }).length ? "Revisar vencimientos" : "Período actual") + '</small></td>' +
+            '<small>' + esc(c.webs.filter(function (lp) { return ["vencido", "parcial_vencido"].includes(lp.cobro.estado); }).length ? "Revisar vencimientos" : "Período actual") + '</small></td>' +
           '<td><span class="gc-changes">' + c.cambios_pendientes + ' pendiente(s)</span></td>' +
           '<td><a class="btn-nx-outline btn-sm" href="' + href + '">Ver ficha</a></td>';
         rows.appendChild(tr);
@@ -608,7 +608,7 @@
     }
     function gcStatus(value) {
       return ({pagado:"Al día", pendiente:"Pendiente", vencido:"Vencido",
-        parcial:"Pago parcial", no_iniciado:"Aún no inició", sin_configurar:"Sin configurar"})[value] || "Sin configurar";
+        parcial:"Pago parcial", parcial_vencido:"Pago parcial vencido", no_iniciado:"Aún no inició", sin_configurar:"Sin configurar"})[value] || "Sin configurar";
     }
     function gcRender(data) {
       var start = '<form class="gc-client-start" data-gc-start>' +
