@@ -1,3 +1,4 @@
+import draft_workflow
 #!/usr/bin/env python3
 """Panel de Lanzate: corre online en Vercel (guarda con commits en GitHub) o en tu computadora (guarda en el disco).
 
@@ -78,6 +79,12 @@ ROUTES = [
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
+    (re.compile(r"^/api/borradores$"), "borradores"),
+    (re.compile(r"^/api/landings/(\\d+)/borrador/vista$"), "borrador-vista"),
+    (re.compile(r"^/api/landings/(\\d+)/borrador$"), "borrador"),
+    (re.compile(r"^/api/landings/(\\d+)/revision$"), "revision"),
+    (re.compile(r"^/api/landings/(\\d+)/aprobar$"), "aprobar"),
+    (re.compile(r"^/api/landings/(\\d+)/publicar$"), "publicar-landing"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
@@ -4085,6 +4092,14 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ApiError(401, "Ingresá a tu portal.")
             self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
             return None
+        if name == "borrador-vista" and method == "GET":
+            import sys
+            html = draft_workflow.preview(sys.modules[__name__], ident)
+            self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),
+                                                               ("Cache-Control", "no-store"),
+                                                               ("X-Robots-Tag", "noindex"))
+            self.send_body(200, preview_html(html), "text/html; charset=utf-8")
+            return None
         if name == "pedido-vista" and method == "GET":
             # Solo el equipo autenticado puede ver ambos estados del pedido.
             original = (query.get("vista") or [""])[0] == "original"
@@ -4212,6 +4227,19 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "DELETE":
                 delete_client(ident)
                 return {"ok": True}
+        if name == "borradores" and method == "POST":
+            import sys
+            return draft_workflow.save(sys.modules[__name__], self.read_json())
+        if name == "borrador":
+            import sys
+            if method == "GET":
+                return draft_workflow.project(sys.modules[__name__], ident)
+            if method == "PUT":
+                return draft_workflow.save(sys.modules[__name__], self.read_json(), ident)
+        if name in ("revision", "aprobar", "publicar-landing") and method == "POST":
+            import sys
+            return draft_workflow.move(sys.modules[__name__], ident,
+                                      "publicar" if name == "publicar-landing" else name, self.read_json())
         if name == "landings":
             if method == "GET":
                 client = (query.get("cliente") or [""])[0]
@@ -4220,7 +4248,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return save_landing(self.read_json())
         if name == "landing":
             if method == "GET":
-                return get_landing(ident)
+                if (query.get("modo") or [""])[0] == "sitio":
+                    return get_landing(ident)
+                import sys
+                return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 data = self.read_json()
                 if set(data) == {"ejemplo"}:
