@@ -78,6 +78,11 @@
   var workflowEl = $("[data-lb-workflow]");
   var workflowState = $("[data-lb-workflow-state]");
   var draftPreviewBtn = $("[data-lb-draft-preview]");
+  var publishedPreviewBtn = $("[data-lb-published-preview]");
+  var qaReviewBtn = $("[data-lb-qa-review]");
+  var discardBtn = $("[data-lb-discard]");
+  var workflowReport = $("[data-lb-workflow-report]");
+  var compareDialog = $("[data-lb-compare]");
   var reviewBtn = $("[data-lb-review]");
   var approveBtn = $("[data-lb-approve]");
   var publishOneBtn = $("[data-lb-publish-one]");
@@ -4279,6 +4284,9 @@
       workflowState.textContent = labels[stage] || "Borrador";
       workflowEl.hidden = clientMode() || REBUILD;
       draftPreviewBtn.disabled = busy || !editing || stage === "sin_borrador";
+      publishedPreviewBtn.disabled = busy || !editing || stage === "sin_borrador" || !state.publicada;
+      qaReviewBtn.disabled = busy || !editing || stage === "sin_borrador";
+      discardBtn.disabled = busy || !editing || stage === "sin_borrador";
       reviewBtn.disabled = busy || dirty || !editing || stage !== "borrador";
       approveBtn.disabled = busy || dirty || !editing || stage !== "revision";
       publishOneBtn.disabled = busy || dirty || !editing || stage !== "aprobado";
@@ -4633,6 +4641,7 @@
         state.landingId = data.id;
         if (!clientMode()) {
           state.borradorEstado = data.borrador_estado || "borrador";
+          workflowReport.hidden = true;
           state.borradorRevision = data.borrador_revision || null;
           state.publicada = !!data.publicada;
           state.urlPublicada = data.url || "";
@@ -4774,8 +4783,16 @@
     busy = true;
     renderMode();
     var id = state.landingId;
-    api("POST", "/api/landings/" + id + "/" + next,
-        { revision: state.borradorRevision }).then(function (data) {
+    var actionData = { revision: state.borradorRevision };
+    if (next === "aprobar" && planSectionWarning().extra) {
+      if (!window.confirm("Esta landing supera el plan. ¿Confirmás que aprobaste comercialmente las secciones adicionales y su presupuesto?")) {
+        busy = false;
+        renderMode();
+        return;
+      }
+      actionData.aprobar_adicionales = true;
+    }
+    api("POST", "/api/landings/" + id + "/" + next, actionData).then(function (data) {
       state.borradorEstado = data.borrador_estado || "sin_borrador";
       state.borradorRevision = data.borrador_revision || null;
       state.publicada = data.publicada !== undefined ? !!data.publicada : state.publicada;
@@ -4804,6 +4821,53 @@
   draftPreviewBtn.addEventListener("click", function () {
     if (!state.landingId) return;
     window.open("/api/landings/" + state.landingId + "/borrador/vista", "_blank", "noopener,noreferrer");
+  });
+  qaReviewBtn.addEventListener("click", function () {
+    if (!state.landingId) return;
+    workflowReport.hidden = false;
+    workflowReport.textContent = "Analizando estructura, contenido, plan y SEO…";
+    api("GET", "/api/landings/" + state.landingId + "/qa").then(function (report) {
+      var problems = (report.errores || []).map(function (error) { return "• " + error; });
+      var warnings = (report.advertencias || []).map(function (warn) { return "• " + warn; });
+      workflowReport.textContent = "Plan: " + (report.plan || "Sin definir") +
+        " · " + report.secciones + "/" + report.limite + " secciones.\\n" +
+        (problems.length ? "Correcciones necesarias:\\n" + problems.join("\\n") :
+          "Sin errores detectados por las comprobaciones automáticas.") +
+        (warnings.length ? "\\nRecomendaciones de rendimiento y SEO:\\n" + warnings.join("\\n") : "") +
+        "\\nLa revisión automática no reemplaza una auditoría manual WCAG 2.2 AA.";
+    }).catch(function (err) { workflowReport.textContent = err.message; });
+  });
+  publishedPreviewBtn.addEventListener("click", function () {
+    if (!state.landingId || !state.publicada || !state.urlPublicada) return;
+    compareDialog.querySelector("[data-lb-compare-draft]").src =
+      "/api/landings/" + state.landingId + "/borrador/vista";
+    compareDialog.querySelector("[data-lb-compare-live]").src = state.urlPublicada;
+    compareDialog.showModal();
+  });
+  compareDialog.querySelector("[data-lb-compare-close]").addEventListener("click", function () {
+    compareDialog.close();
+  });
+  compareDialog.addEventListener("close", function () {
+    compareDialog.querySelectorAll("iframe").forEach(function (frame) { frame.removeAttribute("src"); });
+  });
+  discardBtn.addEventListener("click", function () {
+    if (!state.landingId || !state.borradorRevision) return;
+    if (!window.confirm("¿Descartar el borrador? La última versión publicada no cambia.")) return;
+    busy = true;
+    renderMode();
+    var id = state.landingId;
+    api("DELETE", "/api/landings/" + id + "/borrador",
+      { revision: state.borradorRevision }).then(function () {
+      if (state.publicada) {
+        return api("GET", "/api/landings/" + id).then(function (detail) { loadLanding(detail); });
+      }
+      startNew(state.clienteId);
+    }).then(function () {
+      workflowReport.hidden = true;
+      say("Borrador descartado. La versión publicada quedó intacta.", "ok");
+      renderSaved();
+    }).catch(function (err) { say(err.message, "warn"); })
+      .finally(function () { busy = false; renderMode(); });
   });
 
   $("[data-lb-library-open]").addEventListener("click", function () {
