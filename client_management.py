@@ -6,6 +6,7 @@ No inventar fechas de renovación, cuotas ni pagos para clientes históricos.
 import json
 import re
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CURRENCIES = ("ARS", "USD")
@@ -131,14 +132,80 @@ def movement(s, client_id, payload):
     return get(s, client_id)
 
 
+def followup_alerts(client, info, today, now_ms, zone):
+    """Alertas solo lectura, basadas en registros confirmados, sin envíos externos."""
+    alerts = []
+    cid = client["id"]
+    name = client["nombre"]
+    base = "cliente.html?id=%d" % cid
+    deadline = (today + timedelta(days=7)).isoformat()
+    for m in info["movimientos"]:
+        if m.get("estado") != "pendiente" or not m.get("vencimiento"):
+            continue
+        due = m["vencimiento"]
+        if not DATE_RE.fullmatch(due) or due > deadline:
+            continue
+        overdue = due < today.isoformat()
+        today_due = due == today.isoformat()
+        label = "Pago vencido" if overdue else ("Pago vence hoy" if today_due else "Pago próximo a vencer")
+        alerts.append({
+            "id": "pago:%d:%s" % (cid, m.get("id", "")), "tipo": "pago",
+            "prioridad": 0 if overdue else 1 if today_due else 3,
+            "cliente_id": cid, "cliente": name, "titulo": label,
+            "detalle": "%s · %s" % (m.get("concepto") or "Cobro registrado", due),
+            "fecha": due, "url": base + "#gcFinanceTitle",
+            "importe_centavos": m["importe_centavos"], "moneda": m["moneda"],
+        })
+    followup = info.get("proximo_contacto") or ""
+    if DATE_RE.fullmatch(followup) and followup <= deadline:
+        is_late = followup < today.isoformat()
+        alerts.append({
+            "id": "seguimiento:%d:%s" % (cid, followup), "tipo": "seguimiento",
+            "prioridad": 1 if is_late else 2 if followup == today.isoformat() else 4,
+            "cliente_id": cid, "cliente": name,
+            "titulo": "Seguimiento atrasado" if is_late else "Seguimiento de hoy" if followup == today.isoformat() else "Seguimiento próximo",
+            "detalle": "Próximo contacto: " + followup, "fecha": followup,
+            "url": base + "#gcContractTitle",
+        })
+    for req in (client.get("pedidos") or []):
+        if req.get("estado") != "pendiente":
+            continue
+        stamp = req.get("fecha")
+        try:
+            request_day = datetime.fromtimestamp(int(stamp) / 1000, tz=zone).date() if stamp else None
+            age = max(0, (now_ms - int(stamp)) // 86400000) if request_day else None
+        except (ValueError, TypeError, OverflowError, OSError):
+            request_day = None
+            age = None
+        late = age is not None and age >= 2
+        detail = "Pedido pendiente"
+        if req.get("landing"):
+            detail += " · " + str(req["landing"])[:80]
+        if age is not None:
+            detail += " · hace %d día(s)" % age
+        alerts.append({
+            "id": "pedido:%d:%s" % (cid, str(req.get("id") or stamp or "sin-id")),
+            "tipo": "cambio", "prioridad": 1 if late else 2,
+            "cliente_id": cid, "cliente": name,
+            "titulo": "Solicitud demorada" if late else "Solicitud de cambios pendiente",
+            "detalle": detail, "fecha": request_day.isoformat() if request_day else "",
+            "url": base + "#cf-revisar",
+        })
+    return alerts
+
+
 def dashboard(s):
     with s.store("clientes", "landings", save=False) as db:
         clients = list(db["clientes"])
         landings = list(db["landings"])
-    today = date.today()
+    zone = ZoneInfo("America/Argentina/Buenos_Aires")
+    now = datetime.now(zone)
+    today = now.date()
+    alerts = []
     result = []
     for c in clients:
         info = load(s, c["id"])
+        alerts.extend(followup_alerts(c, info, today, int(now.timestamp() * 1000), zone))
         rows = [l for l in landings if l["cliente_id"] == c["id"]]
         movements = info["movimientos"]
         pending = [m for m in movements if m.get("estado") == "pendiente"]
@@ -164,7 +231,15 @@ def dashboard(s):
             "tiene_registro_cobros": bool(movements),
         }
         result.append(summary)
-    return {"clientes": result, "resumen": {
+    alerts.sort(key=lambda a: (a["prioridad"], a["fecha"] or "9999-12-31", a["cliente"].lower(), a["id"]))
+    return {"clientes": result, "alertas": alerts, "alertas_total": len(alerts),
+            "alertas_resumen": {
+                "pagos": sum(a["tipo"] == "pago" for a in alerts),
+                "cambios": sum(a["tipo"] == "cambio" for a in alerts),
+                "seguimientos": sum(a["tipo"] == "seguimiento" for a in alerts),
+                "urgentes": sum(a["prioridad"] <= 1 for a in alerts),
+            },
+            "resumen": {
         "total": len(clients), "activos": sum(c.get("estado") != "pausado" for c in clients),
         "landings_publicadas": sum(bool(l.get("html")) for l in landings),
         "solicitudes_pendientes": sum(r["solicitudes_pendientes"] for r in result),
