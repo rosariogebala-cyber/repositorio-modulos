@@ -74,7 +74,21 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
             const r=await fetch('/api/portal/sesion?sitio='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
             return r.ok && (await r.json()).ok===true;
           },process.env.QA_SLUG,{timeout:10000});
-          await page.locator('[data-app]').waitFor({state:'visible'});
+          try {
+            await page.locator('[data-app]').waitFor({state:'visible'});
+          } catch (err) {
+            // Read-only probes distinguish cached URL responses from actual authorization failures.
+            const probes=await page.evaluate(async slug=>{
+              const out=[];
+              for (const suffix of ['', '&qa_probe='+Date.now()]) {
+                const r=await fetch('/api/portal/inicio?sitio='+encodeURIComponent(slug)+suffix,{credentials:'same-origin',cache:'no-store'});
+                out.push({uniqueURL:!!suffix,status:r.status});
+              }
+              return out;
+            },process.env.QA_SLUG);
+            requests.push({probes});
+            throw err;
+          }
           assert.equal((await portalContext.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
           for (const tab of ['resumen','web','pedidos','visitas','consultas','plan','marca','contacto','cuenta']) {
             const before=errors.length;
