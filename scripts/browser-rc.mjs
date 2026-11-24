@@ -52,7 +52,13 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           await page.locator('[data-login-form]').waitFor({state:'visible'});
           await page.locator('#usuario').fill(process.env.QA_PORTAL_USER);
           await page.locator('#clave').fill(process.env.QA_PORTAL_PASSWORD);
+          const loginResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/portal/login' && r.request().method()==='POST');
           await page.locator('[data-login-form] button[type=submit]').click();
+          const login=await loginResponse;
+          assert.equal(login.status(),200,'Portal login HTTP status');
+          const session=await context.request.get(base.origin+'/api/portal/sesion?sitio='+encodeURIComponent(process.env.QA_SLUG));
+          assert.equal(session.status(),200,'Portal session HTTP status');
+          assert.equal((await session.json()).ok,true,'Browser did not retain portal session');
           await page.locator('[data-app]').waitFor({state:'visible'});
           assert.equal((await context.request.get(base.origin+'/api/gestion/clientes')).status(),401,'Portal session must not grant team access');
           for (const tab of ['resumen','web','pedidos','visitas','consultas','plan','marca','contacto','cuenta']) {
