@@ -1457,7 +1457,7 @@
             }));
             list.appendChild(item);
           });
-          counter.textContent = "Hero + " + ordered.length + " secciones · " + (ordered.length + 1) +
+          counter.textContent = (focusAction ? "Orden o selección actualizados. " : "") + "Hero + " + ordered.length + " secciones · " + (ordered.length + 1) +
             " de " + included + " incluidas.";
           var usedGroups = new Set(ordered.map(function (entry) { return group(entry.section); }));
           var extras = candidates.filter(function (candidate) { return !usedGroups.has(group(candidate)); });
@@ -4951,6 +4951,7 @@
       "/api/landings/" + state.landingId + "/borrador/vista";
     compareDialog.querySelector("[data-lb-compare-live]").src = state.urlPublicada;
     compareDialog.showModal();
+    compareDialog.querySelector("#lbCompareTitle").focus();
   });
   compareDialog.querySelector("[data-lb-compare-close]").addEventListener("click", function () {
     compareDialog.close();
