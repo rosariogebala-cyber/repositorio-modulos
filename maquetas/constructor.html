@@ -293,10 +293,14 @@
         <div class="lb-workflow" data-lb-workflow role="group" aria-label="Revisión y publicación de la landing">
           <span class="lb-workflow-state" data-lb-workflow-state role="status" aria-live="polite">Borrador sin guardar</span>
           <button class="btn-nx-outline btn-sm" type="button" data-lb-draft-preview disabled>Vista previa</button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-published-preview disabled>Comparar con publicada</button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-qa-review disabled>Revisar calidad</button>
           <button class="btn-nx-outline btn-sm" type="button" data-lb-review disabled>Enviar a revisión</button>
           <button class="btn-nx-outline btn-sm" type="button" data-lb-approve disabled>Aprobar</button>
           <button class="btn-nx btn-sm" type="button" data-lb-publish-one disabled>Publicar versión aprobada</button>
+          <button class="btn-nx-outline btn-sm" type="button" data-lb-discard disabled>Descartar borrador</button>
         </div>
+        <p class="lb-workflow-report" data-lb-workflow-report role="status" aria-live="polite" hidden></p>
         <div class="lb-preview-tools">
           <p class="lb-edit-hint" data-lb-edit hidden><i class="bi bi-hand-index" aria-hidden="true"></i> Tocá un texto, una foto o un link para&nbsp;cambiarlo</p>
           <button class="lb-edit-btn lb-ai-texts" type="button" data-lb-ai-texts hidden><i class="bi bi-stars" aria-hidden="true"></i> Escribir con IA</button>
@@ -479,6 +483,17 @@
     </div>
   </dialog>
 
+  <dialog class="lb-workflow-compare" data-lb-compare aria-labelledby="lbCompareTitle">
+    <div class="lb-workflow-compare-head">
+      <h2 id="lbCompareTitle">Comparar borrador y landing publicada</h2>
+      <button type="button" class="btn-nx-outline btn-sm" data-lb-compare-close> Cerrar </button>
+    </div>
+    <div class="lb-workflow-frames">
+      <section><h3>Borrador</h3><iframe data-lb-compare-draft title="Vista previa del borrador"></iframe></section>
+      <section><h3>Publicada</h3><iframe data-lb-compare-live title="Versión actualmente publicada"></iframe></section>
+    </div>
+    <p>Esta comparación es visual. Comprobá también textos, enlaces, comportamiento móvil y accesibilidad.</p>
+  </dialog>
   <script src="js/plataforma.js"></script>
   <script src="js/reglas.js"></script>
   <script src="js/plantillas.js"></script>
