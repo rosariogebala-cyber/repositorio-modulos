@@ -79,7 +79,7 @@ def save_settings(s, client_id, payload):
         "notas": str(payload.get("notas") or "").strip()[:1500],
     }
     old.update(updates)
-    old["revision"] = s.now_ms()
+    old["revision"] = max(s.now_ms(), old["revision"] + 1)
     s.FILES.write("datos", path(client_id), json.dumps(old, ensure_ascii=False).encode("utf-8"))
     return get(s, client_id)
 
@@ -126,7 +126,7 @@ def movement(s, client_id, payload):
         "estado": state, "vencimiento": due, "fecha_pago": paid,
         "landing_id": landing_id, "creado": s.now_ms(),
     })
-    old["revision"] = s.now_ms()
+    old["revision"] = max(s.now_ms(), old["revision"] + 1)
     s.FILES.write("datos", path(client_id), json.dumps(old, ensure_ascii=False).encode("utf-8"))
     return get(s, client_id)
 
