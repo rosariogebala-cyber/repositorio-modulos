@@ -398,6 +398,26 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.team.call("GET", "/api/landings/%d/borrador" % original["id"])[1]["borrador_estado"],
                          "sin_borrador")
 
+    def test_borrador_nuevo_no_crea_pagina_publica_y_se_puede_descartar(self):
+        original = self.landing
+        body = {"cliente_id": original["cliente_id"], "nombre": "Borrador QA no publicar",
+                "plan_id": original.get("plan_id") or "express", "html": original["html"],
+                "items": original["items"], "descripcion": "Descripción de control"}
+        status, result = self.team.call("POST", "/api/borradores", body)
+        self.assertEqual(status, 200, result)
+        self.assertFalse(result["publicada"])
+        self.assertEqual(result["borrador_estado"], "borrador")
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == result["id"])
+        self.assertEqual(row.get("html"), "")
+        self.assertEqual(self.team.call("GET", "/api/landings/%d" % result["id"])[1]["borrador_estado"],
+                         "borrador")
+        public = "/l/%s/%s/" % (self.slug, row["slug"])
+        self.assertEqual(self.team.call("GET", public, raw=True)[0], 404)
+        status, discard = self.team.call("DELETE", "/api/landings/%d/borrador" % result["id"],
+                                         {"revision": result["borrador_revision"]})
+        self.assertEqual(status, 200, discard)
+        self.assertFalse(any(l["id"] == result["id"] for l in read_js("lanzate-datos", "data/landings.js")))
+
     def test_borrador_privado_control_de_revision(self):
         original = self.landing
         body = {"cliente_id": original["cliente_id"], "nombre": original["nombre"],
