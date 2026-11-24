@@ -107,6 +107,40 @@ def save(s, data, landing_id=None):
     return project(s, landing_id)
 
 
+def content_warnings(s, html, client):
+    """Lista de verificación editorial/SEO/rendimiento: sugerencias, no certificación WCAG."""
+    warnings = []
+    try:
+        doc = s.html_dom.document_fromstring(html)
+    except (ValueError, TypeError):
+        return ["El HTML no se pudo interpretar para analizar su contenido."]
+    images = doc.xpath("//img")
+    if images and any(not (image.get("width") and image.get("height")) for image in images):
+        warnings.append("Hay imágenes sin dimensiones explícitas; verificá cambios de diseño (CLS).")
+    if len(images) > 6 and not any(image.get("loading") == "lazy" for image in images[2:]):
+        warnings.append("Hay varias imágenes sin carga diferida; revisá LCP y carga en móvil.")
+    if any("plantillas/" in (image.get("src") or "") or "rubros/" in (image.get("src") or "") for image in images):
+        warnings.append("Revisá fotos de la biblioteca de ejemplo; reemplazalas por fotografías autorizadas del negocio.")
+    if any(not (image.get("src") or "").strip() for image in images):
+        warnings.append("Hay imágenes sin origen.")
+    ids = doc.xpath("//*[@id]/@id")
+    if len(ids) != len(set(ids)):
+        warnings.append("Hay IDs duplicados que pueden afectar navegación y lectores de pantalla.")
+    if any(not (link.get("href") or "").strip() or link.get("href") == "#" for link in doc.xpath("//a")):
+        warnings.append("Hay enlaces sin destino real; completalos antes de publicar.")
+    for field in doc.xpath("//input[not(@type='hidden') and not(@type='submit') and not(@type='button')] | //textarea | //select"):
+        identity = field.get("id") or ""
+        if field.get("aria-label") or field.get("aria-labelledby") or field.xpath("ancestor::label"):
+            continue
+        if identity and doc.xpath("//label[@for=$id]", id=identity):
+            continue
+        warnings.append("Hay campos de formulario sin etiqueta accesible.")
+        break
+    if not any((client.get(key) or "").strip() for key in ("telefono", "email", "sitio")):
+        warnings.append("Falta un canal de contacto confirmado en la ficha del cliente.")
+    return warnings
+
+
 def quality_errors(s, landing_id, draft):
     content = draft["contenido"]
     with s.store("clientes", "landings", save=False) as db:
@@ -131,6 +165,10 @@ def quality_errors(s, landing_id, draft):
     errors.extend(s.published_structure_errors(rendered))
     if s.client_type(client) == "real" and s.DEMO_PLACEHOLDERS.search(unescape(public_html)):
         errors.append("hay textos de ejemplo que deben reemplazarse")
+    if s.client_type(client) == "real" and re.search(
+            r"(?i)informaci[oó]n pendiente|contenido por completar|agreg[aá] informaci[oó]n",
+            s.html_dom.document_fromstring(rendered).text_content()):
+        errors.append("quedó contenido sin confirmar; reemplazá las indicaciones de ejemplo")
     if not str(content.get("descripcion") or "").strip():
         errors.append("falta la descripción para SEO")
     return errors
@@ -199,14 +237,14 @@ def qa_summary(s, landing_id):
     plan_id = content.get("plan_id")
     plan = next((p for p in (s.read_data("planes", {}).get("planes") or [])
                  if p.get("id") == plan_id), None)
-    warnings = []
+    with s.store("clientes", "landings", save=False) as db:
+        client = s.find_client(db, s.find_landing(db, landing_id)["cliente_id"])
+    warnings = content_warnings(s, content.get("html") or "", client)
     if not content.get("descripcion"):
         warnings.append("Revisá la descripción SEO.")
     html = content.get("html") or ""
     if len(html.encode("utf-8")) > 1_000_000:
         warnings.append("El documento HTML supera 1 MB; revisá imágenes incrustadas y peso de página.")
-    if re.search(r'<img\\b(?![^>]*\\b(?:width|height)=)', html, re.I):
-        warnings.append("Algunas imágenes podrían no reservar su espacio: revisá width/height y CLS.")
     return {"apto_para_revision": not errors, "errores": errors, "advertencias": warnings,
             "plan": plan.get("nombre") if plan else "",
             "secciones": sections, "limite": int(plan.get("secciones") or 0) if plan else 0,
