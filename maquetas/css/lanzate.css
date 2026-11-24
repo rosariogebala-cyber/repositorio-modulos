@@ -4901,3 +4901,65 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-template-manual-note h2 { color: #17352c; margin: 0 0 4px; font-size: 22px; }
 .lb-template-manual-note p { color: #596a64; margin: 0; }
 @media(max-width:680px){.lb-reference-fields{grid-template-columns:1fr}.lb-reference-wizard{padding:18px}.lb-reference-actions .btn-nx{width:100%;justify-content:center}}
+
+/* Flujo de trabajo accesible: se ajusta al ancho móvil sin ocultar acciones. */
+.lb-workflow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 0; width:100%; }
+.lb-workflow-state { font-size:.85rem; font-weight:700; color:#25334a; margin-right:auto; }
+.lb-workflow [disabled] { opacity:.48; cursor:not-allowed; }
+@media (max-width:650px) {
+  .lb-workflow { gap:6px; }
+  .lb-workflow-state { flex-basis:100%; }
+  .lb-workflow button { flex:1 1 42%; min-height:44px; white-space:normal; }
+}
+
+.lb-workflow[hidden], .lb-workflow-report[hidden] { display:none; }
+.lb-workflow-report { padding:12px; border:1px solid #d4d7e2; border-radius:9px; background:#fff; color:#283247; white-space:pre-line; overflow-wrap:anywhere; }
+.lb-workflow-compare { border:0; border-radius:16px; padding:20px; color:#263249; background:#fff; width:min(1320px,96vw); max-height:94vh; }
+.lb-workflow-compare::backdrop { background:rgba(8,15,34,.7); }
+.lb-workflow-compare-head { display:flex; justify-content:space-between; gap:16px; align-items:center; margin-bottom:12px; }
+.lb-workflow-compare-head h2 { font-size:1.2rem; margin:0; }
+.lb-workflow-frames { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.lb-workflow-frames section { min-width:0; }
+.lb-workflow-frames h3 { font-size:1rem; margin:0 0 8px; }
+.lb-workflow-frames iframe { width:100%; min-height:60vh; background:#fff; border:1px solid #c5cbd5; border-radius:8px; }
+@media(max-width:760px){ .lb-workflow-frames { grid-template-columns:1fr; } .lb-workflow-frames iframe { min-height:50vh; } }
+
+.lb-structure-dialog { width:min(700px,95vw); max-height:92vh; border:0; border-radius:16px; padding:24px; overflow:auto; }
+.lb-structure-dialog::backdrop { background:rgba(9,16,35,.7); }
+.lb-structure-dialog h2 { font-size:1.3rem; }
+.lb-structure-list { display:grid; gap:10px; margin:14px 0; padding-left:0; list-style:none; }
+.lb-structure-list li { display:flex; gap:10px; align-items:center; padding:10px; border:1px solid #d2d6e1; border-radius:10px; }
+.lb-structure-list li .lb-structure-label { flex:1; min-width:0; }
+.lb-structure-label small { display:block; font-size:.78rem; color:#566076; }
+.lb-structure-list select { max-width:40%; min-height:38px; }
+.lb-structure-list button { min-height:40px; min-width:40px; }
+.lb-structure-add, .lb-structure-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.lb-structure-add label { flex-basis:100%; font-weight:600; }
+.lb-structure-add select { flex:1; min-width:160px; min-height:44px; }
+.lb-structure-actions { justify-content:flex-end; }
+@media(max-width:600px){.lb-structure-list li{flex-wrap:wrap;}.lb-structure-list select{max-width:100%;flex-basis:100%;}}
+
+/* WCAG 2.2 AA: foco distinguible, objetivos cómodos y elementos enfocados no ocultos. */
+.lb-structure-dialog :is(button, select):focus-visible,
+.lb-workflow-compare :is(button, iframe):focus-visible,
+.lb-workflow button:focus-visible,
+.lb-structure-dialog h2:focus,
+.lb-workflow-compare h2:focus {
+  outline: 3px solid #4935b5;
+  outline-offset: 3px;
+}
+.lb-structure-list button,
+.lb-structure-list select,
+.lb-structure-actions button,
+.lb-structure-add button,
+.lb-workflow button { min-height:44px; }
+.lb-structure-list button { min-width:44px; }
+.lb-structure-dialog, .lb-workflow-compare { scroll-padding-top:20px; }
+.lb-structure-dialog :focus, .lb-workflow-compare :focus { scroll-margin:12px; }
+@media (prefers-reduced-motion: reduce) {
+  .lb-structure-dialog *, .lb-workflow-compare *, .lb-workflow * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

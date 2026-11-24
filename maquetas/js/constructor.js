@@ -75,6 +75,17 @@
   var createLabel = $("[data-lb-create-label]");
   var createIcon = $("[data-lb-create-icon]");
   var createBtn = $("[data-lb-create]");
+  var workflowEl = $("[data-lb-workflow]");
+  var workflowState = $("[data-lb-workflow-state]");
+  var draftPreviewBtn = $("[data-lb-draft-preview]");
+  var publishedPreviewBtn = $("[data-lb-published-preview]");
+  var qaReviewBtn = $("[data-lb-qa-review]");
+  var discardBtn = $("[data-lb-discard]");
+  var workflowReport = $("[data-lb-workflow-report]");
+  var compareDialog = $("[data-lb-compare]");
+  var reviewBtn = $("[data-lb-review]");
+  var approveBtn = $("[data-lb-approve]");
+  var publishOneBtn = $("[data-lb-publish-one]");
   var newBtn = $("[data-lb-new]");
   var chip = $("[data-lb-chip]");
   var statusEl = $("[data-lb-status]");
@@ -1377,6 +1388,110 @@
       });
     }
 
+    function proposeStructure(sections, explanations, candidates, included) {
+      return new Promise(function (resolve) {
+        var dialog = document.querySelector("[data-lb-structure]");
+        var list = dialog.querySelector("[data-lb-structure-list]");
+        var counter = dialog.querySelector("[data-lb-structure-count]");
+        var addSelect = dialog.querySelector("[data-lb-structure-add]");
+        var addButton = dialog.querySelector("[data-lb-structure-insert]");
+        var accept = dialog.querySelector("[data-lb-structure-accept]");
+        var cancel = dialog.querySelector("[data-lb-structure-cancel]");
+        var ordered = sections.map(function (section, index) {
+          return { section: section, reason: (explanations[index] || {}).reason || "Sección sugerida" };
+        });
+        var finished = false;
+        function group(section) { return byId[section.m].group || section.m.replace(/-[^-]+$/, ""); }
+        function done(result) {
+          if (finished) return;
+          finished = true;
+          dialog.close();
+          resolve(result ? ordered : null);
+        }
+        function button(label, title, callback) {
+          var control = document.createElement("button");
+          control.type = "button";
+          control.className = "btn-nx-outline btn-sm";
+          control.textContent = label;
+          control.setAttribute("aria-label", title);
+          control.dataset.structureAction = label === "↑" ? "up" : label === "↓" ? "down" : "remove";
+          control.addEventListener("click", callback);
+          return control;
+        }
+        function render(focusEntry, focusAction) {
+          list.replaceChildren();
+          ordered.forEach(function (entry, index) {
+            var item = document.createElement("li");
+            var text = document.createElement("span");
+            text.className = "lb-structure-label";
+            text.textContent = (index + 2) + ". " + group(entry.section);
+            var note = document.createElement("small");
+            note.textContent = entry.reason;
+            text.appendChild(note);
+            var select = document.createElement("select");
+            select.setAttribute("aria-label", "Variante de " + group(entry.section));
+            select.dataset.structureAction = "variant";
+            candidates.filter(function (candidate) { return group(candidate) === group(entry.section); })
+              .forEach(function (candidate) {
+                var descriptor = byId[candidate.m].name || byId[candidate.m].title || "Diseño " + candidate.m.split("-").slice(-1)[0];
+                select.add(new Option(descriptor, candidate.m));
+              });
+            if (!Array.from(select.options).some(function (opt) { return opt.value === entry.section.m; })) {
+              select.add(new Option("Original", entry.section.m));
+            }
+            select.value = entry.section.m;
+            select.addEventListener("change", function () {
+              entry.section = Object.assign({}, entry.section, { m: select.value });
+              render(entry, "variant");
+            });
+            item.appendChild(text);
+            item.appendChild(select);
+            var up = button("↑", "Subir " + group(entry.section), function () {
+              if (index > 0) { ordered.splice(index - 1, 0, ordered.splice(index, 1)[0]); render(entry, "up"); }
+            });
+            up.disabled = index === 0;
+            item.appendChild(up);
+            var down = button("↓", "Bajar " + group(entry.section), function () {
+              if (index < ordered.length - 1) { ordered.splice(index + 1, 0, ordered.splice(index, 1)[0]); render(entry, "down"); }
+            });
+            down.disabled = index === ordered.length - 1;
+            item.appendChild(down);
+            item.appendChild(button("×", "Quitar " + group(entry.section), function () {
+              ordered.splice(index, 1);
+              render(ordered[Math.min(index, ordered.length - 1)] || null, "remove");
+            }));
+            list.appendChild(item);
+          });
+          counter.textContent = (focusAction ? "Orden o selección actualizados. " : "") + "Hero + " + ordered.length + " secciones · " + (ordered.length + 1) +
+            " de " + included + " incluidas.";
+          var usedGroups = new Set(ordered.map(function (entry) { return group(entry.section); }));
+          var extras = candidates.filter(function (candidate) { return !usedGroups.has(group(candidate)); });
+          addSelect.replaceChildren(new Option("Elegí una sección", ""));
+          extras.forEach(function (entry) { addSelect.add(new Option(group(entry), entry.m)); });
+          addButton.disabled = !extras.length || ordered.length >= included - 1;
+          accept.disabled = ordered.length < 1;
+          // Los controles se recrean: restaurar el foco evita perder la posición del teclado.
+          if (focusAction) {
+            var newIndex = ordered.indexOf(focusEntry);
+            var target = newIndex >= 0 ? list.children[newIndex].querySelector('[data-structure-action="' + focusAction + '"]') : null;
+            (target && !target.disabled ? target : (newIndex >= 0 ? list.children[newIndex].querySelector("select") : addSelect)).focus();
+          }
+        }
+        addButton.onclick = function () {
+          if (!addSelect.value || ordered.length >= included - 1) return;
+          var section = candidates.find(function (entry) { return entry.m === addSelect.value; });
+          if (section) ordered.push({ section: section, reason: "Agregada manualmente durante la revisión" });
+          render();
+        };
+        cancel.onclick = function () { done(false); };
+        accept.onclick = function () { done(true); };
+        dialog.oncancel = function (event) { event.preventDefault(); done(false); };
+        render();
+        dialog.showModal();
+        dialog.querySelector("#lbStructureTitle").focus();
+      });
+    }
+
     function generate() {
       if (!clientField.value || !nameField.value.trim() || !planField.value) {
         status.textContent = "Elegí cliente, nombre y plan de esta landing.";
@@ -1455,6 +1570,14 @@
         candidates.forEach(function (section) {
           addRecommended(section, "Sugerencia de plantilla; verificá si corresponde al negocio.");
         });
+        // Revisar visualmente la estructura antes de ensamblar módulos y textos.
+        return proposeStructure(sections, explanations, candidates, included).then(function (selected) {
+          if (!selected) {
+            status.textContent = "Propuesta cancelada. No se modificó ninguna landing.";
+            return;
+          }
+          sections = selected.map(function (entry) { return entry.section; });
+          explanations = selected.map(function (entry) { return { name: byId[entry.section.m].group, reason: entry.reason }; });
         // No se inventan datos ni se supera el cupo del plan.
         var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
         var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
@@ -1523,6 +1646,7 @@
             " Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
             (facts ? " Datos detectados para comprobar: " + facts : "") +
             " Las URLs de Instagram y web no se consultaron automáticamente.", "warn");
+        });
       }).catch(function (error) {
         status.textContent = error.message || "No pudimos generar el borrador.";
       }).finally(function () { button.disabled = false; });
@@ -4261,7 +4385,25 @@
     chip.innerHTML = editing ? '<i class="bi bi-pencil-square"></i> Editando' : '<i class="bi bi-stars"></i> Nueva landing';
     chip.classList.toggle("is-editing", editing);
     kicker.textContent = client ? client.nombre : "";
-    createLabel.textContent = editing ? (dirty ? (clientMode() ? "Enviar a revisión" : "Guardar cambios") : "Guardada") : "Crear landing";
+    createLabel.textContent = clientMode()
+      ? (editing ? (dirty ? "Enviar a revisión" : "En revisión") : "Crear landing")
+      : (editing && !dirty ? "Borrador guardado" : "Guardar borrador");
+    if (workflowEl) {
+      var stage = state.borradorEstado || "sin_borrador";
+      var labels = { sin_borrador: state.publicada ? "Versión publicada · sin cambios pendientes" : "Borrador sin guardar",
+                     borrador: "Borrador editable · no publicado",
+                     revision: "En revisión · no publicado",
+                     aprobado: "Aprobado · pendiente de publicar" };
+      workflowState.textContent = labels[stage] || "Borrador";
+      workflowEl.hidden = clientMode() || REBUILD;
+      draftPreviewBtn.disabled = busy || !editing || stage === "sin_borrador";
+      publishedPreviewBtn.disabled = busy || !editing || stage === "sin_borrador" || !state.publicada;
+      qaReviewBtn.disabled = busy || !editing || stage === "sin_borrador";
+      discardBtn.disabled = busy || !editing || stage === "sin_borrador";
+      reviewBtn.disabled = busy || dirty || !editing || stage !== "borrador";
+      approveBtn.disabled = busy || dirty || !editing || stage !== "revision";
+      publishOneBtn.disabled = busy || dirty || !editing || stage !== "aprobado";
+    }
     clientReview.hidden = !clientMode() || !editing || !portalRevision;
     if (!clientReview.hidden) {
       clientReview.querySelector("[data-lb-live]").href = "/vista/" + state.landingId;
@@ -4272,7 +4414,8 @@
       createLabel.textContent = dirty ? "Enviar a revisión" : portalRevision.token ? "En revisión" : "Enviar a revisión";
     }
     createIcon.className = "bi " + (editing ? (dirty ? "bi-floppy" : "bi-check2") : "bi-plus-circle");
-    createBtn.disabled = busy || (editing && !dirty && (clientMode() || !todo.length));
+    createBtn.disabled = busy || (clientMode() && editing && !dirty) ||
+      (!clientMode() && editing && !dirty && state.borradorEstado !== "sin_borrador");
     createBtn.classList.toggle("is-pending", todo.length > 0);
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
@@ -4358,6 +4501,10 @@
       planId: lp.plan_id || "",
       originalPlanId: lp.plan_id || "",
       planIncluded: lp.secciones_incluidas || 0,
+      borradorEstado: lp.borrador_estado || "sin_borrador",
+      borradorRevision: lp.borrador_revision || null,
+      publicada: lp.publicada !== undefined ? !!lp.publicada : !!lp.disponible,
+      urlPublicada: lp.url || "",
       legacyInherited: !lp.plan_individual,
       faltan: (lp.items || []).filter(function (it) { return !byId[it.id]; }).map(function (it) { return it.id; }),
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (saved) {
@@ -4573,13 +4720,18 @@
     if (missingModulesText()) { say(missingModulesText() + " Avisá al equipo antes de guardarla.", "warn"); return; }
     var todo = missing();
     if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
-    if (todo.length) { goTo(todo[0].key); return; }
+    if (clientMode() && todo.length) { goTo(todo[0].key); return; }
+    if (!clientMode() && todo.some(function (t) { return t.key === "plan" || t.key === "items"; })) {
+      goTo(todo.find(function (t) { return t.key === "plan" || t.key === "items"; }).key);
+      return;
+    }
     var editing = !!state.landingId;
     var planInfo = planSectionWarning();
     if (planInfo.extra && !REBUILD &&
         (!editing || initialPlanSections == null || countPlanSections(state.items) > initialPlanSections) &&
         !window.confirm(planInfo.text + "\n\n¿Querés guardar esta landing con las secciones adicionales?")) return;
     var body = landingPayload();
+    if (!clientMode() && editing && state.borradorRevision) body.base_revision = state.borradorRevision;
     if (clientMode()) {
       body.modo = "sitio";
       body.base_revision = portalRevision && portalRevision.base;
@@ -4595,9 +4747,18 @@
     busy = true;
     renderMode();
     say((editing ? "Guardando «" : "Creando «") + body.nombre + "»…");
-    (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
+    (clientMode()
+      ? (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
+      : (editing ? api("PUT", "/api/landings/" + state.landingId + "/borrador", payload) : api("POST", "/api/borradores", payload)))
       .then(function (data) {
         state.landingId = data.id;
+        if (!clientMode()) {
+          state.borradorEstado = data.borrador_estado || "borrador";
+          workflowReport.hidden = true;
+          state.borradorRevision = data.borrador_revision || null;
+          state.publicada = !!data.publicada;
+          state.urlPublicada = data.url || "";
+        }
         state.legacyInherited = !data.plan_individual;
         state.originalPlanId = data.plan_id || state.planId;
         state.planIncluded = data.secciones_incluidas || 0;
@@ -4616,14 +4777,12 @@
         if (data.revision_estado === "pendiente" && clientMode()) {
           portalRevision.token = data.revision_token;
           say("Cambios enviados a revisión. Tu sitio sigue mostrando la última versión aprobada.", "ok");
+        } else if (!clientMode()) {
+          say("Borrador guardado. La web pública no cambió. Ahora podés previsualizar y enviar a revisión.", "ok");
         } else if (editing) {
-          say("Cambios guardados. Tocá «Publicar» para subirlos a internet.", "ok", { href: data.url, text: "Ver landing", blank: true });
+          say("Cambios guardados.", "ok");
         } else {
-          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
-            { href: data.url, text: "Abrir landing", blank: true },
-            { href: "landings.html", text: "Ver en Landings" },
-            { act: "new", text: "Crear otra" }
-          ]);
+          say("Landing creada.", "ok");
         }
       })
       .catch(function (err) {
@@ -4636,7 +4795,8 @@
 
   function startNew(clienteId) {
     initialPlanSections = null;
-    state = { name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    state = { borradorEstado: "sin_borrador", borradorRevision: null, publicada: false,
+      name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
     renderDesc(true);
@@ -4725,6 +4885,103 @@
 
   $("[data-lb-create]").addEventListener("click", function () {
     createLanding();
+  });
+
+  function moveWorkflow(next, confirmText) {
+    if (!state.landingId || !state.borradorRevision || isDirty()) {
+      say("Guardá primero los cambios del borrador para continuar.", "warn");
+      return;
+    }
+    if (confirmText && !window.confirm(confirmText)) return;
+    busy = true;
+    renderMode();
+    var id = state.landingId;
+    var actionData = { revision: state.borradorRevision };
+    if (next === "aprobar" && planSectionWarning().extra) {
+      if (!window.confirm("Esta landing supera el plan. ¿Confirmás que aprobaste comercialmente las secciones adicionales y su presupuesto?")) {
+        busy = false;
+        renderMode();
+        return;
+      }
+      actionData.aprobar_adicionales = true;
+    }
+    api("POST", "/api/landings/" + id + "/" + next, actionData).then(function (data) {
+      state.borradorEstado = data.borrador_estado || "sin_borrador";
+      state.borradorRevision = data.borrador_revision || null;
+      state.publicada = data.publicada !== undefined ? !!data.publicada : state.publicada;
+      if (next === "publicar") {
+        state.publicada = true;
+        state.urlPublicada = data.url || state.urlPublicada;
+        say("Publicación enviada. Verificá el sitio cuando finalice el despliegue.", "ok",
+            { href: data.url, text: "Ver sitio publicado", blank: true });
+      } else if (next === "aprobar") {
+        say("Versión aprobada. Solo falta publicar explícitamente.", "ok");
+      } else {
+        say("Borrador enviado a revisión. La web pública sigue intacta.", "ok");
+      }
+      renderSaved();
+    }).catch(function (err) {
+      say(err.message, "warn");
+    }).finally(function () { busy = false; renderMode(); });
+  }
+  reviewBtn.addEventListener("click", function () { moveWorkflow("revision"); });
+  approveBtn.addEventListener("click", function () {
+    moveWorkflow("aprobar", "¿Aprobás esta versión para publicarla? Comprobá antes la vista previa y los textos.");
+  });
+  publishOneBtn.addEventListener("click", function () {
+    moveWorkflow("publicar", "¿Publicar ahora la versión aprobada? Esta acción actualiza la web del cliente.");
+  });
+  draftPreviewBtn.addEventListener("click", function () {
+    if (!state.landingId) return;
+    window.open("/api/landings/" + state.landingId + "/borrador/vista", "_blank", "noopener,noreferrer");
+  });
+  qaReviewBtn.addEventListener("click", function () {
+    if (!state.landingId) return;
+    workflowReport.hidden = false;
+    workflowReport.textContent = "Analizando estructura, contenido, plan y SEO…";
+    api("GET", "/api/landings/" + state.landingId + "/qa").then(function (report) {
+      var problems = (report.errores || []).map(function (error) { return "• " + error; });
+      var warnings = (report.advertencias || []).map(function (warn) { return "• " + warn; });
+      workflowReport.textContent = "Plan: " + (report.plan || "Sin definir") +
+        " · " + report.secciones + "/" + report.limite + " secciones.\\n" +
+        (problems.length ? "Correcciones necesarias:\\n" + problems.join("\\n") :
+          "Sin errores detectados por las comprobaciones automáticas.") +
+        (warnings.length ? "\\nRecomendaciones de rendimiento y SEO:\\n" + warnings.join("\\n") : "") +
+        "\\nLa revisión automática no reemplaza una auditoría manual WCAG 2.2 AA.";
+    }).catch(function (err) { workflowReport.textContent = err.message; });
+  });
+  publishedPreviewBtn.addEventListener("click", function () {
+    if (!state.landingId || !state.publicada || !state.urlPublicada) return;
+    compareDialog.querySelector("[data-lb-compare-draft]").src =
+      "/api/landings/" + state.landingId + "/borrador/vista";
+    compareDialog.querySelector("[data-lb-compare-live]").src = state.urlPublicada;
+    compareDialog.showModal();
+    compareDialog.querySelector("#lbCompareTitle").focus();
+  });
+  compareDialog.querySelector("[data-lb-compare-close]").addEventListener("click", function () {
+    compareDialog.close();
+  });
+  compareDialog.addEventListener("close", function () {
+    compareDialog.querySelectorAll("iframe").forEach(function (frame) { frame.removeAttribute("src"); });
+  });
+  discardBtn.addEventListener("click", function () {
+    if (!state.landingId || !state.borradorRevision) return;
+    if (!window.confirm("¿Descartar el borrador? La última versión publicada no cambia.")) return;
+    busy = true;
+    renderMode();
+    var id = state.landingId;
+    api("DELETE", "/api/landings/" + id + "/borrador",
+      { revision: state.borradorRevision }).then(function () {
+      if (state.publicada) {
+        return api("GET", "/api/landings/" + id).then(function (detail) { loadLanding(detail); });
+      }
+      startNew(state.clienteId);
+    }).then(function () {
+      workflowReport.hidden = true;
+      say("Borrador descartado. La versión publicada quedó intacta.", "ok");
+      renderSaved();
+    }).catch(function (err) { say(err.message, "warn"); })
+      .finally(function () { busy = false; renderMode(); });
   });
 
   $("[data-lb-library-open]").addEventListener("click", function () {

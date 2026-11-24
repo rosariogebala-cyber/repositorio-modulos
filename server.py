@@ -17,6 +17,7 @@ Uso:
 
 import base64
 import datetime
+import draft_workflow
 import secrets
 import hashlib
 import hmac
@@ -78,6 +79,13 @@ ROUTES = [
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
     (re.compile(r"^/api/clientes/(\d+)$"), "cliente"),
+    (re.compile(r"^/api/borradores$"), "borradores"),
+    (re.compile(r"^/api/landings/(\d+)/borrador/vista$"), "borrador-vista"),
+    (re.compile(r"^/api/landings/(\d+)/borrador$"), "borrador"),
+    (re.compile(r"^/api/landings/(\d+)/qa$"), "qa-borrador"),
+    (re.compile(r"^/api/landings/(\d+)/revision$"), "revision"),
+    (re.compile(r"^/api/landings/(\d+)/aprobar$"), "aprobar"),
+    (re.compile(r"^/api/landings/(\d+)/publicar$"), "publicar-landing"),
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
@@ -2093,6 +2101,8 @@ def landing_dict(row, client, summary=False):
         "path": url.lstrip("/"),
         "editor": editor_url(client, row),
         "disponible": bool(row.get("html")),
+        "borrador_estado": row.get("borrador_estado") or "sin_borrador",
+        "borrador_modulos": row.get("borrador_modulos") or 0,
     }
     data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or [], landing=row))
     plan = landing_plan(row, client)
@@ -2222,10 +2232,11 @@ def image_metadata_errors(html, rules):
     if not (rules.get("general") or {}).get("bloquear"):
         return []
     document = html_dom.document_fromstring(html)
-    count = len(document.xpath("//img[normalize-space(@src) and not(normalize-space(@alt))]"))
+    # alt="" es correcto para imágenes decorativas; las informativas necesitan un texto descriptivo.
+    count = len(document.xpath("//img[normalize-space(@src) and not(@alt)]"))
     errors = []
     if count:
-        errors.append(f"{count} imagen(es) sin texto alternativo. Describí qué se ve en la foto o transcribí su texto (podés usar «Describir con IA»).")
+        errors.append(f"{count} imagen(es) sin atributo alt. Agregá una descripción útil, o alt vacío si son puramente decorativas.")
     heavy = 0
     total = 0
     for src in document.xpath("//img/@src"):
@@ -2359,7 +2370,8 @@ def save_landing(data, landing_id=None, origen="constructor"):
         values = {"cliente_id": client_id, "nombre": nombre, "slug": slug, "items": items, "estilo": estilo,
                   "ignorados": ignorados, "descripcion": descripcion, "animacion": animacion, "html": html,
                   "portada": cover_of(html), "actualizado": stamp, "origen": origen,
-                  "plan_id": plan_id, "plan_condiciones": plan_snapshot}
+                  "plan_id": plan_id, "plan_condiciones": plan_snapshot,
+                  "borrador_estado": "sin_borrador", "borrador_modulos": 0}
         if "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
@@ -2420,6 +2432,7 @@ def delete_landing(landing_id):
     for old in row.get("rutas_anteriores") or []:
         FILES.delete("modulos", "l/" + old)
     FILES.delete("datos", versions_path(row["id"]))
+    FILES.delete("datos", draft_workflow.path(row["id"]))
     write_site_files()
     return row["nombre"]
 
@@ -2827,7 +2840,9 @@ def publish(data):
     message = " ".join(str(data.get("mensaje") or "").split())[:200] or "Actualiza landings desde el panel"
     sync_plans()
     try:
-        armado = [armado_result(rebuild_from_data())]
+        # Publicar global solo vuelve a desplegar versiones ya aprobadas.
+        # No reconstruye ni guarda módulos pendientes de revisión.
+        armado = [armado_result(rebuild_from_data(apply=False))]
     except ArmadoError as error:
         datos = armado_mode() == "datos"
         armado = [{"carpeta": "Armado desde los datos", "ok": not datos,
@@ -2913,8 +2928,8 @@ def published_structure_errors(markup):
     main = doc.xpath("//main")
     if len(main) != 1 or len(main[0].xpath(".//h1")) != 1:
         return ["la página final necesita un contenido principal y un encabezado H1"]
-    if doc.xpath("//img[not(normalize-space(@alt))]"):
-        return ["hay imágenes sin descripción alternativa"]
+    if doc.xpath("//img[not(@alt)]"):
+        return ["hay imágenes sin atributo alt (usá alt vacío solo si son decorativas)"]
     return []
 
 
@@ -4070,6 +4085,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_route(self, method, name, ident, query):
         """Atiende el pedido y guarda. Devuelve None si ya respondió."""
+        # Vercel Preview comparte normalmente tokens y repositorios con producción.
+        # Hasta configurar un sandbox aislado, la vista previa es solo lectura.
+        if (ON_VERCEL and os.environ.get("VERCEL_ENV") == "preview" and
+                os.environ.get("LANZATE_PREVIEW_SANDBOX") != "1" and method != "GET" and
+                name not in ("login", "logout", "portal-login", "portal-logout")):
+            raise ApiError(403, "Preview es de solo lectura para proteger las landings reales. Probá en local o configurá repositorios de pruebas aislados.")
         if name in CROSS_SITE_ROUTES:
             self.extra_headers = (("Access-Control-Allow-Origin", "*"),)
         elif method != "GET" and not self.same_origin():
@@ -4084,6 +4105,14 @@ class Handler(SimpleHTTPRequestHandler):
             if not client:
                 raise ApiError(401, "Ingresá a tu portal.")
             self.send_body(200, portal_data_js(client).encode("utf-8"), "text/javascript; charset=utf-8")
+            return None
+        if name == "borrador-vista" and method == "GET":
+            import sys
+            html = draft_workflow.preview(sys.modules[__name__], ident)
+            self.extra_headers = tuple(self.extra_headers) + (("Content-Security-Policy", PANEL_CSP),
+                                                               ("Cache-Control", "no-store"),
+                                                               ("X-Robots-Tag", "noindex"))
+            self.send_body(200, preview_html(html), "text/html; charset=utf-8")
             return None
         if name == "pedido-vista" and method == "GET":
             # Solo el equipo autenticado puede ver ambos estados del pedido.
@@ -4212,6 +4241,24 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "DELETE":
                 delete_client(ident)
                 return {"ok": True}
+        if name == "borradores" and method == "POST":
+            import sys
+            return draft_workflow.save(sys.modules[__name__], self.read_json())
+        if name == "qa-borrador" and method == "GET":
+            import sys
+            return draft_workflow.qa_summary(sys.modules[__name__], ident)
+        if name == "borrador":
+            import sys
+            if method == "GET":
+                return draft_workflow.project(sys.modules[__name__], ident)
+            if method == "PUT":
+                return draft_workflow.save(sys.modules[__name__], self.read_json(), ident)
+            if method == "DELETE":
+                return draft_workflow.discard(sys.modules[__name__], ident, self.read_json())
+        if name in ("revision", "aprobar", "publicar-landing") and method == "POST":
+            import sys
+            return draft_workflow.move(sys.modules[__name__], ident,
+                                      "publicar" if name == "publicar-landing" else name, self.read_json())
         if name == "landings":
             if method == "GET":
                 client = (query.get("cliente") or [""])[0]
@@ -4220,11 +4267,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return save_landing(self.read_json())
         if name == "landing":
             if method == "GET":
-                return get_landing(ident)
+                # Rearmado/portal leen solo la versión publicada, nunca el borrador privado.
+                if (query.get("modo") or [""])[0] == "sitio" or (query.get("rearmar") or [""])[0] == "1":
+                    return get_landing(ident)
+                import sys
+                return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 data = self.read_json()
                 if set(data) == {"ejemplo"}:
                     return set_landing_example(ident, data["ejemplo"])
+                import sys
+                if draft_workflow.read(sys.modules[__name__], ident):
+                    raise ApiError(409, "Hay un borrador pendiente. Usá Revisar, Aprobar y Publicar para no sobrescribirlo.")
                 return save_landing(data, ident)
             if method == "DELETE":
                 delete_landing(ident)

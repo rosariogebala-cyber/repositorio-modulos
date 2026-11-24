@@ -358,6 +358,79 @@ class ApiTest(unittest.TestCase):
         self.assertNotIn(lead_id, sim.STORE.get("lz:c:%d" % self.client_id) or {})
         self.assertEqual(Client(self.base, "10.10.0.3").call("DELETE", "/api/portal/consultas/%s?sitio=%s" % (lead_id, self.slug))[0], 401)
 
+    def test_borrador_revision_aprobacion_publicacion(self):
+        """El borrador nunca actualiza la página pública hasta publicar una versión aprobada."""
+        original = next(l for l in read_js("lanzate-datos", "data/landings.js")
+                        if l["id"] == self.landing["id"])
+        before = sim.repo_file("repositorio-modulos",
+                               "l/%s/%s/index.html" % (self.slug, original["slug"]))
+        body = {"cliente_id": original["cliente_id"], "nombre": original["nombre"],
+                "plan_id": original.get("plan_id") or "express",
+                "html": original["html"], "items": original["items"],
+                "estilo": original.get("estilo") or "",
+                "descripcion": "Descripción de prueba para SEO", "animacion": ""}
+        status, draft = self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)
+        self.assertEqual(status, 200, draft)
+        self.assertEqual(draft["borrador_estado"], "borrador")
+        self.assertEqual(original["html"], next(l for l in read_js("lanzate-datos", "data/landings.js")
+                         if l["id"] == original["id"])["html"])
+        self.assertEqual(before, sim.repo_file("repositorio-modulos",
+                         "l/%s/%s/index.html" % (self.slug, original["slug"])))
+        status, out = self.team.call("POST", "/api/landings/%d/publicar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 409, out)
+        # No publicar ni cambiar el HTML público si falla la validación de QA.
+        status, out = self.team.call("POST", "/api/landings/%d/revision" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        if status == 400:
+            self.assertIn("Corregí", out.get("error", "") or str(out))
+            return
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "revision")
+        status, out = self.team.call("POST", "/api/landings/%d/aprobar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "aprobado")
+        status, out = self.team.call("POST", "/api/landings/%d/publicar" % original["id"],
+                                      {"revision": draft["borrador_revision"]})
+        self.assertEqual(status, 200, out)
+        self.assertEqual(out["borrador_estado"], "sin_borrador")
+        self.assertEqual(self.team.call("GET", "/api/landings/%d/borrador" % original["id"])[1]["borrador_estado"],
+                         "sin_borrador")
+
+    def test_borrador_nuevo_no_crea_pagina_publica_y_se_puede_descartar(self):
+        original = self.landing
+        body = {"cliente_id": original["cliente_id"], "nombre": "Borrador QA no publicar",
+                "plan_id": original.get("plan_id") or "express", "html": original["html"],
+                "items": original["items"], "descripcion": "Descripción de control"}
+        status, result = self.team.call("POST", "/api/borradores", body)
+        self.assertEqual(status, 200, result)
+        self.assertFalse(result["publicada"])
+        self.assertEqual(result["borrador_estado"], "borrador")
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == result["id"])
+        self.assertEqual(row.get("html"), "")
+        self.assertEqual(self.team.call("GET", "/api/landings/%d" % result["id"])[1]["borrador_estado"],
+                         "borrador")
+        public = "/l/%s/%s/" % (self.slug, row["slug"])
+        self.assertEqual(self.team.call("GET", public, raw=True)[0], 404)
+        status, discard = self.team.call("DELETE", "/api/landings/%d/borrador" % result["id"],
+                                         {"revision": result["borrador_revision"]})
+        self.assertEqual(status, 200, discard)
+        self.assertFalse(any(l["id"] == result["id"] for l in read_js("lanzate-datos", "data/landings.js")))
+
+    def test_borrador_privado_control_de_revision(self):
+        original = self.landing
+        body = {"cliente_id": original["cliente_id"], "nombre": original["nombre"],
+                "plan_id": original.get("plan_id") or "express",
+                "html": original["html"], "items": original["items"]}
+        status, draft = self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)
+        self.assertEqual(status, 200, draft)
+        anon = Client(self.base, "10.88.9.1")
+        self.assertEqual(anon.call("GET", "/api/landings/%d/borrador/vista" % original["id"])[0], 401)
+        self.assertEqual(anon.call("GET", "/api/landings/%d/borrador" % original["id"])[0], 401)
+        body["base_revision"] = draft["borrador_revision"] - 1
+        self.assertEqual(self.team.call("PUT", "/api/landings/%d/borrador" % original["id"], body)[0], 409)
+
     def test_publish(self):
         before = read_js("lanzate-datos", "data/landings.js")
         status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Prueba"})
@@ -442,22 +515,20 @@ class DataBuildTest(unittest.TestCase):
     def setUp(self):
         sim.reset_redis()
 
-    def test_publish_builds_from_data(self):
+    def test_publish_only_syncs_previously_approved_data(self):
+        """Incluso con LANZATE_ARMADO=datos, publicar global no reescribe ninguna landing."""
         status, session = self.team.call("GET", "/api/sesion")
         self.assertEqual(session["armado"], "datos")
-        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Armado en el servidor"})
+        before = read_js("lanzate-datos", "data/landings.js")
+        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Sincronizar aprobadas"})
         self.assertEqual(status, 200, out)
         self.assertTrue(all(r["ok"] for r in out["resultados"]), out)
         armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
-        self.assertIn("armadas en el servidor", armado["detalle"])
-        landing = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
-        self.assertTrue(any("campos" in it for it in landing["items"]), "se guardó por nombre")
-        self.assertNotRegex(landing["html"], r"data-lz-(campo|foto|enlace)=")
-        # Publicar otra vez no cambia nada: lo guardado ya es lo que arma el servidor.
-        status, out = self.team.call("POST", "/api/publicar", {"mensaje": "Otra vez"})
-        armado = next(r for r in out["resultados"] if r["carpeta"] == "Armado desde los datos")
-        self.assertIn("(0 con cambios)", armado["detalle"], armado)
-        # Sin la firma, la función de armado no responde.
+        self.assertIn("dan igual", armado["detalle"])
+        after = read_js("lanzate-datos", "data/landings.js")
+        self.assertEqual([row.get("html") for row in before], [row.get("html") for row in after])
+        self.assertEqual([row.get("items") for row in before], [row.get("items") for row in after])
+        # La función de armado mantiene su firma obligatoria.
         request = urllib.request.Request(armado_url() + "/api/armar", data=b'{"pedidos": []}', method="POST")
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(request, timeout=10)

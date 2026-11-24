@@ -6,7 +6,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{server.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-{480,752,800,960,1280,1600}.webp,maquetas/img/**/*.jpg}"
+      "includeFiles": "{server.py,draft_workflow.py,404.html,data/reglas.json,data/modules.json,maquetas/*.html,maquetas/img/**/*-{480,752,800,960,1280,1600}.webp,maquetas/img/**/*.jpg}"
     },
     "api/armar.mjs": {
       "maxDuration": 120,
