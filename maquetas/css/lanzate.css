@@ -4911,3 +4911,15 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .lb-workflow-state { flex-basis:100%; }
   .lb-workflow button { flex:1 1 42%; min-height:44px; white-space:normal; }
 }
+
+.lb-workflow[hidden], .lb-workflow-report[hidden] { display:none; }
+.lb-workflow-report { padding:12px; border:1px solid #d4d7e2; border-radius:9px; background:#fff; color:#283247; white-space:pre-line; overflow-wrap:anywhere; }
+.lb-workflow-compare { border:0; border-radius:16px; padding:20px; color:#263249; background:#fff; width:min(1320px,96vw); max-height:94vh; }
+.lb-workflow-compare::backdrop { background:rgba(8,15,34,.7); }
+.lb-workflow-compare-head { display:flex; justify-content:space-between; gap:16px; align-items:center; margin-bottom:12px; }
+.lb-workflow-compare-head h2 { font-size:1.2rem; margin:0; }
+.lb-workflow-frames { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.lb-workflow-frames section { min-width:0; }
+.lb-workflow-frames h3 { font-size:1rem; margin:0 0 8px; }
+.lb-workflow-frames iframe { width:100%; min-height:60vh; background:#fff; border:1px solid #c5cbd5; border-radius:8px; }
+@media(max-width:760px){ .lb-workflow-frames { grid-template-columns:1fr; } .lb-workflow-frames iframe { min-height:50vh; } }
