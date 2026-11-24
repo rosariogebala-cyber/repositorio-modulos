@@ -1,4 +1,3 @@
-import draft_workflow
 #!/usr/bin/env python3
 """Panel de Lanzate: corre online en Vercel (guarda con commits en GitHub) o en tu computadora (guarda en el disco).
 
@@ -18,6 +17,7 @@ Uso:
 
 import base64
 import datetime
+import draft_workflow
 import secrets
 import hashlib
 import hmac
