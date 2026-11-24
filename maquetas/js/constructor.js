@@ -1408,11 +1408,29 @@
           || LANDING_CATEGORIES[0];
         var source = categoryTemplates(category)[0];
         if (!source) throw new Error("No hay una plantilla disponible para este rubro.");
-        // Evitar secciones que exigen datos nunca confirmados: reseñas, precios, estadísticas y equipo.
-        var sections = source.sections.filter(function (section) {
-          return !/resen|testimoni|opin|precio|cifra|estadistic|equipo|personas|casos-de-exito/i.test(section.m);
-        }).slice(0, 2);
-        if (!sections.length) sections = source.sections.slice(0, 1);
+        // Plan por landing: navegación y footer no consumen cupo, el hero sí.
+        var selectedPlan = landingPlans.find(function (plan) { return plan.id === planField.value; });
+        var included = selectedPlan && Number(selectedPlan.secciones);
+        if (!Number.isInteger(included) || included < 1) {
+          throw new Error("No se pudo determinar el cupo de secciones del plan. Revisá su configuración.");
+        }
+        // Nunca sumar un módulo que requiera testimonios, precios o datos sin confirmar.
+        var needsEvidence = /resen|testimoni|opin|precio|cifra|estadistic|equipo|personas|casos-de-exito/i;
+        var seenGroups = {};
+        var sections = [];
+        // Una sola variante por tipo; preferimos las de la plantilla principal del rubro.
+        categoryTemplates(category).forEach(function (template) {
+          (template.sections || []).forEach(function (section) {
+            if (sections.length >= included - 1 || !byId[section.m] || needsEvidence.test(section.m)) return;
+            var group = byId[section.m].group || section.m.replace(/-[^-]+$/, "");
+            if (seenGroups[group]) return;
+            seenGroups[group] = true;
+            sections.push(section);
+          });
+        });
+        // Puede haber menos secciones si no hay contenido verificado apropiado.
+        // No completamos cupos inventando información ni insertamos adicionales pagos.
+
         var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
         var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
           return text + "|Información pendiente de ampliar y confirmar.";
@@ -1438,6 +1456,10 @@
         });
         var items = categoryTemplateItems(choice);
         if (!items) throw new Error("La plantilla elegida tiene módulos que no están en la biblioteca.");
+        var includedCount = countPlanSections(items);
+        if (includedCount > included) {
+          throw new Error("El borrador supera el cupo del plan: " + includedCount + " de " + included + ".");
+        }
         // Ningún testimonio, premio o afirmación se considera información verificada automáticamente.
         var hero = items.find(function (item) { return /^hero-full/.test(item.id); });
         if (hero && hero.html) {
@@ -1468,7 +1490,10 @@
         showLandingEditor(true);
         showTab("order");
         var facts = (analysis.datos_visibles || []).slice(0, 5).join("; ");
-        say("Borrador generado con módulos y paleta existentes. Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
+        say("Propuesta de " + selectedPlan.nombre + ": " + includedCount + " de " + included +
+            " secciones incluidas (hero incluido, navegación y footer sin cargo)." +
+            (includedCount < included ? " Quedan " + (included - includedCount) + " secciones disponibles para completar con contenido confirmado." : "") +
+            " Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
             (facts ? " Datos detectados para comprobar: " + facts : "") +
             " Las URLs de Instagram y web no se consultaron automáticamente.", "warn");
       }).catch(function (error) {
