@@ -117,6 +117,8 @@ def content_warnings(s, html, client):
     except (ValueError, TypeError):
         return ["El HTML no se pudo interpretar para analizar su contenido."]
     images = doc.xpath("//img")
+    if any(image.get("alt") == "" for image in images):
+        warnings.append("Verificá que cada imagen con alt vacío sea verdaderamente decorativa.")
     if images and any(not (image.get("width") and image.get("height")) for image in images):
         warnings.append("Hay imágenes sin dimensiones explícitas; verificá cambios de diseño (CLS).")
     if len(images) > 6 and not any(image.get("loading") == "lazy" for image in images[2:]):
@@ -154,6 +156,10 @@ def quality_errors(s, landing_id, draft):
     html = content.get("html") or ""
     errors.extend(s.structure_errors(items, rules))
     errors.extend(s.image_metadata_errors(html, rules))
+    # En revisión el atributo alt es obligatorio, incluso si las reglas comerciales están desactivadas.
+    if s.html_dom.document_fromstring(html).xpath("//img[not(@alt)]"):
+        if not any("sin atributo alt" in error for error in errors):
+            errors.append("Todas las imágenes necesitan un atributo alt; puede estar vacío si la imagen es decorativa.")
     plan_id = content.get("plan_id") or row.get("plan_id") or client.get("plan")
     plan = next((p for p in (s.read_data("planes", {}).get("planes") or [])
                  if p.get("id") == plan_id), None)
