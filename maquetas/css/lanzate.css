@@ -4901,3 +4901,13 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-template-manual-note h2 { color: #17352c; margin: 0 0 4px; font-size: 22px; }
 .lb-template-manual-note p { color: #596a64; margin: 0; }
 @media(max-width:680px){.lb-reference-fields{grid-template-columns:1fr}.lb-reference-wizard{padding:18px}.lb-reference-actions .btn-nx{width:100%;justify-content:center}}
+
+/* Flujo de trabajo accesible: se ajusta al ancho móvil sin ocultar acciones. */
+.lb-workflow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 0; width:100%; }
+.lb-workflow-state { font-size:.85rem; font-weight:700; color:#25334a; margin-right:auto; }
+.lb-workflow [disabled] { opacity:.48; cursor:not-allowed; }
+@media (max-width:650px) {
+  .lb-workflow { gap:6px; }
+  .lb-workflow-state { flex-basis:100%; }
+  .lb-workflow button { flex:1 1 42%; min-height:44px; white-space:normal; }
+}
