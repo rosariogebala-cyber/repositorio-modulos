@@ -81,6 +81,7 @@ ROUTES = [
     (re.compile(r"^/api/gestion-clientes/(\d+)/inicio$"), "gestion-inicio"),
     (re.compile(r"^/api/gestion-clientes/(\d+)/landings/(\d+)$"), "gestion-contrato"),
     (re.compile(r"^/api/gestion-clientes/(\d+)/pagos$"), "gestion-pagos"),
+    (re.compile(r"^/api/gestion-clientes/(\d+)/pagos/(\d+)/anular$"), "gestion-anular"),
     (re.compile(r"^/api/clientes$"), "clientes"),
     (re.compile(r"^/api/clientes/(\d+)/plan$"), "plan"),
     (re.compile(r"^/api/clientes/(\d+)/pedidos$"), "pedidos"),
@@ -4249,6 +4250,13 @@ class Handler(SimpleHTTPRequestHandler):
             if not parts or int(parts.group(1)) != ident:
                 raise ApiError(400, "Ruta de contrato inválida.")
             return gestion_clientes.update_contract(sys.modules[__name__], ident, int(parts.group(2)), self.read_json())
+        if name == "gestion-anular" and method == "POST":
+            import sys
+            parts = re.fullmatch(r"/api/gestion-clientes/(\d+)/pagos/(\d+)/anular", self.route_path()[0])
+            if not parts or int(parts.group(1)) != ident:
+                raise ApiError(400, "Ruta de anulación inválida.")
+            return gestion_clientes.void_payment(sys.modules[__name__], ident,
+                                                 int(parts.group(2)), self.read_json())
         if name == "gestion-pagos" and method == "POST":
             import sys
             return gestion_clientes.add_payment(sys.modules[__name__], ident, self.read_json())
