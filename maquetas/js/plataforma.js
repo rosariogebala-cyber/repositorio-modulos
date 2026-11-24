@@ -37,7 +37,7 @@
     nav.scrollLeft = left - (nav.clientWidth - currentNav.offsetWidth) / 2;
   }
 
-  var panelPage = /\/(?:constructor|landings|clientes|cliente|reglas)\.html$/.test(location.pathname);
+  var panelPage = /\/(?:constructor|landings|clientes|cliente|gestion-clientes|reglas)\.html$/.test(location.pathname);
   var SESSION = { ok: true, requiere: false, online: false };
 
   /* Clave del equipo: si no hay sesión, al login */
