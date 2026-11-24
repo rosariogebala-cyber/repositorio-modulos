@@ -398,7 +398,7 @@
         (phone ? '<a class="btn btn-sm" href="https://wa.me/' + esc(phone) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Responder por WhatsApp</a>' : "") +
         (mail ? '<a class="btn btn-sm" href="mailto:' + esc(mail) + '"><i class="bi bi-envelope" aria-hidden="true"></i> Responder por mail</a>' : "") +
         '<button class="btn btn-sm" type="button" data-lead="' + esc(c.id) + '" data-to="' + (c.estado === "nueva" ? "atendida" : "nueva") + '">' + (c.estado === "nueva" ? '<i class="bi bi-check2" aria-hidden="true"></i> Marcar como atendida' : "Marcar como nueva") + "</button>" +
-        '<button class="btn btn-sm" type="button" data-lead-borrar="' + esc(c.id) + '"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button></div></li>";
+        '<button class="btn btn-sm" type="button" data-lead-borrar="' + esc(c.id) + '"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button></div></li>';
     }
 
     /* ---------- Vistas ---------- */
