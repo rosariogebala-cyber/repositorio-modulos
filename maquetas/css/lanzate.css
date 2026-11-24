@@ -4983,7 +4983,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .gc-client-link { color:#183e34; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
 .gc-status { display:inline-block; font-size:.81rem; font-weight:700; border-radius:9px; padding:4px 8px; background:#eef2f5; color:#293f4b; }
 .gc-status.is-pagado { color:#14532d; background:#e4f4e9; }
-.gc-status.is-vencido { color:#852115; background:#fae8e6; }
+.gc-status.is-vencido, .gc-status.is-parcial_vencido { color:#852115; background:#fae8e6; }
 .gc-status.is-pendiente, .gc-status.is-parcial { color:#845014; background:#fff0cd; }
 .gc-detail { margin:20px 0; }
 .gc-client-start { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding:12px; background:#f4f7f7; border-radius:12px; }
