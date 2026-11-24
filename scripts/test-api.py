@@ -340,29 +340,35 @@ class ApiTest(unittest.TestCase):
         self.assertIn("error", out)
 
     def test_ficha_360_sin_informacion_sensible_y_sin_pagos_inventados(self):
-        status, result = self.team.call("GET", "/api/gestion/clientes/%d" % self.client_id)
-        self.assertEqual(status, 200, result)
-        self.assertIn("cliente", result)
-        self.assertIn("actividad", result)
-        self.assertIn("alertas", result)
-        self.assertIn("solicitudes", result)
-        self.assertIn("resumen_360", result)
-        self.assertNotIn("portal", result["cliente"])
-        self.assertNotIn("portal_clave", result["cliente"])
-        self.assertNotIn("portal_usuario", result["cliente"])
-        self.assertEqual(result["resumen_360"]["pagos_pendientes"], 0)
-        self.assertEqual(result["resumen_360"]["saldos_pendientes"], {"ARS": 0, "USD": 0})
-        self.assertEqual(result["resumen_360"]["landings"], len(result["landings"]))
-        self.assertTrue(any(event["tipo"] == "cliente" for event in result["actividad"]))
-        before = result["revision"]
-        status, updated = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % self.client_id, {
-            "revision": before, "concepto": "Cuota registrada",
-            "importe_centavos": 1200000, "moneda": "ARS", "estado": "pendiente",
-            "vencimiento": "2026-11-24", "landing_id": self.landing["id"]})
-        self.assertEqual(status, 200, updated)
-        self.assertEqual(updated["resumen_360"]["pagos_pendientes"], 1)
-        self.assertEqual(updated["resumen_360"]["saldos_pendientes"]["ARS"], 1200000)
-        self.assertTrue(any(event["tipo"] == "pago" for event in updated["actividad"]))
+        """Caso aislado para no alterar el cliente que usan otros tests del backoffice."""
+        status, created = self.team.call("POST", "/api/clientes", {"nombre": "Ficha 360 pruebas"})
+        self.assertEqual(status, 200, created)
+        cid = created["id"]
+        try:
+            status, result = self.team.call("GET", "/api/gestion/clientes/%d" % cid)
+            self.assertEqual(status, 200, result)
+            self.assertIn("cliente", result)
+            self.assertIn("actividad", result)
+            self.assertIn("alertas", result)
+            self.assertIn("solicitudes", result)
+            self.assertIn("resumen_360", result)
+            self.assertNotIn("portal", result["cliente"])
+            self.assertNotIn("portal_clave", result["cliente"])
+            self.assertNotIn("portal_usuario", result["cliente"])
+            self.assertEqual(result["resumen_360"]["pagos_pendientes"], 0)
+            self.assertEqual(result["resumen_360"]["saldos_pendientes"], {"ARS": 0, "USD": 0})
+            self.assertEqual(result["resumen_360"]["landings"], 0)
+            self.assertTrue(any(event["tipo"] == "cliente" for event in result["actividad"]))
+            status, updated = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % cid, {
+                "revision": result["revision"], "concepto": "Cuota registrada",
+                "importe_centavos": 1200000, "moneda": "ARS", "estado": "pendiente",
+                "vencimiento": "2026-11-24"})
+            self.assertEqual(status, 200, updated)
+            self.assertEqual(updated["resumen_360"]["pagos_pendientes"], 1)
+            self.assertEqual(updated["resumen_360"]["saldos_pendientes"]["ARS"], 1200000)
+            self.assertTrue(any(event["tipo"] == "pago" for event in updated["actividad"]))
+        finally:
+            self.team.call("DELETE", "/api/clientes/%d" % cid)
 
     def test_gestion_clientes_pagos_y_seguimiento(self):
         """La cartera parte sin cobros inventados, preserva ARS/USD y aísla datos privados."""
