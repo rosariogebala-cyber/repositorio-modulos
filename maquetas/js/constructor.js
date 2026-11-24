@@ -1414,23 +1414,48 @@
         if (!Number.isInteger(included) || included < 1) {
           throw new Error("No se pudo determinar el cupo de secciones del plan. Revisá su configuración.");
         }
-        // Nunca sumar un módulo que requiera testimonios, precios o datos sin confirmar.
+        // Prioridades comerciales en la misma solicitud de identidad: cero consultas extra.
+        // Se eligen variantes que realmente existen en la biblioteca del rubro.
         var needsEvidence = /resen|testimoni|opin|precio|cifra|estadistic|equipo|personas|casos-de-exito/i;
-        var seenGroups = {};
-        var sections = [];
-        // Una sola variante por tipo; preferimos las de la plantilla principal del rubro.
+        var factsText = (analysis.datos_visibles || []).join(" ").toLowerCase();
+        var hasLocation = Boolean(client.direccion || /direcci[oó]n|ubicaci[oó]n|sede|local en/i.test(factsText));
+        var hasBooking = /turno|reserva|agend|cita/i.test((infoField.value || "") + " " + factsText);
+        var hasPhotos = files.length > 0;
+        var candidates = [];
+        var seenIds = new Set();
         categoryTemplates(category).forEach(function (template) {
           (template.sections || []).forEach(function (section) {
-            if (sections.length >= included - 1 || !byId[section.m] || needsEvidence.test(section.m)) return;
-            var group = byId[section.m].group || section.m.replace(/-[^-]+$/, "");
-            if (seenGroups[group]) return;
-            seenGroups[group] = true;
-            sections.push(section);
+            if (!byId[section.m] || seenIds.has(section.m) || needsEvidence.test(section.m)) return;
+            if (/donde-nos-encontramos/.test(section.m) && !hasLocation) return;
+            if (/reserva-turno/.test(section.m) && !hasBooking) return;
+            if (/galeria-imagenes/.test(section.m) && !hasPhotos) return;
+            seenIds.add(section.m);
+            candidates.push(section);
           });
         });
-        // Puede haber menos secciones si no hay contenido verificado apropiado.
-        // No completamos cupos inventando información ni insertamos adicionales pagos.
-
+        var priorities = Array.isArray(analysis.prioridades) ? analysis.prioridades : [];
+        var sections = [];
+        var explanations = [];
+        var seenGroups = new Set();
+        function addRecommended(section, reason) {
+          if (!section || sections.length >= included - 1) return;
+          var group = byId[section.m].group || section.m.replace(/-[^-]+$/, "");
+          if (seenGroups.has(group)) return;
+          seenGroups.add(group);
+          sections.push(section);
+          explanations.push({ name: group, reason: reason });
+        }
+        priorities.forEach(function (priority) {
+          var section = candidates.find(function (entry) {
+            return entry.m === priority.tipo || entry.m.indexOf(priority.tipo + "-") === 0;
+          });
+          if (section) addRecommended(section, priority.motivo || "Recomendada según el objetivo del negocio");
+        });
+        // Fallback determinista si no hay suficientes prioridades válidas.
+        candidates.forEach(function (section) {
+          addRecommended(section, "Sugerencia de plantilla; verificá si corresponde al negocio.");
+        });
+        // No se inventan datos ni se supera el cupo del plan.
         var verifiedFacts = (analysis.datos_visibles || []).filter(Boolean);
         var factualItems = verifiedFacts.length ? verifiedFacts.map(function (text) {
           return text + "|Información pendiente de ampliar y confirmar.";
@@ -1490,7 +1515,9 @@
         showLandingEditor(true);
         showTab("order");
         var facts = (analysis.datos_visibles || []).slice(0, 5).join("; ");
-        say("Propuesta de " + selectedPlan.nombre + ": " + includedCount + " de " + included +
+        var reasons = explanations.map(function (entry) { return entry.name + ": " + entry.reason; }).join(" · ");
+        say("Selección recomendada: " + (reasons || "solo portada, falta información para proponer más secciones") + ". " +
+            "Propuesta de " + selectedPlan.nombre + ": " + includedCount + " de " + included +
             " secciones incluidas (hero incluido, navegación y footer sin cargo)." +
             (includedCount < included ? " Quedan " + (included - includedCount) + " secciones disponibles para completar con contenido confirmado." : "") +
             " Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
