@@ -26,7 +26,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Dependencias de Node (armador de landings)
         run: npm ci --no-audit --no-fund
-      - run: python -m py_compile server.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py scripts/sync-modules.py
+      - run: python -m py_compile server.py draft_workflow.py api/index.py scripts/migrar-datos.py scripts/servicios_simulados.py scripts/test-api.py scripts/sync-modules.py
       - run: for file in js/*.js maquetas/js/*.js api/*.mjs scripts/*.mjs; do node --check "$file" || exit 1; done
       - run: python scripts/sync-modules.py --check
       - run: python scripts/check-landing-quality.py
