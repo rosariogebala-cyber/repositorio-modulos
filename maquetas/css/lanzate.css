@@ -4938,3 +4938,28 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-structure-add select { flex:1; min-width:160px; min-height:44px; }
 .lb-structure-actions { justify-content:flex-end; }
 @media(max-width:600px){.lb-structure-list li{flex-wrap:wrap;}.lb-structure-list select{max-width:100%;flex-basis:100%;}}
+
+/* WCAG 2.2 AA: foco distinguible, objetivos cómodos y elementos enfocados no ocultos. */
+.lb-structure-dialog :is(button, select):focus-visible,
+.lb-workflow-compare :is(button, iframe):focus-visible,
+.lb-workflow button:focus-visible,
+.lb-structure-dialog h2:focus,
+.lb-workflow-compare h2:focus {
+  outline: 3px solid #4935b5;
+  outline-offset: 3px;
+}
+.lb-structure-list button,
+.lb-structure-list select,
+.lb-structure-actions button,
+.lb-structure-add button,
+.lb-workflow button { min-height:44px; }
+.lb-structure-list button { min-width:44px; }
+.lb-structure-dialog, .lb-workflow-compare { scroll-padding-top:20px; }
+.lb-structure-dialog :focus, .lb-workflow-compare :focus { scroll-margin:12px; }
+@media (prefers-reduced-motion: reduce) {
+  .lb-structure-dialog *, .lb-workflow-compare *, .lb-workflow * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
