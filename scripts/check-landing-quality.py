@@ -17,6 +17,36 @@ import server
 
 
 class LandingQuality(TestCase):
+    def test_builder_workflow_dialogs_have_accessible_names_and_instructions(self):
+        doc = html.parse(str(ROOT / "maquetas" / "constructor.html"))
+        for name in ("structure", "compare"):
+            with self.subTest(dialog=name):
+                dialog = doc.xpath("//dialog[@data-lb-%s]" % name)
+                self.assertEqual(len(dialog), 1)
+                modal = dialog[0]
+                heading_id = modal.get("aria-labelledby")
+                help_id = modal.get("aria-describedby")
+                self.assertTrue(heading_id and help_id)
+                self.assertEqual(len(modal.xpath(".//*[@id=$value and self::h2 and @tabindex='-1']",
+                                                 value=heading_id)), 1)
+                self.assertEqual(len(modal.xpath(".//*[@id=$value]", value=help_id)), 1)
+        for attr in ("data-lb-draft-preview", "data-lb-review", "data-lb-approve",
+                     "data-lb-publish-one", "data-lb-qa-review", "data-lb-discard"):
+            self.assertEqual(len(doc.xpath("//button[@%s]" % attr)), 1, attr)
+
+    def test_structure_reorder_restores_focus_and_is_announced(self):
+        """Prueba estática de la implementación: el test dinámico requiere navegador real."""
+        script = (ROOT / "maquetas" / "js" / "constructor.js").read_text(encoding="utf-8")
+        css = (ROOT / "maquetas" / "css" / "lanzate.css").read_text(encoding="utf-8")
+        self.assertIn("function render(focusEntry, focusAction)", script)
+        self.assertIn("render(entry, \"up\")", script)
+        self.assertIn("render(entry, \"down\")", script)
+        self.assertIn("render(entry, \"variant\")", script)
+        self.assertIn("target && !target.disabled", script)
+        self.assertIn("Orden o selección actualizados.", script)
+        self.assertIn("outline: 3px solid #4935b5", css)
+        self.assertIn(".lb-structure-list button { min-width:44px; }", css)
+
     def test_vercel_preview_is_read_only_by_default(self):
         """Nunca se puede mutar el repositorio real desde un Preview no aislado."""
         with patch.object(server, "ON_VERCEL", True), patch.dict(os.environ, {"VERCEL_ENV": "preview"}, clear=False):
