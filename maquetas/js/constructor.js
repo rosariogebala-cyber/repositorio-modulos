@@ -75,6 +75,12 @@
   var createLabel = $("[data-lb-create-label]");
   var createIcon = $("[data-lb-create-icon]");
   var createBtn = $("[data-lb-create]");
+  var workflowEl = $("[data-lb-workflow]");
+  var workflowState = $("[data-lb-workflow-state]");
+  var draftPreviewBtn = $("[data-lb-draft-preview]");
+  var reviewBtn = $("[data-lb-review]");
+  var approveBtn = $("[data-lb-approve]");
+  var publishOneBtn = $("[data-lb-publish-one]");
   var newBtn = $("[data-lb-new]");
   var chip = $("[data-lb-chip]");
   var statusEl = $("[data-lb-status]");
@@ -4261,7 +4267,22 @@
     chip.innerHTML = editing ? '<i class="bi bi-pencil-square"></i> Editando' : '<i class="bi bi-stars"></i> Nueva landing';
     chip.classList.toggle("is-editing", editing);
     kicker.textContent = client ? client.nombre : "";
-    createLabel.textContent = editing ? (dirty ? (clientMode() ? "Enviar a revisión" : "Guardar cambios") : "Guardada") : "Crear landing";
+    createLabel.textContent = clientMode()
+      ? (editing ? (dirty ? "Enviar a revisión" : "En revisión") : "Crear landing")
+      : (editing && !dirty ? "Borrador guardado" : "Guardar borrador");
+    if (workflowEl) {
+      var stage = state.borradorEstado || "sin_borrador";
+      var labels = { sin_borrador: state.publicada ? "Versión publicada · sin cambios pendientes" : "Borrador sin guardar",
+                     borrador: "Borrador editable · no publicado",
+                     revision: "En revisión · no publicado",
+                     aprobado: "Aprobado · pendiente de publicar" };
+      workflowState.textContent = labels[stage] || "Borrador";
+      workflowEl.hidden = clientMode() || REBUILD;
+      draftPreviewBtn.disabled = busy || !editing || stage === "sin_borrador";
+      reviewBtn.disabled = busy || dirty || !editing || stage !== "borrador";
+      approveBtn.disabled = busy || dirty || !editing || stage !== "revision";
+      publishOneBtn.disabled = busy || dirty || !editing || stage !== "aprobado";
+    }
     clientReview.hidden = !clientMode() || !editing || !portalRevision;
     if (!clientReview.hidden) {
       clientReview.querySelector("[data-lb-live]").href = "/vista/" + state.landingId;
@@ -4272,7 +4293,8 @@
       createLabel.textContent = dirty ? "Enviar a revisión" : portalRevision.token ? "En revisión" : "Enviar a revisión";
     }
     createIcon.className = "bi " + (editing ? (dirty ? "bi-floppy" : "bi-check2") : "bi-plus-circle");
-    createBtn.disabled = busy || (editing && !dirty && (clientMode() || !todo.length));
+    createBtn.disabled = busy || (clientMode() && editing && !dirty) ||
+      (!clientMode() && editing && !dirty && state.borradorEstado !== "sin_borrador");
     createBtn.classList.toggle("is-pending", todo.length > 0);
     createBtn.title = todo.length ? "Falta: " + todo.map(function (t) { return t.text.toLowerCase(); }).join(", ") : "";
     newBtn.hidden = !editing;
@@ -4358,6 +4380,10 @@
       planId: lp.plan_id || "",
       originalPlanId: lp.plan_id || "",
       planIncluded: lp.secciones_incluidas || 0,
+      borradorEstado: lp.borrador_estado || "sin_borrador",
+      borradorRevision: lp.borrador_revision || null,
+      publicada: lp.publicada !== undefined ? !!lp.publicada : !!lp.disponible,
+      urlPublicada: lp.url || "",
       legacyInherited: !lp.plan_individual,
       faltan: (lp.items || []).filter(function (it) { return !byId[it.id]; }).map(function (it) { return it.id; }),
       items: (lp.items || []).filter(function (it) { return byId[it.id]; }).map(function (saved) {
@@ -4573,13 +4599,18 @@
     if (missingModulesText()) { say(missingModulesText() + " Avisá al equipo antes de guardarla.", "warn"); return; }
     var todo = missing();
     if (todo.some(function (t) { return t.key === "client" || t.key === "name"; })) { openAssign(true); return; }
-    if (todo.length) { goTo(todo[0].key); return; }
+    if (clientMode() && todo.length) { goTo(todo[0].key); return; }
+    if (!clientMode() && todo.some(function (t) { return t.key === "plan" || t.key === "items"; })) {
+      goTo(todo.find(function (t) { return t.key === "plan" || t.key === "items"; }).key);
+      return;
+    }
     var editing = !!state.landingId;
     var planInfo = planSectionWarning();
     if (planInfo.extra && !REBUILD &&
         (!editing || initialPlanSections == null || countPlanSections(state.items) > initialPlanSections) &&
         !window.confirm(planInfo.text + "\n\n¿Querés guardar esta landing con las secciones adicionales?")) return;
     var body = landingPayload();
+    if (!clientMode() && editing && state.borradorRevision) body.base_revision = state.borradorRevision;
     if (clientMode()) {
       body.modo = "sitio";
       body.base_revision = portalRevision && portalRevision.base;
@@ -4595,9 +4626,17 @@
     busy = true;
     renderMode();
     say((editing ? "Guardando «" : "Creando «") + body.nombre + "»…");
-    (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
+    (clientMode()
+      ? (editing ? api("PUT", "/api/landings/" + state.landingId, payload) : api("POST", "/api/landings", payload))
+      : (editing ? api("PUT", "/api/landings/" + state.landingId + "/borrador", payload) : api("POST", "/api/borradores", payload)))
       .then(function (data) {
         state.landingId = data.id;
+        if (!clientMode()) {
+          state.borradorEstado = data.borrador_estado || "borrador";
+          state.borradorRevision = data.borrador_revision || null;
+          state.publicada = !!data.publicada;
+          state.urlPublicada = data.url || "";
+        }
         state.legacyInherited = !data.plan_individual;
         state.originalPlanId = data.plan_id || state.planId;
         state.planIncluded = data.secciones_incluidas || 0;
@@ -4616,14 +4655,12 @@
         if (data.revision_estado === "pendiente" && clientMode()) {
           portalRevision.token = data.revision_token;
           say("Cambios enviados a revisión. Tu sitio sigue mostrando la última versión aprobada.", "ok");
+        } else if (!clientMode()) {
+          say("Borrador guardado. La web pública no cambió. Ahora podés previsualizar y enviar a revisión.", "ok");
         } else if (editing) {
-          say("Cambios guardados. Tocá «Publicar» para subirlos a internet.", "ok", { href: data.url, text: "Ver landing", blank: true });
+          say("Cambios guardados.", "ok");
         } else {
-          say("¡Listo! Creaste «" + body.nombre + "» para " + data.cliente + ".", "ok", [
-            { href: data.url, text: "Abrir landing", blank: true },
-            { href: "landings.html", text: "Ver en Landings" },
-            { act: "new", text: "Crear otra" }
-          ]);
+          say("Landing creada.", "ok");
         }
       })
       .catch(function (err) {
@@ -4636,7 +4673,8 @@
 
   function startNew(clienteId) {
     initialPlanSections = null;
-    state = { name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
+    state = { borradorEstado: "sin_borrador", borradorRevision: null, publicada: false,
+      name: "", clienteId: clienteId || null, landingId: null, planId: (clients.find(function(c){return c.id === clienteId;}) || {}).plan || "", items: [], estilo: "", ignorados: [], descripcion: "", animacion: "suave" };
     savedSnapshot = null;
     nameInput.value = "";
     renderDesc(true);
@@ -4725,6 +4763,47 @@
 
   $("[data-lb-create]").addEventListener("click", function () {
     createLanding();
+  });
+
+  function moveWorkflow(next, confirmText) {
+    if (!state.landingId || !state.borradorRevision || isDirty()) {
+      say("Guardá primero los cambios del borrador para continuar.", "warn");
+      return;
+    }
+    if (confirmText && !window.confirm(confirmText)) return;
+    busy = true;
+    renderMode();
+    var id = state.landingId;
+    api("POST", "/api/landings/" + id + "/" + next,
+        { revision: state.borradorRevision }).then(function (data) {
+      state.borradorEstado = data.borrador_estado || "sin_borrador";
+      state.borradorRevision = data.borrador_revision || null;
+      state.publicada = data.publicada !== undefined ? !!data.publicada : state.publicada;
+      if (next === "publicar") {
+        state.publicada = true;
+        state.urlPublicada = data.url || state.urlPublicada;
+        say("Versión aprobada publicada. Los cambios públicos quedaron actualizados.", "ok",
+            { href: data.url, text: "Ver sitio publicado", blank: true });
+      } else if (next === "aprobar") {
+        say("Versión aprobada. Solo falta publicar explícitamente.", "ok");
+      } else {
+        say("Borrador enviado a revisión. La web pública sigue intacta.", "ok");
+      }
+      renderSaved();
+    }).catch(function (err) {
+      say(err.message, "warn");
+    }).finally(function () { busy = false; renderMode(); });
+  }
+  reviewBtn.addEventListener("click", function () { moveWorkflow("revision"); });
+  approveBtn.addEventListener("click", function () {
+    moveWorkflow("aprobar", "¿Aprobás esta versión para publicarla? Comprobá antes la vista previa y los textos.");
+  });
+  publishOneBtn.addEventListener("click", function () {
+    moveWorkflow("publicar", "¿Publicar ahora la versión aprobada? Esta acción actualiza la web del cliente.");
+  });
+  draftPreviewBtn.addEventListener("click", function () {
+    if (!state.landingId) return;
+    window.open("/api/landings/" + state.landingId + "/borrador/vista", "_blank", "noopener,noreferrer");
   });
 
   $("[data-lb-library-open]").addEventListener("click", function () {
