@@ -412,9 +412,9 @@ class ApiTest(unittest.TestCase):
         self.portal_access("lista-portal")
         listado = self.team.call("GET", "/api/clientes")[1]
         self.assertFalse(any(c.get("portal_clave") for c in listado))
-        self.assertTrue(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"))
+        self.assertFalse(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"))
         row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
-        self.assertTrue(row["portal"]["clave"].startswith("v2:"), "la copia de la contraseña va cifrada con AES-GCM")
+        self.assertNotIn("clave", row["portal"], "no conservar copia recuperable")
 
     def test_client_can_delete_a_lead(self):
         clave = self.portal_access("consultas-portal")
