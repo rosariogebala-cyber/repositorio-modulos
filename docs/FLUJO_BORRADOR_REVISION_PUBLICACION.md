@@ -13,6 +13,14 @@
 
 `Sincronizar publicadas` del panel despliega las **versiones ya publicadas** y no rearma ni aprueba borradores automáticamente.
 
+## Importante: Preview y entornos aislados
+
+Los despliegues de Vercel **Preview** son de solo lectura por defecto: el servidor rechaza las operaciones de escritura para evitar que pruebas en una rama modifiquen clientes o landings reales mediante un token compartido.
+
+La variable `LANZATE_PREVIEW_SANDBOX=1` **solo debe habilitarse** si el proyecto Preview utiliza repositorios de datos y credenciales de pruebas totalmente separados de Production, y se ha verificado que los secretos y las URL de publicación nunca apuntan a producción. Tener un subdominio Preview diferente por sí solo NO equivale a tener datos aislados.
+
+Para pruebas de creación/edición/publicación usar el servidor local sobre **copias de prueba de datos**, o un entorno de staging independiente. No ejecutar el flujo experimental sobre las landings reales hasta completar QA.
+
 ## Seguridad y mantenimiento
 
 - Las rutas de borradores son privadas y necesitan sesión del equipo.
