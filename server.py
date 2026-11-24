@@ -2431,6 +2431,7 @@ def delete_landing(landing_id):
     for old in row.get("rutas_anteriores") or []:
         FILES.delete("modulos", "l/" + old)
     FILES.delete("datos", versions_path(row["id"]))
+    FILES.delete("datos", draft_workflow.path(row["id"]))
     write_site_files()
     return row["nombre"]
 
