@@ -2101,6 +2101,8 @@ def landing_dict(row, client, summary=False):
         "path": url.lstrip("/"),
         "editor": editor_url(client, row),
         "disponible": bool(row.get("html")),
+        "borrador_estado": row.get("borrador_estado") or "sin_borrador",
+        "borrador_modulos": row.get("borrador_modulos") or 0,
     }
     data["aviso_plan"] = "; ".join(plan_errors(client, row.get("items") or [], landing=row))
     plan = landing_plan(row, client)
@@ -2367,7 +2369,8 @@ def save_landing(data, landing_id=None, origen="constructor"):
         values = {"cliente_id": client_id, "nombre": nombre, "slug": slug, "items": items, "estilo": estilo,
                   "ignorados": ignorados, "descripcion": descripcion, "animacion": animacion, "html": html,
                   "portada": cover_of(html), "actualizado": stamp, "origen": origen,
-                  "plan_id": plan_id, "plan_condiciones": plan_snapshot}
+                  "plan_id": plan_id, "plan_condiciones": plan_snapshot,
+                  "borrador_estado": "sin_borrador", "borrador_modulos": 0}
         if "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
