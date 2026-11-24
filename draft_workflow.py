@@ -123,7 +123,7 @@ def quality_errors(s, landing_id, draft):
                  if p.get("id") == plan_id), None)
     if not plan:
         errors.append("el plan no está configurado")
-    elif len(s.content_sections(items)) > int(plan.get("secciones") or 0):
+    elif len(s.content_sections(items)) > int(plan.get("secciones") or 0) and not draft.get("extras_aprobados"):
         errors.append("hay secciones adicionales sin aprobación comercial")
     public_html = s.publish_html(html, items, s.logo_ref(client))
     rendered = s.accessible_landing(public_html, content.get("nombre") or "",
@@ -148,6 +148,9 @@ def move(s, landing_id, action, data):
             raise s.ApiError(400, "Corregí antes de revisar: " + "; ".join(errors[:8]))
         draft["estado"] = "revision"
     elif action == "aprobar" and draft["estado"] == "revision":
+        if data.get("aprobar_adicionales") is True:
+            draft["extras_aprobados"] = True
+            draft["aprobacion_comercial_fecha"] = s.now_ms()
         errors = quality_errors(s, landing_id, draft)
         if errors:
             raise s.ApiError(400, "Corregí antes de aprobar: " + "; ".join(errors[:8]))
@@ -168,6 +171,46 @@ def move(s, landing_id, action, data):
         raise s.ApiError(409, "Transición no permitida. Guardá, enviá a revisión y aprobá primero.")
     write(s, landing_id, draft)
     return project(s, landing_id)
+
+
+def discard(s, landing_id, data):
+    """Descarta solo el borrador; conserva intacta la última publicación."""
+    draft = read(s, landing_id)
+    if not draft:
+        raise s.ApiError(404, "No hay borrador para descartar.")
+    if not isinstance(data, dict) or data.get("revision") != draft.get("revision"):
+        raise s.ApiError(409, "El borrador cambió. Recargá antes de descartarlo.")
+    with s.store("clientes", "landings") as db:
+        row = s.find_landing(db, landing_id)
+        if not row.get("html"):
+            db["landings"].remove(row)
+    s.FILES.delete("datos", path(landing_id))
+    return {"ok": True, "borrador_estado": "sin_borrador", "id": landing_id}
+
+
+def qa_summary(s, landing_id):
+    draft = read(s, landing_id)
+    if not draft:
+        raise s.ApiError(404, "Guardá un borrador antes de analizarlo.")
+    content = draft["contenido"]
+    errors = quality_errors(s, landing_id, draft)
+    sections = len(s.content_sections(content.get("items") or []))
+    plan_id = content.get("plan_id")
+    plan = next((p for p in (s.read_data("planes", {}).get("planes") or [])
+                 if p.get("id") == plan_id), None)
+    warnings = []
+    if not content.get("descripcion"):
+        warnings.append("Revisá la descripción SEO.")
+    html = content.get("html") or ""
+    if len(html.encode("utf-8")) > 1_000_000:
+        warnings.append("El documento HTML supera 1 MB; revisá imágenes incrustadas y peso de página.")
+    if re.search(r'<img\\b(?![^>]*\\b(?:width|height)=)', html, re.I):
+        warnings.append("Algunas imágenes podrían no reservar su espacio: revisá width/height y CLS.")
+    return {"apto_para_revision": not errors, "errores": errors, "advertencias": warnings,
+            "plan": plan.get("nombre") if plan else "",
+            "secciones": sections, "limite": int(plan.get("secciones") or 0) if plan else 0,
+            "extras_aprobados": bool(draft.get("extras_aprobados")),
+            "estado": draft.get("estado"), "revision": draft.get("revision")}
 
 
 def preview(s, landing_id):
