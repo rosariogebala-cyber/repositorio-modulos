@@ -25,3 +25,8 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - Se serializa la carga inicial anónima y el login (9aa5c0b) para evitar que una respuesta 401 anterior oculte la aplicación después de autenticar. Hipótesis pendiente de regresión; no se debilitan cookies ni permisos.
 - Las nuevas credenciales se guardan sin copia recuperable; API aprobada. Pendiente migración controlada de copias históricas, respaldo y prueba de restauración. No se modificaron datos reales.
 - NO-GO: navegador completo, accesibilidad manual, rendimiento, SEO, integración y verificación local pendientes.
+
+### Diagnóstico WebKit y corrección RC
+- API 45436520788: success. Browser 45436520855: failure, 62/78 registros; artefacto 14940967490. WebKit recibe login 200, inicio 401 y posteriormente sesión autenticada. Sin errores JS registrados.
+- 36588dc: reintento acotado de lectura de inicio únicamente después de login exitoso y ante 401 (hasta cuatro reintentos, 2250 ms acumulados). No modifica permisos, cookies ni credenciales. Hipótesis de propagación de cookie pendiente de confirmación por CI.
+- NO-GO hasta regresión completa y demás controles bloqueantes. Sin merge, cambios de datos reales ni sincronización local.
