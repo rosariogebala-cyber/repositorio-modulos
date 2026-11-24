@@ -1166,24 +1166,20 @@
     btn.type = "button";
     btn.className = "btn-nx btn-sm lib-publish";
     btn.setAttribute("data-pf-publish", "");
-    btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar';
-    btn.title = "Rearma las landings con los módulos actuales y las sube a GitHub. En un par de minutos se ven online.";
+    btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Sincronizar publicadas';
+    btn.title = "Despliega únicamente las versiones ya publicadas. Los borradores pendientes quedan intactos.";
     btn.addEventListener("click", function () {
       var note = window.prompt("¿Qué cambiaste? (queda anotado en el historial)", "Actualiza landings");
       if (note === null) return;
       btn.disabled = true;
       btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Publicando…';
-      /* Las landings se rearman en esta pestaña: si se cierra a la mitad, la publicación queda incompleta */
+      /* La sincronización global nunca altera borradores ni autoaprueba versiones. */
       function stay(e) { e.preventDefault(); e.returnValue = ""; }
       window.addEventListener("beforeunload", stay);
       var rebuilt = [];
-      /* Con LANZATE_ARMADO=datos las landings se arman en el servidor, desde sus datos: no hace falta abrir el constructor */
-      var serverBuild = SESSION.armado === "datos";
-      (serverBuild ? Promise.resolve([]) : rebuildAll(function (n, total) {
-        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Armando ' + n + " de " + total + "… no cierres";
-      })).then(function (results) {
-        rebuilt = results;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> ' + (serverBuild ? "Armando y subiendo…" : "Subiendo…");
+      var serverBuild = false;
+      Promise.resolve().then(function () {
+        btn.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Sincronizando publicadas…';
         return api("POST", "/api/publicar", { mensaje: note });
       }).then(function (out) {
         var failed = rebuilt.filter(function (r) { return !r.ok; });
@@ -1193,13 +1189,12 @@
           failed.forEach(function (r) { lines.push("• " + r.nombre + ": " + r.error); });
         }
         var ok = out.resultados.every(function (r) { return r.ok; });
-        var done = serverBuild ? "Listo. Las landings se armaron en el servidor con los módulos actuales." :
-          "Listo. Se armaron " + (rebuilt.length - failed.length) + " landings con los módulos actuales.";
+        var done = "Listo. Se sincronizaron únicamente las versiones publicadas. Los borradores pendientes no cambiaron.";
         window.alert((ok ? done + " En un par de minutos se ve online en " + out.url + "\n\n" : "Hubo un problema al publicar:\n\n") + lines.join("\n"));
       }).catch(function (err) { window.alert(err.message); })
         .then(function () {
           window.removeEventListener("beforeunload", stay);
-          btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Publicar';
+          btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload" aria-hidden="true"></i> Sincronizar publicadas';
         });
     });
     nav.appendChild(btn);
