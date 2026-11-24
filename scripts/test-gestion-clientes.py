@@ -27,6 +27,15 @@ class CommercialLogicTest(unittest.TestCase):
         self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"], "pagado")
         self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 12, 23))["estado"], "vencido")
 
+    def test_initial_payment_does_not_count_as_monthly_payment(self):
+        entries = [{"periodo":"2026-11", "moneda":"ARS",
+                    "monto_centavos":1990050, "concepto":"alta_anticipo"}]
+        self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"],
+                         "vencido", "El anticipo de creación no paga el abono mensual")
+        entries.append({"periodo":"2026-11", "moneda":"ARS", "monto_centavos":1990050,
+                        "concepto":"mensual", "anulado":True})
+        self.assertEqual(g.payment_status(self.contract, entries, dt.date(2026, 11, 23))["estado"], "vencido")
+
     def test_other_currency_or_month_not_mixed(self):
         entries = [{"periodo":"2026-10","moneda":"ARS","monto_centavos":1990050},
                    {"periodo":"2026-11","moneda":"USD","monto_centavos":1990050}]
@@ -44,6 +53,8 @@ class CommercialLogicTest(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 g.money_cents(invalid)
         self.assertEqual(g.money_cents("19900.50"), 1990050)
+        with self.assertRaises(ValueError):
+            g.money_cents("1.234")
 
 
 if __name__ == "__main__":
