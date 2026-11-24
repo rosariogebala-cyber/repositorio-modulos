@@ -39,3 +39,9 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - Revisión estática de la web comercial (repositorio lanzate): canonical, descripción, OG, sitemap, robots, textos legales y ALT de imágenes de proyectos presentes. Los tres enlaces Mercado Pago están vacíos y el CTA dice pagar pero abre mailto. Corregir etiqueta y FAQ o configurar enlaces reales; no simular pagos. Validación real de contacto, navegación, rendimiento, teclado y lector de pantalla pendiente.
 - Preview Vercel: GITHUB_TOKEN solo producción y variables KV compartidas. Crear repositorios y Redis independientes, restringir token, verificar aislamiento antes de habilitar escrituras. No modificar producción.
 - Dictamen: NO-GO plataforma RC1; web comercial pendiente de corregir contratación y verificar experiencia real. No se accedió a entorno local ni se fusionaron PR.
+
+
+### Seguimiento comercial
+- PR comercial https://github.com/rosariogebala-cyber/lanzate/pull/5: smoke y sintaxis aprobados (run 45453693523).
+- Se incorporó matriz comercial Playwright/axe de 27 casos en commit 282ac35f38a53847dd667f57f7c8cb8ff8637458 del repo lanzate. Pendiente de ejecución, no equivale a conformidad WCAG ni validación real de entrega de contactos.
+- RC1 plataforma: API run 45453458789 aprobada; browser run 45453458866 fallida. No fusionar ni publicar hasta resolver.
