@@ -38,11 +38,11 @@
     return el;
   }
   function asCSV(rows) {
-    var columns = ["Cliente", "Estado", "Inicio", "Cantidad de landings", "Planes",
+    var columns = ["Cliente", "Estado", "Fecha de alta", "Inicio", "Cantidad de landings", "Planes",
       "Pedidos pendientes", "Pagos pendientes", "Pagos vencidos", "Próximo vencimiento",
       "Saldo pendiente ARS", "Saldo pendiente USD"];
     var lines = [columns].concat(rows.map(function (c) {
-      return [c.nombre, c.estado, c.inicio, c.landings,
+      return [c.nombre, c.estado, created(c.creado), c.inicio, c.landings,
         c.planes.map(function (l) { return l.nombre + " (" + l.plan + ")"; }).join("; "),
         c.solicitudes_pendientes, c.pagos_pendientes, c.pagos_vencidos,
         c.proximo_vencimiento, (c.saldos_pendientes.ARS || 0) / 100,
@@ -65,7 +65,6 @@
     var filter = document.querySelector("[data-gc-filter]");
     var empty = document.querySelector("[data-gc-empty]");
     var clients = [];
-    var clientsCreated = {};
     function render() {
       var term = search.value.trim().toLowerCase();
       var selected = filter.value;
@@ -85,7 +84,10 @@
         var link = element("a", "", c.nombre); link.href = "cliente.html?id=" + c.id;
         client.appendChild(link); client.appendChild(element("small","gc-muted",c.estado === "pausado" ? "Pausado" : "Activo"));
         tr.appendChild(client);
-        tr.appendChild(element("td", "", dateLabel(c.inicio)));
+        var dates = document.createElement("td");
+        dates.appendChild(element("span", "", "Alta: " + created(c.creado)));
+        dates.appendChild(element("small", "gc-muted", "Inicio: " + dateLabel(c.inicio)));
+        tr.appendChild(dates);
         var landings = document.createElement("td");
         if (!c.planes.length) landings.textContent = "Sin landings";
         c.planes.forEach(function (p) {
