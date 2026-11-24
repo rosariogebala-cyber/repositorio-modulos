@@ -85,7 +85,7 @@ def payment_status(contract, payments, current=None):
         return {"estado": "no_iniciado", "vencimiento": due.isoformat(), "pagado_centavos": 0,
                 "saldo_centavos": contract["abono_centavos"]}
     paid = sum(int(p["monto_centavos"]) for p in payments
-               if p.get("periodo") == period and p.get("moneda") == contract["moneda"] and not p.get("anulado"))
+               if p.get("periodo") == period and p.get("moneda") == contract["moneda"] and not p.get("anulado") and p.get("concepto", "mensual") == "mensual")
     total = contract["abono_centavos"]
     state = ("pagado" if paid >= total else
              ("parcial_vencido" if current > due else "parcial") if paid > 0 else
@@ -109,6 +109,11 @@ def _client_rows(s, db, ledger, client_id=None):
             agreement = ledger["contratos"].get(str(lp["id"])) or {}
             movements = [p for p in all_payments if p.get("landing_id") == lp["id"] and p.get("cliente_id") == c["id"]]
             plan = s.landing_plan(lp, c)
+            setup_due = int(agreement.get("alta_centavos") or 0)
+            setup_paid = sum(int(p["monto_centavos"]) for p in movements
+                             if p.get("concepto") in ("alta_anticipo", "alta_saldo") and
+                             p.get("moneda") == (agreement.get("moneda") or "ARS") and not p.get("anulado"))
+            setup_balance = max(0, setup_due - setup_paid)
             lp_rows.append({
                 "id": lp["id"], "nombre": lp["nombre"], "slug": lp["slug"],
                 "url": "/l/%s/%s/" % (c["slug"], lp["slug"]),
@@ -123,9 +128,14 @@ def _client_rows(s, db, ledger, client_id=None):
                 "inicio": agreement.get("inicio") or "",
                 "dia_vencimiento": agreement.get("dia_vencimiento") or None,
                 "abono_centavos": agreement.get("abono_centavos") or 0,
+                "alta_centavos": setup_due, "alta_pagado_centavos": setup_paid,
+                "alta_saldo_centavos": setup_balance,
+                "alta_estado": ("sin_configurar" if not setup_due else
+                                "pagado" if not setup_balance else "parcial" if setup_paid else "pendiente"),
                 "moneda": agreement.get("moneda") or "ARS",
                 "notas": agreement.get("notas") or "",
                 "catalogo_mensual": plan.get("mensual") if plan else None,
+                "catalogo_inicial": plan.get("inicial") if plan else None,
                 "cobro": payment_status(agreement, movements),
                 "pagos": sorted(movements, key=lambda p: (p["fecha_pago"], p["id"]), reverse=True) if client_id else [],
             })
@@ -167,6 +177,8 @@ def portfolio(s, client_id=None):
         "pagos_vencidos": sum(1 for row in rows for site in row["webs"]
                                if row["tipo_cliente"] == "real" and site["cobro"]["estado"] in ("vencido", "parcial_vencido")),
         "cambios_pendientes": sum(row["cambios_pendientes"] for row in rows if row["tipo_cliente"] == "real"),
+        "altas_por_cobrar": sum(1 for row in rows for site in row["webs"]
+                                if row["tipo_cliente"] == "real" and site["alta_saldo_centavos"] > 0),
     }}
 
 
@@ -195,6 +207,7 @@ def update_contract(s, client_id, landing_id, data):
         if currency not in CURRENCIES:
             raise ValueError("Elegí ARS o USD.")
         amount = money_cents(data.get("abono"))
+        setup_amount = money_cents(data.get("alta") or 0)
         notes = " ".join(str(data.get("notas") or "").split())[:400]
     except (ValueError, TypeError) as error:
         raise s.ApiError(400, str(error))
@@ -212,7 +225,8 @@ def update_contract(s, client_id, landing_id, data):
         if any(p["landing_id"] == landing_id for p in ledger["pagos"]) and current.get("moneda") not in ("", None, currency):
             raise s.ApiError(409, "Ya hay pagos registrados en otra moneda. No se puede cambiar la moneda del contrato.")
         ledger["contratos"][key] = {"inicio": start, "dia_vencimiento": day,
-                                    "abono_centavos": amount, "moneda": currency, "notas": notes,
+                                    "abono_centavos": amount, "alta_centavos": setup_amount,
+                                    "moneda": currency, "notas": notes,
                                     "actualizado": s.now_ms()}
         ledger["revision"] += 1
         write(s, ledger)
@@ -226,6 +240,9 @@ def add_payment(s, client_id, data):
         if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", period):
             raise ValueError("El período debe tener formato AAAA-MM.")
         date = iso_date(data.get("fecha_pago"), required=True)
+        concept = str(data.get("concepto") or "mensual")
+        if concept not in ("mensual", "alta_anticipo", "alta_saldo", "adicional"):
+            raise ValueError("Elegí un concepto de pago válido.")
         amount = money_cents(data.get("monto"))
         if amount <= 0:
             raise ValueError("El pago debe ser mayor a cero.")
@@ -251,7 +268,7 @@ def add_payment(s, client_id, data):
             return portfolio(s, client_id)
         latest = max([int(p.get("id") or 0) for p in ledger["pagos"]] or [0]) + 1
         ledger["pagos"].append({"id": latest, "cliente_id": client_id, "landing_id": lid,
-                              "periodo": period, "fecha_pago": date, "monto_centavos": amount,
+                              "periodo": period, "concepto": concept, "fecha_pago": date, "monto_centavos": amount,
                               "moneda": currency, "referencia": reference, "registrado": s.now_ms(),
                               "request_id": request_id, "anulado": False})
         ledger["revision"] += 1
