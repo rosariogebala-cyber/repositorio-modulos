@@ -29,6 +29,22 @@ class ReferenceAssistantTests(unittest.TestCase):
         self.assertIn("NO ACCEDIDOS", model.call_args.args[1])
         self.assertIsNone(model.call_args.args[2])
 
+    def test_prioridades_seguras_sin_segunda_llamada(self):
+        response = dict(self.response, prioridades=[
+            {"tipo": "servicios", "motivo": "Explicar los tratamientos disponibles"},
+            {"tipo": "servicios", "motivo": "Duplicado"},
+            {"tipo": "no-existe", "motivo": "No debe aparecer"},
+            {"tipo": "contacto", "motivo": "<script>malicioso</script>"},
+            {"tipo": "beneficios", "motivo": "Mostrar las ventajas del servicio"}
+        ])
+        with patch.object(server, "read_data", return_value=self.clients), patch.object(
+                server, "ia_call", return_value=response) as model:
+            result = server.ia_identidad_referencias(dict(self.base))
+        self.assertEqual(model.call_count, 1)
+        self.assertEqual([x["tipo"] for x in result["prioridades"]],
+                         ["servicios", "contacto", "beneficios"])
+        self.assertNotIn("<", result["prioridades"][1]["motivo"])
+
     def test_url_sola_no_equivale_a_lectura(self):
         payload = dict(self.base, informacion="")
         with patch.object(server, "read_data", return_value=self.clients):
