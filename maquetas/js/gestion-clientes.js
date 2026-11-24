@@ -205,8 +205,107 @@
     var form = root.querySelector("[data-gc-contract]");
     var paymentForm = root.querySelector("[data-gc-payment-form]");
     var addPayment = root.querySelector("[data-gc-new-payment]");
+    var summaryRoot = document.querySelector("[data-gc-360]");
+    var summaryStatus = summaryRoot.querySelector("[data-gc-360-status]");
+    var summaryKpis = summaryRoot.querySelector("[data-gc-360-kpis]");
+    var summaryAlerts = summaryRoot.querySelector("[data-gc-360-alerts]");
+    var summaryRequests = summaryRoot.querySelector("[data-gc-360-requests]");
+    var summaryTimeline = summaryRoot.querySelector("[data-gc-360-timeline]");
+    var activityFilter = summaryRoot.querySelector("[data-gc-360-event-filter]");
+    var lastTimeline = [];
+    function timestampLabel(value) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "Sin fecha";
+      return new Date(value).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});
+    }
+    function renderTimeline() {
+      var type = activityFilter.value;
+      var visible = lastTimeline.filter(function (event) { return type === "todas" || type === event.tipo; });
+      summaryTimeline.replaceChildren();
+      visible.forEach(function (event) {
+        var item = element("li","gc-360-timeline-item");
+        item.appendChild(element("time","gc-muted",timestampLabel(event.fecha)));
+        var content = element("div","gc-360-event");
+        content.appendChild(element("strong","",event.titulo));
+        if (event.detalle) content.appendChild(element("span","gc-muted",event.detalle));
+        if (event.tipo === "pago" && typeof event.importe_centavos === "number" &&
+            (event.moneda === "ARS" || event.moneda === "USD")) {
+          content.appendChild(element("span","gc-muted",cents(event.importe_centavos,event.moneda)));
+        }
+        if (event.tipo === "landing" && Number.isInteger(event.landing_id)) {
+          var link = element("a","","Abrir editor");
+          link.href = "constructor.html?landing="+event.landing_id;
+          content.appendChild(link);
+        }
+        item.appendChild(content);
+        summaryTimeline.appendChild(item);
+      });
+      summaryRoot.querySelector("[data-gc-360-no-activity]").hidden = !!visible.length;
+    }
+    function render360(data) {
+      var client = data.cliente || {}, totals = data.resumen_360 || {};
+      var alerts = data.alertas || [], requests = data.solicitudes || [];
+      summaryRoot.querySelector("[data-gc-client-name]").textContent = client.nombre || "Cliente";
+      summaryRoot.querySelector("[data-gc-client-meta]").textContent =
+        [client.rubro,client.contacto,client.email,client.telefono].filter(Boolean).join(" · ") ||
+        "Sin contacto registrado";
+      summaryRoot.querySelector("[data-gc-create-landing]").href = "constructor.html?cliente="+id;
+      summaryKpis.replaceChildren();
+      [
+        ["Landings",String(totals.landings || 0)],
+        ["Publicadas",String(totals.publicadas || 0)],
+        ["Cambios pendientes",String(totals.cambios_pendientes || 0)],
+        ["Cobros pendientes",String(totals.pagos_pendientes || 0)],
+        ["Alertas urgentes",String(totals.alertas_urgentes || 0)],
+      ].forEach(function (entry) {
+        var card = element("div","gc-kpi");
+        card.appendChild(element("span","gc-kpi-number",entry[1]));
+        card.appendChild(element("span","gc-muted",entry[0]));
+        summaryKpis.appendChild(card);
+      });
+      var balances = totals.saldos_pendientes || {};
+      var balance = element("div","gc-kpi");
+      balance.appendChild(element("strong","","Saldos registrados pendientes"));
+      balance.appendChild(element("span","gc-muted",
+        (balances.ARS ? cents(balances.ARS,"ARS") : "ARS sin saldo pendiente")+
+        " · "+(balances.USD ? cents(balances.USD,"USD") : "USD sin saldo pendiente")));
+      if (!totals.movimientos_registrados) {
+        balance.appendChild(element("small","gc-muted","Sin movimientos registrados; no implica que el cliente esté al día."));
+      }
+      summaryKpis.appendChild(balance);
+      summaryAlerts.replaceChildren();
+      alerts.forEach(function (alert) {
+        var li = element("li","gc-360-item");
+        li.appendChild(element("strong",alert.prioridad <= 1 ? "gc-danger" : "",alert.titulo));
+        li.appendChild(element("span","gc-muted",alert.detalle));
+        var href = ["pago","cambio","seguimiento"].includes(alert.tipo)
+          ? {pago:"#gcFinanceTitle",cambio:"#gc360Requests",seguimiento:"#gcContractTitle"}[alert.tipo] : "#gc360Overview";
+        var link = element("a","","Ver detalle"); link.href=href;li.appendChild(link);
+        summaryAlerts.appendChild(li);
+      });
+      summaryRoot.querySelector("[data-gc-360-no-alerts]").hidden = !!alerts.length;
+      summaryRequests.replaceChildren();
+      requests.forEach(function (request) {
+        var li = element("li","gc-360-item");
+        li.appendChild(element("strong","",request.landing+" · "+request.estado));
+        li.appendChild(element("small","gc-muted",timestampLabel(request.fecha)));
+        if (request.nota) li.appendChild(element("p","gc-muted",request.nota));
+        if (request.fuera_de_plan) li.appendChild(element("span","gc-danger",request.fuera_de_plan));
+        if (request.estado === "pendiente") {
+          var link = element("a","","Revisar pedido");link.href="#cf-revisar";li.appendChild(link);
+        }
+        summaryRequests.appendChild(li);
+      });
+      summaryRoot.querySelector("[data-gc-360-no-requests]").hidden = !!requests.length;
+      lastTimeline = data.actividad || [];
+      renderTimeline();
+      summaryStatus.textContent = "Ficha actualizada. "+alerts.length+" alertas y "+
+        (totals.cambios_pendientes || 0)+" solicitudes de cambios pendientes.";
+    }
+    activityFilter.addEventListener("change",renderTimeline);
+    summaryRoot.querySelector("[data-gc-360-refresh]").addEventListener("click",function () { load(); });
     var revision = 0, current;
     function render(data) {
+      render360(data);
       current = data; revision = data.revision;
       form.elements.inicio.value = data.inicio || "";
       form.elements.proximo_contacto.value = data.proximo_contacto || "";
@@ -243,6 +342,7 @@
     function load() {
       api("GET","/api/gestion/clientes/"+id).then(render).catch(function(error) {
         status.textContent = error.message; status.classList.add("gc-danger");
+        summaryStatus.textContent = error.message;
       });
     }
     form.addEventListener("submit",function (event) {
