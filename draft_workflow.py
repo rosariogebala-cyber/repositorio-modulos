@@ -248,6 +248,10 @@ def qa_summary(s, landing_id):
     with s.store("clientes", "landings", save=False) as db:
         client = s.find_client(db, s.find_landing(db, landing_id)["cliente_id"])
     warnings = content_warnings(s, content.get("html") or "", client)
+    extra_issue = "hay secciones adicionales sin aprobación comercial"
+    if extra_issue in errors:
+        errors.remove(extra_issue)
+        warnings.insert(0, "Secciones adicionales: necesitás confirmar su presupuesto al aprobar.")
     if not content.get("descripcion"):
         warnings.append("Revisá la descripción SEO.")
     html = content.get("html") or ""
