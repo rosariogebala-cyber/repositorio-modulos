@@ -339,6 +339,73 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 400, out)
         self.assertIn("error", out)
 
+    def test_portfolio_is_private_and_has_no_portal_secrets(self):
+        anon = Client(self.base, "10.80.0.1")
+        self.assertEqual(anon.call("GET", "/api/gestion-clientes")[0], 401)
+        self.assertEqual(anon.call("GET", "/api/gestion-clientes/%d" % self.client_id)[0], 401)
+        self.assertEqual(anon.call("POST", "/api/gestion-clientes/%d/pagos" % self.client_id, {})[0], 401)
+        status, dashboard = self.team.call("GET", "/api/gestion-clientes")
+        self.assertEqual(status, 200, dashboard)
+        self.assertIn("resumen", dashboard)
+        self.assertTrue(dashboard["clientes"])
+        self.assertFalse(any("portal_clave" in row or "portal" in row for row in dashboard["clientes"]))
+        self.assertTrue(any(row["id"] == self.client_id for row in dashboard["clientes"]))
+        self.assertNotIn("monto_centavos", str(dashboard.get("password", "")))
+
+    def test_commercial_contract_and_payments_are_scoped_to_each_landing(self):
+        client_id = self.client_id
+        landing_id = self.landing["id"]
+        status, profile = self.team.call("GET", "/api/gestion-clientes/%d" % client_id)
+        self.assertEqual(status, 200, profile)
+        self.assertTrue(any(lp["id"] == landing_id for lp in profile["webs"]))
+        self.assertEqual(self.team.call("PUT", "/api/gestion-clientes/%d/inicio" % client_id,
+                                    {"inicio": "2026-11-01"})[0], 200)
+        contract = {"inicio": "2026-11-01", "dia_vencimiento": 15, "abono": "19900.50",
+                    "moneda": "ARS", "notas": "Pago por transferencia"}
+        status, account = self.team.call("PUT", "/api/gestion-clientes/%d/landings/%d" % (client_id, landing_id), contract)
+        self.assertEqual(status, 200, account)
+        site = next(lp for lp in account["webs"] if lp["id"] == landing_id)
+        self.assertEqual(site["abono_centavos"], 1990050)
+        self.assertEqual(site["inicio"], "2026-11-01")
+        self.assertNotEqual(site["cobro"]["estado"], "pagado", "Configurar un abono no implica haber cobrado")
+        status, paid = self.team.call("POST", "/api/gestion-clientes/%d/pagos" % client_id, {
+            "landing_id": landing_id, "periodo": "2026-11", "fecha_pago": "2026-11-23",
+            "monto": "19900.50", "referencia": "Transferencia ABC"
+        })
+        self.assertEqual(status, 200, paid)
+        site = next(lp for lp in paid["webs"] if lp["id"] == landing_id)
+        self.assertTrue(site["pagos"])
+        self.assertEqual(site["pagos"][-1]["moneda"], "ARS")
+        self.assertEqual(site["pagos"][-1]["monto_centavos"], 1990050)
+        self.assertEqual(len(site["pagos"]), 1)
+        self.assertTrue(sim.repo_file("lanzate-datos", "gestion/clientes.json"))
+        with self.assertRaises(Exception):
+            sim.repo_file("repositorio-modulos", "gestion/clientes.json")
+        # Los registros comerciales no aparecen en las API públicas.
+        public_status, public_row = self.team.call("GET", "/api/clientes/%d" % client_id)
+        self.assertEqual(public_status, 200)
+        self.assertNotIn("pagos", public_row)
+        self.assertNotIn("contratos", public_row)
+        another_status, other = self.team.call("POST", "/api/clientes", {"nombre":"Otro cliente test"})
+        self.assertEqual(another_status, 200, other)
+        self.assertEqual(self.team.call("PUT", "/api/gestion-clientes/%d/landings/%d" %
+                                        (other["id"], landing_id), contract)[0], 403)
+        self.assertEqual(self.team.call("POST", "/api/gestion-clientes/%d/pagos" % other["id"], {
+            "landing_id": landing_id, "periodo": "2026-11", "fecha_pago": "2026-11-23", "monto": "100"
+        })[0], 403)
+        self.team.call("DELETE", "/api/clientes/%d" % other["id"])
+
+    def test_commercial_validation_prevents_fake_payments(self):
+        lid = self.landing["id"]
+        cid = self.client_id
+        status, out = self.team.call("PUT", "/api/gestion-clientes/%d/landings/%d" % (cid, lid),
+                                      {"inicio":"2026-02-30", "dia_vencimiento":31, "abono":-3, "moneda":"ARS"})
+        self.assertEqual(status, 400, out)
+        status, out = self.team.call("POST", "/api/gestion-clientes/%d/pagos" % cid,
+                                      {"landing_id": lid, "periodo":"2026-99",
+                                       "fecha_pago":"2026-11-23", "monto":10})
+        self.assertEqual(status, 400, out)
+
     def test_client_list_does_not_send_portal_passwords(self):
         self.portal_access("lista-portal")
         listado = self.team.call("GET", "/api/clientes")[1]
