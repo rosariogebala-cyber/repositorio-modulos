@@ -530,7 +530,8 @@
         ["Landings publicadas", summary.landings_publicadas || 0],
         ["Cobros a revisar", summary.pagos_pendientes || 0],
         ["Pagos vencidos", summary.pagos_vencidos || 0],
-        ["Cambios pendientes", summary.cambios_pendientes || 0]
+        ["Cambios pendientes", summary.cambios_pendientes || 0],
+        ["Creaciones por cobrar", summary.altas_por_cobrar || 0]
       ];
       stats.replaceChildren();
       data.forEach(function (item) {
@@ -617,12 +618,13 @@
         '<small>Si todavía no conocés la fecha contractual, dejala vacía; la fecha de alta es ' + esc(gcDate(data.alta)) + '.</small></form>';
       if (!data.webs.length) start += '<p class="pf-empty">Primero creá una landing. Los contratos y pagos se registran individualmente por web.</p>';
       start += data.webs.map(function(site) {
-        var contractOk = Boolean(site.inicio && site.abono_centavos);
+        var contractOk = Boolean(site.inicio && (site.abono_centavos || site.alta_centavos));
         var pay = site.cobro || {};
         var cssStatus = esc(pay.estado || "sin_configurar");
         var history = site.pagos.length ? site.pagos.slice(0, 20).map(function (p) {
           return '<li' + (p.anulado ? ' class="gc-voided"' : '') + '><time datetime="' + esc(p.fecha_pago) + '">' + esc(gcDate(p.fecha_pago)) + '</time> · ' +
-            '<strong>' + esc(gcMoney(p.monto_centavos, p.moneda)) + '</strong> · período ' + esc(p.periodo) +
+            '<strong>' + esc(gcMoney(p.monto_centavos, p.moneda)) + '</strong> · ' +
+            esc(({mensual:"Abono mensual",alta_anticipo:"Anticipo de creación",alta_saldo:"Saldo de creación",adicional:"Trabajo adicional"})[p.concepto] || "Abono mensual") + ' · período ' + esc(p.periodo) +
             (p.referencia ? ' · ' + esc(p.referencia) : '') +
             (p.anulado ? ' · <b>Anulado: ' + esc(p.motivo_anulacion || "Sin detalle") + '</b>' :
               ' <button class="btn-nx-outline btn-sm gc-void-button" type="button" data-gc-void="' + p.id +
@@ -651,9 +653,15 @@
             '<label>Día de vencimiento mensual <select class="lb-input" name="dia_vencimiento" required>' + dayOptions + '</select></label>' +
             '<label>Abono acordado <input class="lb-input" name="abono" type="number" min="0" max="100000000" step="0.01" required value="' +
               (site.abono_centavos ? (site.abono_centavos/100).toFixed(2) : "") + '"></label>' +
+            '<label>Precio inicial de creación <input class="lb-input" name="alta" type="number" min="0" max="100000000" step="0.01" value="' +
+              (site.alta_centavos ? (site.alta_centavos/100).toFixed(2) : "") + '"></label>' +
             '<label>Moneda <select class="lb-input" name="moneda">' + opts + '</select></label>' +
           '</div><label>Notas internas <textarea class="lb-input" name="notas" maxlength="400" rows="2">' +
             esc(site.notas) + '</textarea></label>' +
+          '<p class="gc-help"><strong>Creación:</strong> ' +
+            (site.alta_centavos ? esc(gcMoney(site.alta_centavos,site.moneda)) : "Sin configurar") +
+            ' · <strong>Pagado:</strong> ' + esc(gcMoney(site.alta_pagado_centavos,site.moneda)) +
+            ' · <strong>Saldo:</strong> ' + esc(gcMoney(site.alta_saldo_centavos,site.moneda)) + '</p>' +
           '<p class="gc-help">Precio de catálogo actual (solo referencia): ' +
             (site.catalogo_mensual == null ? 'no informado' : esc(gcMoney(Math.round(Number(site.catalogo_mensual)*100),"ARS"))) +
             '. No se cobra ni se marca como pagado automáticamente.</p>' +
@@ -662,12 +670,16 @@
           '<input type="hidden" name="request_id" value="' + esc(paymentRequestId) + '">' +
           '<fieldset' + (!contractOk ? ' disabled' : '') + '><legend>Registrar un pago recibido</legend>' +
           '<div class="gc-form-grid">' +
+            '<label>Concepto <select class="lb-input" name="concepto">' +
+              '<option value="mensual">Abono mensual</option><option value="alta_anticipo">Anticipo de creación</option>' +
+              '<option value="alta_saldo">Saldo de creación</option><option value="adicional">Trabajo adicional</option>' +
+            '</select></label>' +
             '<label>Período <input class="lb-input" type="month" name="periodo" required value="' + esc(currentPeriod) + '"></label>' +
             '<label>Fecha de pago <input class="lb-input" type="date" name="fecha_pago" required value="' + esc(gcToday()) + '"></label>' +
             '<label>Importe pagado <input class="lb-input" type="number" name="monto" required min="0.01" step="0.01"></label>' +
             '<label>Referencia / comprobante <input class="lb-input" name="referencia" maxlength="120" placeholder="Ej.: transferencia #123"></label>' +
           '</div><button type="submit" class="btn-nx btn-sm">Registrar pago</button></fieldset>' +
-          (!contractOk ? '<p class="gc-help">Configurá el inicio y el abono antes de registrar pagos.</p>' : '') +
+          (!contractOk ? '<p class="gc-help">Configurá el inicio y al menos un importe antes de registrar pagos.</p>' : '') +
           '</form>' +
           '<details class="gc-payment-history"><summary>Historial de pagos (' + site.pagos.length + ')</summary><ol>' +
              history + '</ol></details>' +
