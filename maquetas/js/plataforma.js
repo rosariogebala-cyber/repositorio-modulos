@@ -457,60 +457,100 @@
 
   /* Página: Clientes */
   function pageClientes() {
-    var grid = document.querySelector("[data-pf-clients]");
+    var rows = document.querySelector("[data-pf-clients]");
     var empty = document.querySelector("[data-pf-empty]");
     var msg = document.querySelector("[data-pf-msg]");
     var search = document.querySelector("[data-pf-search]");
     var filter = document.querySelector("[data-pf-filter]");
     var typeFilter = document.querySelector("[data-pf-type]");
+    var paymentFilter = document.querySelector("[data-gc-payment]");
+    var changeFilter = document.querySelector("[data-gc-changes]");
+    var stats = document.querySelector("[data-gc-stats]");
     var count = document.querySelector("[data-pf-count]");
     var clients = [];
     var estado = "";
 
+    function dateLabel(iso) {
+      if (!iso) return "Sin configurar";
+      var parts = iso.split("-");
+      return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : iso;
+    }
+    function stateLabel(value) {
+      return ({ vencido: "Vencido", pendiente: "Pendiente", parcial: "Pago parcial",
+        pagado: "Al día", no_iniciado: "Aún no iniciado",
+        sin_configurar: "Sin configurar" })[value] || "Sin configurar";
+    }
     function render() {
       var q = normalize(search.value.trim());
       var list = clients.filter(function (c) {
+        var payment = paymentFilter.value;
+        var fitsPayment = !payment || (payment === "pendiente"
+          ? ["pendiente", "parcial"].includes(c.cobro_estado)
+          : c.cobro_estado === payment);
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
-          (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).indexOf(q) !== -1);
+          fitsPayment &&
+          (!changeFilter.value || c.cambios_pendientes > 0) &&
+          (!q || normalize([c.nombre, c.rubro, c.contacto, c.email].join(" ")).includes(q));
       });
-      grid.innerHTML = "";
+      rows.replaceChildren();
       list.forEach(function (c) {
-        var art = document.createElement("article");
-        art.className = "pf-client" + (c.estado === "pausado" ? " is-paused" : "");
-        art.innerHTML =
-          '<div class="pf-client-top">' + avatar(c) +
-          '<div class="pf-client-name"><h2><a href="cliente.html?id=' + c.id + '">' + esc(c.nombre) + "</a></h2>" +
-          "<p>" + esc(c.rubro || "Sin rubro") + "</p>" +
-          "</div>" + status(c) + "</div>" +
-          (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#cf-revisar"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
-            (pendingCount(c) === 1 ? "Mandó un pedido de cambios" : "Mandó " + pendingCount(c) + " pedidos de cambios") + "</a>" : "") +
-          (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
-          (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
-          '<ul class="pf-client-data">' +
-          (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
-          (c.email ? '<li><i class="bi bi-envelope"></i>' + esc(c.email) + "</li>" : "") +
-          (c.telefono ? '<li><i class="bi bi-telephone"></i>' + esc(c.telefono) + "</li>" : "") +
-          (!c.contacto && !c.email && !c.telefono ? '<li class="is-muted"><i class="bi bi-info-circle"></i>Sin datos de contacto</li>' : "") +
-          "</ul>" +
-          '<div class="pf-client-foot"><span class="lb-badge">' + plural(c.landings, "landing", "landings") + " · " + (c.tipo_cliente === "demo" ? "Demo" : "Real") + (c.plan ? " · " + esc(planName(c.plan)) : "") + "</span>" +
-          '<span class="pf-client-actions">' +
-          '<a class="lb-act" href="cliente.html?id=' + c.id + '">Ver ficha <i class="bi bi-arrow-right"></i></a></span></div>';
-        grid.appendChild(art);
+        var tr = document.createElement("tr");
+        var plans = Array.from(new Set(c.webs.map(function (site) { return site.plan; })));
+        var planText = c.landings
+          ? plural(c.landings, "landing", "landings") + " · " + plans.join(" / ")
+          : "Sin landings";
+        var statusKind = c.cobro_estado;
+        var financial = statusKind === "sin_configurar"
+          ? "Falta cargar el abono" : stateLabel(statusKind);
+        var href = "cliente.html?id=" + encodeURIComponent(c.id);
+        tr.innerHTML =
+          '<th scope="row"><a class="gc-client-link" href="' + href + '">' + esc(c.nombre) + "</a>" +
+            '<small>' + esc(c.rubro || c.contacto || "Sin rubro") + " · " + esc(c.estado) + "</small></th>" +
+          '<td>' + esc(planText) + '<small>' + c.publicadas + ' publicada(s)</small></td>' +
+          '<td>' + esc(dateLabel(c.inicio || c.alta)) +
+            (!c.inicio ? '<small>Fecha de alta · falta inicio contractual</small>' : '<small>Inicio contractual</small>') + '</td>' +
+          '<td><span class="gc-status is-' + esc(statusKind) + '">' + esc(financial) + '</span>' +
+            '<small>' + esc(c.webs.filter(function (lp) { return lp.cobro.estado === "vencido"; }).length ? "Revisar vencimientos" : "Período actual") + '</small></td>' +
+          '<td><span class="gc-changes">' + c.cambios_pendientes + ' pendiente(s)</span></td>' +
+          '<td><a class="btn-nx-outline btn-sm" href="' + href + '">Ver ficha</a></td>';
+        rows.appendChild(tr);
       });
       empty.hidden = list.length > 0;
-      empty.textContent = clients.length ? "No hay clientes que coincidan con la búsqueda." : "Todavía no diste de alta ningún cliente. Empezá con «Nuevo cliente».";
+      empty.textContent = clients.length ? "No hay clientes que coincidan con los filtros." :
+        "Todavía no hay clientes. Comenzá con «Nuevo cliente».";
       count.textContent = plural(clients.length, "cliente", "clientes");
     }
-
-    function load() {
-      return loadPlans().then(function () { return api("GET", "/api/clientes"); }).then(function (list) {
-        clients = list;
-        render();
-      })
-        .catch(function (err) { say(msg, err.message, "warn"); });
+    function renderStats(summary) {
+      var data = [
+        ["Clientes activos", summary.clientes_activos || 0],
+        ["Landings publicadas", summary.landings_publicadas || 0],
+        ["Cobros a revisar", summary.pagos_pendientes || 0],
+        ["Pagos vencidos", summary.pagos_vencidos || 0],
+        ["Cambios pendientes", summary.cambios_pendientes || 0]
+      ];
+      stats.replaceChildren();
+      data.forEach(function (item) {
+        var card = document.createElement("div");
+        card.className = "gc-kpi";
+        var label = document.createElement("span");
+        label.textContent = item[0];
+        var value = document.createElement("strong");
+        value.textContent = item[1].toLocaleString("es-AR");
+        card.appendChild(label);
+        card.appendChild(value);
+        stats.appendChild(card);
+      });
     }
-
+    function load() {
+      return loadPlans().then(function () {
+        return api("GET", "/api/gestion-clientes");
+      }).then(function (data) {
+        clients = data.clientes || [];
+        renderStats(data.resumen || {});
+        render();
+      }).catch(function (err) { say(msg, err.message, "warn"); });
+    }
     document.querySelector("[data-pf-new-client]").addEventListener("click", function () {
       clientForm(null).then(function (saved) {
         if (!saved) return;
@@ -520,11 +560,15 @@
     });
     search.addEventListener("input", render);
     typeFilter.addEventListener("change", render);
+    paymentFilter.addEventListener("change", render);
+    changeFilter.addEventListener("change", render);
     filter.addEventListener("click", function (e) {
       var b = e.target.closest("[data-value]");
       if (!b) return;
       estado = b.getAttribute("data-value");
-      filter.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      filter.querySelectorAll("button").forEach(function (x) {
+        x.setAttribute("aria-pressed", String(x === b));
+      });
       render();
     });
     if (/[?&]nuevo=1/.test(location.search)) {
