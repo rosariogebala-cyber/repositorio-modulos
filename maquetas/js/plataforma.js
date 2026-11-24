@@ -484,9 +484,12 @@
       var q = normalize(search.value.trim());
       var list = clients.filter(function (c) {
         var payment = paymentFilter.value;
-        var fitsPayment = !payment || (payment === "pendiente"
-          ? ["pendiente", "parcial"].includes(c.cobro_estado)
-          : c.cobro_estado === payment);
+        var states = c.webs.map(function (site) { return site.cobro.estado; });
+        var fitsPayment = !payment ||
+          (payment === "pendiente" ? states.some(function (x) { return x === "pendiente" || x === "parcial"; }) :
+          payment === "sin_configurar" ? (!states.length || states.includes("sin_configurar")) :
+          payment === "pagado" ? (states.length > 0 && states.every(function (x) { return x === "pagado"; })) :
+          states.includes(payment));
         return (!estado || c.estado === estado) &&
           (!typeFilter.value || c.tipo_cliente === typeFilter.value) &&
           fitsPayment &&
