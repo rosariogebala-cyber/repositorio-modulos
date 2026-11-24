@@ -2232,10 +2232,11 @@ def image_metadata_errors(html, rules):
     if not (rules.get("general") or {}).get("bloquear"):
         return []
     document = html_dom.document_fromstring(html)
-    count = len(document.xpath("//img[normalize-space(@src) and not(normalize-space(@alt))]"))
+    # alt="" es correcto para imágenes decorativas; las informativas necesitan un texto descriptivo.
+    count = len(document.xpath("//img[normalize-space(@src) and not(@alt)]"))
     errors = []
     if count:
-        errors.append(f"{count} imagen(es) sin texto alternativo. Describí qué se ve en la foto o transcribí su texto (podés usar «Describir con IA»).")
+        errors.append(f"{count} imagen(es) sin atributo alt. Agregá una descripción útil, o alt vacío si son puramente decorativas.")
     heavy = 0
     total = 0
     for src in document.xpath("//img/@src"):
@@ -2927,8 +2928,8 @@ def published_structure_errors(markup):
     main = doc.xpath("//main")
     if len(main) != 1 or len(main[0].xpath(".//h1")) != 1:
         return ["la página final necesita un contenido principal y un encabezado H1"]
-    if doc.xpath("//img[not(normalize-space(@alt))]"):
-        return ["hay imágenes sin descripción alternativa"]
+    if doc.xpath("//img[not(@alt)]"):
+        return ["hay imágenes sin atributo alt (usá alt vacío solo si son decorativas)"]
     return []
 
 
