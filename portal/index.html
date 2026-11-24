@@ -272,12 +272,14 @@
       }
       $("#usuario").focus();
     }
+    var initialLoad = Promise.resolve();
     $("[data-login-form]").addEventListener("submit", function (e) {
       e.preventDefault();
       var btn = e.target.querySelector("button");
       btn.disabled = true;
       say(msg, "");
-      api("POST", "/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value, sitio: SITIO })
+      var credentials = { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value, sitio: SITIO };
+      initialLoad.then(function () { return api("POST", "/api/portal/login", credentials); })
         .then(function (d) {
           if (!SITIO || SITIO !== d.sitio) { location.href = "/portal/" + d.sitio + "/" + location.search; return; }
           return load();
@@ -599,7 +601,7 @@
       }
     };
 
-    load();
+    initialLoad = load();
   })();
   </script>
 </body>
