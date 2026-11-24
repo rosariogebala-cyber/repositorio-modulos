@@ -8,6 +8,7 @@ acceso, límites de intentos, guardados simultáneos, portal, pedidos con fotos,
 import base64
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -368,6 +369,67 @@ class ApiTest(unittest.TestCase):
             # Por defecto el servidor arma cada landing desde sus datos y solo compara: no cambia lo guardado.
             self.assertRegex(armado["detalle"], r"de \d+ landings dan igual", armado)
         self.assertEqual([l.get("html") for l in before], [l.get("html") for l in read_js("lanzate-datos", "data/landings.js")])
+
+    # --- Versiones, direcciones viejas y sitemap ---------------------------------------------
+    def test_versions_and_old_address_redirect(self):
+        status, copy = self.team.call("POST", "/api/landings/%d/duplicate" % self.landing["id"])
+        self.assertEqual(status, 200, copy)
+        lid = copy["id"]
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == lid)
+        body = {"cliente_id": row["cliente_id"], "nombre": row["nombre"], "html": row["html"], "items": row["items"],
+                "estilo": row.get("estilo") or "", "descripcion": "Primera descripción", "animacion": row.get("animacion") or ""}
+        self.assertEqual(self.team.call("PUT", "/api/landings/%d" % lid, body)[0], 200)
+        status, versions = self.team.call("GET", "/api/landings/%d/versiones" % lid)
+        self.assertEqual(status, 200, versions)
+        self.assertEqual(len(versions), 1, versions)
+        self.assertEqual(versions[0]["nombre"], row["nombre"])
+        # Guardar lo mismo otra vez no suma una versión repetida... pero cambiar el nombre sí, y mueve la dirección.
+        old_slug = copy["slug"]
+        renamed = dict(body, nombre="Nombre nuevo de prueba")
+        status, saved = self.team.call("PUT", "/api/landings/%d" % lid, renamed)
+        self.assertEqual(status, 200, saved)
+        versions = self.team.call("GET", "/api/landings/%d/versiones" % lid)[1]
+        self.assertEqual([v["nombre"] for v in versions], [row["nombre"], row["nombre"]])
+        status, old = self.team.call("GET", "/api/landings/%d/versiones?fecha=%d" % (lid, versions[-1]["fecha"]))
+        self.assertEqual(status, 200, old)
+        self.assertEqual(old["items"], row["items"])
+        # La dirección vieja redirige (301) a la nueva, y queda una página de redirección para la copia estática.
+        status, _ = Client(self.base, "10.0.9.1").call("GET", "/l/%s/%s/" % (self.slug, old_slug), raw=True)
+        self.assertEqual(status, 301)
+        stub = sim.repo_file("repositorio-modulos", "l/%s/%s/index.html" % (self.slug, old_slug)).decode("utf-8")
+        self.assertIn('content="/l/%s/%s/"' % (self.slug, saved["slug"]), stub)
+        self.assertIn("http-equiv=\"refresh\"", stub)
+        status, page = Client(self.base, "10.0.9.1").call("GET", "/l/%s/%s/" % (self.slug, saved["slug"]), raw=True)
+        self.assertEqual(status, 200)
+        # Al publicar, la redirección se mantiene (no se borra como carpeta huérfana).
+        self.team.call("POST", "/api/publicar", {"mensaje": "Prueba de redirección"})
+        self.assertIsNotNone(sim.repo_file("repositorio-modulos", "l/%s/%s/index.html" % (self.slug, old_slug)))
+        # Al eliminar la landing se van también su redirección y sus versiones.
+        self.assertEqual(self.team.call("DELETE", "/api/landings/%d" % lid)[0], 200)
+        self.assertIsNone(sim.repo_file("repositorio-modulos", "l/%s/%s/index.html" % (self.slug, old_slug)))
+        self.assertIsNone(sim.repo_file("lanzate-datos", "versiones/%d.json" % lid))
+
+    def test_sitemap_has_dates_and_business_data_only_for_real_clients(self):
+        status, client = self.team.call("POST", "/api/clientes", {
+            "nombre": "Negocio Real", "tipo_cliente": "real", "telefono": "+54 11 4555-1234", "email": "hola@negocioreal.com.ar",
+            "direccion": "Av. Corrientes 1234, CABA", "instagram": "@negocioreal"})
+        self.assertEqual(status, 200, client)
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
+        clean = re.sub(r"(?i)example\.(com|net|org)", "negocioreal.com.ar", row["html"])
+        clean = re.sub(r"(?i)\b(marca|calle) ejemplo\b", "Negocio Real", clean)
+        body = {"cliente_id": client["id"], "nombre": "Inicio", "html": clean, "items": row["items"],
+                "estilo": row.get("estilo") or "", "descripcion": "Un negocio de prueba", "animacion": ""}
+        status, saved = self.team.call("POST", "/api/landings", body)
+        self.assertEqual(status, 200, saved)
+        page = sim.repo_file("repositorio-modulos", "l/%s/inicio/index.html" % client["slug"]).decode("utf-8")
+        data = json.loads(page.split('<script type="application/ld+json">', 1)[1].split("</script>", 1)[0])
+        self.assertEqual(data["telephone"], "+541145551234")
+        self.assertEqual(data["sameAs"], ["https://www.instagram.com/negocioreal"])
+        self.assertEqual(data["address"]["streetAddress"], "Av. Corrientes 1234, CABA")
+        sitemap = sim.repo_file("repositorio-modulos", "sitemap.xml").decode("utf-8")
+        self.assertRegex(sitemap, r"/l/%s/inicio/</loc><lastmod>\d{4}-\d{2}-\d{2}</lastmod>" % client["slug"])
+        self.team.call("DELETE", "/api/landings/%d" % saved["id"])
+        self.team.call("DELETE", "/api/clientes/%d" % client["id"])
 
 
 @unittest.skipUnless(armado_url(), "hace falta Node con jsdom (npm ci)")

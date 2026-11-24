@@ -4854,10 +4854,31 @@
     if (landingId) {
       openedFromUrl = true;
       showLandingEditor(false);
+      /* ?version=<fecha>: abre una versión anterior de la landing (del historial) para revisarla y, si se guarda, volver a ella */
+      var versionStamp = !clientMode() && !REBUILD ? Number(params.get("version")) : 0;
+      var versionData = null;
       return api("GET", "/api/landings/" + landingId + (clientMode() ? "?modo=sitio" : "")).then(function (lp) {
+        if (!versionStamp) return lp;
+        return api("GET", "/api/landings/" + landingId + "/versiones?fecha=" + versionStamp).then(function (version) {
+          versionData = version;
+          var merged = Object.assign({}, lp);
+          ["nombre", "items", "estilo", "descripcion", "animacion", "ignorados"].forEach(function (key) {
+            if (version[key] != null) merged[key] = version[key];
+          });
+          return merged;
+        });
+      }).then(function (lp) {
         if (clientMode()) portalRevision = { base: lp.actualizado, token: lp.revision_token || null };
         loadLanding(lp);
         if (REBUILD) { rebuildLanding(); return; }
+        if (versionData) {
+          savedSnapshot = null; /* lo que se ve no es lo guardado: Guardar la vuelve la versión actual */
+          history.replaceState(null, "", location.pathname + "?landing=" + landingId);
+          update();
+          var when = new Date(versionData.fecha).toLocaleString("es-AR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).replace(/ de /g, " ");
+          say("Estás viendo la versión del " + when + " h. Si la guardás, vuelve a ser la actual (la que hay ahora queda en el historial).", "warn");
+          return;
+        }
         if (missingModulesText()) { say(missingModulesText() + " No la guardes hasta que vuelvan a estar.", "warn"); return; }
         if (lostFieldsText()) { say(lostFieldsText(), "warn"); return; }
         say(clientMode() && lp.revision_estado === "pendiente" ?

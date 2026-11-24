@@ -81,6 +81,7 @@ ROUTES = [
     (re.compile(r"^/api/landings$"), "landings"),
     (re.compile(r"^/api/landings/(\d+)$"), "landing"),
     (re.compile(r"^/api/landings/(\d+)/duplicate$"), "duplicate"),
+    (re.compile(r"^/api/landings/(\d+)/versiones$"), "versiones"),
     (re.compile(r"^/api/reglas$"), "reglas"),
     (re.compile(r"^/api/planes$"), "planes"),
     (re.compile(r"^/api/config$"), "config"),
@@ -1702,6 +1703,8 @@ def decide_request(client_id, request_id, data):
         accepted = [(i, c) for i, c in enumerate(changes) if c.get("estado") == "aceptado" and not c.get("aplicado")]
         landing = request_landing(db["landings"], client_id, request) if accepted else None
         if accepted and landing:
+            remember_version(landing, "pedido del cliente")
+            landing["origen"] = "pedido"
             photos = {}
             for index, change in accepted:
                 if change.get("tipo") == "foto" and change.get("foto"):
@@ -2244,7 +2247,58 @@ def image_metadata_errors(html, rules):
 
 
 
-def save_landing(data, landing_id=None):
+# --- Versiones de cada landing (entrega 4) ---------------------------------------------
+# Antes de cada cambio se guarda la versión anterior de la landing (sus datos, sin el HTML: el armador la vuelve a armar)
+# en lanzate-datos/versiones/<id>.json. Desde el panel se abre cualquiera en el constructor y, si se guarda, vuelve a ser
+# la actual (y la que había queda también como versión).
+VERSION_FIELDS = ("nombre", "items", "estilo", "descripcion", "animacion", "ignorados")
+VERSIONS_KEPT = 30
+
+
+def versions_path(landing_id):
+    return "versiones/%d.json" % int(landing_id)
+
+
+def read_versions(landing_id):
+    raw = FILES.read("datos", versions_path(landing_id))
+    try:
+        data = json.loads(raw.decode("utf-8")) if raw else []
+    except ValueError:
+        data = []
+    return data if isinstance(data, list) else []
+
+
+def remember_version(row, cause):
+    """Guarda cómo estaba la landing antes de cambiarla. No repite una versión igual a la última guardada."""
+    if not row or not row.get("id"):
+        return
+    snapshot = {key: json.loads(json.dumps(row.get(key))) for key in VERSION_FIELDS if row.get(key) is not None}
+    if not snapshot.get("items"):
+        return
+    versions = read_versions(row["id"])
+    if versions and all(versions[0].get(key) == snapshot.get(key) for key in VERSION_FIELDS):
+        return
+    entry = dict(snapshot, fecha=row.get("actualizado") or now_ms(), origen=row.get("origen") or "constructor",
+                 reemplazada=now_ms(), motivo=cause)
+    versions.insert(0, entry)
+    FILES.write("datos", versions_path(row["id"]),
+                json.dumps(versions[:VERSIONS_KEPT], ensure_ascii=False, indent=1).encode("utf-8"))
+
+
+def list_versions(landing_id, stamp=None):
+    with store("landings", save=False) as db:
+        find_landing(db, landing_id)
+    versions = read_versions(landing_id)
+    if stamp is not None:
+        found = next((v for v in versions if v.get("fecha") == stamp), None)
+        if not found:
+            raise ApiError(404, "Esa versión ya no está guardada.")
+        return found
+    return [{"fecha": v.get("fecha"), "reemplazada": v.get("reemplazada"), "origen": v.get("origen"),
+             "motivo": v.get("motivo"), "nombre": v.get("nombre"), "modulos": len(v.get("items") or [])} for v in versions]
+
+
+def save_landing(data, landing_id=None, origen="constructor"):
     nombre = str(data.get("nombre") or "").strip()
     html = str(data.get("html") or "")
     items = data.get("items") or []
@@ -2304,7 +2358,7 @@ def save_landing(data, landing_id=None):
         stamp = max(now_ms(), current["actualizado"] + 1) if current else now_ms()
         values = {"cliente_id": client_id, "nombre": nombre, "slug": slug, "items": items, "estilo": estilo,
                   "ignorados": ignorados, "descripcion": descripcion, "animacion": animacion, "html": html,
-                  "portada": cover_of(html), "actualizado": stamp,
+                  "portada": cover_of(html), "actualizado": stamp, "origen": origen,
                   "plan_id": plan_id, "plan_condiciones": plan_snapshot}
         if "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
@@ -2312,13 +2366,16 @@ def save_landing(data, landing_id=None):
         if current:
             old_client = find_client(db, current["cliente_id"])
             previous_path = (old_client["slug"], current["slug"])
+            remember_version(current, "guardado")
+            if previous_path != (client["slug"], slug):
+                # La dirección cambió: la anterior redirige a la nueva (así no se pierden links ni lo que ya indexó Google).
+                values["rutas_anteriores"] = [p for p in (current.get("rutas_anteriores") or []) + ["%s/%s" % previous_path]
+                                              if p != "%s/%s" % (client["slug"], slug)][-10:]
             current.update(values)
             row = current
         else:
             row = dict(values, id=next_id(db["landings"]), creado=stamp, ejemplo=bool(data.get("ejemplo")))
             db["landings"].append(row)
-    if previous_path and previous_path != (client["slug"], row["slug"]):
-        FILES.delete("modulos", "l/%s/%s" % previous_path)
     render_landing(row, client)
     write_site_files()
     return landing_dict(row, client)
@@ -2360,6 +2417,9 @@ def delete_landing(landing_id):
         client = find_client(db, row["cliente_id"])
         db["landings"].remove(row)
     FILES.delete("modulos", "l/%s/%s" % (client["slug"], row["slug"]))
+    for old in row.get("rutas_anteriores") or []:
+        FILES.delete("modulos", "l/" + old)
+    FILES.delete("datos", versions_path(row["id"]))
     write_site_files()
     return row["nombre"]
 
@@ -2407,7 +2467,9 @@ def landing_page(row, client):
                 email=client.get("email") or "", tipo_cliente=client.get("tipo_cliente"),
                 ga4=(client.get("ga4") or "") if tracking else "", gtm=(client.get("gtm") or "") if tracking else "",
                 meta_pixel=(client.get("meta_pixel") or "") if tracking else "",
-                slug_cliente=client["slug"], titulo=seo_title(row, client))
+                slug_cliente=client["slug"], titulo=seo_title(row, client),
+                redes=[client.get(k) or "" for k in ("instagram", "facebook", "linkedin", "sitio")],
+                rubro=client.get("rubro") or "")
     head = '<meta name="lz-landing" content="%d">' % row["id"]
     panel = read_config().get("urlPanel") or ""
     if panel:
@@ -2424,13 +2486,35 @@ def landing_page(row, client):
     return add_tracking_consent(html, meta)
 
 
-def render_landing(row, client):
+REDIRECT_META = re.compile(rb'<meta name="lz-redirect" content="(/l/[a-z0-9-]+/[a-z0-9-]+/)">')
+
+
+def redirect_page(target):
+    """Página en la dirección vieja de una landing. El servidor responde 301; en una copia estática (GitHub Pages)
+    redirige el navegador y le dice a Google cuál es la dirección nueva."""
+    origin = read_config()["urlPublica"]
+    relative = "../.." + target[2:]
+    return ('<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n<meta name="lz-redirect" content="%s">\n'
+            '<meta name="robots" content="noindex">\n<meta http-equiv="refresh" content="0; url=%s">\n'
+            '<link rel="canonical" href="%s">\n<title>Esta página se mudó</title>\n</head>\n'
+            '<body><p>Esta página se mudó a <a href="%s">su dirección nueva</a>.</p></body>\n</html>\n'
+            % (target, relative, escape(origin + target, quote=True), relative))
+
+
+def render_landing(row, client, live=None):
     html = landing_page(row, client)
     folder = "l/%s/%s" % (client["slug"], row["slug"])
     if not html:
         FILES.delete("modulos", folder)
         return
     FILES.write("modulos", folder + "/index.html", relative_paths(html, 3))
+    if live is None:
+        with store("clientes", "landings", save=False) as db:
+            slugs = {c["id"]: c["slug"] for c in db["clientes"]}
+            live = {"%s/%s" % (slugs.get(l["cliente_id"]), l["slug"]) for l in db["landings"]}
+    for old in row.get("rutas_anteriores") or []:
+        if old not in live and re.fullmatch(r"[a-z0-9-]+/[a-z0-9-]+", old):
+            FILES.write("modulos", "l/%s/index.html" % old, redirect_page("/l/%s/%s/" % (client["slug"], row["slug"])))
 
 
 def render_client_landings(client_id):
@@ -2448,11 +2532,15 @@ def render_all():
         clients = {c["id"]: c for c in db["clientes"]}
         rows = list(db["landings"])
     expected = set()
+    live = {"%s/%s" % (clients[r["cliente_id"]]["slug"], r["slug"]) for r in rows if r["cliente_id"] in clients}
     for row in rows:
         client = clients.get(row["cliente_id"])
         if client:
-            render_landing(row, client)
+            render_landing(row, client, live)
             expected.add((client["slug"], row["slug"]))
+            for old in row.get("rutas_anteriores") or []:
+                if old not in live:
+                    expected.add(tuple(old.split("/", 1)))
     for path in FILES.listdir("modulos", "l"):
         parts = path.split("/")
         if len(parts) >= 4 and (parts[1], parts[2]) not in expected:
@@ -2462,8 +2550,13 @@ def render_all():
 
 
 def sitemap_xml(origin, rows):
-    paths = ["/l/%s/%s/" % pair for pair in rows]
-    entries = "".join("<url><loc>%s</loc></url>" % escape(origin + path) for path in paths)
+    """rows: (slug del cliente, slug de la landing[, última modificación en ms])."""
+    def entry(row):
+        loc = "<loc>%s</loc>" % escape(origin + "/l/%s/%s/" % (row[0], row[1]))
+        if len(row) > 2 and row[2]:
+            loc += "<lastmod>%s</lastmod>" % datetime.datetime.fromtimestamp(row[2] / 1000, datetime.timezone.utc).strftime("%Y-%m-%d")
+        return "<url>%s</url>" % loc
+    entries = "".join(entry(row) for row in rows)
     return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>\n"
 
 
@@ -2493,7 +2586,8 @@ def write_site_files():
     origin = config["urlPublica"]
     with store("clientes", "landings", save=False) as db:
         clients = {c["id"]: c for c in db["clientes"]}
-        real = [(clients[l["cliente_id"]]["slug"], l["slug"]) for l in db["landings"]
+        real = [(clients[l["cliente_id"]]["slug"], l["slug"], max(l.get("actualizado") or 0, clients[l["cliente_id"]].get("actualizado") or 0))
+                for l in db["landings"]
                 if l["cliente_id"] in clients and l.get("html") and client_type(clients[l["cliente_id"]]) == "real"]
         examples = public_examples(db, origin)
     FILES.write("modulos", "sitemap.xml", sitemap_xml(origin, sorted(real)))
@@ -2701,7 +2795,7 @@ def rebuild_from_data(apply=None):
                    "ignorados": row.get("ignorados") or [], "descripcion": row.get("descripcion") or "",
                    "animacion": row.get("animacion") or ""}
         try:
-            save_landing(payload, row["id"])
+            save_landing(payload, row["id"], origen="publicar")
             report["actualizadas"].append(name)
         except ApiError as error:
             report["errores"].append("%s: %s" % (name, error))
@@ -3114,19 +3208,53 @@ def share_head(row, origin, path):
     return out + '<link rel="icon" href="%s">' % escape(icon, quote=True) + canonical + local_business_head(row, origin + path)
 
 
+SOCIAL_BASES = ("https://www.instagram.com/", "https://www.facebook.com/", "https://www.linkedin.com/company/", "")
+
+
+def business_links(values):
+    """Redes y web del negocio como links completos (Instagram y Facebook aceptan @usuario)."""
+    out = []
+    for value, base in zip(values, SOCIAL_BASES):
+        value = (value or "").strip()
+        if re.match(r"^https?://[^\s\"<>]+$", value, re.I):
+            out.append(value)
+        elif re.match(r"^www\.[^\s\"<>]+$", value, re.I):
+            out.append("https://" + value)
+        elif base and "linkedin" not in base and re.fullmatch(r"@?[\w.]{2,40}", value):
+            out.append(base + value.lstrip("@"))
+    return out
+
+
 def local_business_head(row, url):
-    address = row["direccion"].strip()
-    if not address or "ejemplo" in address.casefold() or client_type(row) == "demo":
+    """Datos del negocio para Google (schema.org): nombre, dirección, teléfono, mail, logo, foto y redes.
+    Solo con datos reales: un cliente demo o una dirección de ejemplo no lo llevan."""
+    if client_type(row) == "demo":
         return ""
-    business = {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        "name": row["cliente"],
-        "url": url,
-        "address": {"@type": "PostalAddress", "streetAddress": address},
-    }
-    if re.fullmatch(r"\+[1-9]\d{7,14}", row["telefono"]):
-        business["telephone"] = row["telefono"]
+    address = row["direccion"].strip()
+    if "ejemplo" in address.casefold():
+        address = ""
+    origin = url.split("/l/", 1)[0]
+    business = {"@context": "https://schema.org", "@type": "LocalBusiness", "name": row["cliente"], "url": url}
+    if address:
+        business["address"] = {"@type": "PostalAddress", "streetAddress": address}
+    phone = re.sub(r"[\s().-]", "", row["telefono"] or "")
+    if re.fullmatch(r"\+[1-9]\d{7,14}", phone):
+        business["telephone"] = phone
+    email = (row.get("email") or "").strip()
+    if client_type(row) == "real" and re.fullmatch(r"[\w.+-]+@[\w-]+\.[\w.-]+", email) and "example" not in email:
+        business["email"] = email
+    if row.get("logo") and origin:
+        business["logo"] = "%s/l/%s/%s" % (origin, row["slug_cliente"], row["logo"])
+    if row.get("portada") and origin:
+        business["image"] = origin + row["portada"]
+    description = (row.get("descripcion") or "").strip()
+    if description:
+        business["description"] = description
+    links = business_links(row.get("redes") or [])
+    if links:
+        business["sameAs"] = links
+    if len(business) <= 4 and not address:
+        return ""  # sin dirección, teléfono ni nada más que el nombre no aporta
     payload = json.dumps(business, ensure_ascii=False).replace("<", "\\u003c")
     return '<script type="application/ld+json">%s</script>' % payload
 
@@ -3788,6 +3916,14 @@ class Handler(SimpleHTTPRequestHandler):
                 ext = rel.rsplit(".", 1)[-1]
                 kind = {"html": "text/html; charset=utf-8", "js": "text/javascript; charset=utf-8", "png": "image/png",
                         "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}.get(ext, "application/octet-stream")
+                moved = REDIRECT_META.search(data[:600]) if ext == "html" and rel.startswith("l/") else None
+                if moved:
+                    # Dirección vieja de una landing que cambió de nombre: redirección permanente a la nueva.
+                    self.send_response(301)
+                    self.send_header("Location", moved.group(1).decode("ascii"))
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return True
                 if ext == "html" and rel.startswith("l/"):
                     # La landing comparte origen con el panel: sin scripts de terceros y con la misma política.
                     data = preview_html(data)
@@ -4063,6 +4199,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return {"ok": True}
         if name == "duplicate" and method == "POST":
             return duplicate_landing(ident)
+        if name == "versiones" and method == "GET":
+            stamp = (query.get("fecha") or [None])[0]
+            return list_versions(ident, int_value(stamp, None, "La fecha de la versión no es válida.") if stamp else None)
         if name == "reglas":
             if method == "GET":
                 return read_rules()
