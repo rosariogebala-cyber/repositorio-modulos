@@ -4897,7 +4897,7 @@
       if (next === "publicar") {
         state.publicada = true;
         state.urlPublicada = data.url || state.urlPublicada;
-        say("Versión aprobada publicada. Los cambios públicos quedaron actualizados.", "ok",
+        say("Publicación enviada. Verificá el sitio cuando finalice el despliegue.", "ok",
             { href: data.url, text: "Ver sitio publicado", blank: true });
       } else if (next === "aprobar") {
         say("Versión aprobada. Solo falta publicar explícitamente.", "ok");
