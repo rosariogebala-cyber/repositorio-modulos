@@ -4,6 +4,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 from unittest import TestCase, main
+from unittest.mock import patch
 
 from lxml import html
 
@@ -16,6 +17,16 @@ import server
 
 
 class LandingQuality(TestCase):
+    def test_vercel_preview_is_read_only_by_default(self):
+        """Nunca se puede mutar el repositorio real desde un Preview no aislado."""
+        with patch.object(server, "ON_VERCEL", True), patch.dict(os.environ, {"VERCEL_ENV": "preview"}, clear=False):
+            os.environ.pop("LANZATE_PREVIEW_SANDBOX", None)
+            for name in ("borradores", "borrador", "revision", "aprobar", "publicar-landing",
+                         "publicar", "landing", "cliente"):
+                with self.subTest(route=name), self.assertRaises(server.ApiError) as error:
+                    server.Handler.handle_route(None, "POST", name, 1, {})
+                self.assertEqual(error.exception.status, 403)
+
     def test_generated_landings_have_landmarks_and_alt(self):
         for path in sorted((ROOT / "l").glob("*/*/index.html")):
             with self.subTest(landing=str(path.relative_to(ROOT))):
