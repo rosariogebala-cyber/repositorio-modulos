@@ -87,8 +87,9 @@ def payment_status(contract, payments, current=None):
     paid = sum(int(p["monto_centavos"]) for p in payments
                if p.get("periodo") == period and p.get("moneda") == contract["moneda"] and not p.get("anulado"))
     total = contract["abono_centavos"]
-    state = "pagado" if paid >= total else ("parcial" if paid > 0 else
-              ("vencido" if current > due else "pendiente"))
+    state = ("pagado" if paid >= total else
+             ("parcial_vencido" if current > due else "parcial") if paid > 0 else
+             ("vencido" if current > due else "pendiente"))
     return {"estado": state, "vencimiento": due.isoformat(), "pagado_centavos": paid,
             "saldo_centavos": max(0, total - paid)}
 
@@ -129,7 +130,7 @@ def _client_rows(s, db, ledger, client_id=None):
                 "pagos": sorted(movements, key=lambda p: (p["fecha_pago"], p["id"]), reverse=True) if client_id else [],
             })
         statuses = [site["cobro"]["estado"] for site in lp_rows]
-        worst = ("vencido" if "vencido" in statuses else "parcial" if "parcial" in statuses else
+        worst = ("vencido" if "vencido" in statuses or "parcial_vencido" in statuses else "parcial" if "parcial" in statuses else
                  "pendiente" if "pendiente" in statuses else "pagado" if statuses and all(x=="pagado" for x in statuses)
                  else "sin_configurar")
         client_row = {
@@ -162,9 +163,9 @@ def portfolio(s, client_id=None):
         "clientes_activos": sum(1 for row in rows if row["estado"] == "activo" and row["tipo_cliente"] == "real"),
         "landings_publicadas": sum(row["publicadas"] for row in rows if row["tipo_cliente"] == "real"),
         "pagos_pendientes": sum(1 for row in rows for site in row["webs"]
-                                 if row["tipo_cliente"] == "real" and site["cobro"]["estado"] in ("pendiente", "vencido", "parcial")),
+                                 if row["tipo_cliente"] == "real" and site["cobro"]["estado"] in ("pendiente", "vencido", "parcial", "parcial_vencido")),
         "pagos_vencidos": sum(1 for row in rows for site in row["webs"]
-                               if row["tipo_cliente"] == "real" and site["cobro"]["estado"] == "vencido"),
+                               if row["tipo_cliente"] == "real" and site["cobro"]["estado"] in ("vencido", "parcial_vencido")),
         "cambios_pendientes": sum(row["cambios_pendientes"] for row in rows if row["tipo_cliente"] == "real"),
     }}
 
