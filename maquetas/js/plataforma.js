@@ -589,6 +589,118 @@
     var countEl = document.querySelector("[data-pf-landings-count]");
     var freshKeys = {}; // contraseñas recién generadas: solo viven mientras esta página está abierta
 
+    var commercial = document.querySelector("[data-gc-content]");
+    var commercialMsg = document.querySelector("[data-gc-message]");
+    function gcDate(value) {
+      return value ? value.split("-").reverse().join("/") : "Sin configurar";
+    }
+    function gcMoney(cents, currency) {
+      return new Intl.NumberFormat("es-AR", {style:"currency", currency:currency || "ARS"})
+        .format(Number(cents || 0) / 100);
+    }
+    function gcToday() {
+      var date = new Date();
+      return date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0") + "-" +
+        String(date.getDate()).padStart(2,"0");
+    }
+    function gcStatus(value) {
+      return ({pagado:"Al día", pendiente:"Pendiente", vencido:"Vencido",
+        parcial:"Pago parcial", no_iniciado:"Aún no inició", sin_configurar:"Sin configurar"})[value] || "Sin configurar";
+    }
+    function gcRender(data) {
+      var start = '<form class="gc-client-start" data-gc-start>' +
+        '<label>Inicio de relación comercial <input class="lb-input" name="inicio" type="date" value="' + esc(data.inicio || "") + '"></label>' +
+        '<button class="btn-nx-outline btn-sm" type="submit">Guardar fecha</button>' +
+        '<small>Si todavía no conocés la fecha contractual, dejala vacía; la fecha de alta es ' + esc(gcDate(data.alta)) + '.</small></form>';
+      if (!data.webs.length) start += '<p class="pf-empty">Primero creá una landing. Los contratos y pagos se registran individualmente por web.</p>';
+      start += data.webs.map(function(site) {
+        var contractOk = Boolean(site.inicio && site.abono_centavos);
+        var pay = site.cobro || {};
+        var cssStatus = esc(pay.estado || "sin_configurar");
+        var history = site.pagos.length ? site.pagos.slice(0, 20).map(function (p) {
+          return '<li><time datetime="' + esc(p.fecha_pago) + '">' + esc(gcDate(p.fecha_pago)) + '</time> · ' +
+            '<strong>' + esc(gcMoney(p.monto_centavos, p.moneda)) + '</strong> · período ' + esc(p.periodo) +
+            (p.referencia ? ' · ' + esc(p.referencia) : '') + '</li>';
+        }).join("") : '<li>No hay pagos registrados para esta landing.</li>';
+        var opts = ["ARS","USD"].map(function(code) {
+          return '<option value="' + code + '"' + (site.moneda === code ? " selected" : "") + '>' + code + '</option>';
+        }).join("");
+        var dayOptions = Array.from({length:28},function(_,i) { var day=i+1;
+          return '<option value="' + day + '"' + (site.dia_vencimiento === day ? " selected" : "") + '>' + day + '</option>';
+        }).join("");
+        var currentPeriod = gcToday().slice(0,7);
+        return '<article class="gc-site-account" aria-label="Gestión de ' + esc(site.nombre) + '">' +
+          '<header class="gc-site-account-head"><div><h3>' + esc(site.nombre) + '</h3><p>Plan ' +
+          esc(site.plan) + ' · ' + Number(site.secciones || 0) + ' secciones · ' +
+          (site.publicada ? 'Publicada' : 'Sin publicar') + '</p></div>' +
+          '<span class="gc-status is-' + cssStatus + '">' + esc(gcStatus(pay.estado)) + '</span></header>' +
+          '<p class="gc-site-mini"><b>' + site.cambios_pendientes + '</b> pedidos de cambios pendientes · ' +
+            site.cambios_mes + (site.cambios_limite ? ' / ' + site.cambios_limite : '') + ' envíos del mes' +
+          (pay.vencimiento ? ' · Próximo vencimiento: ' + esc(gcDate(pay.vencimiento)) : '') + '</p>' +
+          '<form class="gc-form" data-gc-contract data-landing-id="' + site.id + '">' +
+          '<fieldset><legend>Contrato y abono</legend><div class="gc-form-grid">' +
+            '<label>Inicio de esta landing <input class="lb-input" name="inicio" type="date" required value="' + esc(site.inicio) + '"></label>' +
+            '<label>Día de vencimiento mensual <select class="lb-input" name="dia_vencimiento" required>' + dayOptions + '</select></label>' +
+            '<label>Abono acordado <input class="lb-input" name="abono" type="number" min="0" max="100000000" step="0.01" required value="' +
+              (site.abono_centavos ? (site.abono_centavos/100).toFixed(2) : "") + '"></label>' +
+            '<label>Moneda <select class="lb-input" name="moneda">' + opts + '</select></label>' +
+          '</div><label>Notas internas <textarea class="lb-input" name="notas" maxlength="400" rows="2">' +
+            esc(site.notas) + '</textarea></label>' +
+          '<p class="gc-help">Precio de catálogo actual (solo referencia): ' +
+            (site.catalogo_mensual == null ? 'no informado' : esc(gcMoney(Math.round(Number(site.catalogo_mensual)*100),"ARS"))) +
+            '. No se cobra ni se marca como pagado automáticamente.</p>' +
+          '<button type="submit" class="btn-nx-outline btn-sm">Guardar contrato</button></fieldset></form>' +
+          '<form class="gc-form" data-gc-payment data-landing-id="' + site.id + '">' +
+          '<fieldset' + (!contractOk ? ' disabled' : '') + '><legend>Registrar un pago recibido</legend>' +
+          '<div class="gc-form-grid">' +
+            '<label>Período <input class="lb-input" type="month" name="periodo" required value="' + esc(currentPeriod) + '"></label>' +
+            '<label>Fecha de pago <input class="lb-input" type="date" name="fecha_pago" required value="' + esc(gcToday()) + '"></label>' +
+            '<label>Importe pagado <input class="lb-input" type="number" name="monto" required min="0.01" step="0.01"></label>' +
+            '<label>Referencia / comprobante <input class="lb-input" name="referencia" maxlength="120" placeholder="Ej.: transferencia #123"></label>' +
+          '</div><button type="submit" class="btn-nx btn-sm">Registrar pago</button></fieldset>' +
+          (!contractOk ? '<p class="gc-help">Configurá el inicio y el abono antes de registrar pagos.</p>' : '') +
+          '</form>' +
+          '<details class="gc-payment-history"><summary>Historial de pagos (' + site.pagos.length + ')</summary><ol>' +
+             history + '</ol></details>' +
+          '</article>';
+      }).join("");
+      commercial.innerHTML = start;
+    }
+    function loadCommercial(clientId) {
+      return api("GET", "/api/gestion-clientes/" + clientId).then(gcRender).catch(function(error) {
+        commercial.replaceChildren();
+        var notice = document.createElement("p");
+        notice.textContent = "No se pudo cargar la información comercial: " + error.message;
+        commercial.appendChild(notice);
+      });
+    }
+    commercial.addEventListener("submit", function(event) {
+      var form = event.target.closest("form");
+      if (!form || !form.matches("[data-gc-start], [data-gc-contract], [data-gc-payment]")) return;
+      event.preventDefault();
+      var submit = form.querySelector('[type="submit"]');
+      var data = Object.fromEntries(new FormData(form).entries());
+      var url, method;
+      if (form.matches("[data-gc-start]")) {
+        url = "/api/gestion-clientes/" + id + "/inicio"; method = "PUT";
+      } else if (form.matches("[data-gc-contract]")) {
+        url = "/api/gestion-clientes/" + id + "/landings/" + form.dataset.landingId; method = "PUT";
+      } else {
+        url = "/api/gestion-clientes/" + id + "/pagos"; method = "POST";
+        data.landing_id = Number(form.dataset.landingId);
+        if (!window.confirm("¿Confirmás que recibiste este pago por el importe indicado?")) return;
+      }
+      submit.disabled = true;
+      say(commercialMsg, "Guardando…");
+      api(method, url, data).then(function(info) {
+        gcRender(info);
+        say(commercialMsg, "Información comercial guardada. Los pagos se registran solo cuando los confirmás.", "ok");
+      }).catch(function(error) {
+        say(commercialMsg, error.message, "warn");
+      }).finally(function() { submit.disabled = false; });
+    });
+
+
     function row(icon, label, value) {
       return value ? '<div class="cf-row"><dt><i class="bi bi-' + icon + '" aria-hidden="true"></i>' + label + "</dt><dd>" + value + "</dd></div>" : "";
     }
@@ -1091,6 +1203,7 @@
         if (slot) slot.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
       });
       if (list) list.closest("section").hidden = true;
+      loadCommercial(c.id);
     }
 
     function load() {
