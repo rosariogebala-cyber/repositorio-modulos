@@ -3960,6 +3960,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
 
     def send_json(self, status, payload):
+        # Session-dependent API responses (including 401) must never be reused by a browser or CDN.
+        if not any(name.lower() == "cache-control" for name, _ in self.extra_headers):
+            self.extra_headers = tuple(self.extra_headers) + (("Cache-Control", "no-store"),)
         self.send_body(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def read_json(self):
