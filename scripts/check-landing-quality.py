@@ -17,6 +17,16 @@ import server
 
 
 class LandingQuality(TestCase):
+    def test_decorative_images_allow_empty_alt_but_attribute_is_required(self):
+        """WCAG 1.1.1 permite alt vacío en imágenes sin contenido informativo."""
+        good = '<main><h1>Inicio</h1><img src="decoracion.jpg" alt=""></main>'
+        bad = '<main><h1>Inicio</h1><img src="producto.jpg"></main>'
+        self.assertFalse(server.published_structure_errors(good))
+        self.assertTrue(server.published_structure_errors(bad))
+        rules = {"general": {"bloquear": True}}
+        self.assertFalse(server.image_metadata_errors(good, rules))
+        self.assertTrue(server.image_metadata_errors(bad, rules))
+
     def test_builder_workflow_dialogs_have_accessible_names_and_instructions(self):
         doc = html.parse(str(ROOT / "maquetas" / "constructor.html"))
         for name in ("structure", "compare"):
