@@ -165,8 +165,9 @@
       payments.replaceChildren();
       data.movimientos.slice().reverse().forEach(function (m) {
         var tr = document.createElement("tr");
-        [m.concepto,m.moneda,cents(m.importe_centavos,m.moneda),dateLabel(m.vencimiento),
-         m.estado === "pagado" ? "Pagado el "+dateLabel(m.fecha_pago) : m.estado].forEach(function (value) {
+        var relevantLanding = data.landings.find(function (row) { return row.id === m.landing_id; });
+        [m.concepto,relevantLanding ? relevantLanding.nombre : "General",m.moneda,cents(m.importe_centavos,m.moneda),
+         dateLabel(m.vencimiento), m.estado === "pagado" ? "Pagado el "+dateLabel(m.fecha_pago) : m.estado].forEach(function (value) {
            tr.appendChild(element("td","",value));
          });
         payments.appendChild(tr);
