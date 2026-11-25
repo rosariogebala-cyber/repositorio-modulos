@@ -57,3 +57,7 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 - SHA a6f8e16: API 45464637834 success; Browser 45464637657 failure. WebKit conserva 401 en inicio con sitio correcto incluso tras sesión autenticada y reintentos. Contexto independiente no resuelve.
 - 04f96a5: sondas GET aisladas de QA, URL original frente a URL única, sin registrar cuerpo ni credenciales. Pendiente CI; distinguir caché de autorización antes de modificar backend.
 - NO-GO; no merge, producción ni datos reales modificados.
+
+
+### QA TLS local — 24/11/2026
+La fixture API establece VERCEL=1 y emite cookies Secure, pero la matriz de navegador usaba HTTP en 127.0.0.1. Se incorporó un proxy HTTPS de loopback con certificado efímero y se exigió HTTPS en Playwright (36d9a02, d7a6e3c). No se modificó la política de cookies de producción. La hipótesis de diferencias entre motores sigue pendiente de confirmación por CI. NO-GO hasta obtener evidencia.
