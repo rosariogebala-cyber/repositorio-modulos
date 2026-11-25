@@ -15,8 +15,8 @@
   },
   "rewrites": [
     {
-      "source": "/site_demo/:path*",
-      "destination": "https://rosariogebala-cyber.github.io/lanzate/:path*"
+      "source": "/site_demo/",
+      "destination": "/site_demo/index.html"
     },
     {
       "source": "/maquetas/:page(constructor|landings|clientes|cliente|gestion-clientes|reglas).html",
