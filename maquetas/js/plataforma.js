@@ -1119,11 +1119,11 @@
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
-      newLanding.hidden = demoMode && !cid;
+      newLanding.hidden = false;
       if (demoMode) {
-        newLanding.textContent = "Editar nueva demo";
+        newLanding.textContent = cid ? "Crear landing para esta demo" : "Nueva demo";
         select.setAttribute("aria-label", "Elegir perfil de demostración");
-        if (!cid) empty.textContent = shown.length ? "" : "Elegí un perfil demo para empezar. Los perfiles reales no están disponibles en esta vista.";
+        if (!cid) empty.textContent = shown.length ? "" : "Creá una demo para empezar a diseñar tu portfolio.";
       }
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
@@ -1143,6 +1143,31 @@
       }).catch(function (err) { say(msg, err.message, "warn"); });
     }
 
+    if (demoMode) {
+      var dialog = document.createElement("dialog");
+      dialog.innerHTML = '<form class="pf-form"><h2>Nueva demo comercial</h2><label class="pf-field">Nombre del proyecto<input class="lb-input" name="nombre" required maxlength="100"></label><label class="pf-field">Rubro<input class="lb-input" name="rubro" required maxlength="100"></label><p role="status" data-demo-msg></p><button type="submit" class="btn-nx">Crear y diseñar</button> <button type="button" data-demo-close>Cancelar</button></form>';
+      dialog.setAttribute("aria-label", "Nueva demo comercial");
+      document.body.appendChild(dialog);
+      var form = dialog.querySelector("form");
+      var submit = form.querySelector('[type="submit"]');
+      dialog.querySelector("[data-demo-close]").addEventListener("click", function () { dialog.close(); });
+      newLanding.addEventListener("click", function (e) {
+        if (select.value) return;
+        e.preventDefault();
+        dialog.showModal();
+      });
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (submit.disabled) return;
+        submit.disabled = true;
+        api("POST", "/api/clientes", {nombre: form.elements.nombre.value.trim(), rubro: form.elements.rubro.value.trim(), tipo_cliente: "demo"}).then(function (client) {
+          location.href = "constructor.html?cliente=" + encodeURIComponent(client.id);
+        }).catch(function (err) {
+          dialog.querySelector("[data-demo-msg]").textContent = err.message;
+          submit.disabled = false;
+        });
+      });
+    }
     search.addEventListener("input", render);
     select.addEventListener("change", render);
     load();
