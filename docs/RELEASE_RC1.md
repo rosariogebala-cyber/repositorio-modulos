@@ -61,3 +61,7 @@ Tras aprobar gates: respaldo de código y datos, fusionar #42, retarget #44 a ma
 
 ### QA TLS local — 24/11/2026
 La fixture API establece VERCEL=1 y emite cookies Secure, pero la matriz de navegador usaba HTTP en 127.0.0.1. Se incorporó un proxy HTTPS de loopback con certificado efímero y se exigió HTTPS en Playwright (36d9a02, d7a6e3c). No se modificó la política de cookies de producción. La hipótesis de diferencias entre motores sigue pendiente de confirmación por CI. NO-GO hasta obtener evidencia.
+
+### Resultado de QA TLS
+- SHA bafbf981ab420b60db1d6834dd5992828cffa686: API 45522192345 y Browser RC 45522192269 completados con success. Se supera el gate automatizado de navegador; no implica conformidad WCAG manual ni verificación del portal desplegado.
+- Pendientes: aislamiento Preview, migración histórica hash-only con respaldo/restauración, E2E comercial, pagos reales, rendimiento/SEO y accesibilidad manual. NO-GO producción. No se modificaron datos reales.
