@@ -4987,3 +4987,14 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-workflow-report .lz-quality-ok { color: #14633e; font-weight: 600; }
 .lb-workflow-report button { margin: .25rem .35rem .25rem 0; white-space: normal; text-align: start; }
 .lb-workflow-report button:focus-visible { outline: 3px solid #4f35bc; outline-offset: 3px; }
+
+/* Client brand manual */
+.pf-brand-manual { min-width:0; border:1px solid #c9c6d4; border-radius:12px; padding:16px; display:grid; gap:12px; }
+.pf-brand-manual legend { float:none; width:auto; font-size:1rem; font-weight:650; padding:0 6px; margin:0; }
+.pf-brand-manual input[type=file] { width:100%; min-width:0; }
+.pf-brand-manual [data-pf-brand-results] { display:grid; gap:10px; min-width:0; }
+.pf-brand-manual h3 { font-size:.95rem; margin:8px 0 0; }
+.pf-brand-choice { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
+.pf-brand-choice button { white-space:normal; max-width:100%; }
+.pf-brand-swatch { width:32px; height:32px; border:1px solid #777; border-radius:5px; flex:none; }
+.pf-brand-candidate { width:100px; max-height:80px; object-fit:contain; background:#eee; border:1px solid #999; }
