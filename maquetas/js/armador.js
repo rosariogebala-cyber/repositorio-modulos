@@ -212,9 +212,20 @@
     return css;
   }
 
+  // Only use bundled or standard system families; never interpolate arbitrary CSS from a manual.
+  function brandFont(value) {
+    var key = String(value || "").trim().toLowerCase().replace(/[-_ ]?(regular|bold|medium|semibold|light|italic|variable|black|thin)$/i, "").replace(/[-_ ]/g, "");
+    var families = {fraunces:"Fraunces, Georgia, serif",manrope:"Manrope, system-ui, sans-serif",georgia:"Georgia, serif",arial:"Arial, sans-serif",verdana:"Verdana, sans-serif",tahoma:"Tahoma, sans-serif",timesnewroman:"Times New Roman, serif",helvetica:"Helvetica, Arial, sans-serif",couriernew:"Courier New, monospace",trebuchetms:"Trebuchet MS, sans-serif"};
+    return Object.hasOwn(families,key) ? families[key] : "";
+  }
+  function brandTypography(colors, fallback) {
+    var fonts = fallback || LANDING_FONTS.moderna;
+    return [brandFont(colors.fuenteTitulos) || fonts[0], brandFont(colors.fuenteTextos) || fonts[1]];
+  }
   function colorStyle(colors) {
     if (!colors) return "";
     var fonts = Object.hasOwn(LANDING_FONTS, colors.tipografia) && LANDING_FONTS[colors.tipografia];
+    if (colors.fuenteTitulos || colors.fuenteTextos) fonts = brandTypography(colors, fonts);
     var typography = fonts ?
       ".landing-page, .landing-page .nx, .landing-page .nx :is(input, select, textarea, button) { font-family:" + fonts[1] + "; }" +
       ".landing-page .nx :is(h1, h2, h3, .nx-display, .stat-n, .hero-stat-n) { font-family:" + fonts[0] + "; }" : "";
@@ -230,7 +241,7 @@
       (colors.nav ? '.landing-page [data-module^="navegacion"] :is(a, span, strong, p, li, button, .bi):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.nav + "; }" : "") +
       (colors.hero ? '.landing-page [data-module^="hero"] :is(h1, h2, h3, p, li, span, .nx-kicker):not(:is(.btn-nx, .btn-nx-outline, .btn-nx-light, .btn-nx *, .btn-nx-outline *, .btn-nx-light *)) { color: ' + colors.hero + "; }" : "") +
       ".landing-page :is(.btn-nx, .btn-nx-outline, .btn-nx-light) .bi { color: inherit; }" +
-      ambientStyle(colors);
+      ambientStyle(colors) + (normalizeHex(colors.fondoMarca) ? ":root { --nx-bg:" + normalizeHex(colors.fondoMarca) + "; } .landing-page {background-color:" + normalizeHex(colors.fondoMarca) + ";}" : "") + (normalizeHex(colors.secundarioMarca) ? ":root { --sage:" + normalizeHex(colors.secundarioMarca) + "; --sage-2:" + normalizeHex(colors.secundarioMarca) + "; }" : "");
   }
 
   function ownText(el) {
@@ -405,6 +416,8 @@
       if (data.texto && !data.titulos) data.titulos = data.texto;
       delete data.coloresManuales;
       if (!Object.hasOwn(LANDING_FONTS, data.tipografia)) delete data.tipografia;
+      ["fuenteTitulos","fuenteTextos"].forEach(function(k){if (!brandFont(data[k])) delete data[k];});
+      ["fondoMarca","secundarioMarca"].forEach(function(k){if (!normalizeHex(data[k])) delete data[k];});
       if (["titulos", "acento", "iconos"].every(function (key) { return /^#[0-9a-f]{6}$/i.test(data[key] || ""); })) return data;
       return data.tipografia ? { tipografia: data.tipografia } : null;
     } catch (e) {
@@ -761,7 +774,7 @@
   var api = {
     crear: crear, socialUrl: socialUrl, leerBiblioteca: leerBiblioteca, armarLanding: armarLanding, imageTokens: imageTokens,
     MARCAS: MARCAS, nombresDe: nombresDe, aNombres: aNombres, aPosiciones: aPosiciones, renombrarRepetidos: renombrarRepetidos,
-    COLOR_MARK: COLOR_MARK, readLandingColors: readLandingColors, stripLandingColors: stripLandingColors,
+    brandFont: brandFont, COLOR_MARK: COLOR_MARK, readLandingColors: readLandingColors, stripLandingColors: stripLandingColors,
 
     FONTS: FONTS, BOOTSTRAP_CSS: BOOTSTRAP_CSS, ICONS_CSS: ICONS_CSS, BOOTSTRAP_JS: BOOTSTRAP_JS, SAMPLE: SAMPLE, SAMPLE_HOURS: SAMPLE_HOURS, SAMPLE_HOURS_TEXT: SAMPLE_HOURS_TEXT, SOCIAL: SOCIAL, DEFAULT_COLORS: DEFAULT_COLORS, CORTES: CORTES, LANDING_FONTS: LANDING_FONTS, AMBIENTES: AMBIENTES, COMMON_MODULE_COLORS: COMMON_MODULE_COLORS, MODULE_COLOR_FIELDS: MODULE_COLOR_FIELDS, EDIT_SEL: EDIT_SEL, IMG_SEL: IMG_SEL, slugify: slugify, escapeHtml: escapeHtml, normalizeHex: normalizeHex, shade: shade, mix: mix, waNumber: waNumber, logoSrc: logoSrc, logoMode: logoMode, clientStyle: clientStyle, corteMarkup: corteMarkup, moduleColorFields: moduleColorFields, paintModuleColors: paintModuleColors, paintFondoNodes: paintFondoNodes, ambientStyle: ambientStyle, colorStyle: colorStyle, ownText: ownText, editableNodes: editableNodes, imageNodes: imageNodes, linkNodes: linkNodes, imageData: imageData, setImage: setImage, setHref: setHref, applyClient: applyClient, syncFooterMenu: syncFooterMenu
   };
