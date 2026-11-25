@@ -6,6 +6,7 @@ import subprocess
 import sys
 import ssl
 import threading
+import tempfile
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
@@ -16,7 +17,7 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 # Never inherit production credentials or service URLs.
-keep = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "PLAYWRIGHT_BROWSERS_PATH"}
+keep = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "PLAYWRIGHT_BROWSERS_PATH", "HOME", "USER", "LOGNAME", "XDG_CACHE_HOME", "QA_BROWSERS"}
 for key in list(os.environ):
     if key not in keep:
         del os.environ[key]
@@ -75,7 +76,10 @@ try:
     env = dict(os.environ, QA_PORTAL_USER="browser-qa", QA_PORTAL_PASSWORD=access["clave_nueva"], QA_BASE='https://127.0.0.1:%d' % proxy.server_port,
                QA_COOKIES=json.dumps(fixture.team.cookies),
                QA_SLUG=fixture.slug, QA_DRAFT_ID=str(draft['id']))
-    subprocess.run(["node", "scripts/browser-rc.mjs"], cwd=ROOT, env=env, check=True)
+    # Firefox on macOS needs a writable, consistently resolved profile directory.
+    with tempfile.TemporaryDirectory(prefix="lanzate-browser-qa-", dir="/tmp" if sys.platform == "darwin" else None) as browser_tmp:
+        env.update(TMPDIR=browser_tmp, TMP=browser_tmp, TEMP=browser_tmp)
+        subprocess.run(["node", "scripts/browser-rc.mjs"], cwd=ROOT, env=env, check=True)
 finally:
     if proxy is not None:
         proxy.shutdown()
