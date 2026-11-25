@@ -2374,7 +2374,18 @@ html:has(> .landing-page) { scroll-behavior: smooth; }
   }
 }
 
-.landing-page.has-tools { padding-bottom: 48px; }
+.landing-page.has-tools { padding-bottom: 0; }
+/* Floating WhatsApp is an overlay, not a section of page content. */
+.landing-page section[data-module^="whatsapp-"],
+.landing-page section[data-module^="whatsapp-"] > .mq-frame,
+.landing-page section[data-module^="whatsapp-"] .nx-wa-wrap {
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+}
 .has-tools > .mq-block { position: relative; }
 .has-tools > .mq-block::after {
   content: "";
@@ -4963,3 +4974,16 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Acciones de calidad del borrador */
+.lb-workflow-report { overflow-wrap: anywhere; }
+.lb-workflow-report[hidden] { display: none; }
+.lb-workflow-report h2 { font-size: 1.15rem; margin: 0 0 .65rem; }
+.lb-workflow-report h3 { font-size: .95rem; margin: 1rem 0 .5rem; }
+.lb-workflow-report p { margin: .35rem 0 .6rem; line-height: 1.5; }
+.lb-workflow-report .lz-quality-item { padding: .85rem; margin: .6rem 0; border: 1px solid #c9c6d4; border-radius: .65rem; background: #fff; color: #29243c; }
+.lb-workflow-report .lz-quality-required { border-inline-start: 4px solid #a52b38; }
+.lb-workflow-report .lz-quality-block { color: #922735; font-weight: 600; }
+.lb-workflow-report .lz-quality-ok { color: #14633e; font-weight: 600; }
+.lb-workflow-report button { margin: .25rem .35rem .25rem 0; white-space: normal; text-align: start; }
+.lb-workflow-report button:focus-visible { outline: 3px solid #4f35bc; outline-offset: 3px; }

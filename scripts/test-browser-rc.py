@@ -28,6 +28,12 @@ try:
     import json
     status, access = fixture.team.call("POST", "/api/clientes/%d/acceso" % fixture.client_id, {"usuario": "browser-qa", "clave": ""})
     assert status == 200, "Could not provision fictitious portal account"
+    original = fixture.landing
+    status, draft = fixture.team.call("POST", "/api/borradores", {
+        "cliente_id": original["cliente_id"], "nombre": "Calidad QA ficticia",
+        "plan_id": "express", "html": original["html"], "items": original["items"],
+        "estilo": original.get("estilo") or "", "descripcion": ""})
+    assert status == 200, "Could not create QA draft"
     # The simulated Vercel server issues Secure cookies. Exercise them over TLS,
     # rather than relying on engine-specific HTTP loopback exceptions.
     upstream = urlsplit(fixture.base)
@@ -68,7 +74,7 @@ try:
     threading.Thread(target=proxy.serve_forever, daemon=True).start()
     env = dict(os.environ, QA_PORTAL_USER="browser-qa", QA_PORTAL_PASSWORD=access["clave_nueva"], QA_BASE='https://127.0.0.1:%d' % proxy.server_port,
                QA_COOKIES=json.dumps(fixture.team.cookies),
-               QA_SLUG=fixture.slug)
+               QA_SLUG=fixture.slug, QA_DRAFT_ID=str(draft['id']))
     subprocess.run(["node", "scripts/browser-rc.mjs"], cwd=ROOT, env=env, check=True)
 finally:
     if proxy is not None:

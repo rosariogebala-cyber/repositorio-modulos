@@ -280,9 +280,15 @@
         el.setAttribute("src", data.src);
         el.removeAttribute("srcset");
         el.removeAttribute("sizes");
+        el.removeAttribute("width");
+        el.removeAttribute("height");
       } else {
         el.style.backgroundImage = 'url("' + data.src + '")';
       }
+    }
+    if (el.tagName === "IMG" && Number.isInteger(data.width) && data.width > 0 && Number.isInteger(data.height) && data.height > 0) {
+      el.setAttribute("width", String(data.width));
+      el.setAttribute("height", String(data.height));
     }
     if (data.alt != null) {
       /* Sin descripción queda vacío: el control de calidad lo marca para que se describa (no se rellena con «imagen») */
