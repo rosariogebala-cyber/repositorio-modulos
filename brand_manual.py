@@ -56,7 +56,7 @@ def analyze(s, data):
                 resources = resources.get_object() if hasattr(resources,"get_object") else resources
                 for ref in (resources.get("/Font") or {}).get_object().values() if resources.get("/Font") else []:
                     name = str(ref.get_object().get("/BaseFont") or "").lstrip("/")
-                    name = re.sub(r"^[A-Z]{6}\\+", "", name)
+                    name = re.sub(r"^[A-Z]{6}[+]", "", name)
                     if name and name not in fonts:
                         fonts.append(name[:100])
                 if len(candidates)<4:
