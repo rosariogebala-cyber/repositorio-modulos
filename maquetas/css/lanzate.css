@@ -2374,7 +2374,18 @@ html:has(> .landing-page) { scroll-behavior: smooth; }
   }
 }
 
-.landing-page.has-tools { padding-bottom: 48px; }
+.landing-page.has-tools { padding-bottom: 0; }
+/* Floating WhatsApp is an overlay, not a section of page content. */
+.landing-page section[data-module^="whatsapp-"],
+.landing-page section[data-module^="whatsapp-"] > .mq-frame,
+.landing-page section[data-module^="whatsapp-"] .nx-wa-wrap {
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+}
 .has-tools > .mq-block { position: relative; }
 .has-tools > .mq-block::after {
   content: "";
