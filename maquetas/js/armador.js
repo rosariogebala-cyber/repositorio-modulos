@@ -363,7 +363,7 @@
       root.querySelectorAll(".nx-brand").forEach(function (el) {
         var module = el.closest("[data-module], #navegacion-media, #media");
         var moduleId = module ? (module.getAttribute("data-module") || module.id) : "";
-        if (moduleId === "navegacion-media" || moduleId === "media") return;
+        if (moduleId === "media") return;
         var name = el.textContent.replace(/\s+/g, " ").trim() || c.nombre;
         el.classList.toggle("has-name", mode === "imagen-texto");
         el.innerHTML = mode === "imagen-texto"
@@ -664,7 +664,7 @@
           nav.style.setProperty("background-color", "#fff");
         });
         tpl.content.querySelectorAll(".nx-brand img, [style*='background-image']").forEach(function (el) {
-          if (el.tagName === "IMG") el.remove();
+          if (el.tagName === "IMG") { if (!el.classList.contains("nx-brand-logo")) el.remove(); }
           else el.style.setProperty("background-image", "none");
         });
       }
@@ -719,7 +719,7 @@
         return Array.from(moduleTemplate(it, false, true).tpl.content.querySelectorAll("nav.nx-nav a.nav-link[href]"));
       });
       var menuLinks = estado().items.some(isMenu) ? menus : null;
-      var body = estado().items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools ? true : (opts.marks ? "marks" : false), menuLinks); });
+      var body = estado().items.map(function (it, i) { return moduleMarkup(it, prefix, i, opts.tools ? true : (opts.marks ? "marks" : (opts.staticPreview || opts.preview ? "preview" : false)), menuLinks); });
       var tail = opts.staticPreview ? [] : [
         '  <script src="' + bootstrapJs + '" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></' + "script>",
         '  <script src="' + assets + 'js/lanzate.js"></' + "script>"
