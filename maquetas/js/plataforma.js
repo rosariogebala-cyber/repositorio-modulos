@@ -1096,6 +1096,13 @@
     var count = document.querySelector("[data-pf-count]");
     var newLanding = document.querySelector("[data-pf-new-landing]");
     var landings = [];
+    var demoIds = new Set();
+    var demoMode = new URLSearchParams(location.search).get("tipo") === "demo";
+    if (demoMode) {
+      document.title = "Mis demos · Lanzate";
+      document.querySelector("h1").textContent = "Mis demos";
+      document.querySelector(".pf-sub").textContent = "Administrá las landings de demostración y su presencia en la galería comercial.";
+    }
     var params = new URLSearchParams(location.search);
     var preset = params.get("cliente") || "";
 
@@ -1103,7 +1110,7 @@
       var q = normalize(search.value.trim());
       var cid = select.value;
       var shown = landings.filter(function (lp) {
-        return (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
+        return (!demoMode || demoIds.has(lp.cliente_id)) && (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
       });
       list.innerHTML = "";
       shown.forEach(function (lp) {
@@ -1112,18 +1119,21 @@
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
+      newLanding.hidden = demoMode && !cid;
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
 
     function load() {
       return Promise.all([api("GET", "/api/clientes"), api("GET", "/api/landings")]).then(function (res) {
+        demoIds = new Set(res[0].filter(function (c) { return c.tipo_cliente === "demo"; }).map(function (c) { return c.id; }));
+        if (demoMode) res[0] = res[0].filter(function (c) { return demoIds.has(c.id); });
         var current = select.value || preset;
         preset = "";
         select.innerHTML = '<option value="">Todos los clientes</option>' + res[0].map(function (c) {
           return '<option value="' + c.id + '">' + esc(c.nombre) + " (" + c.landings + ")</option>";
         }).join("");
         select.value = res[0].some(function (c) { return String(c.id) === current; }) ? current : "";
-        landings = res[1];
+        landings = demoMode ? res[1].filter(function (lp) { return demoIds.has(lp.cliente_id); }) : res[1];
         render();
       }).catch(function (err) { say(msg, err.message, "warn"); });
     }
