@@ -5075,11 +5075,13 @@
           item.appendChild(workflowButton("Editar descripción", focusDescription));
           if (mandatory) {
             var suggest = workflowButton("Sugerir desde el contenido", function () {
-              var doc = frameDoc(), hero = doc && doc.querySelector("h1");
-              var section = hero && hero.closest("section");
+              var doc = frameDoc();
+              // Module headings are h2 in the editor; publication supplies h1.
+              var section = doc && (doc.querySelector('.mq-block[data-module^="hero"]') || doc.querySelector('.mq-block:has(h1)') || doc.querySelector('.mq-block:has(h2)'));
+              var hero = section && section.querySelector("h1, h2");
               var lead = section && Array.from(section.querySelectorAll("p")).find(function (p) { return p.textContent.trim().length >= 35; });
               var value = [hero && hero.textContent, lead && lead.textContent].filter(Boolean).join(". ").replace(/\\s+/g," ").trim();
-              if (!value) { focusDescription(); return; }
+              if (!value) { focusDescription(); workflowText(item, "p", "No encontré texto suficiente en la vista previa. Completá la descripción manualmente."); return; }
               var candidate = value.length > 160 ? value.slice(0,160).replace(/\\s+\\S*$/, "") : value;
               if (!window.confirm("Revisá esta propuesta antes de usarla:\\n" + candidate + "\\n\\n¿Aplicarla al borrador?")) return;
               state.descripcion = candidate; renderDesc(true); renderMode(); saveDraft(); focusDescription();
