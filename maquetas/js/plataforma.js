@@ -186,6 +186,17 @@
       '<button class="lb-dialog-close" type="button" data-pf-cancel aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>' +
       '<div class="pf-form">' +
       '<label class="pf-field is-wide"><span>Nombre o razón social *</span><input class="lb-input" name="nombre" required autocomplete="organization" placeholder="Ej: Estudio Aurora"></label>' +
+      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca · manual</legend>' +
+      '<label class="pf-field"><span>Manual de marca (PDF, JPG, PNG o WebP · hasta 2 MB)</span><input class="lb-input" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" data-pf-manual></label>' +
+      '<p class="pf-help" data-pf-manual-current></p><button class="btn-nx-outline btn-sm" type="button" data-pf-brand-analyze>Analizar manual</button>' +
+      '<p role="status" aria-live="polite" data-pf-brand-status></p><div data-pf-brand-results></div>' +
+      '<label class="pf-field"><span>Tipografía de títulos (nombre indicado en el manual)</span><input class="lb-input" name="tipografia_titulos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Tipografía de textos</span><input class="lb-input" name="tipografia_textos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Color de acento (HEX, opcional)</span><input class="lb-input" name="acento" placeholder="#123456" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Color de fondo (HEX, opcional)</span><input class="lb-input" name="fondo" placeholder="#ffffff" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Tono de comunicación</span><textarea class="lb-input" name="tono" maxlength="1500" rows="2"></textarea></label>' +
+      '<label class="pf-field"><span>Reglas de marca</span><textarea class="lb-input" name="reglas" maxlength="1500" rows="2"></textarea></label>' +
+      '<small class="pf-help">Los resultados son sugerencias: elegí los colores, verificá el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
       '<label class="pf-field"><span>Tipo de cliente</span><select class="lb-input" name="tipo_cliente"><option value="real">Real</option><option value="demo">Demo</option></select></label>' +
       '<label class="pf-field"><span>Rubro</span><input class="lb-input" name="rubro" placeholder="Ej: Arquitectura"></label>' +
       '<label class="pf-field"><span>Contacto</span><input class="lb-input" name="contacto" autocomplete="name" placeholder="Nombre y apellido"></label>' +
@@ -199,17 +210,6 @@
       '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +
       '<label class="pf-field"><span>Facebook</span><input class="lb-input" name="facebook" placeholder="Link de la página"></label>' +
       '<label class="pf-field is-wide"><span>LinkedIn</span><input class="lb-input" name="linkedin" placeholder="Link de la empresa o perfil"></label>' +
-      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca · manual</legend>' +
-      '<label class="pf-field"><span>Manual de marca (PDF, JPG, PNG o WebP · hasta 2 MB)</span><input class="lb-input" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" data-pf-manual></label>' +
-      '<p class="pf-help" data-pf-manual-current></p><button class="btn-nx-outline btn-sm" type="button" data-pf-brand-analyze>Analizar manual</button>' +
-      '<p role="status" aria-live="polite" data-pf-brand-status></p><div data-pf-brand-results></div>' +
-      '<label class="pf-field"><span>Tipografía de títulos (nombre indicado en el manual)</span><input class="lb-input" name="tipografia_titulos" maxlength="150"></label>' +
-      '<label class="pf-field"><span>Tipografía de textos</span><input class="lb-input" name="tipografia_textos" maxlength="150"></label>' +
-      '<label class="pf-field"><span>Color de acento (HEX, opcional)</span><input class="lb-input" name="acento" placeholder="#123456" maxlength="7"></label>' +
-      '<label class="pf-field"><span>Color de fondo (HEX, opcional)</span><input class="lb-input" name="fondo" placeholder="#ffffff" maxlength="7"></label>' +
-      '<label class="pf-field"><span>Tono de comunicación</span><textarea class="lb-input" name="tono" maxlength="1500" rows="2"></textarea></label>' +
-      '<label class="pf-field"><span>Reglas de marca</span><textarea class="lb-input" name="reglas" maxlength="1500" rows="2"></textarea></label>' +
-      '<small class="pf-help">Los resultados son sugerencias: elegí los colores, verificá el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
       '<div class="pf-field is-wide"><span>Marca</span>' +
       '<div class="pf-brand">' +
       '<div class="pf-logo" data-pf-logo-preview></div>' +
@@ -283,7 +283,7 @@
       });
       brandHeading("Imágenes candidatas · confirmar logo");
       (result.candidatos || []).forEach(function (candidate, i) {
-        if (typeof candidate.imagen !== "string" || !candidate.imagen.startsWith("data:image/png;base64,") || !/^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice(22))) return;
+        if (typeof candidate.imagen !== "string" || !candidate.imagen.startsWith("data:image/png;base64,") || !/^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice("data:image/png;base64,".length))) return;
         var row = document.createElement("div"); row.className="pf-brand-choice";
         var img=document.createElement("img");img.src=candidate.imagen;img.alt="Imagen candidata "+(i+1);img.className="pf-brand-candidate";row.appendChild(img);
         appendChoice(row,"Usar imagen "+(i+1)+" como logo",function(){state.logoData=candidate.imagen;state.logoRemove=false;showLogo(candidate.imagen);setLogoModo("imagen");brandStatus.textContent="Logo seleccionado. Revisá antes de guardar.";});
