@@ -48,7 +48,7 @@ for (const engine of selected) {
             await page.keyboard.press('Tab');
             const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
             const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
-            report.push({engine,width,path,errors,focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>v.id)});
+            report.push({engine,width,path,errors,focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
           } catch(e) { report.push({engine,width,path,failure:String(e)}); }
           finally {page.off('pageerror',onError);}
         }
@@ -174,6 +174,9 @@ for (const engine of selected) {
         } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e),errors,requests});}
         finally {page.off('pageerror',onError);page.off('response',onResponse);page.off('requestfailed',onFailed);}
         } finally {await portalContext.close();}
+      } catch(e) {
+        report.push({engine,width,phase:'viewport',failure:String(e),errors:[]});
+        console.error(`${engine} ${width}: viewport failed`,String(e));
       } finally {await context.close();}
     }
   } finally {
