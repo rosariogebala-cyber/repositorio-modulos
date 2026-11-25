@@ -5046,3 +5046,19 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
   .builder-page .lb-actions [data-lb-create] { flex: 1 1 100%; white-space: normal; }
   .builder-page .lb-actions .lb-jump:not([hidden]) { white-space: normal; }
 }
+
+/* Active landing: keep the quality actions inside the narrow editor column. */
+@media (max-width: 575.98px) {
+  .builder-page :is(.lb-statusbar,.lb-status,.lb-heading,.lb-qa,.lb-qa-head,.lb-qa-sum,.lb-qa-item,.lb-qa-text,.lb-qa-acts,.lb-workflow-state) { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .builder-page .lb-qa-head { flex-wrap:wrap; }
+  .builder-page .lb-qa-sum { flex:1 1 100%; }
+  .builder-page .lb-qa-item .lb-qa-acts { flex:1 1 100%; margin-left:0; flex-wrap:wrap; gap:8px; }
+  .builder-page .lb-qa-text { flex:1 1 calc(100% - 70px); }
+  .builder-page .lb-qa-acts > * { min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+  .builder-page .lb-qa-fix { height:auto; min-height:44px; }
+  .builder-page .lb-workflow-report button { max-width:100%; margin-inline-end:0; }
+  .builder-page .lb-statusbar > * { min-width:0; max-width:100%; }
+  .builder-page .lb-todo { white-space:normal; max-width:100%; }
+  .builder-page .lb-actions { position:static; flex-wrap:wrap; padding:8px 0; border:0; box-shadow:none; background:transparent; backdrop-filter:none; }
+  .builder-page .lb-preview-tools { margin-left:0; }
+}
