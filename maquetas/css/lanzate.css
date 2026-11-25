@@ -5024,3 +5024,25 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
     transform: translateX(-50%);
   }
 }
+
+/* Reflow editor controls without hiding content or horizontal overflow. */
+.lb-saved-actions { flex-wrap: wrap; min-width: 0; }
+.lb-saved-actions > * { flex-shrink: 0; }
+.has-tools > .mq-block > .lp-tools { flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 12px); border-radius: 16px; }
+.has-tools > .mq-block:is(:hover,:focus-within,.lp-flash):has(> .lp-tools) { z-index: 1050; overflow: visible; }
+.lb-style-option:focus-visible { outline: 3px solid #4128d1; outline-offset: 2px; }
+@media (max-width: 991.98px) {
+  .builder-page .lb-main { grid-template-columns: minmax(0, 1fr); }
+  .builder-page :is(.lb-side,.lb-stage,.lb-card,.lb-work,.lb-toolbar,.lb-actions,.lb-preview-tools,.lb-workflow,.lb-workflow-report,.lb-qa-below) { min-width: 0; max-width: 100%; }
+  .builder-page :is(.lb-toolbar,.lb-actions,.lb-preview-tools,.lb-workflow) > * { min-width: 0; max-width: 100%; }
+  .builder-page :is(.lb-actions,.lb-preview-tools,.lb-workflow,.lb-workflow-report) button { white-space: normal; overflow-wrap: anywhere; height: auto; min-height: 44px; }
+  .builder-page :is(.lb-card,.lb-workflow-report,.lb-qa-below) { overflow-wrap: anywhere; }
+  .builder-page .lb-color-controls { flex-wrap: wrap; }
+  .builder-page .lb-tabs button { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+}
+@media (max-width: 400px) {
+  .builder-page .lb-main { padding-inline: 12px; }
+  .builder-page .lb-card { padding-inline: 12px; }
+  .builder-page .lb-actions [data-lb-create] { flex: 1 1 100%; white-space: normal; }
+  .builder-page .lb-actions .lb-jump:not([hidden]) { white-space: normal; }
+}
