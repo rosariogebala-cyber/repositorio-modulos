@@ -174,7 +174,7 @@
 
   /* Formulario de cliente (alta y edición) */
   var form = null;
-  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "privacidad_url", "terminos_url", "direccion", "horario", "instagram", "facebook", "linkedin", "notas", "ga4", "gtm", "meta_pixel"];
+  var TEXT_FIELDS = ["nombre", "rubro", "contacto", "email", "telefono", "sitio", "privacidad_url", "terminos_url", "direccion", "horario", "instagram", "facebook", "linkedin", "notas"];
 
   function buildForm() {
     var dialog = document.createElement("dialog");
@@ -215,11 +215,6 @@
       '<div class="pf-field is-wide"><span>Estado</span><div class="lb-seg" role="group" aria-label="Estado del cliente" data-pf-estado>' +
       '<button type="button" data-value="activo" aria-pressed="true"><i class="bi bi-check-circle"></i> Activo</button>' +
       '<button type="button" data-value="pausado" aria-pressed="false"><i class="bi bi-pause-circle"></i> Pausado</button></div></div>' +
-      '<div class="pf-field is-wide pf-tracking"><span>Medición de campañas <em class="lb-optional">(opcional)</em></span>' +
-      '<small class="pf-help">Se cargan solos en todas las landings de este cliente, y miden cada consulta y cada clic en&nbsp;WhatsApp.</small></div>' +
-      '<label class="pf-field"><span>Google Analytics</span><input class="lb-input" name="ga4" placeholder="G-AB12CD34EF" autocomplete="off" spellcheck="false"></label>' +
-      '<label class="pf-field"><span>Google Tag Manager</span><input class="lb-input" name="gtm" placeholder="GTM-AB12CD3" autocomplete="off" spellcheck="false"></label>' +
-      '<label class="pf-field is-wide"><span>Píxel de Meta</span><input class="lb-input" name="meta_pixel" inputmode="numeric" placeholder="Número del píxel, ej: 123456789012345" autocomplete="off" spellcheck="false"></label>' +
       '<label class="pf-field is-wide"><span>Notas internas</span><textarea class="lb-input" name="notas" rows="3" placeholder="Acuerdos, fechas, preferencias…"></textarea></label>' +
       "</div>" +
       '<p class="lb-msg" data-pf-form-msg role="status" aria-live="polite"></p>' +
@@ -377,6 +372,7 @@
       meta.push(lp.secciones_contenido + " de " + lp.secciones_incluidas + " secciones incluidas" +
         (lp.secciones_adicionales ? " · " + lp.secciones_adicionales + " adicionales" : ""));
     }
+    meta.push(lp.medicion && lp.medicion.incluida ? "Medición propia + avanzada" : "Medición propia");
     var planWarn = lp.aviso_plan ? '<small><b class="pf-missing">Ampliación a revisar: ' + esc(lp.aviso_plan) + "</b></small>" : "";
     if (lp.borrador_estado && lp.borrador_estado !== "sin_borrador") {
       var stageText = { borrador: "Borrador pendiente", revision: "En revisión", aprobado: "Aprobado, sin publicar" };
@@ -404,6 +400,7 @@
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
       icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
+      (lp.medicion && lp.medicion.incluida ? icon("button", 'type="button" data-act="tracking"', "bi-graph-up", "Configurar medición avanzada") : "") +
       icon("button", 'type="button" data-act="versions"', "bi-clock-history", "Versiones anteriores") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
       icon("button", 'type="button" data-act="delete"', "bi-trash3", "Eliminar", " is-danger") +
@@ -433,6 +430,7 @@
           report("Link copiado. El cliente lo abre con su usuario y contraseña del portal.", "ok");
         }, function () { window.prompt("Copiá el link del editor:", lp.editor); });
       }
+      if (act === "tracking") showTracking(lp, report, opts.onChange);
       if (act === "versions") showVersions(lp, report);
       if (act === "duplicate") {
         btn.disabled = true;
@@ -452,6 +450,35 @@
       }
     });
     return li;
+  }
+
+  function showTracking(lp, report, refresh) {
+    var dialog = document.createElement("dialog");
+    dialog.className = "lb-dialog pf-form-dialog";
+    dialog.setAttribute("aria-labelledby", "lzTrackingTitle");
+    dialog.innerHTML = '<form><div class="lb-dialog-head"><div><h2 id="lzTrackingTitle">Medición avanzada · Pro</h2><p>Estadísticas propias incluidas. Los códigos son opcionales y pertenecen a esta landing. Elegí GA4 directo o GTM, no ambos.</p></div></div>' +
+      '<div class="pf-form">' +
+      '<label class="pf-field is-wide"><span>Google Analytics</span><input class="lb-input" name="ga4" placeholder="G-XXXXXXXXXX"></label>' +
+      '<label class="pf-field is-wide"><span>Google Tag Manager</span><input class="lb-input" name="gtm" placeholder="GTM-XXXXXXX"></label>' +
+      '<label class="pf-field is-wide"><span>Píxel de Meta</span><input class="lb-input" name="meta_pixel" inputmode="numeric"></label></div>' +
+      '<p class="lb-msg" role="status" aria-live="polite"></p><div class="pf-form-foot"><button class="btn-nx-outline btn-sm" type="button" data-cancel>Cancelar</button><button class="btn-nx btn-sm" type="submit">Guardar medición</button></div></form>';
+    document.body.appendChild(dialog);
+    var f = dialog.querySelector("form");
+    var fields = ["ga4", "gtm", "meta_pixel"];
+    fields.forEach(function (k) { f.elements[k].value = lp.medicion[k] || ""; });
+    dialog.querySelector("[data-cancel]").onclick = function () { dialog.close(); };
+    dialog.addEventListener("close", function () { dialog.remove(); });
+    f.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var values = {};
+      fields.forEach(function (k) { values[k] = f.elements[k].value.trim(); });
+      var btn = f.querySelector("[type=submit]");
+      btn.disabled = true;
+      api("PUT", "/api/landings/" + lp.id, {medicion: values}).then(function () {
+        dialog.close(); report("Medición guardada para esta landing.", "ok"); if (refresh) refresh();
+      }).catch(function (err) { btn.disabled = false; say(f.querySelector("[role=status]"), err.message, "warn"); });
+    });
+    dialog.showModal();
   }
 
   /* Historial: cada vez que se guarda una landing, la versión anterior queda guardada (hasta 30). Se abre en el
@@ -950,7 +977,7 @@
               '<span class="cf-swatch"><i style="background:' + esc(c.color_secundario) + '"></i><small>Secundario</small><code>' + esc(c.color_secundario) + "</code></span>" +
             "</div>" +
             '<dl class="cf-rows">' +
-              row("graph-up", "Medición", tracking.length ? esc(tracking.join(" · ")) + (trackingOff ? ' <b class="pf-missing">No se carga: el plan no la incluye</b>' : "") : '<span class="cf-muted">Sin códigos</span>') +
+              row("graph-up", "Medición", "Configuración individual desde cada landing") +
               row("folder2", "Carpeta", "<code>" + esc(c.carpeta) + "</code>") +
             "</dl>" +
           "</section>" +
@@ -1151,7 +1178,7 @@
     parts.push(p.enviosIlimitados ? "envíos ilimitados desde el portal" : plural(p.cambiosPorMes || 0, "envío", "envíos") + " desde el portal al mes");
     parts.push((p.cambiosAsistidos || 0) + " cambios asistidos al mes");
     parts.push(p.turnos ? "con reserva de turnos" : "sin reserva de turnos");
-    parts.push(p.medicion ? "con Analytics y Píxel de Meta" : "sin Analytics ni Píxel");
+    parts.push(p.id === "pro" ? "medición propia y avanzada" : "medición propia de Lanzate");
     return "Plan " + p.nombre + ": " + parts.join(", ") + ".";
   }
 
