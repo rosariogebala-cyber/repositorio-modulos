@@ -65,3 +65,11 @@ La fixture API establece VERCEL=1 y emite cookies Secure, pero la matriz de nave
 ### Resultado de QA TLS
 - SHA bafbf981ab420b60db1d6834dd5992828cffa686: API 45522192345 y Browser RC 45522192269 completados con success. Se supera el gate automatizado de navegador; no implica conformidad WCAG manual ni verificación del portal desplegado.
 - Pendientes: aislamiento Preview, migración histórica hash-only con respaldo/restauración, E2E comercial, pagos reales, rendimiento/SEO y accesibilidad manual. NO-GO producción. No se modificaron datos reales.
+
+
+### Cierre parcial de controles — 25/11/2026
+- SHA a3beb0719b7009eed7d59ca70bd89043e8bc87fd: runs 45522789507 y 45522788768 success; logs de jobs 138898575760 y 138898572395 revisados. API 27 tests OK, armador 13 OK, migración hash-only 2 OK. Migración ficticia conserva hash y versión, elimina copia recuperable, es idempotente y aborta ante hash inválido. No se ejecutó migración real.
+- Matriz browser: 78 registros, 0 con violaciones axe confirmadas, 0 con overflow, 0 con errores JS, 34 con comprobaciones axe incompletas. Artefacto 14981166469. Gate automatizado aprobado; WCAG manual sigue abierto.
+- API verifica publicación controlada, límites, privacidad, CSP, credenciales hash-only y sitemap en fixture. No equivale a validación de pagos reales, aislamiento integral entre clientes ni E2E de ficha 360.
+- RC1 acumulada contiene PR #42/#44/#45/#46; comparación con main: 123 commits ahead, 0 behind antes de este cambio documental. Sin merge a main.
+- Pendientes bloqueantes: aislamiento Preview, respaldo/restauración y procedimiento de migración real, contratación/pagos, permisos y ficha 360 E2E, revisión manual de 34 registros axe, rendimiento y SEO desplegado. NO-GO producción. No se accedió a entorno local ni se modificaron datos reales. Esta revisión no ejecutó nuevos tests; evidencia corresponde al SHA indicado.
