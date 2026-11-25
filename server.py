@@ -4232,16 +4232,13 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
         if name == "gestion-clientes" and method == "GET":
-            import sys
             return client_management.dashboard(sys.modules[__name__])
         if name == "gestion-cliente":
-            import sys
             if method == "GET":
                 return client_management.get(sys.modules[__name__], ident)
             if method == "PUT":
                 return client_management.save_settings(sys.modules[__name__], ident, self.read_json())
         if name == "gestion-movimientos" and method == "POST":
-            import sys
             return client_management.movement(sys.modules[__name__], ident, self.read_json())
         if name == "clientes":
             if method == "GET":
@@ -4257,13 +4254,10 @@ class Handler(SimpleHTTPRequestHandler):
                 delete_client(ident)
                 return {"ok": True}
         if name == "borradores" and method == "POST":
-            import sys
             return draft_workflow.save(sys.modules[__name__], self.read_json())
         if name == "qa-borrador" and method == "GET":
-            import sys
             return draft_workflow.qa_summary(sys.modules[__name__], ident)
         if name == "borrador":
-            import sys
             if method == "GET":
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
@@ -4271,7 +4265,6 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "DELETE":
                 return draft_workflow.discard(sys.modules[__name__], ident, self.read_json())
         if name in ("revision", "aprobar", "publicar-landing") and method == "POST":
-            import sys
             return draft_workflow.move(sys.modules[__name__], ident,
                                       "publicar" if name == "publicar-landing" else name, self.read_json())
         if name == "landings":
@@ -4285,7 +4278,6 @@ class Handler(SimpleHTTPRequestHandler):
                 # Rearmado/portal leen solo la versión publicada, nunca el borrador privado.
                 if (query.get("modo") or [""])[0] == "sitio" or (query.get("rearmar") or [""])[0] == "1":
                     return get_landing(ident)
-                import sys
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 data = self.read_json()
@@ -4293,7 +4285,6 @@ class Handler(SimpleHTTPRequestHandler):
                     return update_landing_tracking(ident, data["medicion"])
                 if set(data) == {"ejemplo"}:
                     return set_landing_example(ident, data["ejemplo"])
-                import sys
                 if draft_workflow.read(sys.modules[__name__], ident):
                     raise ApiError(409, "Hay un borrador pendiente. Usá Revisar, Aprobar y Publicar para no sobrescribirlo.")
                 return save_landing(data, ident)
