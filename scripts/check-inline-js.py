@@ -31,8 +31,20 @@ failures = []
 count = 0
 with tempfile.TemporaryDirectory() as tmp:
     for rel in filter(None, paths):
+        # Generated landing HTML may be absent from a local checkout. Audit the
+        # tracked snapshot in that case rather than silently skipping the file.
+        source = ROOT / rel
+        if source.is_file():
+            markup = source.read_text(encoding="utf-8")
+        else:
+            tracked = subprocess.run(["git", "show", ":" + rel], cwd=ROOT, capture_output=True)
+            if tracked.returncode:
+                failures.append(f"{rel}: tracked HTML unavailable")
+                continue
+            markup = tracked.stdout.decode("utf-8")
+            print(f"{rel}: using tracked Git snapshot (local file absent)")
         parser = Scripts()
-        parser.feed((ROOT / rel).read_text(encoding="utf-8"))
+        parser.feed(markup)
         for kind, line, code in parser.scripts:
             if not code.strip():
                 continue
