@@ -2052,6 +2052,7 @@ def landing_dict(row, client, summary=False):
         "descripcion": row.get("descripcion") or "",
         "animacion": row.get("animacion") or "",
         "ejemplo": bool(row.get("ejemplo")),
+        "ejemplo_orden": row.get("ejemplo_orden", 9999),
         "id": row["id"],
         "cliente_id": row["cliente_id"],
         "cliente": client["nombre"],
@@ -2335,7 +2336,11 @@ def save_landing(data, landing_id=None, origen="constructor"):
                   "portada": cover_of(html), "actualizado": stamp, "origen": origen,
                   "plan_id": plan_id, "plan_condiciones": plan_snapshot,
                   "borrador_estado": "sin_borrador", "borrador_modulos": 0}
-        if "ejemplo" in data:
+        if data.get("ejemplo") and client_type(client) != "demo":
+            raise ApiError(400, "Solo las demos pueden mostrarse en la galería comercial.")
+        if client_type(client) != "demo":
+            values["ejemplo"] = False
+        elif "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
         if current:
@@ -2356,11 +2361,19 @@ def save_landing(data, landing_id=None, origen="constructor"):
     return landing_dict(row, client)
 
 
-def set_landing_example(landing_id, value):
+def set_landing_example(landing_id, value, order=None):
     with store("clientes", "landings") as db:
         row = find_landing(db, landing_id)
-        row["ejemplo"] = bool(value)
         client = find_client(db, row["cliente_id"])
+        if value and (client_type(client) != "demo" or not row.get("html")):
+            raise ApiError(400, "Solo las demos publicadas pueden mostrarse en la galería comercial.")
+        if order is not None:
+            if type(order) is not int or not 0 <= order <= 9999:
+                raise ApiError(400, "El orden debe ser un entero entre 0 y 9999.")
+            if client_type(client) != "demo":
+                raise ApiError(400, "Solo las demos tienen orden de galería.")
+            row["ejemplo_orden"] = order
+        row["ejemplo"] = bool(value)
     write_site_files()
     return landing_dict(row, client)
 
@@ -2540,9 +2553,9 @@ def public_examples(db, origin):
     """Landings marcadas como ejemplo: son las que muestra el sitio de venta."""
     clients = {c["id"]: c for c in db["clientes"]}
     out = []
-    for row in sorted(db["landings"], key=lambda l: l["creado"]):
+    for row in sorted(db["landings"], key=lambda l: (l.get("ejemplo_orden", 9999), l["creado"], l["id"])):
         client = clients.get(row["cliente_id"])
-        if not client or not row.get("ejemplo") or not row.get("html"):
+        if not client or client_type(client) != "demo" or not row.get("ejemplo") or not row.get("html"):
             continue
         out.append({
             "nombre": client["nombre"],
@@ -2552,6 +2565,7 @@ def public_examples(db, origin):
             "portada": (origin + row["portada"]) if row.get("portada") else "",
             "captura": row.get("captura") or "",
             "demo": client_type(client) == "demo",
+            "orden": row.get("ejemplo_orden", 9999),
         })
     return out
 
@@ -4253,7 +4267,7 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "PUT":
                 data = self.read_json()
                 if set(data) == {"ejemplo"}:
-                    return set_landing_example(ident, data["ejemplo"])
+                    return set_landing_example(ident, data["ejemplo"], data.get("ejemplo_orden"))
                 import sys
                 if draft_workflow.read(sys.modules[__name__], ident):
                     raise ApiError(409, "Hay un borrador pendiente. Usá Revisar, Aprobar y Publicar para no sobrescribirlo.")

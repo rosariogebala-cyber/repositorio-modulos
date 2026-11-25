@@ -382,6 +382,7 @@
       var stageText = { borrador: "Borrador pendiente", revision: "En revisión", aprobado: "Aprobado, sin publicar" };
       meta.push('<span class="lb-badge">' + esc(stageText[lp.borrador_estado] || "Borrador") + "</span>");
     }
+    if (opts.demoMode) meta.push("Orden: " + (lp.ejemplo_orden == null ? 9999 : lp.ejemplo_orden));
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -403,6 +404,7 @@
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
+      (opts.demoMode ? icon("button", 'type="button" data-act="order"', "bi-sort-numeric-down", "Cambiar orden de galería") : "") +
       icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
       icon("button", 'type="button" data-act="versions"', "bi-clock-history", "Versiones anteriores") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
@@ -425,6 +427,16 @@
         btn.disabled = true;
         api("PUT", "/api/landings/" + lp.id, { ejemplo: !lp.ejemplo }).then(function (saved) {
           report(saved.ejemplo ? "«" + lp.nombre + "» se muestra como ejemplo en el sitio. Publicá para que se vea online." : "«" + lp.nombre + "» ya no se muestra en el sitio.", "ok");
+          if (opts.onChange) opts.onChange();
+        }).catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
+      }
+      if (act === "order") {
+        var raw = window.prompt("Orden de aparición (0 a 9999; menor primero):", String(lp.ejemplo_orden == null ? 9999 : lp.ejemplo_orden));
+        if (raw === null) return;
+        if (!/^\\d{1,4}$/.test(raw.trim())) { report("Ingresá un entero entre 0 y 9999.", "warn"); return; }
+        btn.disabled = true;
+        api("PUT", "/api/landings/" + lp.id, { ejemplo: !!lp.ejemplo, ejemplo_orden: Number(raw) }).then(function () {
+          report("Orden guardado. Publicá para actualizar la galería online.", "ok");
           if (opts.onChange) opts.onChange();
         }).catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
       }
@@ -1096,6 +1108,13 @@
     var count = document.querySelector("[data-pf-count]");
     var newLanding = document.querySelector("[data-pf-new-landing]");
     var landings = [];
+    var demoIds = new Set();
+    var demoMode = new URLSearchParams(location.search).get("tipo") === "demo";
+    if (demoMode) {
+      document.title = "Mis demos · Lanzate";
+      document.querySelector("h1").textContent = "Mis demos";
+      document.querySelector(".pf-sub").textContent = "Administrá las landings de demostración y su presencia en la galería comercial.";
+    }
     var params = new URLSearchParams(location.search);
     var preset = params.get("cliente") || "";
 
@@ -1103,31 +1122,65 @@
       var q = normalize(search.value.trim());
       var cid = select.value;
       var shown = landings.filter(function (lp) {
-        return (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
+        return (!demoMode || demoIds.has(lp.cliente_id)) && (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
       });
+      if (demoMode) shown.sort(function (a, b) { return (a.ejemplo_orden == null ? 9999 : a.ejemplo_orden) - (b.ejemplo_orden == null ? 9999 : b.ejemplo_orden) || a.id - b.id; });
       list.innerHTML = "";
       shown.forEach(function (lp) {
-        list.appendChild(landingRow(lp, { showClient: true, onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
+        list.appendChild(landingRow(lp, { demoMode: demoMode, showClient: true, onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
       });
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
+      newLanding.hidden = false;
+      if (demoMode) {
+        newLanding.textContent = cid ? "Crear landing para esta demo" : "Nueva demo";
+        select.setAttribute("aria-label", "Elegir perfil de demostración");
+        if (!cid) empty.textContent = shown.length ? "" : "Creá una demo para empezar a diseñar tu portfolio.";
+      }
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
 
     function load() {
       return Promise.all([api("GET", "/api/clientes"), api("GET", "/api/landings")]).then(function (res) {
+        demoIds = new Set(res[0].filter(function (c) { return c.tipo_cliente === "demo"; }).map(function (c) { return c.id; }));
+        if (demoMode) res[0] = res[0].filter(function (c) { return demoIds.has(c.id); });
         var current = select.value || preset;
         preset = "";
-        select.innerHTML = '<option value="">Todos los clientes</option>' + res[0].map(function (c) {
+        select.innerHTML = '<option value="">' + (demoMode ? "Todos los perfiles demo" : "Todos los clientes") + '</option>' + res[0].map(function (c) {
           return '<option value="' + c.id + '">' + esc(c.nombre) + " (" + c.landings + ")</option>";
         }).join("");
         select.value = res[0].some(function (c) { return String(c.id) === current; }) ? current : "";
-        landings = res[1];
+        landings = demoMode ? res[1].filter(function (lp) { return demoIds.has(lp.cliente_id); }) : res[1];
         render();
       }).catch(function (err) { say(msg, err.message, "warn"); });
     }
 
+    if (demoMode) {
+      var dialog = document.createElement("dialog");
+      dialog.innerHTML = '<form class="pf-form"><h2>Nueva demo comercial</h2><label class="pf-field">Nombre del proyecto<input class="lb-input" name="nombre" required maxlength="100"></label><label class="pf-field">Rubro<input class="lb-input" name="rubro" required maxlength="100"></label><p role="status" data-demo-msg></p><button type="submit" class="btn-nx">Crear y diseñar</button> <button type="button" data-demo-close>Cancelar</button></form>';
+      dialog.setAttribute("aria-label", "Nueva demo comercial");
+      document.body.appendChild(dialog);
+      var form = dialog.querySelector("form");
+      var submit = form.querySelector('[type="submit"]');
+      dialog.querySelector("[data-demo-close]").addEventListener("click", function () { dialog.close(); });
+      newLanding.addEventListener("click", function (e) {
+        if (select.value) return;
+        e.preventDefault();
+        dialog.showModal();
+      });
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (submit.disabled) return;
+        submit.disabled = true;
+        api("POST", "/api/clientes", {nombre: form.elements.nombre.value.trim(), rubro: form.elements.rubro.value.trim(), tipo_cliente: "demo"}).then(function (client) {
+          location.href = "constructor.html?cliente=" + encodeURIComponent(client.id);
+        }).catch(function (err) {
+          dialog.querySelector("[data-demo-msg]").textContent = err.message;
+          submit.disabled = false;
+        });
+      });
+    }
     search.addEventListener("input", render);
     select.addEventListener("change", render);
     load();
