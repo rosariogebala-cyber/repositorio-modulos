@@ -199,6 +199,17 @@
       '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +
       '<label class="pf-field"><span>Facebook</span><input class="lb-input" name="facebook" placeholder="Link de la página"></label>' +
       '<label class="pf-field is-wide"><span>LinkedIn</span><input class="lb-input" name="linkedin" placeholder="Link de la empresa o perfil"></label>' +
+      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca · manual</legend>' +
+      '<label class="pf-field"><span>Manual de marca (PDF, JPG, PNG o WebP · hasta 2 MB)</span><input class="lb-input" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" data-pf-manual></label>' +
+      '<p class="pf-help" data-pf-manual-current></p><button class="btn-nx-outline btn-sm" type="button" data-pf-brand-analyze>Analizar manual</button>' +
+      '<p role="status" aria-live="polite" data-pf-brand-status></p><div data-pf-brand-results></div>' +
+      '<label class="pf-field"><span>Tipografía de títulos (nombre indicado en el manual)</span><input class="lb-input" name="tipografia_titulos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Tipografía de textos</span><input class="lb-input" name="tipografia_textos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Color de acento (HEX, opcional)</span><input class="lb-input" name="acento" placeholder="#123456" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Color de fondo (HEX, opcional)</span><input class="lb-input" name="fondo" placeholder="#ffffff" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Tono de comunicación</span><textarea class="lb-input" name="tono" maxlength="1500" rows="2"></textarea></label>' +
+      '<label class="pf-field"><span>Reglas de marca</span><textarea class="lb-input" name="reglas" maxlength="1500" rows="2"></textarea></label>' +
+      '<small class="pf-help">Los resultados son sugerencias: elegí los colores, verificá el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
       '<div class="pf-field is-wide"><span>Marca</span>' +
       '<div class="pf-brand">' +
       '<div class="pf-logo" data-pf-logo-preview></div>' +
@@ -233,6 +244,71 @@
     var msg = dialog.querySelector("[data-pf-form-msg]");
     var estado = dialog.querySelector("[data-pf-estado]");
     var logoModo = dialog.querySelector("[data-pf-logo-modo]");
+
+    var manualInput = dialog.querySelector("[data-pf-manual]");
+    var brandStatus = dialog.querySelector("[data-pf-brand-status]");
+    var brandResults = dialog.querySelector("[data-pf-brand-results]");
+    var brandAnalyze = dialog.querySelector("[data-pf-brand-analyze]");
+    var brandFields = ["tipografia_titulos","tipografia_textos","acento","fondo","tono","reglas"];
+    var brandRun = 0;
+    function appendChoice(parent, text, action) {
+      var button = document.createElement("button");
+      button.type = "button"; button.className = "btn-nx-outline btn-sm"; button.textContent = text;
+      button.addEventListener("click",action); parent.appendChild(button); return button;
+    }
+    function brandHeading(text) {
+      var el = document.createElement("h3"); el.textContent = text; brandResults.appendChild(el);
+    }
+    function renderBrandSuggestions(result) {
+      brandResults.replaceChildren();
+      brandHeading("Colores detectados · elegí su función");
+      (result.colores || []).forEach(function (color) {
+        if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+        var row = document.createElement("div"); row.className = "pf-brand-choice";
+        var swatch = document.createElement("span"); swatch.className = "pf-brand-swatch"; swatch.style.backgroundColor = color;
+        swatch.setAttribute("aria-hidden","true"); row.appendChild(swatch);
+        var label = document.createElement("code"); label.textContent = color; row.appendChild(label);
+        [["Principal","color_primario"],["Secundario","color_secundario"],["Acento","acento"],["Fondo","fondo"]].forEach(function (pair) {
+          appendChoice(row,pair[0]+" "+color,function(){f.elements[pair[1]].value=color;brandStatus.textContent="Color "+color+" aplicado a "+pair[0].toLowerCase()+". Revisá antes de guardar.";});
+        });
+        brandResults.appendChild(row);
+      });
+      brandHeading("Tipografías incrustadas · verificar");
+      (result.tipografias || []).forEach(function (font) {
+        var row = document.createElement("div"); row.className = "pf-brand-choice";
+        var label = document.createElement("span"); label.textContent=font; row.appendChild(label);
+        appendChoice(row,"Usar "+font+" en títulos",function(){f.elements.tipografia_titulos.value=font;});
+        appendChoice(row,"Usar "+font+" en textos",function(){f.elements.tipografia_textos.value=font;});
+        brandResults.appendChild(row);
+      });
+      brandHeading("Imágenes candidatas · confirmar logo");
+      (result.candidatos || []).forEach(function (candidate, i) {
+        if (!/^data:image\\/png;base64,[A-Za-z0-9+/=]+$/.test(candidate.imagen)) return;
+        var row = document.createElement("div"); row.className="pf-brand-choice";
+        var img=document.createElement("img");img.src=candidate.imagen;img.alt="Imagen candidata "+(i+1);img.className="pf-brand-candidate";row.appendChild(img);
+        appendChoice(row,"Usar imagen "+(i+1)+" como logo",function(){state.logoData=candidate.imagen;state.logoRemove=false;showLogo(candidate.imagen);setLogoModo("imagen");brandStatus.textContent="Logo seleccionado. Revisá antes de guardar.";});
+        brandResults.appendChild(row);
+      });
+      (result.advertencias || []).forEach(function(w){var p=document.createElement("p");p.className="pf-help";p.textContent=w;brandResults.appendChild(p);});
+    }
+    manualInput.addEventListener("change",function(){
+      ++brandRun; state.manualData=""; state.manualName=""; brandResults.replaceChildren(); brandAnalyze.disabled=false;
+      brandStatus.textContent="Seleccioná Analizar manual para obtener sugerencias.";
+    });
+    brandAnalyze.addEventListener("click",function(){
+      var file=manualInput.files[0]; if(!file){brandStatus.textContent="Seleccioná un archivo primero.";return;}
+      if(file.size>2*1024*1024){brandStatus.textContent="El manual supera 2 MB.";return;}
+      var run=++brandRun;brandAnalyze.disabled=true;brandStatus.textContent="Analizando manual…";
+      var reader=new FileReader();
+      reader.onerror=function(){if(run===brandRun){brandAnalyze.disabled=false;brandStatus.textContent="No se pudo leer el archivo.";}};
+      reader.onload=function(){
+        api("POST","/api/ia",{tarea:"manual_marca",archivo:reader.result}).then(function(result){
+          if(run!==brandRun || !dialog.open)return;
+          state.manualData=reader.result;state.manualName=file.name.slice(0,150);
+          renderBrandSuggestions(result);brandStatus.textContent="Análisis listo. Confirmá las sugerencias que quieras aplicar.";
+        }).catch(function(err){if(run===brandRun)brandStatus.textContent=err.message;}).finally(function(){if(run===brandRun)brandAnalyze.disabled=false;});
+      };reader.readAsDataURL(file);
+    });
 
     function setLogoModo(value) {
       logoModo.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-value") === value)); });
@@ -301,6 +377,14 @@
       data.logo_modo = mode ? mode.getAttribute("data-value") : "";
       if (!data.nombre) { say(msg, "Ponele un nombre al cliente.", "warn"); f.elements.nombre.focus(); return; }
       if (data.email && !f.elements.email.checkValidity()) { say(msg, "Revisá el email: no tiene un formato válido.", "warn"); f.elements.email.focus(); return; }
+      if (brandAnalyze.disabled) { say(msg,"Esperá a que termine el análisis antes de guardar.","warn");return; }
+      if (manualInput.files.length && !state.manualData) { say(msg,"Analizá el manual seleccionado o quitá el archivo antes de guardar.","warn");return; }
+      var brand = {};
+      brandFields.forEach(function(k){brand[k]=f.elements[k].value.trim();});
+      brand.manual_nombre=state.manualName || ((state.client || {}).marca || {}).manual_nombre || "";
+      var previousBrand = (state.client || {}).marca || {};
+      if (state.manualData || brandFields.some(function(k){return brand[k] !== (previousBrand[k] || "");})) data.marca=brand;
+      if (state.manualData) data.manual_archivo=state.manualData;
       if (state.logoData) data.logo_data = state.logoData;
       if (state.logoRemove) data.logo_quitar = true;
       var saveBtn = dialog.querySelector("[data-pf-save]");
@@ -330,8 +414,12 @@
         state.logoData = "";
         state.logoRemove = false;
         state.saved = null;
+        ++brandRun; state.manualData="";state.manualName="";brandAnalyze.disabled=false;brandResults.replaceChildren();brandStatus.textContent="";
         f.reset();
         var c = client || {};
+        var brand = c.marca || {};
+        brandFields.forEach(function(k){f.elements[k].value=brand[k] || "";});
+        dialog.querySelector("[data-pf-manual-current]").textContent=brand.manual_nombre ? "Manual guardado: "+brand.manual_nombre : "Todavía no hay un manual guardado.";
         TEXT_FIELDS.forEach(function (k) { f.elements[k].value = c[k] || ""; });
         f.elements.color_primario.value = c.color_primario || "#1b5e42";
         f.elements.color_secundario.value = c.color_secundario || "#e7f3ee";
@@ -977,6 +1065,11 @@
               '<span class="cf-swatch"><i style="background:' + esc(c.color_secundario) + '"></i><small>Secundario</small><code>' + esc(c.color_secundario) + "</code></span>" +
             "</div>" +
             '<dl class="cf-rows">' +
+              row("file-earmark", "Manual de marca", esc((c.marca || {}).manual_nombre || "Sin manual")) +
+              row("fonts", "Tipografía títulos", esc((c.marca || {}).tipografia_titulos || "")) +
+              row("fonts", "Tipografía textos", esc((c.marca || {}).tipografia_textos || "")) +
+              row("palette", "Acento", esc((c.marca || {}).acento || "")) +
+              row("palette", "Fondo", esc((c.marca || {}).fondo || "")) +
               row("graph-up", "Medición", "Configuración individual desde cada landing") +
               row("folder2", "Carpeta", "<code>" + esc(c.carpeta) + "</code>") +
             "</dl>" +
