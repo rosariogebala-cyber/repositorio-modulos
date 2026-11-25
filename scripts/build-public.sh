@@ -6,7 +6,7 @@ rm -rf public
 mkdir public
 cp -R 404.html css js assets maquetas portal Proyectos public/
 cp index.html public/biblioteca.html
-printf '%s\n' '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Lanzate | Próximamente</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#10102c;color:white;font-family:system-ui;text-align:center}h1{font-size:clamp(3rem,10vw,7rem);margin:0}p{color:#e4e1ff}</style></head><body><main><h1>Lanzate.</h1><p>Algo nuevo está por llegar.</p></main></body></html>' > public/index.html
+cp prelanzamiento/index.html public/index.html
 mkdir -p public/data
 cp data/modules.js data/modules.json public/data/
 for page in constructor landings clientes cliente reglas; do
