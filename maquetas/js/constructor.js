@@ -2198,46 +2198,31 @@
 
   function baseUrl() { return new URL("./", location.href).href; }
 
+  // Fixed logical viewport: measuring an iframe by resizing its own viewport
+  // causes vh-based heroes, sticky navigation and scrollbars to feed back into layout.
+  var lastFitKey = "";
   function fitPreview() {
     var width = clientMode() ? 1280 : device;
     var avail = viewport.clientWidth - 32;
     if (avail <= 0) return;
     var scale = Math.min(1, avail / width);
+    var logicalHeight = Math.round(width <= 480 ? 812 : 900);
+    var key = [width, avail, logicalHeight, !!state.items.length].join(":");
+    if (key === lastFitKey) return;
+    lastFitKey = key;
     deviceFrame.style.width = width + "px";
+    deviceFrame.style.height = logicalHeight + "px";
+    frame.style.height = logicalHeight + "px";
     deviceFrame.style.transform = "scale(" + scale + ")";
+    deviceFrame.style.marginLeft = Math.max(0, (avail - width * scale) / 2) + "px";
+    viewport.style.height = state.items.length ? Math.ceil(logicalHeight * scale + 32) + "px" : "";
     var doc = frameDoc();
     if (doc) doc.documentElement.style.setProperty("--lb-ui-scale", (1 / scale).toFixed(3));
-    deviceFrame.style.marginLeft = Math.max(0, (avail - width * scale) / 2) + "px";
-    var h = frame.offsetHeight;
-    var height = state.items.length ? Math.ceil(h * scale + 32) + "px" : "";
-    if (viewport.style.height !== height) viewport.style.height = height;
-  }
-
-  var frameResizeObserver = null, frameHeightRaf = 0;
-  function queueFrameHeight() {
-    if (frameHeightRaf) return;
-    frameHeightRaf = requestAnimationFrame(function(){frameHeightRaf=0;syncFrameHeight();});
-  }
-  function syncFrameHeight() {
-    try {
-      var doc = frame.contentDocument;
-      if (!doc || !doc.body) return;
-      // documentElement.scrollHeight is at least the current iframe height:
-      // measuring it prevents the preview from shrinking when content is removed.
-      var body = doc.body;
-      var h = Math.max(1, Math.ceil(body.getBoundingClientRect().height));
-      if (frame.style.height !== h + "px") frame.style.height = h + "px";
-      fitPreview();
-    } catch (e) { /* noop */ }
   }
 
   frame.addEventListener("load", function () {
-    syncFrameHeight();
-    try {
-      var win = frame.contentWindow;
-      if (frameResizeObserver) frameResizeObserver.disconnect();
-      if (win.ResizeObserver) { frameResizeObserver = new win.ResizeObserver(queueFrameHeight); frameResizeObserver.observe(frame.contentDocument.body); }
-    } catch (e) { /* noop */ }
+    lastFitKey = "";
+    fitPreview();
     setupEditing();
     scheduleQa(300);
     var pend = pendingSelect;
@@ -4137,7 +4122,7 @@
       var has = state.items.length > 0;
       placeholder.hidden = has;
       deviceFrame.hidden = !has;
-      if (!has) { viewport.style.height = ""; scheduleQa(0); return; }
+      if (!has) { lastFitKey = ""; viewport.style.height = ""; scheduleQa(0); return; }
       var markup = buildDocument({ base: baseUrl(), preview: true, tools: true });
       if (frame.srcdoc !== markup) frame.srcdoc = markup;
       if (clientMode() && changeFrame) {
