@@ -1,4 +1,4 @@
-/* Planes sincronizados con Lanzate_site/js/config.js (20/11/2026). Los contratos existentes deben respetarse. */
+/* Planes sincronizados con lanzate/js/config.js (25/11/2026). Los contratos existentes deben respetarse. */
 window.LANZATE_PLANES = {
   "planes": [
     {
@@ -6,7 +6,7 @@ window.LANZATE_PLANES = {
       "nombre": "Express",
       "para": "Para salir online ya, con lo esencial para que te contacten.",
       "inicial": 99000,
-      "mensual": 19900,
+      "mensual": 29900,
       "incluye": [
         "Hasta 4 secciones con módulos prediseñados",
         "Portal privado para editar campos habilitados",
@@ -14,7 +14,7 @@ window.LANZATE_PLANES = {
         "Diseño adaptado a celular, tablet y compu",
         "Botón de WhatsApp siempre visible",
         "Hosting y certificado de seguridad (SSL)",
-        "Subdominio tunegocio.lanzate.com.ar",
+        "Subdominio incluido: tunegocio.lanzate.com.ar (sin dominio propio)",
         "Hasta 10 envíos de cambios de contenido por mes desde tu portal",
         "1 cambio asistido por mes"
       ],
@@ -50,7 +50,7 @@ window.LANZATE_PLANES = {
       "nombre": "Negocio",
       "para": "Para que te encuentren en Google y te elijan frente a la competencia.",
       "inicial": 179000,
-      "mensual": 34900,
+      "mensual": 49900,
       "incluye": [
         "Todo lo incluido en Express",
         "Conexión y gestión técnica de tu dominio .com.ar (el registro y la renovación los paga el cliente)",
@@ -92,7 +92,7 @@ window.LANZATE_PLANES = {
       "nombre": "Pro",
       "para": "Para crecer con más secciones, analítica y soporte prioritario.",
       "inicial": 299000,
-      "mensual": 54900,
+      "mensual": 79900,
       "incluye": [
         "Todo lo incluido en Negocio",
         "Hasta 10 secciones a elección",
