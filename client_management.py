@@ -96,6 +96,8 @@ def client_timeline(client, landings, info):
 def get(s, client_id):
     with s.store("clientes", "landings", save=False) as db:
         client = s.find_client(db, client_id)
+        if s.client_type(client) == "demo":
+            raise s.ApiError(400, "Las demos no tienen gestión comercial.")
         landings = [l for l in db["landings"] if l["cliente_id"] == client_id]
         requests = client.get("pedidos") or []
         pending = sum(p.get("estado") == "pendiente" for p in requests)
@@ -145,7 +147,8 @@ def save_settings(s, client_id, payload):
     if not isinstance(payload, dict):
         raise s.ApiError(400, "Datos incorrectos.")
     with s.store("clientes", save=False) as db:
-        s.find_client(db, client_id)
+        if s.client_type(s.find_client(db, client_id)) == "demo":
+            raise s.ApiError(400, "Las demos no tienen gestión comercial.")
     old = load(s, client_id)
     if payload.get("revision") != old["revision"]:
         raise s.ApiError(409, "Estos datos cambiaron en otra pestaña. Volvé a cargar.")
@@ -164,7 +167,8 @@ def movement(s, client_id, payload):
     if not isinstance(payload, dict):
         raise s.ApiError(400, "Movimiento incorrecto.")
     with s.store("clientes", "landings", save=False) as db:
-        s.find_client(db, client_id)
+        if s.client_type(s.find_client(db, client_id)) == "demo":
+            raise s.ApiError(400, "Las demos no tienen gestión comercial.")
         allowed = {row["id"] for row in db["landings"] if row["cliente_id"] == client_id}
     old = load(s, client_id)
     if payload.get("revision") != old["revision"]:
@@ -271,7 +275,7 @@ def followup_alerts(client, info, today, now_ms, zone):
 
 def dashboard(s):
     with s.store("clientes", "landings", save=False) as db:
-        clients = list(db["clientes"])
+        clients = [c for c in db["clientes"] if s.client_type(c) != "demo"]
         landings = list(db["landings"])
     zone = ZoneInfo("America/Argentina/Buenos_Aires")
     now = datetime.now(zone)
