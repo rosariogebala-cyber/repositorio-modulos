@@ -2320,11 +2320,11 @@ def save_landing(data, landing_id=None, origen="constructor"):
         # Los límites del plan son comerciales; las secciones extra necesitan revisión,
         # no se rechaza automáticamente un borrador por su cantidad.
         html = publish_html(html, items, logo_ref(client))
-        if (rules.get("general") or {}).get("bloquear"):
-            final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
-            errors = published_structure_errors(final_markup)
-            if errors:
-                raise ApiError(400, "No se puede publicar: " + "; ".join(errors) + ".")
+        # La estructura mínima del HTML publicado es obligatoria, incluso si se desactivan las reglas configurables.
+        final_markup = accessible_landing(html, nombre, client.get("color_primario"), client)
+        errors = published_structure_errors(final_markup)
+        if errors:
+            raise ApiError(400, "No se puede publicar: " + "; ".join(errors) + ".")
         if client_type(client) == "real":
             placeholder = DEMO_PLACEHOLDERS.search(unescape(html))
             if placeholder:
