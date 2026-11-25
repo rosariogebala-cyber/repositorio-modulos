@@ -2060,7 +2060,7 @@
             '<em style="background:' + combo.acento + '"></em></span>' +
           '<span class="lb-mini-band" style="background:' + paper + '"><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i></span>' +
         '</span><span class="lb-style-name">' + style.name + '</span>';
-      button.setAttribute("aria-label", "Usar la combinación " + style.name);
+      // Use the visible palette name as the accessible name (WCAG 2.5.3).
       button.onclick = function () { applySuggestedStyle(style); };
       list.appendChild(button);
     });
