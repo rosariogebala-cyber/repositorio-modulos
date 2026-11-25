@@ -578,6 +578,7 @@ class ApiTest(unittest.TestCase):
                 "estilo": row.get("estilo") or "", "descripcion": "Un negocio de prueba", "animacion": ""}
         status, saved = self.team.call("POST", "/api/landings", body)
         self.assertEqual(status, 200, saved)
+        self.assertEqual(self.team.call("PUT", "/api/landings/%d" % saved["id"], {"ejemplo": True})[0], 400)
         page = sim.repo_file("repositorio-modulos", "l/%s/inicio/index.html" % client["slug"]).decode("utf-8")
         data = json.loads(page.split('<script type="application/ld+json">', 1)[1].split("</script>", 1)[0])
         self.assertEqual(data["telephone"], "+541145551234")
