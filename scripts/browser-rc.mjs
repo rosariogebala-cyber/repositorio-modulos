@@ -4,14 +4,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const base = new URL(process.env.QA_BASE);
 assert.equal(base.hostname, '127.0.0.1');
-assert.equal(base.protocol, 'http:');
+assert.equal(base.protocol, 'https:');
 const report = [];
 const allowedStatic = new Set(['fonts.googleapis.com','fonts.gstatic.com','cdn.jsdelivr.net']);
 for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
   const browser = await type.launch();
   try {
     for (const width of [1440, 320]) {
-      const context = await browser.newContext({viewport:{width,height:900}});
+      const context = await browser.newContext({viewport:{width,height:900},ignoreHTTPSErrors:true});
       try {
         await context.route('**/*', route => {
           const u = new URL(route.request().url());
@@ -43,7 +43,7 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         }
         // Do not let the team cookie mask missing portal authorization.
         await context.close();
-        const portalContext = await browser.newContext({viewport:{width,height:900}});
+        const portalContext = await browser.newContext({viewport:{width,height:900},ignoreHTTPSErrors:true});
         try {
         await portalContext.route('**/*', route => {
           const u = new URL(route.request().url());
