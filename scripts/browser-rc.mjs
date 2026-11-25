@@ -7,8 +7,19 @@ assert.equal(base.hostname, '127.0.0.1');
 assert.equal(base.protocol, 'https:');
 const report = [];
 const allowedStatic = new Set(['fonts.googleapis.com','fonts.gstatic.com','cdn.jsdelivr.net']);
-for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
-  const browser = await type.launch();
+const engines = {chromium, firefox, webkit};
+const selected = process.env.QA_BROWSERS ? process.env.QA_BROWSERS.split(',').map(s=>s.trim()).filter(Boolean) : Object.keys(engines);
+assert.ok(selected.length && new Set(selected).size === selected.length && selected.every(e=>Object.hasOwn(engines,e)), 'Invalid QA_BROWSERS');
+for (const engine of selected) {
+  const type = engines[engine];
+  let browser;
+  try { browser = await type.launch(); }
+  catch (e) {
+    report.push({engine,phase:'launch',failure:String(e)});
+    console.error(engine + ': launch failed; continuing other browsers');
+    fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
+    continue;
+  }
   try {
     for (const width of [1440, 320]) {
       const context = await browser.newContext({viewport:{width,height:900},ignoreHTTPSErrors:true});
@@ -154,9 +165,13 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         } finally {await portalContext.close();}
       } finally {await context.close();}
     }
-  } finally {await browser.close();}
+  } finally {
+    await browser.close();
+    fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
+  }
 }
 fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
 console.log(JSON.stringify(report,null,2));
-assert.equal(report.length,84);
+assert.equal(report.length,selected.length*28,'Incomplete browser coverage; inspect browser-rc-report.json');
 assert.ok(report.every(r=>!r.failure&&!r.errors.length&&r.focus.visible&&!['BODY','HTML'].includes(r.focus.tag)&&!r.overflow&&!r.violations.length),'Browser QA failed; inspect browser-rc-report.json');
+if (selected.length !== Object.keys(engines).length) console.warn('Partial browser audit: remaining engines still require validation.');
