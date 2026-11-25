@@ -1402,6 +1402,7 @@
         });
         var finished = false;
         function group(section) { return byId[section.m].group || section.m.replace(/-[^-]+$/, ""); }
+        function used() { return 1 + ordered.filter(function (entry) { return group(entry.section) !== "donde-nos-encontramos"; }).length; }
         function done(result) {
           if (finished) return;
           finished = true;
@@ -1462,13 +1463,13 @@
             }));
             list.appendChild(item);
           });
-          counter.textContent = (focusAction ? "Orden o selección actualizados. " : "") + "Hero + " + ordered.length + " secciones · " + (ordered.length + 1) +
+          counter.textContent = (focusAction ? "Orden o selección actualizados. " : "") + "Hero + " + ordered.length + " módulos · " + used() +
             " de " + included + " incluidas.";
           var usedGroups = new Set(ordered.map(function (entry) { return group(entry.section); }));
           var extras = candidates.filter(function (candidate) { return !usedGroups.has(group(candidate)); });
           addSelect.replaceChildren(new Option("Elegí una sección", ""));
           extras.forEach(function (entry) { addSelect.add(new Option(group(entry), entry.m)); });
-          addButton.disabled = !extras.length || ordered.length >= included - 1;
+          addButton.disabled = !extras.some(function (entry) { return used() < included || group(entry) === "donde-nos-encontramos"; });
           accept.disabled = ordered.length < 1;
           // Los controles se recrean: restaurar el foco evita perder la posición del teclado.
           if (focusAction) {
@@ -1478,9 +1479,9 @@
           }
         }
         addButton.onclick = function () {
-          if (!addSelect.value || ordered.length >= included - 1) return;
+          if (!addSelect.value) return;
           var section = candidates.find(function (entry) { return entry.m === addSelect.value; });
-          if (section) ordered.push({ section: section, reason: "Agregada manualmente durante la revisión" });
+          if (section && (used() < included || group(section) === "donde-nos-encontramos")) ordered.push({ section: section, reason: "Agregada manualmente durante la revisión" });
           render();
         };
         cancel.onclick = function () { done(false); };
@@ -1553,9 +1554,10 @@
         var explanations = [];
         var seenGroups = new Set();
         function addRecommended(section, reason) {
-          if (!section || sections.length >= included - 1) return;
+          if (!section) return;
           var group = byId[section.m].group || section.m.replace(/-[^-]+$/, "");
           if (seenGroups.has(group)) return;
+          if (group !== "donde-nos-encontramos" && sections.filter(function (entry) { return (byId[entry.m].group || entry.m.replace(/-[^-]+$/, "")) !== "donde-nos-encontramos"; }).length >= included - 1) return;
           seenGroups.add(group);
           sections.push(section);
           explanations.push({ name: group, reason: reason });
@@ -1641,7 +1643,7 @@
         var reasons = explanations.map(function (entry) { return entry.name + ": " + entry.reason; }).join(" · ");
         say("Selección recomendada: " + (reasons || "solo portada, falta información para proponer más secciones") + ". " +
             "Propuesta de " + selectedPlan.nombre + ": " + includedCount + " de " + included +
-            " secciones incluidas (hero incluido, navegación y footer sin cargo)." +
+            " secciones incluidas (hero incluido; navegación, WhatsApp, ubicación y footer sin consumir cupo)." +
             (includedCount < included ? " Quedan " + (included - includedCount) + " secciones disponibles para completar con contenido confirmado." : "") +
             " Verificá todos los textos y reemplazá las fotos de ejemplo antes de guardar o publicar." +
             (facts ? " Datos detectados para comprobar: " + facts : "") +
@@ -4330,7 +4332,7 @@
   function countPlanSections(items) {
     return (items || []).filter(function (it) {
       var section = String(it.id || "").replace(/-[^-]+$/, "");
-      return ["navegacion", "footer", "whatsapp"].indexOf(section) === -1;
+      return ["navegacion", "footer", "whatsapp", "donde-nos-encontramos"].indexOf(section) === -1;
     }).length;
   }
   function planSectionWarning() {
@@ -4344,7 +4346,7 @@
     var count = countPlanSections(state.items);
     var extra = Math.max(0, count - limit);
     return { extra: extra, text: "Plan de esta landing: " + planName + ". " + count + " de " + limit +
-      " secciones incluidas." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
+      " secciones de contenido incluidas. Navegación, WhatsApp, ubicación y footer no consumen cupo." + (extra ? " " + extra + (extra === 1 ? " sección adicional" : " secciones adicionales") +
       ". Podés continuar, pero corresponde revisar su presupuesto y aprobación antes de publicar." : "") };
   }
   var planSectionNote = document.createElement("p");
