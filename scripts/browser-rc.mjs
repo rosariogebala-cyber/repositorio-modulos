@@ -59,13 +59,15 @@ for (const engine of selected) {
         const qualityPath = '/maquetas/constructor.html?landing='+process.env.QA_DRAFT_ID;
         try {
           const endpoint=base.origin+'/api/landings/'+process.env.QA_DRAFT_ID;
-          const existing=await context.request.get(endpoint);
+          const existing=await context.request.get(endpoint+'/borrador');
           assert.equal(existing.status(),200);
-          const row=await existing.json();
+          const draft=await existing.json();
+          const row=draft.contenido;
+          assert.ok(row && row.html && row.items?.length,'Missing private draft content');
           const reset=await context.request.put(endpoint+'/borrador',{data:{
             cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:row.html,
-            items:row.items,estilo:row.estilo||'',descripcion:'',base_revision:row.borrador_revision}});
-          assert.equal(reset.status(),200);
+            items:row.items,estilo:row.estilo||'',descripcion:'',base_revision:draft.revision}});
+          assert.equal(reset.status(),200,await reset.text());
           await page.goto(base.origin+qualityPath);
           const review=page.locator('[data-lb-qa-review]');
           await review.click();
@@ -151,8 +153,17 @@ for (const engine of selected) {
               await page.locator('[data-view] h1').waitFor({state:'visible'});
               if (!(await page.evaluate(()=>Boolean(window.axe)))) await page.addScriptTag({content:axe.source});
               const results=await page.evaluate(()=>window.axe.run({runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}}));
-              await page.keyboard.press('Tab');
-              const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+              const initialFocus=await page.evaluate(()=>({tag:document.activeElement?.tagName,inView:document.querySelector('[data-view]').contains(document.activeElement)}));
+              assert.equal(initialFocus.tag,'H1','Section navigation must focus its heading');
+              assert.ok(initialFocus.inView);
+              // WebKit may traverse the browser chrome between the last and first
+              // page control. Check a complete bounded keyboard transition.
+              let focus;
+              for(let step=0;step<3;step++){
+                await page.keyboard.press('Tab');
+                focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+                if(focus.visible&&!['BODY','HTML'].includes(focus.tag))break;
+              }
               const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
               report.push({engine,width,path:portalPath+'#'+tab,errors:errors.slice(before),focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
             } catch(e) {report.push({engine,width,path:portalPath+'#'+tab,failure:String(e)});}
