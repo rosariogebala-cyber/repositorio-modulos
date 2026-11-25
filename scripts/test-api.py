@@ -200,6 +200,29 @@ class ApiTest(unittest.TestCase):
             self.assertIsNone(sim.repo_file("repositorio-modulos", path))
             self.assertIsNotNone(sim.repo_file("lanzate-datos", path))
 
+    def test_basic_modules_do_not_consume_plan_quota(self):
+        # Load server functions without starting HTTP listener.
+        import sys
+        sys.path.insert(0, str(ROOT))
+        import server
+        items = [{"id": name + "-1"} for name in (
+            "navegacion", "whatsapp", "donde-nos-encontramos", "footer",
+            "hero-full-imagen", "servicios", "productos", "beneficios")]
+        self.assertEqual(len(server.content_sections(items)), 4)
+
+    def test_advanced_tracking_requires_pro(self):
+        import sys
+        sys.path.insert(0, str(ROOT))
+        import server
+        codes = {"ga4": "G-AB12CD34EF", "gtm": "", "meta_pixel": ""}
+        row = {"plan_id": "express", "plan_condiciones": {"id": "express"}, "medicion": codes}
+        self.assertFalse(server.advanced_tracking(row, {})["incluida"])
+        self.assertEqual(server.advanced_tracking(row, {})["ga4"], "")
+        row.update(plan_id="pro", plan_condiciones={"id": "pro"})
+        self.assertTrue(server.advanced_tracking(row, {})["incluida"])
+        self.assertEqual(server.advanced_tracking(row, {})["ga4"], codes["ga4"])
+        self.assertEqual(server.advanced_tracking({"plan_id": "pro", "plan_condiciones": {"id": "pro"}}, codes)["ga4"], "")
+
     # --- Portal ---------------------------------------------------------------------------
     def portal_access(self, usuario="prueba-portal"):
         status, out = self.team.call("POST", "/api/clientes/%d/acceso" % self.client_id, {"usuario": usuario, "clave": ""})
