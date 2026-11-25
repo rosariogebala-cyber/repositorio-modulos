@@ -3382,7 +3382,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .lb-qa-col { min-width: 0; }
 .lb-qa-col:has(.lb-qa[hidden]) { display: none; }
 @media (min-width: 1200px) {
-  .lb-work:has(.lb-qa:not([hidden])) { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 14px; align-items: start; }
+  .lb-work:has(.lb-qa:not([hidden])) { display: block; }
   html.is-client .lb-work { display: grid !important; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) !important; gap: 0; align-items: stretch; height: calc(100vh - 150px); }
   .lb-qa-col { position: sticky; top: calc(var(--lib-header, 65px) + 16px); }
   .lb-qa-col .lb-qa { display: flex; flex-direction: column; margin: 0; max-height: calc(100vh - var(--lib-header, 65px) - 32px); border-radius: 12px; }
@@ -4998,3 +4998,7 @@ select.lb-input { appearance: none; padding-right: 38px; background: #fff url("d
 .pf-brand-choice button { white-space:normal; max-width:100%; }
 .pf-brand-swatch { width:32px; height:32px; border:1px solid #777; border-radius:5px; flex:none; }
 .pf-brand-candidate { width:100px; max-height:80px; object-fit:contain; background:#eee; border:1px solid #999; }
+
+/* Quality results no longer reserve a right column. */
+.lb-qa-below { min-width:0; margin-top:16px; }
+.lb-qa-below:has(.lb-qa[hidden]) { display:none; }
