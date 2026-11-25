@@ -388,40 +388,47 @@ class ApiTest(unittest.TestCase):
 
     def test_gestion_clientes_pagos_y_seguimiento(self):
         """La cartera parte sin cobros inventados, preserva ARS/USD y aísla datos privados."""
-        status, dashboard = self.team.call("GET", "/api/gestion/clientes")
-        self.assertEqual(status, 200, dashboard)
-        summary = next(c for c in dashboard["clientes"] if c["id"] == self.client_id)
-        self.assertFalse(summary["tiene_registro_cobros"])
-        self.assertEqual(summary["pagos_pendientes"], 0)
-        status, detail = self.team.call("GET", "/api/gestion/clientes/%d" % self.client_id)
-        self.assertEqual(status, 200, detail)
-        self.assertEqual(detail["inicio"], "")
-        status, saved = self.team.call("PUT", "/api/gestion/clientes/%d" % self.client_id, {
-            "inicio": "2026-11-01", "proximo_contacto": "2026-12-01",
-            "notas": "Revisar dominio registrado", "revision": detail["revision"]})
-        self.assertEqual(status, 200, saved)
-        self.assertEqual(saved["inicio"], "2026-11-01")
-        status, movement = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % self.client_id, {
-            "revision": saved["revision"], "concepto": "Abono noviembre",
-            "importe_centavos": 1990000, "moneda": "ARS", "estado": "pendiente",
-            "vencimiento": "2026-11-05", "landing_id": self.landing["id"]})
-        self.assertEqual(status, 200, movement)
-        self.assertEqual(movement["movimientos"][-1]["importe_centavos"], 1990000)
-        status, duplicate = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % self.client_id, {
-            "revision": saved["revision"], "concepto": "Duplicado",
-            "importe_centavos": 100, "moneda": "USD", "estado": "pendiente", "vencimiento": "2026-12-05"})
-        self.assertEqual(status, 409, duplicate)
-        status, refreshed = self.team.call("GET", "/api/gestion/clientes")
-        item = next(c for c in refreshed["clientes"] if c["id"] == self.client_id)
-        self.assertTrue(item["tiene_registro_cobros"])
-        self.assertEqual(item["pagos_pendientes"], 1)
-        self.assertEqual(item["saldos_pendientes"]["ARS"], 1990000)
-        self.assertEqual(item["saldos_pendientes"]["USD"], 0)
-        public = Client(self.base, "10.88.9.88")
-        self.assertEqual(public.call("GET", "/api/gestion/clientes")[0], 401)
-        self.assertEqual(public.call("GET", "/api/gestion/clientes/%d" % self.client_id)[0], 401)
-        self.assertEqual(public.call("POST", "/api/gestion/clientes/%d/movimientos" % self.client_id,
-                                     {"concepto": "No autorizado"})[0], 401)
+        status, real = self.team.call("POST", "/api/clientes", {"nombre": "QA cartera real", "tipo_cliente": "real"})
+        self.assertEqual(status, 200, real)
+        cid = real["id"]
+        try:
+            status, dashboard = self.team.call("GET", "/api/gestion/clientes")
+            self.assertEqual(status, 200, dashboard)
+            summary = next(c for c in dashboard["clientes"] if c["id"] == cid)
+            self.assertFalse(summary["tiene_registro_cobros"])
+            self.assertEqual(summary["pagos_pendientes"], 0)
+            status, detail = self.team.call("GET", "/api/gestion/clientes/%d" % cid)
+            self.assertEqual(status, 200, detail)
+            self.assertEqual(detail["inicio"], "")
+            status, saved = self.team.call("PUT", "/api/gestion/clientes/%d" % cid, {
+                "inicio": "2026-11-01", "proximo_contacto": "2026-12-01",
+                "notas": "Revisar dominio registrado", "revision": detail["revision"]})
+            self.assertEqual(status, 200, saved)
+            self.assertEqual(saved["inicio"], "2026-11-01")
+            status, movement = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % cid, {
+                "revision": saved["revision"], "concepto": "Abono noviembre",
+                "importe_centavos": 1990000, "moneda": "ARS", "estado": "pendiente",
+                "vencimiento": "2026-11-05"})
+            self.assertEqual(status, 200, movement)
+            self.assertEqual(movement["movimientos"][-1]["importe_centavos"], 1990000)
+            status, duplicate = self.team.call("POST", "/api/gestion/clientes/%d/movimientos" % cid, {
+                "revision": saved["revision"], "concepto": "Duplicado",
+                "importe_centavos": 100, "moneda": "USD", "estado": "pendiente", "vencimiento": "2026-12-05"})
+            self.assertEqual(status, 409, duplicate)
+            status, refreshed = self.team.call("GET", "/api/gestion/clientes")
+            item = next(c for c in refreshed["clientes"] if c["id"] == cid)
+            self.assertTrue(item["tiene_registro_cobros"])
+            self.assertEqual(item["pagos_pendientes"], 1)
+            self.assertEqual(item["saldos_pendientes"]["ARS"], 1990000)
+            self.assertEqual(item["saldos_pendientes"]["USD"], 0)
+            public = Client(self.base, "10.88.9.88")
+            self.assertEqual(public.call("GET", "/api/gestion/clientes")[0], 401)
+            self.assertEqual(public.call("GET", "/api/gestion/clientes/%d" % cid)[0], 401)
+            self.assertEqual(public.call("POST", "/api/gestion/clientes/%d/movimientos" % cid,
+                                         {"concepto": "No autorizado"})[0], 401)
+
+        finally:
+            self.team.call("DELETE", "/api/clientes/%d" % cid)
 
     def test_client_list_does_not_send_portal_passwords(self):
         self.portal_access("lista-portal")
