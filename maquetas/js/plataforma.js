@@ -186,17 +186,30 @@
       '<button class="lb-dialog-close" type="button" data-pf-cancel aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>' +
       '<div class="pf-form">' +
       '<label class="pf-field is-wide"><span>Nombre o razón social *</span><input class="lb-input" name="nombre" required autocomplete="organization" placeholder="Ej: Estudio Aurora"></label>' +
-      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca · manual</legend>' +
+      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca</legend>' +
       '<label class="pf-field"><span>Manual de marca (PDF, JPG, PNG o WebP · hasta 2 MB)</span><input class="lb-input" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" data-pf-manual></label>' +
       '<p class="pf-help" data-pf-manual-current></p><button class="btn-nx-outline btn-sm" type="button" data-pf-brand-analyze>Analizar manual</button>' +
       '<p role="status" aria-live="polite" data-pf-brand-status></p><div data-pf-brand-results></div>' +
+      '<div class="pf-field is-wide"><span>Logo y colores detectados</span>' +
+      '<div class="pf-brand">' +
+      '<div class="pf-logo" data-pf-logo-preview></div>' +
+      '<div class="pf-brand-ctrls">' +
+      '<div class="pf-logo-btns"><label class="lb-act"><i class="bi bi-upload"></i> <span data-pf-logo-label>Subir logo</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pf-logo-input hidden></label>' +
+      '<button class="lb-act" type="button" data-pf-logo-remove hidden><i class="bi bi-x-lg"></i> Quitar</button></div>' +
+      '<div class="lb-seg pf-logo-mode" role="group" aria-label="Cómo se muestra el logo" data-pf-logo-modo>' +
+      '<button type="button" data-value="imagen" aria-pressed="true"><i class="bi bi-image"></i> Imagen</button>' +
+      '<button type="button" data-value="imagen-texto" aria-pressed="false"><i class="bi bi-layout-sidebar"></i> Imagen y&nbsp;texto</button>' +
+      '<button type="button" data-value="texto" aria-pressed="false"><i class="bi bi-fonts"></i> Texto</button></div>' +
+      '<div class="pf-colors"><label><input type="color" name="color_primario" value="#1b5e42"> Color principal</label>' +
+      '<label><input type="color" name="color_secundario" value="#e7f3ee"> Color secundario</label></div>' +
+      "</div></div><small class=\"pf-help\">PNG, JPG, WEBP o SVG de hasta 2 MB.</small></div>" +
       '<label class="pf-field"><span>Tipografía de títulos (nombre indicado en el manual)</span><input class="lb-input" name="tipografia_titulos" maxlength="150"></label>' +
       '<label class="pf-field"><span>Tipografía de textos</span><input class="lb-input" name="tipografia_textos" maxlength="150"></label>' +
       '<label class="pf-field"><span>Color de acento (HEX, opcional)</span><input class="lb-input" name="acento" placeholder="#123456" maxlength="7"></label>' +
       '<label class="pf-field"><span>Color de fondo (HEX, opcional)</span><input class="lb-input" name="fondo" placeholder="#ffffff" maxlength="7"></label>' +
       '<label class="pf-field"><span>Tono de comunicación</span><textarea class="lb-input" name="tono" maxlength="1500" rows="2"></textarea></label>' +
       '<label class="pf-field"><span>Reglas de marca</span><textarea class="lb-input" name="reglas" maxlength="1500" rows="2"></textarea></label>' +
-      '<small class="pf-help">Los resultados son sugerencias: elegí los colores, verificá el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
+      '<small class="pf-help">Los campos se completan con propuestas detectadas. Revisá sus roles, el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
       '<label class="pf-field"><span>Tipo de cliente</span><select class="lb-input" name="tipo_cliente"><option value="real">Real</option><option value="demo">Demo</option></select></label>' +
       '<label class="pf-field"><span>Rubro</span><input class="lb-input" name="rubro" placeholder="Ej: Arquitectura"></label>' +
       '<label class="pf-field"><span>Contacto</span><input class="lb-input" name="contacto" autocomplete="name" placeholder="Nombre y apellido"></label>' +
@@ -210,19 +223,6 @@
       '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +
       '<label class="pf-field"><span>Facebook</span><input class="lb-input" name="facebook" placeholder="Link de la página"></label>' +
       '<label class="pf-field is-wide"><span>LinkedIn</span><input class="lb-input" name="linkedin" placeholder="Link de la empresa o perfil"></label>' +
-      '<div class="pf-field is-wide"><span>Marca</span>' +
-      '<div class="pf-brand">' +
-      '<div class="pf-logo" data-pf-logo-preview></div>' +
-      '<div class="pf-brand-ctrls">' +
-      '<div class="pf-logo-btns"><label class="lb-act"><i class="bi bi-upload"></i> <span data-pf-logo-label>Subir logo</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pf-logo-input hidden></label>' +
-      '<button class="lb-act" type="button" data-pf-logo-remove hidden><i class="bi bi-x-lg"></i> Quitar</button></div>' +
-      '<div class="lb-seg pf-logo-mode" role="group" aria-label="Cómo se muestra el logo" data-pf-logo-modo>' +
-      '<button type="button" data-value="imagen" aria-pressed="true"><i class="bi bi-image"></i> Imagen</button>' +
-      '<button type="button" data-value="imagen-texto" aria-pressed="false"><i class="bi bi-layout-sidebar"></i> Imagen y&nbsp;texto</button>' +
-      '<button type="button" data-value="texto" aria-pressed="false"><i class="bi bi-fonts"></i> Texto</button></div>' +
-      '<div class="pf-colors"><label><input type="color" name="color_primario" value="#1b5e42"> Color principal</label>' +
-      '<label><input type="color" name="color_secundario" value="#e7f3ee"> Color secundario</label></div>' +
-      "</div></div><small class=\"pf-help\">PNG, JPG, WEBP o SVG de hasta 2 MB.</small></div>" +
       '<div class="pf-field is-wide"><span>Estado</span><div class="lb-seg" role="group" aria-label="Estado del cliente" data-pf-estado>' +
       '<button type="button" data-value="activo" aria-pressed="true"><i class="bi bi-check-circle"></i> Activo</button>' +
       '<button type="button" data-value="pausado" aria-pressed="false"><i class="bi bi-pause-circle"></i> Pausado</button></div></div>' +
@@ -259,6 +259,32 @@
     function brandHeading(text) {
       var el = document.createElement("h3"); el.textContent = text; brandResults.appendChild(el);
     }
+    function validBrandImage(candidate) {
+      return candidate && typeof candidate.imagen === "string" && candidate.imagen.startsWith("data:image/png;base64,") &&
+        /^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice("data:image/png;base64,".length));
+    }
+    function applyBrandSuggestions(result, file) {
+      var colors = Array.from(new Set((result.colores || []).filter(function(c){return /^#[0-9a-f]{6}$/i.test(c);})));
+      var fields = ["color_primario","color_secundario","acento","fondo"];
+      var applied = [];
+      fields.forEach(function(field,i){
+        if(colors[i]) { f.elements[field].value=colors[i]; applied.push(field); }
+      });
+      var fonts = (result.tipografias || []).filter(function(font){return typeof font === "string" && font.trim();});
+      if(fonts[0]) {f.elements.tipografia_titulos.value=fonts[0];applied.push("tipografía de títulos");}
+      if(fonts[1]) {f.elements.tipografia_textos.value=fonts[1];applied.push("tipografía de textos");}
+      var candidates = (result.candidatos || []).filter(validBrandImage);
+      // A single extracted PDF image is a candidate, not proof of logo identity.
+      // Never substitute an entire raster manual or overwrite an existing logo automatically.
+      var existing = state.logoData || (!state.logoRemove && state.client && state.client.logo_url);
+      if(file.type === "application/pdf" && candidates.length === 1 && !existing && !state.logoRemove) {
+        state.logoData=candidates[0].imagen;state.logoRemove=false;showLogo(state.logoData);setLogoModo("imagen");
+        applied.push("logo candidato");
+      }
+      return "Análisis listo. "+(applied.length ? "Se completaron propuestas de marca automáticamente. " : "No se detectaron campos suficientes. ") +
+        (candidates.length && !state.logoData ? "Elegí el logo entre las imágenes candidatas. " : "") +
+        "Verificá los campos antes de guardar; los elementos no identificados mantienen su valor anterior.";
+    }
     function renderBrandSuggestions(result) {
       brandResults.replaceChildren();
       brandHeading("Colores detectados · elegí su función");
@@ -283,7 +309,7 @@
       });
       brandHeading("Imágenes candidatas · confirmar logo");
       (result.candidatos || []).forEach(function (candidate, i) {
-        if (typeof candidate.imagen !== "string" || !candidate.imagen.startsWith("data:image/png;base64,") || !/^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice("data:image/png;base64,".length))) return;
+        if (!validBrandImage(candidate)) return;
         var row = document.createElement("div"); row.className="pf-brand-choice";
         var img=document.createElement("img");img.src=candidate.imagen;img.alt="Imagen candidata "+(i+1);img.className="pf-brand-candidate";row.appendChild(img);
         appendChoice(row,"Usar imagen "+(i+1)+" como logo",function(){state.logoData=candidate.imagen;state.logoRemove=false;showLogo(candidate.imagen);setLogoModo("imagen");brandStatus.textContent="Logo seleccionado. Revisá antes de guardar.";});
@@ -305,7 +331,7 @@
         api("POST","/api/ia",{tarea:"manual_marca",archivo:reader.result}).then(function(result){
           if(run!==brandRun || !dialog.open)return;
           state.manualData=reader.result;state.manualName=file.name.slice(0,150);
-          renderBrandSuggestions(result);brandStatus.textContent="Análisis listo. Confirmá las sugerencias que quieras aplicar.";
+          renderBrandSuggestions(result);brandStatus.textContent=applyBrandSuggestions(result,file);
         }).catch(function(err){if(run===brandRun)brandStatus.textContent=err.message;}).finally(function(){if(run===brandRun)brandAnalyze.disabled=false;});
       };reader.readAsDataURL(file);
     });
