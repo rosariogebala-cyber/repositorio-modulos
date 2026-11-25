@@ -1201,7 +1201,7 @@
     var tint = "#" + accent.slice(1).match(/../g).map(function (part) {
       return Math.round(255 * 0.91 + parseInt(part, 16) * 0.09).toString(16);
     }).join("");
-    if (client && client.marca && normalizeHex(client.marca.secundario || client.color_secundario)) tint = normalizeHex(client.color_secundario) || tint;
+    if (client && normalizeHex(client.color_secundario)) tint = normalizeHex(client.color_secundario) || tint;
     var tinted = choice.tint || "par";
     var content = choice.sections.map(function (section, index) {
       var item = templateModule(section, ctx);
@@ -1263,8 +1263,8 @@
 
 
   function inheritClientBrand(client, fallback) {
-    if (!client || !client.marca || !Object.keys(client.marca).length) return fallback;
-    var brand = client.marca;
+    if (!client) return fallback;
+    var brand = client.marca || {};
     var primary = normalizeHex(client.color_primario) || fallback.marca || fallback.acento;
     var background = normalizeHex(brand.fondo) || "#ffffff";
     var mood = contrastRatio("#ffffff", background) >= 7 ? "oscuro" : "claro";
@@ -1697,6 +1697,7 @@
     var categorySelect = dialog.querySelector("[data-template-category]");
     var choiceSelect = dialog.querySelector("[data-template-choice]");
     var deviceSelect = dialog.querySelector("[data-template-device]");
+    var brandClientSelect = dialog.querySelector("[data-template-client]");
     var preview = dialog.querySelector("[data-template-preview]");
     var modules = dialog.querySelector("[data-template-modules]");
     var use = dialog.querySelector("[data-template-use]");
@@ -1704,19 +1705,24 @@
     var items;
     var style;
     var choice;
+    brandClientSelect.replaceChildren(new Option("Elegí un cliente", ""));
+    clients.forEach(function(c){brandClientSelect.add(new Option(c.nombre,String(c.id)));});
+    brandClientSelect.value=state.clienteId ? String(state.clienteId) : "";
+    function selectedTemplateClient(){return clients.find(function(c){return String(c.id)===brandClientSelect.value;}) || null;}
+    brandClientSelect.onchange=function(){renderTemplatePreview();};
 
     function renderTemplatePreview() {
       choice = categoryTemplates(category)[Number(choiceSelect.value)];
-      var client = currentClient();
+      var client = selectedTemplateClient();
       items = categoryTemplateItems(choice, client);
       style = templateStyle(choice);
-      use.disabled = !items;
+      use.disabled = !items || !client;
       if (!items) {
         preview.srcdoc = "";
         modules.textContent = "El catálogo todavía está cargando.";
         return;
       }
-      modules.textContent = items.map(function (item) { return byId[item.id].group; }).join(" · ");
+      modules.textContent = (client ? "Marca: " + client.nombre + ". " + brandFontNotice(client) + " · " : "Elegí un cliente para aplicar su identidad. ") + items.map(function (item) { return byId[item.id].group; }).join(" · ");
       var current = state;
       var markup;
       try {
@@ -1734,7 +1740,7 @@
         var found = window.LanzateReglas.contrast(doc.body, preview.contentWindow);
         if (found.length) modules.textContent += " · " + found[0].text + " " + found[0].detail;
       };
-      preview.srcdoc = markup;
+      if (preview.srcdoc !== markup) preview.srcdoc = markup;
     }
 
     function renderChoices(selectedIndex) {
@@ -1759,9 +1765,14 @@
     updateDevice();
     dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
     use.onclick = function () {
-      if (!items) return;
+      var client = selectedTemplateClient();
+      if (!items || !client) return;
       if ((state.items.length || (state.landingId && !templateStart.hidden)) && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
-      if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
+      if (state.landingId && !templateStart.hidden) startNew(client.id);
+      if (state.landingId && state.clienteId !== client.id) { say("No se puede cambiar el cliente de una landing existente desde la plantilla.","warn"); return; }
+      state.clienteId = client.id;
+      if (!state.landingId) state.planId = client.plan || state.planId || "";
+      renderClients();
       state.items = items;
       state.ignorados = [];
       state.colores = inheritClientBrand(currentClient(), suggestedStyleColors(style, choice.font));
@@ -2190,16 +2201,23 @@
   function fitPreview() {
     var width = clientMode() ? 1280 : device;
     var avail = viewport.clientWidth - 32;
+    if (avail <= 0) return;
     var scale = Math.min(1, avail / width);
     deviceFrame.style.width = width + "px";
     deviceFrame.style.transform = "scale(" + scale + ")";
     var doc = frameDoc();
     if (doc) doc.documentElement.style.setProperty("--lb-ui-scale", (1 / scale).toFixed(3));
-    deviceFrame.style.marginLeft = Math.max(0, (avail - device * scale) / 2) + "px";
+    deviceFrame.style.marginLeft = Math.max(0, (avail - width * scale) / 2) + "px";
     var h = frame.offsetHeight;
-    viewport.style.height = state.items.length ? (h * scale + 32) + "px" : "";
+    var height = state.items.length ? Math.ceil(h * scale + 32) + "px" : "";
+    if (viewport.style.height !== height) viewport.style.height = height;
   }
 
+  var frameResizeObserver = null, frameHeightRaf = 0;
+  function queueFrameHeight() {
+    if (frameHeightRaf) return;
+    frameHeightRaf = requestAnimationFrame(function(){frameHeightRaf=0;syncFrameHeight();});
+  }
   function syncFrameHeight() {
     try {
       var doc = frame.contentDocument;
@@ -2217,7 +2235,8 @@
     syncFrameHeight();
     try {
       var win = frame.contentWindow;
-      if (win.ResizeObserver) new win.ResizeObserver(syncFrameHeight).observe(frame.contentDocument.body);
+      if (frameResizeObserver) frameResizeObserver.disconnect();
+      if (win.ResizeObserver) { frameResizeObserver = new win.ResizeObserver(queueFrameHeight); frameResizeObserver.observe(frame.contentDocument.body); }
     } catch (e) { /* noop */ }
     setupEditing();
     scheduleQa(300);
@@ -4119,11 +4138,13 @@
       placeholder.hidden = has;
       deviceFrame.hidden = !has;
       if (!has) { viewport.style.height = ""; scheduleQa(0); return; }
-      frame.srcdoc = buildDocument({ base: baseUrl(), preview: true, tools: true });
+      var markup = buildDocument({ base: baseUrl(), preview: true, tools: true });
+      if (frame.srcdoc !== markup) frame.srcdoc = markup;
       if (clientMode() && changeFrame) {
         changePane.hidden = false;
         split.hidden = false;
-        changeFrame.srcdoc = buildDocument({ base: baseUrl(), preview: true, marks: true });
+        var changes = buildDocument({ base: baseUrl(), preview: true, marks: true });
+        if (changeFrame.srcdoc !== changes) changeFrame.srcdoc = changes;
       }
       fitPreview();
     }, 220);
@@ -4363,7 +4384,7 @@
   }
 
   function currentClient() {
-    return clients.find(function (c) { return c.id === state.clienteId; }) || null;
+    return clients.find(function (c) { return state.clienteId != null && String(c.id) === String(state.clienteId); }) || null;
   }
   function countPlanSections(items) {
     return (items || []).filter(function (it) {
