@@ -967,8 +967,7 @@ def portal_home(client):
         "logo": logo_ref(client), "colores": [client.get("color_primario"), client.get("color_secundario")],
         "contacto": {k: client.get(k) or "" for k in ("contacto", "email", "telefono", "direccion", "horario", "sitio",
                                                      "instagram", "facebook", "linkedin")},
-        "medicion": {"incluida": bool(tracking), "ga4": client.get("ga4") or "", "gtm": client.get("gtm") or "",
-                     "meta_pixel": bool(client.get("meta_pixel"))},
+        "medicion": {"incluida": True, "ga4": "", "gtm": "", "meta_pixel": False},
         "plan": status, "plan_vence": client.get("plan_vence") or "",
         "plan_detalle": {k: plan.get(k) for k in ("nombre", "para", "mensual", "incluye", "secciones", "cambiosPorMes",
                                                   "enviosIlimitados", "cambiosAsistidos", "turnos", "medicion")} if plan else None,
@@ -976,7 +975,7 @@ def portal_home(client):
                       "editor": "/portal/%s/editar/?l=%s" % (client["slug"], quote(l["slug"])),
                       "portada": (origin + l["portada"]) if l.get("portada") else "",
                       "actualizado": l["actualizado"],
-                      "plan": plan_status(client, l)} for l in sorted(landings, key=lambda l: -l["actualizado"])],
+                      "plan": plan_status(client, l), "medicion": advanced_tracking(l, client)} for l in sorted(landings, key=lambda l: -l["actualizado"])],
         "pedidos": requests,
         "estadisticas": client_stats(client),
         "consultas": client_leads(client["id"])[:200] if RECORD.available() else [],
@@ -1249,7 +1248,7 @@ def site_plans():
         # "Adicional" significa cotizable, NO incluido en el plan.
         item["turnos"] = features.get("Gestión de turnos a medida") is True
         # La web ofrece analítica básica en Express/Negocio y ampliada en Pro.
-        item["medicion"] = features.get("Analítica") not in (None, False, "No")
+        item["medicion"] = item.get("id") == "pro"
         out.append(item)
     return {"planes": out, "whatsapp": site.get("whatsapp") or "", "email": site.get("email") or ""}
 
@@ -1397,9 +1396,9 @@ def trim_requests(requests, keep=80):
 
 
 def content_sections(items):
-    """Secciones que cuenta el plan: todo menos la navegación, el footer y el botón de WhatsApp."""
+    """Secciones que cuenta el plan: todo menos navegación, footer, WhatsApp y ubicación."""
     groups = [str(it.get("id") or "").rsplit("-", 1)[0] for it in items if isinstance(it, dict)]
-    return [g for g in groups if g not in ("navegacion", "footer", "whatsapp")]
+    return [g for g in groups if g not in ("navegacion", "footer", "whatsapp", "donde-nos-encontramos")]
 
 
 def plan_errors(client, items, existing_items=None, landing=None):
@@ -1866,7 +1865,7 @@ def clean_client(data, previous=None):
     if values["estado"] not in ESTADOS:
         values["estado"] = "activo"
     for field, (pattern, hint) in TRACKING.items():
-        value = re.sub(r"\s+", "", values[field]).upper()
+        value = str(previous.get(field) or "")
         if value and not pattern.match(value):
             raise ApiError(400, "Revisá la medición: " + hint)
         values[field] = value
@@ -2044,6 +2043,37 @@ def delete_client(client_id):
 
 # --- Landings ----------------------------------------------------------------
 
+def advanced_tracking(row, client):
+    """Solo Pro; los códigos históricos requieren asignación explícita por landing."""
+    plan = landing_plan(row, client)
+    enabled = bool(plan and plan.get("id") == "pro")
+    saved = row.get("medicion") or {}
+    return {"incluida": enabled, **{key: (saved.get(key) or "") if enabled else "" for key in TRACKING}}
+
+
+def update_landing_tracking(landing_id, data):
+    if not isinstance(data, dict) or set(data) != set(TRACKING):
+        raise ApiError(400, "Configuración de medición inválida")
+    values = {}
+    for key, (pattern, hint) in TRACKING.items():
+        value = re.sub(r"\s+", "", str(data.get(key) or "")).upper()
+        if value and not pattern.fullmatch(value):
+            raise ApiError(400, "Revisá la medición: " + hint)
+        values[key] = value
+    if values["ga4"] and values["gtm"]:
+        raise ApiError(400, "Elegí GA4 directo o Tag Manager para evitar duplicar mediciones.")
+    with store("clientes", "landings") as db:
+        row = find_landing(db, landing_id)
+        client = find_client(db, row["cliente_id"])
+        if not advanced_tracking(row, client)["incluida"]:
+            raise ApiError(403, "La medición avanzada está incluida únicamente en Pro.")
+        row["medicion"] = values
+        row["actualizado"] = max(now_ms(), row["actualizado"] + 1)
+    if row.get("html"):
+        render_landing(row, client)
+    return landing_dict(row, client)
+
+
 def landing_dict(row, client, summary=False):
     url = "/l/%s/%s/" % (client["slug"], row["slug"])
     data = {
@@ -2072,6 +2102,7 @@ def landing_dict(row, client, summary=False):
     data["plan_id"] = row.get("plan_id") or client.get("plan") or ""
     data["plan_nombre"] = plan.get("nombre") if plan else ""
     data["plan_individual"] = bool(row.get("plan_id"))
+    data["medicion"] = advanced_tracking(row, client)
     data["secciones_contenido"] = len(content_sections(row.get("items") or []))
     data["secciones_incluidas"] = (plan.get("secciones") or 0) if plan else 0
     data["secciones_adicionales"] = max(0, data["secciones_contenido"] - data["secciones_incluidas"]) if plan else 0
@@ -2437,12 +2468,12 @@ def landing_page(row, client):
     origin = read_config()["urlPublica"]
     path = "/l/%s/%s/" % (client["slug"], row["slug"])
     plan = landing_plan(row, client)
-    tracking = not plan or plan.get("medicion")
+    tracking = advanced_tracking(row, client)
     meta = dict(row, cliente=client["nombre"], cliente_id=client["id"], cliente_actualizado=client.get("actualizado") or 0,
                 logo=client.get("logo"), direccion=client.get("direccion") or "", telefono=client.get("telefono") or "",
                 email=client.get("email") or "", tipo_cliente=client.get("tipo_cliente"),
-                ga4=(client.get("ga4") or "") if tracking else "", gtm=(client.get("gtm") or "") if tracking else "",
-                meta_pixel=(client.get("meta_pixel") or "") if tracking else "",
+                ga4=tracking["ga4"], gtm=tracking["gtm"],
+                meta_pixel=tracking["meta_pixel"],
                 slug_cliente=client["slug"], titulo=seo_title(row, client),
                 redes=[client.get(k) or "" for k in ("instagram", "facebook", "linkedin", "sitio")],
                 rubro=client.get("rubro") or "")
@@ -4252,6 +4283,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 data = self.read_json()
+                if set(data) == {"medicion"}:
+                    return update_landing_tracking(ident, data["medicion"])
                 if set(data) == {"ejemplo"}:
                     return set_landing_example(ident, data["ejemplo"])
                 import sys
