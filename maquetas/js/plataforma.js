@@ -1120,6 +1120,11 @@
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
       count.textContent = plural(shown.length, "landing", "landings");
       newLanding.hidden = demoMode && !cid;
+      if (demoMode) {
+        newLanding.textContent = "Editar nueva demo";
+        select.setAttribute("aria-label", "Elegir perfil de demostración");
+        if (!cid) empty.textContent = shown.length ? "" : "Elegí un perfil demo para empezar. Los perfiles reales no están disponibles en esta vista.";
+      }
       newLanding.href = "constructor.html" + (cid ? "?cliente=" + cid : "");
     }
 
@@ -1129,7 +1134,7 @@
         if (demoMode) res[0] = res[0].filter(function (c) { return demoIds.has(c.id); });
         var current = select.value || preset;
         preset = "";
-        select.innerHTML = '<option value="">Todos los clientes</option>' + res[0].map(function (c) {
+        select.innerHTML = '<option value="">' + (demoMode ? "Todos los perfiles demo" : "Todos los clientes") + '</option>' + res[0].map(function (c) {
           return '<option value="' + c.id + '">' + esc(c.nombre) + " (" + c.landings + ")</option>";
         }).join("");
         select.value = res[0].some(function (c) { return String(c.id) === current; }) ? current : "";
