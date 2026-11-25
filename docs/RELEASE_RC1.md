@@ -73,3 +73,8 @@ La fixture API establece VERCEL=1 y emite cookies Secure, pero la matriz de nave
 - API verifica publicación controlada, límites, privacidad, CSP, credenciales hash-only y sitemap en fixture. No equivale a validación de pagos reales, aislamiento integral entre clientes ni E2E de ficha 360.
 - RC1 acumulada contiene PR #42/#44/#45/#46; comparación con main: 123 commits ahead, 0 behind antes de este cambio documental. Sin merge a main.
 - Pendientes bloqueantes: aislamiento Preview, respaldo/restauración y procedimiento de migración real, contratación/pagos, permisos y ficha 360 E2E, revisión manual de 34 registros axe, rendimiento y SEO desplegado. NO-GO producción. No se accedió a entorno local ni se modificaron datos reales. Esta revisión no ejecutó nuevos tests; evidencia corresponde al SHA indicado.
+
+### Auditoría estática SEO y rendimiento — 25/11/2026
+- Web comercial main: canonical, descripción, OG, viewport, preconnect de fuentes presentes. No se ejecutó Lighthouse en esta revisión.
+- Portal y editor: meta robots noindex/nofollow presente. Se agregó X-Robots-Tag a rutas /portal/ y /maquetas/ en configuración Vercel. Verificación HTTP y CI pendientes.
+- Armador compartido: genera title y viewport; revisar metadatos finales en publicación del servidor antes de modificar el armador. No se midieron LCP, CLS, INP ni Lighthouse. NO-GO permanece; sin datos reales ni cambios locales.
