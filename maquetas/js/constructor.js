@@ -1134,7 +1134,7 @@
       .concat(choice.sections.map(function (section) { return section.m; }), "footer-" + choice.footer);
   }
 
-  function categoryTemplateItems(choice) {
+  function categoryTemplateItems(choice, client) {
     var ids = templateIds(choice);
     if (ids.some(function (id) { return !byId[id]; })) return null;
     var anchor = function (id) { return "#" + slugify(byId[id].group); };
@@ -1197,10 +1197,11 @@
       el.replaceChildren(text.slice(0, at), brand, text.slice(at + "Marca Ejemplo".length));
     });
 
-    var accent = templateStyle(choice).accent;
+    var accent = normalizeHex(client && client.color_primario) || templateStyle(choice).accent;
     var tint = "#" + accent.slice(1).match(/../g).map(function (part) {
       return Math.round(255 * 0.91 + parseInt(part, 16) * 0.09).toString(16);
     }).join("");
+    if (client && client.marca && normalizeHex(client.marca.secundario || client.color_secundario)) tint = normalizeHex(client.color_secundario) || tint;
     var tinted = choice.tint || "par";
     var content = choice.sections.map(function (section, index) {
       var item = templateModule(section, ctx);
@@ -1260,6 +1261,33 @@
     };
   }
 
+
+  function inheritClientBrand(client, fallback) {
+    if (!client || !client.marca || !Object.keys(client.marca).length) return fallback;
+    var brand = client.marca;
+    var primary = normalizeHex(client.color_primario) || fallback.marca || fallback.acento;
+    var background = normalizeHex(brand.fondo) || "#ffffff";
+    var mood = contrastRatio("#ffffff", background) >= 7 ? "oscuro" : "claro";
+    var colors = deriveColors(primary, mood);
+    var accent = normalizeHex(brand.acento) || primary;
+    colors.acento = reachContrast(accent, "#ffffff", 4.6);
+    colors.titulos = reachContrast(primary, background, 7);
+    colors.parrafos = reachContrast(mix(primary, mood === "oscuro" ? "#ffffff" : "#444444", 0.35), background, 7);
+    colors.etiquetas = reachContrast(primary, background, 5.5);
+    colors.iconos = reachContrast(accent, background, 4.5);
+    colors.tipografia = fallback.tipografia || "moderna";
+    if (normalizeHex(brand.fondo)) colors.fondoMarca = background;
+    if (normalizeHex(client.color_secundario)) colors.secundarioMarca = normalizeHex(client.color_secundario);
+    if (A.brandFont(brand.tipografia_titulos)) colors.fuenteTitulos = brand.tipografia_titulos;
+    if (A.brandFont(brand.tipografia_textos)) colors.fuenteTextos = brand.tipografia_textos;
+    return colors;
+  }
+
+  function brandFontNotice(client) {
+    var brand = client && client.marca || {};
+    var missing = [brand.tipografia_titulos,brand.tipografia_textos].filter(function(font){return font && !A.brandFont(font);});
+    return missing.length ? " Fuentes sin instalar: " + Array.from(new Set(missing)).join(", ") + ". Se usa una alternativa de la plantilla hasta incorporar los archivos autorizados." : "";
+  }
 
   var templateStart = document.querySelector("[data-template-start]");
   var landingEditor = document.querySelector("[data-landing-editor]");
@@ -1604,7 +1632,7 @@
           sections: sections,
           highlights: []
         });
-        var items = categoryTemplateItems(choice);
+        var items = categoryTemplateItems(choice, client);
         if (!items) throw new Error("La plantilla elegida tiene módulos que no están en la biblioteca.");
         var includedCount = countPlanSections(items);
         if (includedCount > included) {
@@ -1630,7 +1658,7 @@
         colors.titulos = analysis.colores.titulo;
         colors.parrafos = analysis.colores.texto;
         colors.tipografia = analysis.tipografia;
-        state.colores = colors;
+        state.colores = inheritClientBrand(client, colors);
         savedSnapshot = null;
         nameInput.value = state.name;
         renderClients();
@@ -1679,7 +1707,8 @@
 
     function renderTemplatePreview() {
       choice = categoryTemplates(category)[Number(choiceSelect.value)];
-      items = categoryTemplateItems(choice);
+      var client = currentClient();
+      items = categoryTemplateItems(choice, client);
       style = templateStyle(choice);
       use.disabled = !items;
       if (!items) {
@@ -1692,8 +1721,8 @@
       var markup;
       try {
         state = {
-          name: choice.name, clienteId: null, items: items, estilo: "",
-          colores: suggestedStyleColors(style, choice.font)
+          name: client ? client.nombre : choice.name, clienteId: client ? client.id : null, items: items, estilo: "",
+          colores: inheritClientBrand(client, suggestedStyleColors(style, choice.font))
         };
         markup = buildDocument({ base: baseUrl(), staticPreview: true });
       } finally {
@@ -1735,12 +1764,12 @@
       if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
       state.items = items;
       state.ignorados = [];
-      state.colores = suggestedStyleColors(style, choice.font);
+      state.colores = inheritClientBrand(currentClient(), suggestedStyleColors(style, choice.font));
       update();
       showTab("order");
       dialog.close();
       if (landingEditor.hidden) showLandingEditor(true);
-      say("Plantilla aplicada. Personalizá los textos, las fotos y los datos antes de guardar.", "ok");
+      say("Plantilla aplicada." + (currentClient() && currentClient().marca ? " Identidad de marca incorporada." : "") + " Personalizá los textos, las fotos y los datos antes de guardar." + brandFontNotice(currentClient()), "ok");
     };
     renderChoices(initialChoice == null ? 0 : initialChoice);
     dialog.showModal();
@@ -1774,6 +1803,8 @@
     var current = state.colores || {};
     var next = deriveColors(marca || current.marca || (currentClient() || {}).color_primario || current.acento, ambiente || current.ambiente || "claro");
     if (current.tipografia) next.tipografia = current.tipografia;
+    if (current.fuenteTitulos) next.fuenteTitulos = current.fuenteTitulos;
+    if (current.fuenteTextos) next.fuenteTextos = current.fuenteTextos;
     if (current.ritmo) next.ritmo = current.ritmo;
     if (current.corte) next.corte = current.corte;
     rememberPalette();
@@ -4823,7 +4854,10 @@
 
   clientSelect.addEventListener("change", function () {
     state.clienteId = clientSelect.value ? Number(clientSelect.value) : null;
-    if (!state.landingId) state.planId = (currentClient() || {}).plan || "";
+    if (!state.landingId) {
+      state.planId = (currentClient() || {}).plan || "";
+      if (!state.items.length) state.colores = inheritClientBrand(currentClient(), deriveColors((currentClient() || {}).color_primario, "claro"));
+    }
     landingPlanSelect.value = state.planId;
     renderMode();
     renderPreview();
@@ -5184,6 +5218,7 @@
   var typographySelect = document.querySelector("[data-lb-typography]");
   if (typographySelect) typographySelect.addEventListener("change", function () {
     var next = Object.assign({}, state.colores);
+    delete next.fuenteTitulos; delete next.fuenteTextos;
     if (Object.hasOwn(LANDING_FONTS, typographySelect.value)) next.tipografia = typographySelect.value;
     else delete next.tipografia;
     state.colores = Object.keys(next).length ? next : null;
