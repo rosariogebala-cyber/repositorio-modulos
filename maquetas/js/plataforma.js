@@ -283,7 +283,7 @@
       });
       brandHeading("Imágenes candidatas · confirmar logo");
       (result.candidatos || []).forEach(function (candidate, i) {
-        if (!/^data:image\\/png;base64,[A-Za-z0-9+/=]+$/.test(candidate.imagen)) return;
+        if (typeof candidate.imagen !== "string" || !candidate.imagen.startsWith("data:image/png;base64,") || !/^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice(22))) return;
         var row = document.createElement("div"); row.className="pf-brand-choice";
         var img=document.createElement("img");img.src=candidate.imagen;img.alt="Imagen candidata "+(i+1);img.className="pf-brand-candidate";row.appendChild(img);
         appendChoice(row,"Usar imagen "+(i+1)+" como logo",function(){state.logoData=candidate.imagen;state.logoRemove=false;showLogo(candidate.imagen);setLogoModo("imagen");brandStatus.textContent="Logo seleccionado. Revisá antes de guardar.";});
