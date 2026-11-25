@@ -409,7 +409,7 @@
     });
 
     return {
-      open: function (client) {
+      open: function (client, focusBrand) {
         state.client = client || null;
         state.logoData = "";
         state.logoRemove = false;
@@ -434,15 +434,16 @@
         dialog.querySelector("[data-pf-delete]").hidden = !client;
         say(msg, "");
         dialog.showModal();
-        f.elements.nombre.focus();
+        if (focusBrand) { manualInput.focus(); manualInput.scrollIntoView({block:"center"}); }
+        else f.elements.nombre.focus();
         return new Promise(function (resolve) { state.resolve = resolve; });
       }
     };
   }
 
-  function clientForm(client) {
+  function clientForm(client, focusBrand) {
     if (!form) form = buildForm();
-    return form.open(client);
+    return form.open(client, focusBrand);
   }
 
   /* Fila de landing con acciones */
@@ -1059,7 +1060,7 @@
           "</section>" +
 
           '<section class="cf-card" aria-labelledby="cf-marca">' +
-            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-palette" aria-hidden="true"></i></span><div><h2 id="cf-marca">Marca y medición</h2></div></div>' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-palette" aria-hidden="true"></i></span><div><h2 id="cf-marca">Identidad de marca</h2></div></div>' +
             '<div class="cf-swatches">' +
               '<span class="cf-swatch"><i style="background:' + esc(c.color_primario) + '"></i><small>Principal</small><code>' + esc(c.color_primario) + "</code></span>" +
               '<span class="cf-swatch"><i style="background:' + esc(c.color_secundario) + '"></i><small>Secundario</small><code>' + esc(c.color_secundario) + "</code></span>" +
@@ -1073,6 +1074,7 @@
               row("graph-up", "Medición", "Configuración individual desde cada landing") +
               row("folder2", "Carpeta", "<code>" + esc(c.carpeta) + "</code>") +
             "</dl>" +
+            '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit-brand><i class="bi bi-upload" aria-hidden="true"></i> ' + ((c.marca || {}).manual_nombre ? "Reemplazar manual de marca" : "Subir manual de marca") + "</button>" +
           "</section>" +
 
           (c.notas ? '<section class="cf-card cf-notes" aria-labelledby="cf-notas"><h2 id="cf-notas"><i class="bi bi-sticky" aria-hidden="true"></i> Notas internas</h2><p>' + esc(c.notas) + "</p></section>" : "") +
@@ -1181,14 +1183,16 @@
         history.replaceState(null, "", location.pathname + location.search);
         if (target) target.scrollIntoView({ block: "start" });
       }
-      profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
-        clientForm(c).then(function (saved) {
+      function editClient(focusBrand) {
+        clientForm(c, focusBrand).then(function (saved) {
           if (!saved) return;
           if (saved.deleted) { location.href = "clientes.html"; return; }
           say(msg, "Se guardaron los cambios.", "ok");
           load();
         });
-      });
+      }
+      profile.querySelector("[data-pf-edit]").addEventListener("click", function () { editClient(false); });
+      profile.querySelector("[data-pf-edit-brand]").addEventListener("click", function () { editClient(true); });
       c.lista.forEach(function (lp) {
         var slot = profile.querySelector('[data-site="' + lp.slug + '"] [data-site-row]');
         if (slot) slot.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
