@@ -2335,7 +2335,11 @@ def save_landing(data, landing_id=None, origen="constructor"):
                   "portada": cover_of(html), "actualizado": stamp, "origen": origen,
                   "plan_id": plan_id, "plan_condiciones": plan_snapshot,
                   "borrador_estado": "sin_borrador", "borrador_modulos": 0}
-        if "ejemplo" in data:
+        if data.get("ejemplo") and client_type(client) != "demo":
+            raise ApiError(400, "Solo las demos pueden mostrarse en la galería comercial.")
+        if client_type(client) != "demo":
+            values["ejemplo"] = False
+        elif "ejemplo" in data:
             values["ejemplo"] = bool(data.get("ejemplo"))
         previous_path = None
         if current:
@@ -2359,8 +2363,10 @@ def save_landing(data, landing_id=None, origen="constructor"):
 def set_landing_example(landing_id, value):
     with store("clientes", "landings") as db:
         row = find_landing(db, landing_id)
-        row["ejemplo"] = bool(value)
         client = find_client(db, row["cliente_id"])
+        if value and (client_type(client) != "demo" or not row.get("html")):
+            raise ApiError(400, "Solo las demos publicadas pueden mostrarse en la galería comercial.")
+        row["ejemplo"] = bool(value)
     write_site_files()
     return landing_dict(row, client)
 
@@ -2542,7 +2548,7 @@ def public_examples(db, origin):
     out = []
     for row in sorted(db["landings"], key=lambda l: l["creado"]):
         client = clients.get(row["cliente_id"])
-        if not client or not row.get("ejemplo") or not row.get("html"):
+        if not client or client_type(client) != "demo" or not row.get("ejemplo") or not row.get("html"):
             continue
         out.append({
             "nombre": client["nombre"],
