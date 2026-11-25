@@ -78,3 +78,8 @@ La fixture API establece VERCEL=1 y emite cookies Secure, pero la matriz de nave
 - Web comercial main: canonical, descripción, OG, viewport, preconnect de fuentes presentes. No se ejecutó Lighthouse en esta revisión.
 - Portal y editor: meta robots noindex/nofollow presente. Se agregó X-Robots-Tag a rutas /portal/ y /maquetas/ en configuración Vercel. Verificación HTTP y CI pendientes.
 - Armador compartido: genera title y viewport; revisar metadatos finales en publicación del servidor antes de modificar el armador. No se midieron LCP, CLS, INP ni Lighthouse. NO-GO permanece; sin datos reales ni cambios locales.
+
+### Regresión de publicación — 25/11/2026
+- SHA ab6aa6da76b9eae31491989ede111b9398302c13: [Calidad de landings y API](https://github.com/rosariogebala-cyber/repositorio-modulos/actions/runs/45590594526) y [Browser RC checks](https://github.com/rosariogebala-cyber/repositorio-modulos/actions/runs/45590594299) completados con success. La suite incorpora casos de rechazo de estructura inválida y conservación del registro previo. No se revisaron logs individuales en esta revisión.
+- Vercel Preview del mismo SHA figura READY según revisión anterior; no equivale a validación de aislamiento ni prueba funcional desplegada.
+- NO-GO: siguen abiertos los bloqueos de aislamiento, restauración, pagos, accesibilidad manual, SEO y rendimiento. Sin merge ni publicación a producción; entorno local no accesible.
