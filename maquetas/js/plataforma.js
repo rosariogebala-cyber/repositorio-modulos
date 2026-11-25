@@ -382,6 +382,7 @@
       var stageText = { borrador: "Borrador pendiente", revision: "En revisión", aprobado: "Aprobado, sin publicar" };
       meta.push('<span class="lb-badge">' + esc(stageText[lp.borrador_estado] || "Borrador") + "</span>");
     }
+    if (opts.demoMode) meta.push("Orden: " + (lp.ejemplo_orden == null ? 9999 : lp.ejemplo_orden));
     if (lp.ejemplo) meta.push('<span class="lb-badge" title="Se muestra en Proyectos del sitio de venta">Ejemplo en el sitio</span>');
     var icon = function (tag, attrs, ico, label, extra) {
       return "<" + tag + ' class="lb-act lb-act-icon' + (extra || "") + '" ' + attrs + ' title="' + label + '" aria-label="' + label + " " + esc(lp.nombre) + '">' +
@@ -403,6 +404,7 @@
         ? icon("button", 'type="button" data-act="edit"', "bi-pencil", "Editar")
         : icon("a", 'href="constructor.html?landing=' + lp.id + '"', "bi-pencil", "Editar")) +
       icon("button", 'type="button" data-act="example" aria-pressed="' + (lp.ejemplo ? "true" : "false") + '"', lp.ejemplo ? "bi-star-fill" : "bi-star", lp.ejemplo ? "Sacar de los ejemplos del sitio" : "Mostrar como ejemplo en el sitio") +
+      (opts.demoMode ? icon("button", 'type="button" data-act="order"', "bi-sort-numeric-down", "Cambiar orden de galería") : "") +
       icon("button", 'type="button" data-act="editor"', "bi-chat-square-text", "Copiar link de pedido de cambios (portal del cliente)") +
       icon("button", 'type="button" data-act="versions"', "bi-clock-history", "Versiones anteriores") +
       icon("button", 'type="button" data-act="duplicate"', "bi-copy", "Duplicar") +
@@ -425,6 +427,16 @@
         btn.disabled = true;
         api("PUT", "/api/landings/" + lp.id, { ejemplo: !lp.ejemplo }).then(function (saved) {
           report(saved.ejemplo ? "«" + lp.nombre + "» se muestra como ejemplo en el sitio. Publicá para que se vea online." : "«" + lp.nombre + "» ya no se muestra en el sitio.", "ok");
+          if (opts.onChange) opts.onChange();
+        }).catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
+      }
+      if (act === "order") {
+        var raw = window.prompt("Orden de aparición (0 a 9999; menor primero):", String(lp.ejemplo_orden == null ? 9999 : lp.ejemplo_orden));
+        if (raw === null) return;
+        if (!/^\\d{1,4}$/.test(raw.trim())) { report("Ingresá un entero entre 0 y 9999.", "warn"); return; }
+        btn.disabled = true;
+        api("PUT", "/api/landings/" + lp.id, { ejemplo: !!lp.ejemplo, ejemplo_orden: Number(raw) }).then(function () {
+          report("Orden guardado. Publicá para actualizar la galería online.", "ok");
           if (opts.onChange) opts.onChange();
         }).catch(function (err) { btn.disabled = false; report(err.message, "warn"); });
       }
@@ -1112,9 +1124,10 @@
       var shown = landings.filter(function (lp) {
         return (!demoMode || demoIds.has(lp.cliente_id)) && (!cid || String(lp.cliente_id) === cid) && (!q || normalize(lp.nombre + " " + lp.cliente).indexOf(q) !== -1);
       });
+      if (demoMode) shown.sort(function (a, b) { return (a.ejemplo_orden == null ? 9999 : a.ejemplo_orden) - (b.ejemplo_orden == null ? 9999 : b.ejemplo_orden) || a.id - b.id; });
       list.innerHTML = "";
       shown.forEach(function (lp) {
-        list.appendChild(landingRow(lp, { showClient: true, onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
+        list.appendChild(landingRow(lp, { demoMode: demoMode, showClient: true, onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));
       });
       empty.hidden = shown.length > 0;
       empty.textContent = landings.length ? "No hay landings con ese filtro." : "Todavía no creaste landings. Empezá desde la ficha de un cliente o con «Nueva landing».";
