@@ -73,7 +73,9 @@ try:
     tls.load_cert_chain(cert, key)
     proxy.socket = tls.wrap_socket(proxy.socket, server_side=True)
     threading.Thread(target=proxy.serve_forever, daemon=True).start()
-    env = dict(os.environ, QA_PORTAL_USER="browser-qa", QA_PORTAL_PASSWORD=access["clave_nueva"], QA_BASE='https://127.0.0.1:%d' % proxy.server_port,
+    source = Path(fixture.tmp, "browser-draft-source.json")
+    source.write_text(json.dumps({"html": original["html"], "items": original["items"], "estilo": original.get("estilo") or ""}), encoding="utf-8")
+    env = dict(os.environ, QA_DRAFT_SOURCE=str(source), QA_PORTAL_USER="browser-qa", QA_PORTAL_PASSWORD=access["clave_nueva"], QA_BASE='https://127.0.0.1:%d' % proxy.server_port,
                QA_COOKIES=json.dumps(fixture.team.cookies),
                QA_SLUG=fixture.slug, QA_DRAFT_ID=str(draft['id']))
     # Firefox on macOS needs a writable, consistently resolved profile directory.
