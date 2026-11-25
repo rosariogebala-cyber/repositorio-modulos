@@ -53,6 +53,8 @@ try:
                 for k, v in response.getheaders():
                     if k.lower() not in {"connection", "transfer-encoding", "content-length", "server", "date"}:
                         self.send_header(k, v)
+                self.send_header("Connection", "close")
+                self.close_connection = True
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 if self.command != "HEAD":
@@ -71,7 +73,21 @@ try:
     proxy = ThreadingHTTPServer(("127.0.0.1", 0), Proxy)
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.load_cert_chain(cert, key)
-    proxy.socket = tls.wrap_socket(proxy.socket, server_side=True)
+    # Perform TLS handshakes in request threads, never on the accept loop.
+    # A speculative/stalled browser connection must not block other clients.
+    class TLSProxy(ThreadingHTTPServer):
+        daemon_threads = True
+        def process_request_thread(self, request, client_address):
+            try:
+                request.settimeout(15)
+                request = tls.wrap_socket(request, server_side=True)
+                request.settimeout(35)
+            except (OSError, ssl.SSLError):
+                request.close()
+                return
+            super().process_request_thread(request, client_address)
+    proxy.server_close()
+    proxy = TLSProxy(("127.0.0.1", 0), Proxy)
     threading.Thread(target=proxy.serve_forever, daemon=True).start()
     source = Path(fixture.tmp, "browser-draft-source.json")
     source.write_text(json.dumps({"html": original["html"], "items": original["items"], "estilo": original.get("estilo") or ""}), encoding="utf-8")
