@@ -164,7 +164,7 @@
       clients = data.clientes;
       alerts = data.alertas || [];
       renderAlerts();
-      dashboardLoaded = true;
+      status.classList.remove("gc-danger");
       var summary = data.resumen;
       kpis.replaceChildren();
       [["Clientes",summary.total],["Activos",summary.activos],["Alertas urgentes",(data.alertas_resumen || {}).urgentes || 0],
