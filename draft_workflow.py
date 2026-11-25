@@ -263,8 +263,8 @@ def qa_summary(s, landing_id):
     if extra_issue in errors:
         errors.remove(extra_issue)
         warnings.insert(0, "Secciones adicionales: necesitás confirmar su presupuesto al aprobar.")
-    if not content.get("descripcion"):
-        warnings.append("Revisá la descripción SEO.")
+    if content.get("descripcion") and not 70 <= len(str(content["descripcion"]).strip()) <= 160:
+        warnings.append("La descripción SEO puede mejorarse: procurá entre 70 y 160 caracteres.")
     html = content.get("html") or ""
     if len(html.encode("utf-8")) > 1_000_000:
         warnings.append("El documento HTML supera 1 MB; revisá imágenes incrustadas y peso de página.")
