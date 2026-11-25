@@ -18,6 +18,7 @@ Uso:
 import base64
 import datetime
 import draft_workflow
+import brand_manual
 import client_management
 import secrets
 import hashlib
@@ -1002,7 +1003,7 @@ def change_portal_password(client_id, data):
 
 def portal_data_js(client):
     """Los datos que usa el editor del cliente: solo los suyos y sin datos de acceso."""
-    safe = {k: v for k, v in client.items() if k not in ("portal", "notas")}
+    safe = {k: v for k, v in client.items() if k not in ("portal", "notas", "marca")}
     landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
     landings = [{k: l[k] for k in ("id", "cliente_id", "slug", "actualizado")}
                 | {"nombre": landing_public_name(l["nombre"], len(landings)), "html": True,
@@ -2008,6 +2009,7 @@ def create_client(data):
         values["logo"] = write_logo(values["slug"], data["logo_data"]) if data.get("logo_data") else ""
         values["plan"] = values["plan_vence"] = ""
         values["creado"] = values["actualizado"] = now_ms()
+        brand_manual.persist(sys.modules[__name__], values, data)
         db["clientes"].append(values)
     return client_dict(values, 0)
 
@@ -2022,8 +2024,11 @@ def update_client(client_id, data):
             remove_logo(row["slug"])
             values["logo"] = ""
         values["actualizado"] = now_ms()
+        brand_manual.persist(sys.modules[__name__], row, data)
         row.update(values)
-    render_client_landings(client_id)
+    # A brand change is saved to the client, not automatically republished.
+    if "marca" not in data and "manual_archivo" not in data:
+        render_client_landings(client_id)
     return get_client(client_id)
 
 
@@ -2037,6 +2042,7 @@ def delete_client(client_id):
         db["clientes"].remove(row)
     FILES.delete("modulos", "l/" + row["slug"])
     FILES.delete("datos", client_management.path(client_id))
+    FILES.delete("datos", "marca/%s" % client_id)
     FILES.delete("datos", "pedidos/" + row["slug"])  # las fotos de sus pedidos también se borran
     return row["nombre"]
 
@@ -4311,6 +4317,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return save_ia_settings(self.read_json())
             if method == "POST":
                 data = self.read_json()
+                if data.get("tarea") == "manual_marca":
+                    return brand_manual.analyze(sys.modules[__name__], data)
                 if data.get("tarea") == "identidad_referencias":
                     return ia_identidad_referencias(data)
                 if data.get("tarea") == "modulos":
