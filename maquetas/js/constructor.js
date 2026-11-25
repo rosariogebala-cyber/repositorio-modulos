@@ -2970,6 +2970,7 @@
     if (Object.keys(cur).length) it.imagenes[imgSel.key] = cur;
     else delete it.imagenes[imgSel.key];
     if (!Object.keys(it.imagenes).length) delete it.imagenes;
+    if (change.src && change.src !== (orig.src || "")) { delete cur.width; delete cur.height; }
     var data = { src: change.src, alt: change.alt };
     imgSel.el.closest("section.mq-block").querySelectorAll('[data-lb-i="' + imgSel.key + '"]').forEach(function (o) { setImage(o, data); });
     mirrorLive(imgSel.el);
@@ -4937,21 +4938,132 @@
     if (!state.landingId) return;
     window.open("/api/landings/" + state.landingId + "/borrador/vista", "_blank", "noopener,noreferrer");
   });
-  qaReviewBtn.addEventListener("click", function () {
+  function workflowQuality() {
     if (!state.landingId) return;
     workflowReport.hidden = false;
-    workflowReport.textContent = "Analizando estructura, contenido, plan y SEO…";
-    api("GET", "/api/landings/" + state.landingId + "/qa").then(function (report) {
-      var problems = (report.errores || []).map(function (error) { return "• " + error; });
-      var warnings = (report.advertencias || []).map(function (warn) { return "• " + warn; });
-      workflowReport.textContent = "Plan: " + (report.plan || "Sin definir") +
-        " · " + report.secciones + "/" + report.limite + " secciones.\\n" +
-        (problems.length ? "Correcciones necesarias:\\n" + problems.join("\\n") :
-          "Sin errores detectados por las comprobaciones automáticas.") +
-        (warnings.length ? "\\nRecomendaciones de rendimiento y SEO:\\n" + warnings.join("\\n") : "") +
-        "\\nLa revisión automática no reemplaza una auditoría manual WCAG 2.2 AA.";
-    }).catch(function (err) { workflowReport.textContent = err.message; });
-  });
+    if (isDirty()) {
+      workflowReport.textContent = "Hay cambios sin guardar. Guardá el borrador y volvé a revisar calidad.";
+      return;
+    }
+    var id = state.landingId, revision = state.borradorRevision, before = snapshot();
+    workflowReport.textContent = "Analizando el borrador guardado…";
+    qaReviewBtn.disabled = true;
+    api("GET", "/api/landings/" + id + "/qa").then(function (report) {
+      if (id !== state.landingId || revision !== state.borradorRevision || before !== snapshot() || isDirty()) {
+        workflowReport.textContent = "La landing cambió. Guardá y revisá nuevamente.";
+        return;
+      }
+      renderWorkflowQuality(report);
+    }).catch(function (err) { workflowReport.textContent = err.message; })
+      .finally(function () { renderMode(); });
+  }
+
+  function workflowButton(label, callback) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn-nx-outline btn-sm";
+    button.textContent = label;
+    button.addEventListener("click", callback);
+    return button;
+  }
+  function workflowText(parent, tag, text, css) {
+    var el = document.createElement(tag);
+    el.textContent = text;
+    if (css) el.className = css;
+    parent.appendChild(el);
+    return el;
+  }
+  function focusDescription() {
+    var box = descInput.closest("details");
+    if (box) box.open = true;
+    descInput.scrollIntoView({block:"center"});
+    descInput.focus();
+  }
+  function dimensionTargets() {
+    var doc = frameDoc();
+    if (!doc) return [];
+    return Array.from(doc.querySelectorAll("img:not([width]), img:not([height])")).filter(function (img) {
+      return img.isConnected && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 &&
+        !img.hasAttribute("srcset") && !img.closest("picture, .nx-brand") &&
+        img.hasAttribute("data-lb-i") && !!state.items[moduleIndex(img)];
+    });
+  }
+  function fixDimensions() {
+    var targets = dimensionTargets();
+    targets.forEach(function (img) {
+      var it = state.items[moduleIndex(img)], key = img.getAttribute("data-lb-i");
+      it.imagenes = it.imagenes || {};
+      it.imagenes[key] = Object.assign({}, it.imagenes[key], {width:img.naturalWidth,height:img.naturalHeight});
+    });
+    if (!targets.length) {
+      say("No hay imágenes editables con dimensiones verificadas. Revisá las imágenes restantes manualmente.", "warn");
+      return;
+    }
+    update();
+    workflowReport.textContent = "Dimensiones incorporadas en " + targets.length + " imágenes. Guardá el borrador y volvé a revisar calidad.";
+    workflowReport.appendChild(workflowButton("Guardar borrador", createLanding));
+  }
+  function locateQualityImage() {
+    var doc = frameDoc();
+    var img = doc && Array.from(doc.querySelectorAll("img")).find(function (el) {
+      return !el.hasAttribute("width") || !el.hasAttribute("height");
+    });
+    if (img) { showIssue({el:img,module:moduleIndex(img)}); }
+    else goTo("qa");
+  }
+  function renderWorkflowQuality(report) {
+    workflowReport.replaceChildren();
+    var errors = report.errores || [], warnings = report.advertencias || [];
+    workflowText(workflowReport, "h2", "Control de calidad");
+    workflowText(workflowReport, "p", errors.length ? "Hay correcciones obligatorias antes de aprobar." : "Sin errores bloqueantes detectados en el borrador guardado.", errors.length ? "lz-quality-block" : "lz-quality-ok");
+    workflowText(workflowReport, "p", "Plan " + (report.plan || "Sin definir") + " · " + report.secciones + "/" + report.limite + " secciones de contenido. " + (report.secciones > report.limite ? "Requiere aprobación de adicionales." : "Dentro del cupo."));
+    function group(title, entries, mandatory) {
+      workflowText(workflowReport, "h3", title + " (" + entries.length + ")");
+      if (!entries.length) { workflowText(workflowReport, "p", "Sin pendientes."); return; }
+      entries.forEach(function (issue) {
+        var item = document.createElement("div");
+        item.className = "lz-quality-item " + (mandatory ? "lz-quality-required" : "");
+        var seo = /descripción.*SEO/i.test(issue);
+        var dimensions = /dimensiones explícitas/i.test(issue);
+        workflowText(item, "strong", seo ? (mandatory ? "Falta la descripción para Google" : "Mejorar la descripción para Google") : dimensions ? "Reservar espacio para las imágenes" : issue);
+        workflowText(item, "p", seo ? "Completá una descripción breve con información real del negocio. Orientación: 70 a 160 caracteres." : dimensions ? "Lanzate puede calcular las dimensiones reales de las imágenes editables ya cargadas. Las restantes requieren revisión." : mandatory ? "Corregí este punto antes de continuar. El panel lateral muestra los problemas por módulo." : "Revisá este punto para mejorar la landing; no impide por sí solo publicar.");
+        if (seo) {
+          item.appendChild(workflowButton("Editar descripción", focusDescription));
+          if (mandatory) {
+            var suggest = workflowButton("Sugerir desde el contenido", function () {
+              var doc = frameDoc(), hero = doc && doc.querySelector("h1");
+              var section = hero && hero.closest("section");
+              var lead = section && Array.from(section.querySelectorAll("p")).find(function (p) { return p.textContent.trim().length >= 35; });
+              var value = [hero && hero.textContent, lead && lead.textContent].filter(Boolean).join(". ").replace(/\\s+/g," ").trim();
+              if (!value) { focusDescription(); return; }
+              var candidate = value.length > 160 ? value.slice(0,160).replace(/\\s+\\S*$/, "") : value;
+              if (!window.confirm("Revisá esta propuesta antes de usarla:\\n" + candidate + "\\n\\n¿Aplicarla al borrador?")) return;
+              state.descripcion = candidate; renderDesc(true); renderMode(); saveDraft(); focusDescription();
+              workflowText(item, "p", "Descripción aplicada. Guardá el borrador y volvé a validar.");
+              item.appendChild(workflowButton("Guardar borrador", createLanding));
+            });
+            item.appendChild(suggest);
+          }
+        } else if (dimensions) {
+          item.appendChild(workflowButton("Calcular dimensiones", fixDimensions));
+          item.appendChild(workflowButton("Ir a imagen", locateQualityImage));
+        } else if (/secciones adicionales|plan no está/i.test(issue)) {
+          item.appendChild(workflowButton("Revisar plan", function () { goTo("plan"); }));
+        } else if (/canal de contacto/i.test(issue)) {
+          item.appendChild(workflowButton("Editar cliente", function () { openClientForm("telefono"); }));
+        } else {
+          item.appendChild(workflowButton("Ver problemas por módulo", function () { goTo("qa"); }));
+        }
+        workflowReport.appendChild(item);
+      });
+    }
+    group("Correcciones obligatorias", errors, true);
+    group("Mejoras recomendadas", warnings, false);
+    workflowText(workflowReport, "p", "La comprobación automática no certifica WCAG 2.2 AA. Revisá accesibilidad, contenido y navegación manualmente antes de publicar.");
+    workflowReport.appendChild(workflowButton("Volver a validar", workflowQuality));
+    workflowReport.appendChild(workflowButton("Cerrar", function () { workflowReport.hidden = true; qaReviewBtn.focus(); }));
+  }
+  qaReviewBtn.addEventListener("click", workflowQuality);
   publishedPreviewBtn.addEventListener("click", function () {
     if (!state.landingId || !state.publicada || !state.urlPublicada) return;
     compareDialog.querySelector("[data-lb-compare-draft]").src =
