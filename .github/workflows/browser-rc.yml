@@ -1,7 +1,7 @@
 name: Browser RC checks
 on:
   pull_request:
-    branches: [feature/ficha-cliente-360-20261124]
+    branches: [feature/ficha-cliente-360-20261124, feature/planes-medicion-por-landing, qa/lanzate-v1-rc1, main]
   workflow_dispatch:
 permissions:
   contents: read
