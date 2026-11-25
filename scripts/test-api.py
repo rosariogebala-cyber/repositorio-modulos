@@ -551,6 +551,19 @@ class ApiTest(unittest.TestCase):
         self.assertIsNone(sim.repo_file("repositorio-modulos", "l/%s/%s/index.html" % (self.slug, old_slug)))
         self.assertIsNone(sim.repo_file("lanzate-datos", "versiones/%d.json" % lid))
 
+    def test_publication_rejects_invalid_structure_without_changing_saved_landing(self):
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
+        before = sim.repo_file("lanzate-datos", "data/landings.js")
+        for markup in ("<html><body><p>Sin contenido principal</p></body></html>",
+                       "<html><body><main><p>Sin encabezado</p></main></body></html>",
+                       "<html><body><main><h1>Uno</h1><h1>Dos</h1></main></body></html>"):
+            with self.subTest(markup=markup):
+                body = {"cliente_id": row["cliente_id"], "nombre": row["nombre"],
+                        "html": markup, "items": row["items"]}
+                status, out = self.team.call("PUT", "/api/landings/%d" % row["id"], body)
+                self.assertEqual(status, 400, out)
+                self.assertEqual(sim.repo_file("lanzate-datos", "data/landings.js"), before)
+
     def test_sitemap_has_dates_and_business_data_only_for_real_clients(self):
         status, client = self.team.call("POST", "/api/clientes", {
             "nombre": "Negocio Real", "tipo_cliente": "real", "telefono": "+54 11 4555-1234", "email": "hola@negocioreal.com.ar",
