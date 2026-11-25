@@ -41,6 +41,48 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
           } catch(e) { report.push({engine,width,path,failure:String(e)}); }
           finally {page.off('pageerror',onError);}
         }
+        // Restore the same fictitious draft before each browser/viewport run.
+        const qualityErrors = [];
+        const qualityError = e => qualityErrors.push(String(e));
+        page.on('pageerror', qualityError);
+        const qualityPath = '/maquetas/constructor.html?landing='+process.env.QA_DRAFT_ID;
+        try {
+          const endpoint=base.origin+'/api/landings/'+process.env.QA_DRAFT_ID;
+          const existing=await context.request.get(endpoint);
+          assert.equal(existing.status(),200);
+          const row=await existing.json();
+          const reset=await context.request.put(endpoint+'/borrador',{data:{
+            cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:row.html,
+            items:row.items,estilo:row.estilo||'',descripcion:'',base_revision:row.borrador_revision}});
+          assert.equal(reset.status(),200);
+          await page.goto(base.origin+qualityPath);
+          const review=page.locator('[data-lb-qa-review]');
+          await review.click();
+          const panel=page.locator('[data-lb-workflow-report]');
+          await panel.getByRole('heading',{name:'Control de calidad',exact:true}).waitFor();
+          assert.ok(await panel.getByText('Falta la descripción para Google',{exact:true}).isVisible());
+          assert.ok(!(await panel.innerText()).includes(String.fromCharCode(92)+'n'));
+          await page.addScriptTag({content:axe.source});
+          const results=await page.evaluate(()=>window.axe.run({runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}}));
+          const edit=panel.getByRole('button',{name:'Editar descripción',exact:true});
+          await edit.focus();
+          await page.keyboard.press('Enter');
+          const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+          assert.equal(focus.tag,'TEXTAREA');
+          const suggest=panel.getByRole('button',{name:'Sugerir desde el contenido',exact:true});
+          page.once('dialog',d=>d.accept());
+          await suggest.click();
+          assert.ok((await page.locator('[data-lb-desc]').inputValue()).trim().length>0);
+          await page.locator('[data-lb-create]').click();
+          await page.waitForFunction(()=>document.querySelector('[data-lb-create-label]').textContent==='Borrador guardado');
+          await review.click();
+          await panel.getByRole('heading',{name:'Control de calidad',exact:true}).waitFor();
+          assert.equal(await panel.getByText('Falta la descripción para Google',{exact:true}).count(),0);
+          assert.ok(await page.locator('[data-lb-publish-one]').isDisabled());
+          const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
+          report.push({engine,width,path:qualityPath,errors:qualityErrors,focus,overflow,violations:results.violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
+        } catch(e) { report.push({engine,width,path:qualityPath,failure:String(e),errors:qualityErrors}); }
+        finally {page.off('pageerror',qualityError);}
         // Do not let the team cookie mask missing portal authorization.
         await context.close();
         const portalContext = await browser.newContext({viewport:{width,height:900},ignoreHTTPSErrors:true});
@@ -116,5 +158,5 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
 }
 fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
 console.log(JSON.stringify(report,null,2));
-assert.equal(report.length,78);
+assert.equal(report.length,84);
 assert.ok(report.every(r=>!r.failure&&!r.errors.length&&r.focus.visible&&!['BODY','HTML'].includes(r.focus.tag)&&!r.overflow&&!r.violations.length),'Browser QA failed; inspect browser-rc-report.json');
