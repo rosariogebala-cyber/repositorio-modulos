@@ -61,12 +61,12 @@ for (const engine of selected) {
           const endpoint=base.origin+'/api/landings/'+process.env.QA_DRAFT_ID;
           const existing=await context.request.get(endpoint+'/borrador');
           assert.equal(existing.status(),200);
-          const draft=await existing.json();
-          const row=draft.contenido;
-          assert.ok(row && row.html && row.items?.length,'Missing private draft content');
+          const row=await existing.json();
+          const source=JSON.parse(fs.readFileSync(process.env.QA_DRAFT_SOURCE,'utf8'));
+          assert.ok(source.html && source.items?.length,'Missing original test fixture');
           const reset=await context.request.put(endpoint+'/borrador',{data:{
-            cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:row.html,
-            items:row.items,estilo:row.estilo||'',descripcion:'',base_revision:draft.revision}});
+            cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:source.html,
+            items:source.items,estilo:source.estilo||'',descripcion:'',base_revision:row.borrador_revision}});
           assert.equal(reset.status(),200,await reset.text());
           await page.goto(base.origin+qualityPath);
           const review=page.locator('[data-lb-qa-review]');
