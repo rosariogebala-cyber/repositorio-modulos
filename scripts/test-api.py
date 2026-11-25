@@ -206,16 +206,17 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 200, out)
         return out["clave_nueva"]
 
-    def test_portal_password_is_visible_to_the_team_and_stored_encrypted(self):
+    def test_portal_password_is_hash_only_and_not_retrievable(self):
         clave = self.portal_access()
         self.assertGreaterEqual(len(clave), 8)
         row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
-        self.assertIn("clave", row["portal"], "el equipo tiene que poder ver la contraseña")
+        self.assertNotIn("clave", row["portal"], "no guardar copia recuperable")
+        self.assertTrue(row["portal"]["hash"].startswith("scrypt$"))
         self.assertNotIn(clave, sim.repo_file("lanzate-datos", "data/clientes.js").decode("utf-8"), "se guarda cifrada")
-        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), clave)
+        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), "")
         status, out = self.team.call("POST", "/api/clientes/%d/acceso" % self.client_id, {"usuario": "prueba-portal", "clave": "una-clave-elegida"})
         self.assertEqual(status, 200, out)
-        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), "una-clave-elegida")
+        self.assertEqual(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"), "")
         portal = Client(self.base, "10.4.0.1")
         status, _ = portal.call("POST", "/api/portal/login", {"usuario": "prueba-portal", "clave": "una-clave-elegida", "sitio": self.slug})
         self.assertEqual(status, 200)
@@ -411,9 +412,9 @@ class ApiTest(unittest.TestCase):
         self.portal_access("lista-portal")
         listado = self.team.call("GET", "/api/clientes")[1]
         self.assertFalse(any(c.get("portal_clave") for c in listado))
-        self.assertTrue(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"))
+        self.assertFalse(self.team.call("GET", "/api/clientes/%d" % self.client_id)[1].get("portal_clave"))
         row = next(c for c in read_js("lanzate-datos", "data/clientes.js") if c["id"] == self.client_id)
-        self.assertTrue(row["portal"]["clave"].startswith("v2:"), "la copia de la contraseña va cifrada con AES-GCM")
+        self.assertNotIn("clave", row["portal"], "no conservar copia recuperable")
 
     def test_client_can_delete_a_lead(self):
         clave = self.portal_access("consultas-portal")
@@ -549,6 +550,19 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.team.call("DELETE", "/api/landings/%d" % lid)[0], 200)
         self.assertIsNone(sim.repo_file("repositorio-modulos", "l/%s/%s/index.html" % (self.slug, old_slug)))
         self.assertIsNone(sim.repo_file("lanzate-datos", "versiones/%d.json" % lid))
+
+    def test_publication_rejects_invalid_structure_without_changing_saved_landing(self):
+        row = next(l for l in read_js("lanzate-datos", "data/landings.js") if l["id"] == self.landing["id"])
+        before = sim.repo_file("lanzate-datos", "data/landings.js")
+        for markup in ("<html><body><p>Sin contenido principal</p></body></html>",
+                       "<html><body><main><p>Sin encabezado</p></main></body></html>",
+                       "<html><body><main><h1>Uno</h1><h1>Dos</h1></main></body></html>"):
+            with self.subTest(markup=markup):
+                body = {"cliente_id": row["cliente_id"], "nombre": row["nombre"],
+                        "html": markup, "items": row["items"]}
+                status, out = self.team.call("PUT", "/api/landings/%d" % row["id"], body)
+                self.assertEqual(status, 400, out)
+                self.assertEqual(sim.repo_file("lanzate-datos", "data/landings.js"), before)
 
     def test_sitemap_has_dates_and_business_data_only_for_real_clients(self):
         status, client = self.team.call("POST", "/api/clientes", {

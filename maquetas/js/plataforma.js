@@ -512,7 +512,7 @@
           "</div>" + status(c) + "</div>" +
           (pendingCount(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#cf-revisar"><i class="bi bi-pencil-square" aria-hidden="true"></i> ' +
             (pendingCount(c) === 1 ? "Mandó un pedido de cambios" : "Mandó " + pendingCount(c) + " pedidos de cambios") + "</a>" : "") +
-          (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Pidió su contraseña</a>' : "") +
+          (c.pidio_clave ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-acceso"><i class="bi bi-key-fill" aria-hidden="true"></i> Solicitó restablecer su contraseña</a>' : "") +
           (planAlert(c) ? '<a class="pf-pending" href="cliente.html?id=' + c.id + '#pf-plan"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + esc(planAlert(c)) + "</a>" : "") +
           '<ul class="pf-client-data">' +
           (c.contacto ? '<li><i class="bi bi-person"></i>' + esc(c.contacto) + "</li>" : "") +
@@ -796,7 +796,7 @@
 
     function render(c) {
       current = c;
-      var freshKey = freshKeys[c.id] || c.portal_clave || "";
+      var freshKey = freshKeys[c.id] || "";
       document.title = c.nombre + " · Lanzate";
       newLanding.href = "constructor.html?cliente=" + c.id;
       var site = c.sitio ? '<a href="' + esc(/^https?:\/\//.test(c.sitio) ? c.sitio : "https://" + c.sitio) + '" target="_blank" rel="noopener">' + esc(c.sitio.replace(/^https?:\/\//, "")) + "</a>" : "";
@@ -825,7 +825,7 @@
 
       profile.innerHTML =
         (c.pidio_clave ? '<div class="cf-alert is-key" role="status"><i class="bi bi-key-fill" aria-hidden="true"></i><p><strong>' + esc(c.nombre) +
-          " pidió su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Copiá el acceso y mandáselo, o poné una contraseña nueva en «Cambiar usuario o contraseña».</p>" +
+          " solicitó restablecer su contraseña</strong> el " + esc(new Date(c.pidio_clave).toLocaleDateString("es-AR", { day: "numeric", month: "long" })) + ". Copiá el acceso y mandáselo, o poné una contraseña nueva en «Cambiar usuario o contraseña».</p>" +
           '<button class="btn-nx btn-sm" type="button" data-pf-copiar-acceso><i class="bi bi-copy" aria-hidden="true"></i> Copiar acceso</button>' +
           '<button class="btn-nx-outline btn-sm" type="button" data-pf-clave-enviada>Ya se la mandé</button></div>' : "") +
         (planAlert(c) ? '<div class="cf-alert" role="status"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><p><strong>' + esc(planAlert(c)) + "</strong> " +

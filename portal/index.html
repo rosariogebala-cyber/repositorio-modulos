@@ -194,10 +194,10 @@
       </form>
       <button class="link" type="button" data-forgot-open>Me olvidé la contraseña</button>
       <form data-forgot-form hidden>
-        <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te mandamos tu contraseña por WhatsApp o mail, en general el mismo día hábil.</p>
+        <p>Escribí tu usuario y le avisamos al equipo de Lanzate. Te contactamos para restablecer tu contraseña por WhatsApp o mail, en general el mismo día hábil.</p>
         <label for="usuario-olvido">Usuario</label>
         <input id="usuario-olvido" type="text" name="usuario" autocomplete="username" autocapitalize="none" required>
-        <button class="btn btn-main" type="submit">Pedir mi contraseña</button>
+        <button class="btn btn-main" type="submit">Solicitar restablecimiento</button>
       </form>
       <p role="status" data-login-msg></p>
     </section>
@@ -272,15 +272,17 @@
       }
       $("#usuario").focus();
     }
+    var initialLoad = Promise.resolve();
     $("[data-login-form]").addEventListener("submit", function (e) {
       e.preventDefault();
       var btn = e.target.querySelector("button");
       btn.disabled = true;
       say(msg, "");
-      api("POST", "/api/portal/login", { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value, sitio: SITIO })
+      var credentials = { usuario: e.target.elements.usuario.value, clave: e.target.elements.clave.value, sitio: SITIO };
+      initialLoad.then(function () { return api("POST", "/api/portal/login", credentials); })
         .then(function (d) {
           if (!SITIO || SITIO !== d.sitio) { location.href = "/portal/" + d.sitio + "/" + location.search; return; }
-          return load();
+          return load(true);
         })
         .catch(function (err) { say(msg, err.message, "warn"); })
         .then(function () { btn.disabled = false; });
@@ -302,9 +304,18 @@
     });
 
     /* ---------- Datos ---------- */
-    function load() {
+    function load(afterLogin) {
       if (!SITIO) { showLogin(); return Promise.resolve(); }
-      return api("GET", "/api/portal/inicio").then(function (d) {
+      // A browser may not have committed the Set-Cookie from login on its first GET.
+      // Retry only a read, only after successful login, and only for a bounded interval.
+      function readInicio(attempt) {
+        return api("GET", "/api/portal/inicio").catch(function (err) {
+          if (afterLogin !== true || err.status !== 401 || attempt >= 4) throw err;
+          return new Promise(function (resolve) { setTimeout(resolve, 150 * Math.pow(2, attempt)); })
+            .then(function () { return readInicio(attempt + 1); });
+        });
+      }
+      return readInicio(0).then(function (d) {
         var volver = new URLSearchParams(location.search).get("volver") || "";
         if (new RegExp("^/portal/" + SITIO + "/editar/\\?l=[\\w%.-]+$").test(volver)) { location.replace(volver); return; }
         DATA = d;
@@ -398,7 +409,7 @@
         (phone ? '<a class="btn btn-sm" href="https://wa.me/' + esc(phone) + '" target="_blank" rel="noopener"><i class="bi bi-whatsapp" aria-hidden="true"></i> Responder por WhatsApp</a>' : "") +
         (mail ? '<a class="btn btn-sm" href="mailto:' + esc(mail) + '"><i class="bi bi-envelope" aria-hidden="true"></i> Responder por mail</a>' : "") +
         '<button class="btn btn-sm" type="button" data-lead="' + esc(c.id) + '" data-to="' + (c.estado === "nueva" ? "atendida" : "nueva") + '">' + (c.estado === "nueva" ? '<i class="bi bi-check2" aria-hidden="true"></i> Marcar como atendida' : "Marcar como nueva") + "</button>" +
-        '<button class="btn btn-sm" type="button" data-lead-borrar="' + esc(c.id) + '"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button></div></li>";
+        '<button class="btn btn-sm" type="button" data-lead-borrar="' + esc(c.id) + '"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button></div></li>';
     }
 
     /* ---------- Vistas ---------- */
@@ -599,7 +610,7 @@
       }
     };
 
-    load();
+    initialLoad = load();
   })();
   </script>
 </body>
