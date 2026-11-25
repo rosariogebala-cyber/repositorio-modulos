@@ -501,7 +501,7 @@
     li.title = lp.path;
     li.innerHTML =
       (lp.disponible ? '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' :
-       '<span class="lb-saved-thumb" aria-label="Borrador no publicado de ' + esc(lp.nombre) + '">') +
+       '<span class="lb-saved-thumb" role="img" aria-label="Borrador no publicado de ' + esc(lp.nombre) + '">') +
       (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="Vista previa de ' + esc(lp.nombre) + '" loading="lazy">' : "") +
       '<i class="bi bi-window" aria-hidden="true"></i>' + (lp.disponible ? '</a>' : '</span>') +
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
