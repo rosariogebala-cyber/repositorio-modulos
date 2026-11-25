@@ -2173,7 +2173,11 @@
     try {
       var doc = frame.contentDocument;
       if (!doc || !doc.body) return;
-      frame.style.height = Math.max(400, doc.documentElement.scrollHeight) + "px";
+      // documentElement.scrollHeight is at least the current iframe height:
+      // measuring it prevents the preview from shrinking when content is removed.
+      var body = doc.body;
+      var h = Math.max(1, Math.ceil(body.getBoundingClientRect().height));
+      if (frame.style.height !== h + "px") frame.style.height = h + "px";
       fitPreview();
     } catch (e) { /* noop */ }
   }
@@ -4259,7 +4263,7 @@
     var h = 400;
     try {
       changeFrame.style.height = "400px";
-      h = Math.max(400, doc.documentElement.scrollHeight);
+      h = Math.max(1, Math.ceil(doc.body.getBoundingClientRect().height));
     } catch (e) { /* noop */ }
     changeFrame.style.height = h + "px";
     changeDevice.style.height = h + "px";
