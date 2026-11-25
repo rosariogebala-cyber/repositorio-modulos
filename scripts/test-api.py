@@ -371,6 +371,21 @@ class ApiTest(unittest.TestCase):
         finally:
             self.team.call("DELETE", "/api/clientes/%d" % cid)
 
+    def test_demo_excluded_from_commercial_operations(self):
+        status, demo = self.team.call("POST", "/api/clientes", {"nombre": "Demo QA aislada", "tipo_cliente": "demo"})
+        self.assertEqual(status, 200, demo)
+        cid = demo["id"]
+        route = "/api/gestion/clientes/%d" % cid
+        try:
+            status, dashboard = self.team.call("GET", "/api/gestion/clientes")
+            self.assertEqual(status, 200, dashboard)
+            self.assertNotIn(cid, [c["id"] for c in dashboard["clientes"]])
+            for method, url, payload in (("GET", route, None), ("PUT", route, {}),
+                                         ("POST", route + "/movimientos", {})):
+                self.assertEqual(self.team.call(method, url, payload)[0], 400)
+        finally:
+            self.team.call("DELETE", "/api/clientes/%d" % cid)
+
     def test_gestion_clientes_pagos_y_seguimiento(self):
         """La cartera parte sin cobros inventados, preserva ARS/USD y aísla datos privados."""
         status, dashboard = self.team.call("GET", "/api/gestion/clientes")
