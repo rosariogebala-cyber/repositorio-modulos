@@ -16,7 +16,7 @@ done
 # Publish pinned commercial site locally.
 commercial_tmp="$(mktemp -d)"
 trap 'rm -rf "$commercial_tmp"' EXIT HUP INT TERM
-curl -fsSL --retry 3 -o "$commercial_tmp/site.tar.gz" https://codeload.github.com/rosariogebala-cyber/lanzate/tar.gz/ee942075664faf39ab0684735ecd63e226b0f372
+curl -fsSL --retry 3 -o "$commercial_tmp/site.tar.gz" https://codeload.github.com/rosariogebala-cyber/lanzate/tar.gz/fb81504c60ceba4b19ea922c6f89c7573f4e8c8f
 tar -xzf "$commercial_tmp/site.tar.gz" -C "$commercial_tmp" --strip-components=1
 mkdir -p public/site_demo
 for file in "$commercial_tmp"/*.html; do cp "$file" public/site_demo/; done
