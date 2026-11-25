@@ -7,8 +7,19 @@ assert.equal(base.hostname, '127.0.0.1');
 assert.equal(base.protocol, 'https:');
 const report = [];
 const allowedStatic = new Set(['fonts.googleapis.com','fonts.gstatic.com','cdn.jsdelivr.net']);
-for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
-  const browser = await type.launch();
+const engines = {chromium, firefox, webkit};
+const selected = process.env.QA_BROWSERS ? process.env.QA_BROWSERS.split(',').map(s=>s.trim()).filter(Boolean) : Object.keys(engines);
+assert.ok(selected.length && new Set(selected).size === selected.length && selected.every(e=>Object.hasOwn(engines,e)), 'Invalid QA_BROWSERS');
+for (const engine of selected) {
+  const type = engines[engine];
+  let browser;
+  try { browser = await type.launch(); }
+  catch (e) {
+    report.push({engine,phase:'launch',failure:String(e)});
+    console.error(engine + ': launch failed; continuing other browsers');
+    fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
+    continue;
+  }
   try {
     for (const width of [1440, 320]) {
       const context = await browser.newContext({viewport:{width,height:900},ignoreHTTPSErrors:true});
@@ -37,7 +48,7 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
             await page.keyboard.press('Tab');
             const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
             const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
-            report.push({engine,width,path,errors,focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>v.id)});
+            report.push({engine,width,path,errors,focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
           } catch(e) { report.push({engine,width,path,failure:String(e)}); }
           finally {page.off('pageerror',onError);}
         }
@@ -48,13 +59,15 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         const qualityPath = '/maquetas/constructor.html?landing='+process.env.QA_DRAFT_ID;
         try {
           const endpoint=base.origin+'/api/landings/'+process.env.QA_DRAFT_ID;
-          const existing=await context.request.get(endpoint);
+          const existing=await context.request.get(endpoint+'/borrador');
           assert.equal(existing.status(),200);
           const row=await existing.json();
+          const source=JSON.parse(fs.readFileSync(process.env.QA_DRAFT_SOURCE,'utf8'));
+          assert.ok(source.html && source.items?.length,'Missing original test fixture');
           const reset=await context.request.put(endpoint+'/borrador',{data:{
-            cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:row.html,
-            items:row.items,estilo:row.estilo||'',descripcion:'',base_revision:row.borrador_revision}});
-          assert.equal(reset.status(),200);
+            cliente_id:row.cliente_id,nombre:row.nombre,plan_id:'express',html:source.html,
+            items:source.items,estilo:source.estilo||'',descripcion:'',base_revision:row.borrador_revision}});
+          assert.equal(reset.status(),200,await reset.text());
           await page.goto(base.origin+qualityPath);
           const review=page.locator('[data-lb-qa-review]');
           await review.click();
@@ -140,8 +153,17 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
               await page.locator('[data-view] h1').waitFor({state:'visible'});
               if (!(await page.evaluate(()=>Boolean(window.axe)))) await page.addScriptTag({content:axe.source});
               const results=await page.evaluate(()=>window.axe.run({runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}}));
-              await page.keyboard.press('Tab');
-              const focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+              const initialFocus=await page.evaluate(()=>({tag:document.activeElement?.tagName,inView:document.querySelector('[data-view]').contains(document.activeElement)}));
+              assert.equal(initialFocus.tag,'H1','Section navigation must focus its heading');
+              assert.ok(initialFocus.inView);
+              // WebKit may traverse the browser chrome between the last and first
+              // page control. Check a complete bounded keyboard transition.
+              let focus;
+              for(let step=0;step<3;step++){
+                await page.keyboard.press('Tab');
+                focus=await page.evaluate(()=>({tag:document.activeElement?.tagName,visible:!!document.activeElement?.getClientRects().length}));
+                if(focus.visible&&!['BODY','HTML'].includes(focus.tag))break;
+              }
               const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
               report.push({engine,width,path:portalPath+'#'+tab,errors:errors.slice(before),focus,overflow,violations:results.violations.map(v=>({id:v.id,impact:v.impact,targets:v.nodes.map(n=>n.target)})),incomplete:results.incomplete.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)}))});
             } catch(e) {report.push({engine,width,path:portalPath+'#'+tab,failure:String(e)});}
@@ -152,11 +174,18 @@ for (const [engine, type] of Object.entries({chromium, firefox, webkit})) {
         } catch(e) {report.push({engine,width,path:portalPath+'#auth-flow',failure:String(e),errors,requests});}
         finally {page.off('pageerror',onError);page.off('response',onResponse);page.off('requestfailed',onFailed);}
         } finally {await portalContext.close();}
+      } catch(e) {
+        report.push({engine,width,phase:'viewport',failure:String(e),errors:[]});
+        console.error(`${engine} ${width}: viewport failed`,String(e));
       } finally {await context.close();}
     }
-  } finally {await browser.close();}
+  } finally {
+    await browser.close();
+    fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
+  }
 }
 fs.writeFileSync('browser-rc-report.json',JSON.stringify(report,null,2));
 console.log(JSON.stringify(report,null,2));
-assert.equal(report.length,84);
+assert.equal(report.length,selected.length*28,'Incomplete browser coverage; inspect browser-rc-report.json');
 assert.ok(report.every(r=>!r.failure&&!r.errors.length&&r.focus.visible&&!['BODY','HTML'].includes(r.focus.tag)&&!r.overflow&&!r.violations.length),'Browser QA failed; inspect browser-rc-report.json');
+if (selected.length !== Object.keys(engines).length) console.warn('Partial browser audit: remaining engines still require validation.');

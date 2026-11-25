@@ -1134,7 +1134,7 @@
       .concat(choice.sections.map(function (section) { return section.m; }), "footer-" + choice.footer);
   }
 
-  function categoryTemplateItems(choice) {
+  function categoryTemplateItems(choice, client) {
     var ids = templateIds(choice);
     if (ids.some(function (id) { return !byId[id]; })) return null;
     var anchor = function (id) { return "#" + slugify(byId[id].group); };
@@ -1197,10 +1197,11 @@
       el.replaceChildren(text.slice(0, at), brand, text.slice(at + "Marca Ejemplo".length));
     });
 
-    var accent = templateStyle(choice).accent;
+    var accent = normalizeHex(client && client.color_primario) || templateStyle(choice).accent;
     var tint = "#" + accent.slice(1).match(/../g).map(function (part) {
       return Math.round(255 * 0.91 + parseInt(part, 16) * 0.09).toString(16);
     }).join("");
+    if (client && normalizeHex(client.color_secundario)) tint = normalizeHex(client.color_secundario) || tint;
     var tinted = choice.tint || "par";
     var content = choice.sections.map(function (section, index) {
       var item = templateModule(section, ctx);
@@ -1260,6 +1261,33 @@
     };
   }
 
+
+  function inheritClientBrand(client, fallback) {
+    if (!client) return fallback;
+    var brand = client.marca || {};
+    var primary = normalizeHex(client.color_primario) || fallback.marca || fallback.acento;
+    var background = normalizeHex(brand.fondo) || "#ffffff";
+    var mood = contrastRatio("#ffffff", background) >= 7 ? "oscuro" : "claro";
+    var colors = deriveColors(primary, mood);
+    var accent = normalizeHex(brand.acento) || primary;
+    colors.acento = reachContrast(accent, "#ffffff", 4.6);
+    colors.titulos = reachContrast(primary, background, 7);
+    colors.parrafos = reachContrast(mix(primary, mood === "oscuro" ? "#ffffff" : "#444444", 0.35), background, 7);
+    colors.etiquetas = reachContrast(primary, background, 5.5);
+    colors.iconos = reachContrast(accent, background, 4.5);
+    colors.tipografia = fallback.tipografia || "moderna";
+    if (normalizeHex(brand.fondo)) colors.fondoMarca = background;
+    if (normalizeHex(client.color_secundario)) colors.secundarioMarca = normalizeHex(client.color_secundario);
+    if (A.brandFont(brand.tipografia_titulos)) colors.fuenteTitulos = brand.tipografia_titulos;
+    if (A.brandFont(brand.tipografia_textos)) colors.fuenteTextos = brand.tipografia_textos;
+    return colors;
+  }
+
+  function brandFontNotice(client) {
+    var brand = client && client.marca || {};
+    var missing = [brand.tipografia_titulos,brand.tipografia_textos].filter(function(font){return font && !A.brandFont(font);});
+    return missing.length ? " Fuentes sin instalar: " + Array.from(new Set(missing)).join(", ") + ". Se usa una alternativa de la plantilla hasta incorporar los archivos autorizados." : "";
+  }
 
   var templateStart = document.querySelector("[data-template-start]");
   var landingEditor = document.querySelector("[data-landing-editor]");
@@ -1604,7 +1632,7 @@
           sections: sections,
           highlights: []
         });
-        var items = categoryTemplateItems(choice);
+        var items = categoryTemplateItems(choice, client);
         if (!items) throw new Error("La plantilla elegida tiene módulos que no están en la biblioteca.");
         var includedCount = countPlanSections(items);
         if (includedCount > included) {
@@ -1630,7 +1658,7 @@
         colors.titulos = analysis.colores.titulo;
         colors.parrafos = analysis.colores.texto;
         colors.tipografia = analysis.tipografia;
-        state.colores = colors;
+        state.colores = inheritClientBrand(client, colors);
         savedSnapshot = null;
         nameInput.value = state.name;
         renderClients();
@@ -1669,6 +1697,7 @@
     var categorySelect = dialog.querySelector("[data-template-category]");
     var choiceSelect = dialog.querySelector("[data-template-choice]");
     var deviceSelect = dialog.querySelector("[data-template-device]");
+    var brandClientSelect = dialog.querySelector("[data-template-client]");
     var preview = dialog.querySelector("[data-template-preview]");
     var modules = dialog.querySelector("[data-template-modules]");
     var use = dialog.querySelector("[data-template-use]");
@@ -1676,24 +1705,30 @@
     var items;
     var style;
     var choice;
+    brandClientSelect.replaceChildren(new Option("Elegí un cliente", ""));
+    clients.forEach(function(c){brandClientSelect.add(new Option(c.nombre,String(c.id)));});
+    brandClientSelect.value=state.clienteId ? String(state.clienteId) : "";
+    function selectedTemplateClient(){return clients.find(function(c){return String(c.id)===brandClientSelect.value;}) || null;}
+    brandClientSelect.onchange=function(){renderTemplatePreview();};
 
     function renderTemplatePreview() {
       choice = categoryTemplates(category)[Number(choiceSelect.value)];
-      items = categoryTemplateItems(choice);
+      var client = selectedTemplateClient();
+      items = categoryTemplateItems(choice, client);
       style = templateStyle(choice);
-      use.disabled = !items;
+      use.disabled = !items || !client;
       if (!items) {
         preview.srcdoc = "";
         modules.textContent = "El catálogo todavía está cargando.";
         return;
       }
-      modules.textContent = items.map(function (item) { return byId[item.id].group; }).join(" · ");
+      modules.textContent = (client ? "Marca: " + client.nombre + ". " + brandFontNotice(client) + " · " : "Elegí un cliente para aplicar su identidad. ") + items.map(function (item) { return byId[item.id].group; }).join(" · ");
       var current = state;
       var markup;
       try {
         state = {
-          name: choice.name, clienteId: null, items: items, estilo: "",
-          colores: suggestedStyleColors(style, choice.font)
+          name: client ? client.nombre : choice.name, clienteId: client ? client.id : null, items: items, estilo: "",
+          colores: inheritClientBrand(client, suggestedStyleColors(style, choice.font))
         };
         markup = buildDocument({ base: baseUrl(), staticPreview: true });
       } finally {
@@ -1705,7 +1740,7 @@
         var found = window.LanzateReglas.contrast(doc.body, preview.contentWindow);
         if (found.length) modules.textContent += " · " + found[0].text + " " + found[0].detail;
       };
-      preview.srcdoc = markup;
+      if (preview.srcdoc !== markup) preview.srcdoc = markup;
     }
 
     function renderChoices(selectedIndex) {
@@ -1730,17 +1765,22 @@
     updateDevice();
     dialog.querySelector("[data-template-close]").onclick = function () { dialog.close(); };
     use.onclick = function () {
-      if (!items) return;
+      var client = selectedTemplateClient();
+      if (!items || !client) return;
       if ((state.items.length || (state.landingId && !templateStart.hidden)) && !window.confirm("La plantilla reemplaza los módulos y la paleta de esta landing. ¿Querés aplicarla?")) return;
-      if (state.landingId && !templateStart.hidden) startNew(state.clienteId);
+      if (state.landingId && !templateStart.hidden) startNew(client.id);
+      if (state.landingId && state.clienteId !== client.id) { say("No se puede cambiar el cliente de una landing existente desde la plantilla.","warn"); return; }
+      state.clienteId = client.id;
+      if (!state.landingId) state.planId = client.plan || state.planId || "";
+      renderClients();
       state.items = items;
       state.ignorados = [];
-      state.colores = suggestedStyleColors(style, choice.font);
+      state.colores = inheritClientBrand(currentClient(), suggestedStyleColors(style, choice.font));
       update();
       showTab("order");
       dialog.close();
       if (landingEditor.hidden) showLandingEditor(true);
-      say("Plantilla aplicada. Personalizá los textos, las fotos y los datos antes de guardar.", "ok");
+      say("Plantilla aplicada." + (currentClient() && currentClient().marca ? " Identidad de marca incorporada." : "") + " Personalizá los textos, las fotos y los datos antes de guardar." + brandFontNotice(currentClient()), "ok");
     };
     renderChoices(initialChoice == null ? 0 : initialChoice);
     dialog.showModal();
@@ -1774,6 +1814,8 @@
     var current = state.colores || {};
     var next = deriveColors(marca || current.marca || (currentClient() || {}).color_primario || current.acento, ambiente || current.ambiente || "claro");
     if (current.tipografia) next.tipografia = current.tipografia;
+    if (current.fuenteTitulos) next.fuenteTitulos = current.fuenteTitulos;
+    if (current.fuenteTextos) next.fuenteTextos = current.fuenteTextos;
     if (current.ritmo) next.ritmo = current.ritmo;
     if (current.corte) next.corte = current.corte;
     rememberPalette();
@@ -2018,7 +2060,7 @@
             '<em style="background:' + combo.acento + '"></em></span>' +
           '<span class="lb-mini-band" style="background:' + paper + '"><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i><i style="background:' + combo.iconos + '"></i></span>' +
         '</span><span class="lb-style-name">' + style.name + '</span>';
-      button.setAttribute("aria-label", "Usar la combinación " + style.name);
+      // Use the visible palette name as the accessible name (WCAG 2.5.3).
       button.onclick = function () { applySuggestedStyle(style); };
       list.appendChild(button);
     });
@@ -2156,38 +2198,31 @@
 
   function baseUrl() { return new URL("./", location.href).href; }
 
+  // Fixed logical viewport: measuring an iframe by resizing its own viewport
+  // causes vh-based heroes, sticky navigation and scrollbars to feed back into layout.
+  var lastFitKey = "";
   function fitPreview() {
     var width = clientMode() ? 1280 : device;
     var avail = viewport.clientWidth - 32;
+    if (avail <= 0) return;
     var scale = Math.min(1, avail / width);
+    var logicalHeight = Math.round(width <= 480 ? 812 : 900);
+    var key = [width, avail, logicalHeight, !!state.items.length].join(":");
+    if (key === lastFitKey) return;
+    lastFitKey = key;
     deviceFrame.style.width = width + "px";
+    deviceFrame.style.height = logicalHeight + "px";
+    frame.style.height = logicalHeight + "px";
     deviceFrame.style.transform = "scale(" + scale + ")";
+    deviceFrame.style.marginLeft = Math.max(0, (avail - width * scale) / 2) + "px";
+    viewport.style.height = state.items.length ? Math.ceil(logicalHeight * scale + 32) + "px" : "";
     var doc = frameDoc();
     if (doc) doc.documentElement.style.setProperty("--lb-ui-scale", (1 / scale).toFixed(3));
-    deviceFrame.style.marginLeft = Math.max(0, (avail - device * scale) / 2) + "px";
-    var h = frame.offsetHeight;
-    viewport.style.height = state.items.length ? (h * scale + 32) + "px" : "";
-  }
-
-  function syncFrameHeight() {
-    try {
-      var doc = frame.contentDocument;
-      if (!doc || !doc.body) return;
-      // documentElement.scrollHeight is at least the current iframe height:
-      // measuring it prevents the preview from shrinking when content is removed.
-      var body = doc.body;
-      var h = Math.max(1, Math.ceil(body.getBoundingClientRect().height));
-      if (frame.style.height !== h + "px") frame.style.height = h + "px";
-      fitPreview();
-    } catch (e) { /* noop */ }
   }
 
   frame.addEventListener("load", function () {
-    syncFrameHeight();
-    try {
-      var win = frame.contentWindow;
-      if (win.ResizeObserver) new win.ResizeObserver(syncFrameHeight).observe(frame.contentDocument.body);
-    } catch (e) { /* noop */ }
+    lastFitKey = "";
+    fitPreview();
     setupEditing();
     scheduleQa(300);
     var pend = pendingSelect;
@@ -4087,12 +4122,14 @@
       var has = state.items.length > 0;
       placeholder.hidden = has;
       deviceFrame.hidden = !has;
-      if (!has) { viewport.style.height = ""; scheduleQa(0); return; }
-      frame.srcdoc = buildDocument({ base: baseUrl(), preview: true, tools: true });
+      if (!has) { lastFitKey = ""; viewport.style.height = ""; scheduleQa(0); return; }
+      var markup = buildDocument({ base: baseUrl(), preview: true, tools: true });
+      if (frame.srcdoc !== markup) frame.srcdoc = markup;
       if (clientMode() && changeFrame) {
         changePane.hidden = false;
         split.hidden = false;
-        changeFrame.srcdoc = buildDocument({ base: baseUrl(), preview: true, marks: true });
+        var changes = buildDocument({ base: baseUrl(), preview: true, marks: true });
+        if (changeFrame.srcdoc !== changes) changeFrame.srcdoc = changes;
       }
       fitPreview();
     }, 220);
@@ -4332,7 +4369,7 @@
   }
 
   function currentClient() {
-    return clients.find(function (c) { return c.id === state.clienteId; }) || null;
+    return clients.find(function (c) { return state.clienteId != null && String(c.id) === String(state.clienteId); }) || null;
   }
   function countPlanSections(items) {
     return (items || []).filter(function (it) {
@@ -4823,7 +4860,10 @@
 
   clientSelect.addEventListener("change", function () {
     state.clienteId = clientSelect.value ? Number(clientSelect.value) : null;
-    if (!state.landingId) state.planId = (currentClient() || {}).plan || "";
+    if (!state.landingId) {
+      state.planId = (currentClient() || {}).plan || "";
+      if (!state.items.length) state.colores = inheritClientBrand(currentClient(), deriveColors((currentClient() || {}).color_primario, "claro"));
+    }
     landingPlanSelect.value = state.planId;
     renderMode();
     renderPreview();
@@ -5035,11 +5075,13 @@
           item.appendChild(workflowButton("Editar descripción", focusDescription));
           if (mandatory) {
             var suggest = workflowButton("Sugerir desde el contenido", function () {
-              var doc = frameDoc(), hero = doc && doc.querySelector("h1");
-              var section = hero && hero.closest("section");
+              var doc = frameDoc();
+              // Module headings are h2 in the editor; publication supplies h1.
+              var section = doc && (doc.querySelector('.mq-block[data-module^="hero"]') || doc.querySelector('.mq-block:has(h1)') || doc.querySelector('.mq-block:has(h2)'));
+              var hero = section && section.querySelector("h1, h2");
               var lead = section && Array.from(section.querySelectorAll("p")).find(function (p) { return p.textContent.trim().length >= 35; });
               var value = [hero && hero.textContent, lead && lead.textContent].filter(Boolean).join(". ").replace(/\\s+/g," ").trim();
-              if (!value) { focusDescription(); return; }
+              if (!value) { focusDescription(); workflowText(item, "p", "No encontré texto suficiente en la vista previa. Completá la descripción manualmente."); return; }
               var candidate = value.length > 160 ? value.slice(0,160).replace(/\\s+\\S*$/, "") : value;
               if (!window.confirm("Revisá esta propuesta antes de usarla:\\n" + candidate + "\\n\\n¿Aplicarla al borrador?")) return;
               state.descripcion = candidate; renderDesc(true); renderMode(); saveDraft(); focusDescription();
@@ -5184,6 +5226,7 @@
   var typographySelect = document.querySelector("[data-lb-typography]");
   if (typographySelect) typographySelect.addEventListener("change", function () {
     var next = Object.assign({}, state.colores);
+    delete next.fuenteTitulos; delete next.fuenteTextos;
     if (Object.hasOwn(LANDING_FONTS, typographySelect.value)) next.tipografia = typographySelect.value;
     else delete next.tipografia;
     state.colores = Object.keys(next).length ? next : null;

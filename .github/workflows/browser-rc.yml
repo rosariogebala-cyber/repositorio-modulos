@@ -1,5 +1,7 @@
 name: Browser RC checks
 on:
+  push:
+    branches: [feature/manual-marca]
   pull_request:
     branches: [feature/ficha-cliente-360-20261124, feature/planes-medicion-por-landing, qa/lanzate-v1-rc1, main]
   workflow_dispatch:

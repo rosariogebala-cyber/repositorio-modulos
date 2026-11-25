@@ -15,6 +15,10 @@
   },
   "rewrites": [
     {
+      "source": "/site_demo/",
+      "destination": "/site_demo/index.html"
+    },
+    {
       "source": "/maquetas/:page(constructor|landings|clientes|cliente|gestion-clientes|reglas).html",
       "destination": "/api/index?__path=/maquetas/:page.html"
     },
@@ -125,6 +129,22 @@
           "value": "noindex, nofollow"
         }
       ]
+    },
+    {
+      "source": "/site_demo/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/site_demo",
+      "destination": "/site_demo/",
+      "permanent": false
     }
   ]
 }

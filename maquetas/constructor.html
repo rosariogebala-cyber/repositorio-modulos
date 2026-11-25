@@ -339,7 +339,9 @@
             </div>
           </div>
         </aside>
-        <aside class="lb-qa-col" aria-label="Control de calidad">
+
+      </div>
+        <aside class="lb-qa-below" aria-label="Control de calidad">
           <section class="lb-qa" data-lb-qa aria-label="Control de calidad" hidden>
             <div class="lb-qa-head">
               <p class="lb-qa-sum"><i class="bi bi-shield-check" aria-hidden="true"></i><span data-lb-qa-label>Revisando calidad…</span></p>
@@ -348,7 +350,6 @@
             <ul class="lb-qa-list" data-lb-qa-list></ul>
           </section>
         </aside>
-      </div>
     </section>
   </main>
 
@@ -470,6 +471,7 @@
       <button class="lb-dialog-close" type="button" data-template-close aria-label="Cerrar"><span aria-hidden="true">×</span></button>
     </div>
     <div class="lb-template-filters">
+      <label>Cliente y marca<select class="lb-input" data-template-client required></select></label>
       <label>Rubro<select class="lb-input" data-template-category></select></label>
       <label>Vista<select class="lb-input" data-template-device><option value="desktop">Escritorio</option><option value="mobile">Móvil</option></select></label>
       <label>Plantilla<select class="lb-input" data-template-choice></select></label>
@@ -509,10 +511,10 @@
     </div>
     <p id="lbCompareHelp">Esta comparación es visual. Comprobá también textos, enlaces, comportamiento móvil y accesibilidad. Presioná Escape para cerrar.</p>
   </dialog>
-  <script src="js/plataforma.js"></script>
+  <script src="js/plataforma.js?v=marca-5"></script>
   <script src="js/reglas.js"></script>
   <script src="js/plantillas.js"></script>
-  <script src="js/armador.js?v=quality-2"></script>
-  <script src="js/constructor.js?v=quality-2"></script>
+  <script src="js/armador.js?v=marca-7"></script>
+  <script src="js/constructor.js?v=stable-9"></script>
 </body>
 </html>

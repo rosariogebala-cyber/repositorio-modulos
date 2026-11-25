@@ -93,7 +93,15 @@
     .site-shot { aspect-ratio: 16 / 9; background: var(--brand-soft) center / cover no-repeat; }
     .site-body { padding: 16px; display: grid; gap: 12px; flex: 1; align-content: space-between; }
     .site-body strong { font-size: 17px; }
-    .site-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .site-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+    .site-actions .btn { min-width: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; text-align: center; }
+    .site-actions .btn i { flex-shrink: 0; }
+    .content, .card, .grid > *, .rows > div, .rows dd, form, textarea { min-width: 0; }
+    .rows > div { grid-template-columns: minmax(0, 140px) minmax(0, 1fr); }
+    @media (max-width: 400px) {
+      .rows > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+      .site-actions .btn { display: block; width: 100%; padding-block: 10px; }
+    }
 
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .badge.pendiente { background: #fff4d6; color: #7a5300; }
@@ -351,7 +359,13 @@
       var view = $("[data-view]");
       view.innerHTML = VIEWS[tab]();
       if (BIND[tab]) BIND[tab](view);
-      view.focus({ preventScroll: true });
+      var heading = view.querySelector("h1");
+      if (heading) {
+        heading.setAttribute("tabindex", "-1");
+        heading.focus({ preventScroll: true });
+      } else {
+        view.focus({ preventScroll: true });
+      }
       window.scrollTo(0, 0);
     }
     window.addEventListener("hashchange", route);

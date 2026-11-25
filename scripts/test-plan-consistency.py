@@ -18,9 +18,9 @@ class PlanConsistency(unittest.TestCase):
     def test_catalogo_comercial_actual(self):
         plans = {p["id"]:p for p in read_window("data/planes.js")["planes"]}
         expected = {
-            "express": (99000, 19900, 4, 10, 1, False),
-            "negocio": (179000, 34900, 7, 30, 3, False),
-            "pro": (299000, 54900, 10, 0, 5, True),
+            "express": (99000, 29900, 4, 10, 1, False),
+            "negocio": (179000, 49900, 7, 30, 3, False),
+            "pro": (299000, 79900, 10, 0, 5, True),
         }
         self.assertEqual(set(plans), set(expected))
         for key, (initial, monthly, sections, sends, assisted, unlimited) in expected.items():

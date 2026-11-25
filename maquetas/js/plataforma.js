@@ -186,6 +186,30 @@
       '<button class="lb-dialog-close" type="button" data-pf-cancel aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>' +
       '<div class="pf-form">' +
       '<label class="pf-field is-wide"><span>Nombre o razón social *</span><input class="lb-input" name="nombre" required autocomplete="organization" placeholder="Ej: Estudio Aurora"></label>' +
+      '<fieldset class="pf-field is-wide pf-brand-manual"><legend>Identidad de marca</legend>' +
+      '<label class="pf-field"><span>Manual de marca (PDF, JPG, PNG o WebP · hasta 2 MB)</span><input class="lb-input" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" data-pf-manual></label>' +
+      '<p class="pf-help" data-pf-manual-current></p><button class="btn-nx-outline btn-sm" type="button" data-pf-brand-analyze>Analizar manual</button>' +
+      '<p role="status" aria-live="polite" data-pf-brand-status></p><div data-pf-brand-results></div>' +
+      '<div class="pf-field is-wide"><span>Logo y colores detectados</span>' +
+      '<div class="pf-brand">' +
+      '<div class="pf-logo" data-pf-logo-preview></div>' +
+      '<div class="pf-brand-ctrls">' +
+      '<div class="pf-logo-btns"><label class="lb-act"><i class="bi bi-upload"></i> <span data-pf-logo-label>Subir logo</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pf-logo-input hidden></label>' +
+      '<button class="lb-act" type="button" data-pf-logo-remove hidden><i class="bi bi-x-lg"></i> Quitar</button></div>' +
+      '<div class="lb-seg pf-logo-mode" role="group" aria-label="Cómo se muestra el logo" data-pf-logo-modo>' +
+      '<button type="button" data-value="imagen" aria-pressed="true"><i class="bi bi-image"></i> Imagen</button>' +
+      '<button type="button" data-value="imagen-texto" aria-pressed="false"><i class="bi bi-layout-sidebar"></i> Imagen y&nbsp;texto</button>' +
+      '<button type="button" data-value="texto" aria-pressed="false"><i class="bi bi-fonts"></i> Texto</button></div>' +
+      '<div class="pf-colors"><label><input type="color" name="color_primario" value="#1b5e42"> Color principal</label>' +
+      '<label><input type="color" name="color_secundario" value="#e7f3ee"> Color secundario</label></div>' +
+      "</div></div><small class=\"pf-help\">PNG, JPG, WEBP o SVG de hasta 2 MB.</small></div>" +
+      '<label class="pf-field"><span>Tipografía de títulos (nombre indicado en el manual)</span><input class="lb-input" name="tipografia_titulos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Tipografía de textos</span><input class="lb-input" name="tipografia_textos" maxlength="150"></label>' +
+      '<label class="pf-field"><span>Color de acento (HEX, opcional)</span><input class="lb-input" name="acento" placeholder="#123456" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Color de fondo (HEX, opcional)</span><input class="lb-input" name="fondo" placeholder="#ffffff" maxlength="7"></label>' +
+      '<label class="pf-field"><span>Tono de comunicación</span><textarea class="lb-input" name="tono" maxlength="1500" rows="2"></textarea></label>' +
+      '<label class="pf-field"><span>Reglas de marca</span><textarea class="lb-input" name="reglas" maxlength="1500" rows="2"></textarea></label>' +
+      '<small class="pf-help">Los campos se completan con propuestas detectadas. Revisá sus roles, el logo y las fuentes antes de guardar. Las fuentes no se instalan automáticamente.</small></fieldset>' +
       '<label class="pf-field"><span>Tipo de cliente</span><select class="lb-input" name="tipo_cliente"><option value="real">Real</option><option value="demo">Demo</option></select></label>' +
       '<label class="pf-field"><span>Rubro</span><input class="lb-input" name="rubro" placeholder="Ej: Arquitectura"></label>' +
       '<label class="pf-field"><span>Contacto</span><input class="lb-input" name="contacto" autocomplete="name" placeholder="Nombre y apellido"></label>' +
@@ -199,19 +223,6 @@
       '<label class="pf-field"><span>Instagram</span><input class="lb-input" name="instagram" placeholder="@usuario o link"></label>' +
       '<label class="pf-field"><span>Facebook</span><input class="lb-input" name="facebook" placeholder="Link de la página"></label>' +
       '<label class="pf-field is-wide"><span>LinkedIn</span><input class="lb-input" name="linkedin" placeholder="Link de la empresa o perfil"></label>' +
-      '<div class="pf-field is-wide"><span>Marca</span>' +
-      '<div class="pf-brand">' +
-      '<div class="pf-logo" data-pf-logo-preview></div>' +
-      '<div class="pf-brand-ctrls">' +
-      '<div class="pf-logo-btns"><label class="lb-act"><i class="bi bi-upload"></i> <span data-pf-logo-label>Subir logo</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pf-logo-input hidden></label>' +
-      '<button class="lb-act" type="button" data-pf-logo-remove hidden><i class="bi bi-x-lg"></i> Quitar</button></div>' +
-      '<div class="lb-seg pf-logo-mode" role="group" aria-label="Cómo se muestra el logo" data-pf-logo-modo>' +
-      '<button type="button" data-value="imagen" aria-pressed="true"><i class="bi bi-image"></i> Imagen</button>' +
-      '<button type="button" data-value="imagen-texto" aria-pressed="false"><i class="bi bi-layout-sidebar"></i> Imagen y&nbsp;texto</button>' +
-      '<button type="button" data-value="texto" aria-pressed="false"><i class="bi bi-fonts"></i> Texto</button></div>' +
-      '<div class="pf-colors"><label><input type="color" name="color_primario" value="#1b5e42"> Color principal</label>' +
-      '<label><input type="color" name="color_secundario" value="#e7f3ee"> Color secundario</label></div>' +
-      "</div></div><small class=\"pf-help\">PNG, JPG, WEBP o SVG de hasta 2 MB.</small></div>" +
       '<div class="pf-field is-wide"><span>Estado</span><div class="lb-seg" role="group" aria-label="Estado del cliente" data-pf-estado>' +
       '<button type="button" data-value="activo" aria-pressed="true"><i class="bi bi-check-circle"></i> Activo</button>' +
       '<button type="button" data-value="pausado" aria-pressed="false"><i class="bi bi-pause-circle"></i> Pausado</button></div></div>' +
@@ -233,6 +244,97 @@
     var msg = dialog.querySelector("[data-pf-form-msg]");
     var estado = dialog.querySelector("[data-pf-estado]");
     var logoModo = dialog.querySelector("[data-pf-logo-modo]");
+
+    var manualInput = dialog.querySelector("[data-pf-manual]");
+    var brandStatus = dialog.querySelector("[data-pf-brand-status]");
+    var brandResults = dialog.querySelector("[data-pf-brand-results]");
+    var brandAnalyze = dialog.querySelector("[data-pf-brand-analyze]");
+    var brandFields = ["tipografia_titulos","tipografia_textos","acento","fondo","tono","reglas"];
+    var brandRun = 0;
+    function appendChoice(parent, text, action) {
+      var button = document.createElement("button");
+      button.type = "button"; button.className = "btn-nx-outline btn-sm"; button.textContent = text;
+      button.addEventListener("click",action); parent.appendChild(button); return button;
+    }
+    function brandHeading(text) {
+      var el = document.createElement("h3"); el.textContent = text; brandResults.appendChild(el);
+    }
+    function validBrandImage(candidate) {
+      return candidate && typeof candidate.imagen === "string" && candidate.imagen.startsWith("data:image/png;base64,") &&
+        /^[A-Za-z0-9+/=]+$/.test(candidate.imagen.slice("data:image/png;base64,".length));
+    }
+    function applyBrandSuggestions(result, file) {
+      var colors = Array.from(new Set((result.colores || []).filter(function(c){return /^#[0-9a-f]{6}$/i.test(c);})));
+      var fields = ["color_primario","color_secundario","acento","fondo"];
+      var applied = [];
+      fields.forEach(function(field,i){
+        if(colors[i]) { f.elements[field].value=colors[i]; applied.push(field); }
+      });
+      var fonts = (result.tipografias || []).filter(function(font){return typeof font === "string" && font.trim();});
+      if(fonts[0]) {f.elements.tipografia_titulos.value=fonts[0];applied.push("tipografía de títulos");}
+      if(fonts[1]) {f.elements.tipografia_textos.value=fonts[1];applied.push("tipografía de textos");}
+      var candidates = (result.candidatos || []).filter(validBrandImage);
+      // A single extracted PDF image is a candidate, not proof of logo identity.
+      // Never substitute an entire raster manual or overwrite an existing logo automatically.
+      var existing = state.logoData || (!state.logoRemove && state.client && state.client.logo_url);
+      if(file.type === "application/pdf" && candidates.length === 1 && !existing && !state.logoRemove) {
+        state.logoData=candidates[0].imagen;state.logoRemove=false;showLogo(state.logoData);setLogoModo("imagen");
+        applied.push("logo candidato");
+      }
+      return "Análisis listo. "+(applied.length ? "Se completaron propuestas de marca automáticamente. " : "No se detectaron campos suficientes. ") +
+        (candidates.length && !state.logoData ? "Elegí el logo entre las imágenes candidatas. " : "") +
+        "Verificá los campos antes de guardar; los elementos no identificados mantienen su valor anterior.";
+    }
+    function renderBrandSuggestions(result) {
+      brandResults.replaceChildren();
+      brandHeading("Colores detectados · elegí su función");
+      (result.colores || []).forEach(function (color) {
+        if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+        var row = document.createElement("div"); row.className = "pf-brand-choice";
+        var swatch = document.createElement("span"); swatch.className = "pf-brand-swatch"; swatch.style.backgroundColor = color;
+        swatch.setAttribute("aria-hidden","true"); row.appendChild(swatch);
+        var label = document.createElement("code"); label.textContent = color; row.appendChild(label);
+        [["Principal","color_primario"],["Secundario","color_secundario"],["Acento","acento"],["Fondo","fondo"]].forEach(function (pair) {
+          appendChoice(row,pair[0]+" "+color,function(){f.elements[pair[1]].value=color;brandStatus.textContent="Color "+color+" aplicado a "+pair[0].toLowerCase()+". Revisá antes de guardar.";});
+        });
+        brandResults.appendChild(row);
+      });
+      brandHeading("Tipografías incrustadas · verificar");
+      (result.tipografias || []).forEach(function (font) {
+        var row = document.createElement("div"); row.className = "pf-brand-choice";
+        var label = document.createElement("span"); label.textContent=font; row.appendChild(label);
+        appendChoice(row,"Usar "+font+" en títulos",function(){f.elements.tipografia_titulos.value=font;});
+        appendChoice(row,"Usar "+font+" en textos",function(){f.elements.tipografia_textos.value=font;});
+        brandResults.appendChild(row);
+      });
+      brandHeading("Imágenes candidatas · confirmar logo");
+      (result.candidatos || []).forEach(function (candidate, i) {
+        if (!validBrandImage(candidate)) return;
+        var row = document.createElement("div"); row.className="pf-brand-choice";
+        var img=document.createElement("img");img.src=candidate.imagen;img.alt="Imagen candidata "+(i+1);img.className="pf-brand-candidate";row.appendChild(img);
+        appendChoice(row,"Usar imagen "+(i+1)+" como logo",function(){state.logoData=candidate.imagen;state.logoRemove=false;showLogo(candidate.imagen);setLogoModo("imagen");brandStatus.textContent="Logo seleccionado. Revisá antes de guardar.";});
+        brandResults.appendChild(row);
+      });
+      (result.advertencias || []).forEach(function(w){var p=document.createElement("p");p.className="pf-help";p.textContent=w;brandResults.appendChild(p);});
+    }
+    manualInput.addEventListener("change",function(){
+      ++brandRun; state.manualData=""; state.manualName=""; brandResults.replaceChildren(); brandAnalyze.disabled=false;
+      brandStatus.textContent="Seleccioná Analizar manual para obtener sugerencias.";
+    });
+    brandAnalyze.addEventListener("click",function(){
+      var file=manualInput.files[0]; if(!file){brandStatus.textContent="Seleccioná un archivo primero.";return;}
+      if(file.size>2*1024*1024){brandStatus.textContent="El manual supera 2 MB.";return;}
+      var run=++brandRun;brandAnalyze.disabled=true;brandStatus.textContent="Analizando manual…";
+      var reader=new FileReader();
+      reader.onerror=function(){if(run===brandRun){brandAnalyze.disabled=false;brandStatus.textContent="No se pudo leer el archivo.";}};
+      reader.onload=function(){
+        api("POST","/api/ia",{tarea:"manual_marca",archivo:reader.result}).then(function(result){
+          if(run!==brandRun || !dialog.open)return;
+          state.manualData=reader.result;state.manualName=file.name.slice(0,150);
+          renderBrandSuggestions(result);brandStatus.textContent=applyBrandSuggestions(result,file);
+        }).catch(function(err){if(run===brandRun)brandStatus.textContent=err.message;}).finally(function(){if(run===brandRun)brandAnalyze.disabled=false;});
+      };reader.readAsDataURL(file);
+    });
 
     function setLogoModo(value) {
       logoModo.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-value") === value)); });
@@ -301,6 +403,14 @@
       data.logo_modo = mode ? mode.getAttribute("data-value") : "";
       if (!data.nombre) { say(msg, "Ponele un nombre al cliente.", "warn"); f.elements.nombre.focus(); return; }
       if (data.email && !f.elements.email.checkValidity()) { say(msg, "Revisá el email: no tiene un formato válido.", "warn"); f.elements.email.focus(); return; }
+      if (brandAnalyze.disabled) { say(msg,"Esperá a que termine el análisis antes de guardar.","warn");return; }
+      if (manualInput.files.length && !state.manualData) { say(msg,"Analizá el manual seleccionado o quitá el archivo antes de guardar.","warn");return; }
+      var brand = {};
+      brandFields.forEach(function(k){brand[k]=f.elements[k].value.trim();});
+      brand.manual_nombre=state.manualName || ((state.client || {}).marca || {}).manual_nombre || "";
+      var previousBrand = (state.client || {}).marca || {};
+      if (state.manualData || brandFields.some(function(k){return brand[k] !== (previousBrand[k] || "");})) data.marca=brand;
+      if (state.manualData) data.manual_archivo=state.manualData;
       if (state.logoData) data.logo_data = state.logoData;
       if (state.logoRemove) data.logo_quitar = true;
       var saveBtn = dialog.querySelector("[data-pf-save]");
@@ -325,13 +435,17 @@
     });
 
     return {
-      open: function (client) {
+      open: function (client, focusBrand) {
         state.client = client || null;
         state.logoData = "";
         state.logoRemove = false;
         state.saved = null;
+        ++brandRun; state.manualData="";state.manualName="";brandAnalyze.disabled=false;brandResults.replaceChildren();brandStatus.textContent="";
         f.reset();
         var c = client || {};
+        var brand = c.marca || {};
+        brandFields.forEach(function(k){f.elements[k].value=brand[k] || "";});
+        dialog.querySelector("[data-pf-manual-current]").textContent=brand.manual_nombre ? "Manual guardado: "+brand.manual_nombre : "Todavía no hay un manual guardado.";
         TEXT_FIELDS.forEach(function (k) { f.elements[k].value = c[k] || ""; });
         f.elements.color_primario.value = c.color_primario || "#1b5e42";
         f.elements.color_secundario.value = c.color_secundario || "#e7f3ee";
@@ -346,15 +460,16 @@
         dialog.querySelector("[data-pf-delete]").hidden = !client;
         say(msg, "");
         dialog.showModal();
-        f.elements.nombre.focus();
+        if (focusBrand) { manualInput.focus(); manualInput.scrollIntoView({block:"center"}); }
+        else f.elements.nombre.focus();
         return new Promise(function (resolve) { state.resolve = resolve; });
       }
     };
   }
 
-  function clientForm(client) {
+  function clientForm(client, focusBrand) {
     if (!form) form = buildForm();
-    return form.open(client);
+    return form.open(client, focusBrand);
   }
 
   /* Fila de landing con acciones */
@@ -386,7 +501,7 @@
     li.title = lp.path;
     li.innerHTML =
       (lp.disponible ? '<a class="lb-saved-thumb" href="' + esc(lp.url) + '" target="_blank" rel="noopener" aria-label="Abrir ' + esc(lp.nombre) + '">' :
-       '<span class="lb-saved-thumb" aria-label="Borrador no publicado de ' + esc(lp.nombre) + '">') +
+       '<span class="lb-saved-thumb" role="img" aria-label="Borrador no publicado de ' + esc(lp.nombre) + '">') +
       (lp.preview ? '<img src="' + esc(lp.preview) + '" alt="Vista previa de ' + esc(lp.nombre) + '" loading="lazy">' : "") +
       '<i class="bi bi-window" aria-hidden="true"></i>' + (lp.disponible ? '</a>' : '</span>') +
       '<span class="lb-saved-text"><strong>' + esc(lp.nombre) + "</strong>" +
@@ -971,15 +1086,21 @@
           "</section>" +
 
           '<section class="cf-card" aria-labelledby="cf-marca">' +
-            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-palette" aria-hidden="true"></i></span><div><h2 id="cf-marca">Marca y medición</h2></div></div>' +
+            '<div class="cf-card-head"><span class="cf-icon"><i class="bi bi-palette" aria-hidden="true"></i></span><div><h2 id="cf-marca">Identidad de marca</h2></div></div>' +
             '<div class="cf-swatches">' +
               '<span class="cf-swatch"><i style="background:' + esc(c.color_primario) + '"></i><small>Principal</small><code>' + esc(c.color_primario) + "</code></span>" +
               '<span class="cf-swatch"><i style="background:' + esc(c.color_secundario) + '"></i><small>Secundario</small><code>' + esc(c.color_secundario) + "</code></span>" +
             "</div>" +
             '<dl class="cf-rows">' +
+              row("file-earmark", "Manual de marca", esc((c.marca || {}).manual_nombre || "Sin manual")) +
+              row("fonts", "Tipografía títulos", esc((c.marca || {}).tipografia_titulos || "")) +
+              row("fonts", "Tipografía textos", esc((c.marca || {}).tipografia_textos || "")) +
+              row("palette", "Acento", esc((c.marca || {}).acento || "")) +
+              row("palette", "Fondo", esc((c.marca || {}).fondo || "")) +
               row("graph-up", "Medición", "Configuración individual desde cada landing") +
               row("folder2", "Carpeta", "<code>" + esc(c.carpeta) + "</code>") +
             "</dl>" +
+            '<button class="btn-nx-outline btn-sm" type="button" data-pf-edit-brand><i class="bi bi-upload" aria-hidden="true"></i> ' + ((c.marca || {}).manual_nombre ? "Reemplazar manual de marca" : "Subir manual de marca") + "</button>" +
           "</section>" +
 
           (c.notas ? '<section class="cf-card cf-notes" aria-labelledby="cf-notas"><h2 id="cf-notas"><i class="bi bi-sticky" aria-hidden="true"></i> Notas internas</h2><p>' + esc(c.notas) + "</p></section>" : "") +
@@ -1088,14 +1209,16 @@
         history.replaceState(null, "", location.pathname + location.search);
         if (target) target.scrollIntoView({ block: "start" });
       }
-      profile.querySelector("[data-pf-edit]").addEventListener("click", function () {
-        clientForm(c).then(function (saved) {
+      function editClient(focusBrand) {
+        clientForm(c, focusBrand).then(function (saved) {
           if (!saved) return;
           if (saved.deleted) { location.href = "clientes.html"; return; }
           say(msg, "Se guardaron los cambios.", "ok");
           load();
         });
-      });
+      }
+      profile.querySelector("[data-pf-edit]").addEventListener("click", function () { editClient(false); });
+      profile.querySelector("[data-pf-edit-brand]").addEventListener("click", function () { editClient(true); });
       c.lista.forEach(function (lp) {
         var slot = profile.querySelector('[data-site="' + lp.slug + '"] [data-site-row]');
         if (slot) slot.appendChild(landingRow(lp, { onChange: load, onMessage: function (t, tone) { say(msg, t, tone); } }));

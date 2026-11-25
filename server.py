@@ -18,6 +18,7 @@ Uso:
 import base64
 import datetime
 import draft_workflow
+import brand_manual
 import client_management
 import secrets
 import hashlib
@@ -1002,7 +1003,7 @@ def change_portal_password(client_id, data):
 
 def portal_data_js(client):
     """Los datos que usa el editor del cliente: solo los suyos y sin datos de acceso."""
-    safe = {k: v for k, v in client.items() if k not in ("portal", "notas")}
+    safe = {k: v for k, v in client.items() if k not in ("portal", "notas", "marca")}
     landings = [l for l in read_data("landings", []) if l["cliente_id"] == client["id"] and l.get("html")]
     landings = [{k: l[k] for k in ("id", "cliente_id", "slug", "actualizado")}
                 | {"nombre": landing_public_name(l["nombre"], len(landings)), "html": True,
@@ -2008,6 +2009,7 @@ def create_client(data):
         values["logo"] = write_logo(values["slug"], data["logo_data"]) if data.get("logo_data") else ""
         values["plan"] = values["plan_vence"] = ""
         values["creado"] = values["actualizado"] = now_ms()
+        brand_manual.persist(sys.modules[__name__], values, data)
         db["clientes"].append(values)
     return client_dict(values, 0)
 
@@ -2022,8 +2024,11 @@ def update_client(client_id, data):
             remove_logo(row["slug"])
             values["logo"] = ""
         values["actualizado"] = now_ms()
+        brand_manual.persist(sys.modules[__name__], row, data)
         row.update(values)
-    render_client_landings(client_id)
+    # A brand change is saved to the client, not automatically republished.
+    if "marca" not in data and "manual_archivo" not in data:
+        render_client_landings(client_id)
     return get_client(client_id)
 
 
@@ -2037,6 +2042,7 @@ def delete_client(client_id):
         db["clientes"].remove(row)
     FILES.delete("modulos", "l/" + row["slug"])
     FILES.delete("datos", client_management.path(client_id))
+    FILES.delete("datos", "marca/%s" % client_id)
     FILES.delete("datos", "pedidos/" + row["slug"])  # las fotos de sus pedidos también se borran
     return row["nombre"]
 
@@ -4226,16 +4232,13 @@ class Handler(SimpleHTTPRequestHandler):
         if name == "publicar" and method == "POST":
             return publish(self.read_json())
         if name == "gestion-clientes" and method == "GET":
-            import sys
             return client_management.dashboard(sys.modules[__name__])
         if name == "gestion-cliente":
-            import sys
             if method == "GET":
                 return client_management.get(sys.modules[__name__], ident)
             if method == "PUT":
                 return client_management.save_settings(sys.modules[__name__], ident, self.read_json())
         if name == "gestion-movimientos" and method == "POST":
-            import sys
             return client_management.movement(sys.modules[__name__], ident, self.read_json())
         if name == "clientes":
             if method == "GET":
@@ -4251,13 +4254,10 @@ class Handler(SimpleHTTPRequestHandler):
                 delete_client(ident)
                 return {"ok": True}
         if name == "borradores" and method == "POST":
-            import sys
             return draft_workflow.save(sys.modules[__name__], self.read_json())
         if name == "qa-borrador" and method == "GET":
-            import sys
             return draft_workflow.qa_summary(sys.modules[__name__], ident)
         if name == "borrador":
-            import sys
             if method == "GET":
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
@@ -4265,7 +4265,6 @@ class Handler(SimpleHTTPRequestHandler):
             if method == "DELETE":
                 return draft_workflow.discard(sys.modules[__name__], ident, self.read_json())
         if name in ("revision", "aprobar", "publicar-landing") and method == "POST":
-            import sys
             return draft_workflow.move(sys.modules[__name__], ident,
                                       "publicar" if name == "publicar-landing" else name, self.read_json())
         if name == "landings":
@@ -4279,7 +4278,6 @@ class Handler(SimpleHTTPRequestHandler):
                 # Rearmado/portal leen solo la versión publicada, nunca el borrador privado.
                 if (query.get("modo") or [""])[0] == "sitio" or (query.get("rearmar") or [""])[0] == "1":
                     return get_landing(ident)
-                import sys
                 return draft_workflow.project(sys.modules[__name__], ident)
             if method == "PUT":
                 data = self.read_json()
@@ -4287,7 +4285,6 @@ class Handler(SimpleHTTPRequestHandler):
                     return update_landing_tracking(ident, data["medicion"])
                 if set(data) == {"ejemplo"}:
                     return set_landing_example(ident, data["ejemplo"])
-                import sys
                 if draft_workflow.read(sys.modules[__name__], ident):
                     raise ApiError(409, "Hay un borrador pendiente. Usá Revisar, Aprobar y Publicar para no sobrescribirlo.")
                 return save_landing(data, ident)
@@ -4311,6 +4308,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return save_ia_settings(self.read_json())
             if method == "POST":
                 data = self.read_json()
+                if data.get("tarea") == "manual_marca":
+                    return brand_manual.analyze(sys.modules[__name__], data)
                 if data.get("tarea") == "identidad_referencias":
                     return ia_identidad_referencias(data)
                 if data.get("tarea") == "modulos":
